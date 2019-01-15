@@ -1,0 +1,10 @@
+{
+	"go.toolsEnvVars": {
+		"GOOS" : "linux"
+	},
+	"go.liveErrors": {
+		"enabled": false,
+		"delay": 500
+	},
+	"go.buildOnSave": "package"
+}
