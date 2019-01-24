@@ -16,7 +16,7 @@ func UnMount(containerName string) {
 	dsAsMounter([]string{containerName})
 }
 func dsAsMounter(args []string) {
-	cmd := exec.Command("/home/developer/ds-as-mounter", args...)
+	cmd := exec.Command("/home/developer/ds-files/bin/ds-mount-appspace", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()

@@ -1,0 +1,8 @@
+#!/sbin/openrc-run
+
+name="ds-sandbox recycler thing"
+command="/bin/ds-sandbox-d"
+
+depend() {
+        need networking
+}

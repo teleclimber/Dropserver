@@ -29,7 +29,11 @@ unsquashfs -d rootfs/ *.squashfs
 cp ~/node-for-alpine/node rootfs/bin/
 cp ~/node-for-alpine/usr/lib/* rootfs/usr/lib/
 
+# put ds-sandbox-d in place and auto-start
 cp ~/"$SCRIPTDIR"/../bin/ds-sandbox-d rootfs/bin/
+cp ~/"$SCRIPTDIR"/files/ds-sandbox-openrc rootfs/etc/init.d/ds-sandbox
+chmod u+x rootfs/etc/init.d/ds-sandbox
+ln -s /etc/init.d/ds-sandbox rootfs/etc/runlevels/default/ds-sandbox
 
 # probably need to create directories...
 

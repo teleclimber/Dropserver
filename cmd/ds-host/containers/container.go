@@ -2,9 +2,12 @@ package containers
 
 import (
 	"fmt"
+	"github.com/lxc/lxd/client"
+	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
 	"github.com/teleclimber/DropServer/internal/timetrack"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -41,6 +44,37 @@ func (c *Container) StartTask() Task {
 	reqTask := Task{}
 	c.appSpaceSession.tasks = append(c.appSpaceSession.tasks, &reqTask)
 	return reqTask
+}
+
+func (c *Container) start() {
+	fmt.Println("starting sandbox", c.Name)
+
+	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	reqState := lxdApi.ContainerStatePut{
+		Action:  "start",
+		Timeout: -1,
+	}
+
+	op, err := lxdConn.UpdateContainerState("ds-sandbox-"+c.Name, reqState, "")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Wait for the operation to complete
+	err = op.Wait()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// once the container is up we can launch our sandbox program
+	// ugh does that put us in a difficult "run while leaving unattended"
 }
 
 func (c *Container) recycle() {

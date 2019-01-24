@@ -14,6 +14,7 @@ import (
 // - manage containers pool
 // - track when a container is "in use" by app space
 // - proper shutdown of things as much as possible
+//   ..including shutting down sanboxes and deleting them (for now)
 // - check yourself on concurrency issues
 // - start and shutdown containers
 // - detect failed states in containers and quarantine them
@@ -28,6 +29,7 @@ func main() {
 	fmt.Println("ds-host is starting")
 
 	cM := containers.Manager{}
+	cM.Init()
 	cM.StartContainer()
 
 	fmt.Println("Main after container start")

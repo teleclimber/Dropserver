@@ -31,7 +31,7 @@ func main() {
 
 	appsPath := "/home/developer/dummy_apps/"
 	appSpacesPath := "/home/developer/dummy_app_spaces/"
-	containersPath := "/home/developer/container_mount/"
+	containersPath := "/home/developer/ds-sandboxes/"
 
 	var wg sync.WaitGroup
 
