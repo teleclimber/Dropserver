@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -30,14 +31,14 @@ const socketPath = "/mnt/priv_sockets/recycle.sock"
 func main() {
 	sleepDuration, err := time.ParseDuration("5ms")
 	if err != nil {
-		fmt.Println("bad duration", err)
+		log.Println("bad duration", err)
 		os.Exit(1)
 	}
 
 	// Baiscally a client that listens andwrites to a UDS
 	c, err := net.Dial("unix", socketPath)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	defer c.Close()
@@ -46,7 +47,7 @@ func main() {
 
 	_, err = c.Write([]byte("hi"))
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 
@@ -58,13 +59,13 @@ func main() {
 			n, err := conn.Read(p)
 			if err != nil {
 				if err == io.EOF {
-					fmt.Println("got EOF from recycle conn", string(p[:n]))
+					log.Println("got EOF from recycle conn", string(p[:n]))
 					// does that mean host disconnected? Presumably this code disconnects first?
 					// Should we then kill everything?
 					stopCh <- true
 					break
 				}
-				fmt.Println(err)
+				log.Println(err)
 				os.Exit(1)
 			}
 			command := string(p[:n])
@@ -80,21 +81,21 @@ func main() {
 					// send something to host
 					_, err := conn.Write([]byte("fail"))
 					if err != nil {
-						fmt.Println(err)
+						log.Println(err)
 						os.Exit(1)
 					}
 				} else {
 					// send back "kild" to let host know it can unmount?
 					_, err := conn.Write([]byte("kild"))
 					if err != nil {
-						fmt.Println(err)
+						log.Println(err)
 						os.Exit(1)
 					}
 				}
 			} else if command == "run" {
 				startRunner()
 			} else {
-				fmt.Println("unrecognized command", command)
+				log.Println("unrecognized command", command)
 				os.Exit(1)
 			}
 		}
@@ -130,7 +131,7 @@ func getAllProcesses() (processes []*process) {
 	cmd := exec.Command("ps", "-opid,user,comm")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println("error in getPIDs", err)
+		log.Println("error in getPIDs", err)
 	}
 
 	outputLines := strings.Split(string(output), "\n")
@@ -161,10 +162,10 @@ func sendSignal(processes []*process) {
 		if err == nil {
 			err := osProc.Signal(unix.SIGTERM)
 			if err != nil {
-				fmt.Println("SIGTERM error", err)
+				log.Println("SIGTERM error", err)
 			}
 		} else {
-			fmt.Println("Process not found for pid", p.pid, err)
+			log.Println("Process not found for pid", p.pid, err)
 		}
 	}
 }
@@ -175,14 +176,14 @@ func startRunner() {
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	go func() {
 		fmt.Println("wating for cmd")
 		err = cmd.Wait()
 		if err != nil {
-			fmt.Println("cmd Wait error", err) //this could be handy to catch node crashing out!
+			log.Println("cmd Wait error", err) //this could be handy to catch node crashing out!
 		}
 		fmt.Println("done wating for cmd")
 	}()
