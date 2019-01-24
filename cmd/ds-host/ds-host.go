@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/teleclimber/DropServer/cmd/ds-host/containers"
+	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/internal/timetrack"
 	"io"
 	"net/http"
@@ -27,6 +28,8 @@ var appSpaceApp = map[string]string{
 
 func main() {
 	fmt.Println("ds-host is starting")
+
+	trusted.Init()
 
 	cM := containers.Manager{}
 	cM.Init()
