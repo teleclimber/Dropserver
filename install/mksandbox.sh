@@ -1,5 +1,11 @@
 #!/bin/bash
 
+ID=$(id -u)
+if [ "$ID" != "0" ]; then
+	echo "Remember to run this as root"
+	exit
+fi
+
 # if alias is ds-alpine..
 # should we auto-update?
 
@@ -12,12 +18,6 @@ lxc image copy images:alpine/3.8 local: --alias ds-alpine
 # operate out of a temp dir.
 
 cd $(mktemp -d)
-
-#echo $SCRIPTDIR
-
-#ls ~/"$SCRIPTDIR"/../bin/
-
-#exit
 
 lxc image export ds-alpine
 
