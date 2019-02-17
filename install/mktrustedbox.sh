@@ -4,6 +4,11 @@
 # similar to sandbox but will probably use different profile?
 # Basically its role is to interact with namespaced files from trusted code
 
+ID=$(id -u)
+if [ "$ID" != "0" ]; then
+	echo "Remember to run this as root"
+	exit
+fi
 
 
 # if alias is ds-alpine..
