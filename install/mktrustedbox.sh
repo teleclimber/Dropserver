@@ -36,7 +36,7 @@ cp ~/"$SCRIPTDIR"/../bin/ds-trusted rootfs/bin/
 
 echo "Tarring rootfs:"
 cd rootfs/
-tar -cvf ../rootfs.tar .
+tar -cf ../rootfs.tar .
 cd ..
 
 # now delete the old image and replace

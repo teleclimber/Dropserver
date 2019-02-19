@@ -41,7 +41,7 @@ ln -s /etc/init.d/ds-sandbox rootfs/etc/runlevels/default/ds-sandbox
 
 echo "Tarring rootfs:"
 cd rootfs/
-tar -cvf ../rootfs.tar .
+tar -cf ../rootfs.tar .
 cd ..
 
 # now delete the old image and replace
