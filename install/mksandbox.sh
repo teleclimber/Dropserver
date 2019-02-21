@@ -35,6 +35,10 @@ cp ~/"$SCRIPTDIR"/files/ds-sandbox-openrc rootfs/etc/init.d/ds-sandbox
 chmod u+x rootfs/etc/init.d/ds-sandbox
 ln -s /etc/init.d/ds-sandbox rootfs/etc/runlevels/default/ds-sandbox
 
+# put in the interfaces
+rm rootfs/etc/network/interfaces
+cp ~/"$SCRIPTDIR"/files/ds-sandbox-interfaces rootfs/etc/network/interfaces
+
 # probably need to create directories...
 
 # Now tar rootfs
