@@ -29,9 +29,11 @@ func main() {
 		}
 	}
 
-	appsPath := "/home/developer/dummy_apps/"
-	appSpacesPath := "/home/developer/dummy_app_spaces/"
-	containersPath := "/home/developer/ds-sandboxes/"
+	appsPath := "/var/snap/lxd/common/lxd/storage-pools/dir-pool/containers/ds-trusted/rootfs/data/apps/"
+	appSpacesPath := "/var/snap/lxd/common/lxd/storage-pools/dir-pool/containers/ds-trusted/rootfs/data/app-spaces/"
+	containersPath := "/var/snap/lxd/common/lxd/storage-pools/dir-pool/containers/ds-sandbox-"
+
+	// ^^ really need to ingest a config file!
 
 	var wg sync.WaitGroup
 
@@ -39,12 +41,12 @@ func main() {
 
 	if numArg == 1 {
 		wg.Add(2)
-		go unmount(containersPath+args[0]+"/app/", &wg)
-		go unmount(containersPath+args[0]+"/app_space/", &wg)
+		go unmount(containersPath+args[0]+"/rootfs/app/", &wg)
+		go unmount(containersPath+args[0]+"/rootfs/app-space/", &wg)
 	} else if numArg == 3 {
 		wg.Add(2)
-		go mount(appsPath+args[0], containersPath+args[2]+"/app/", &wg)
-		go mount(appSpacesPath+args[1], containersPath+args[2]+"/app_space/", &wg)
+		go mount(appsPath+args[0], containersPath+args[2]+"/rootfs/app/", &wg)
+		go mount(appSpacesPath+args[1], containersPath+args[2]+"/rootfs/app-space/", &wg)
 	} else {
 		fmt.Println("wrong number of arguments")
 	}
