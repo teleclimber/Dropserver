@@ -39,6 +39,10 @@ ln -s /etc/init.d/ds-sandbox rootfs/etc/runlevels/default/ds-sandbox
 rm rootfs/etc/network/interfaces
 cp ~/"$SCRIPTDIR"/files/ds-sandbox-interfaces rootfs/etc/network/interfaces
 
+# put in the JS runner
+cp ~/"$SCRIPTDIR"/files/ds-sandbox-runner.js rootfs/root/
+chmod 0600 rootfs/root/ds-sandbox-runner.js
+
 # probably need to create directories...
 
 # Now tar rootfs
