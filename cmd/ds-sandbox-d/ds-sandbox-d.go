@@ -1,24 +1,19 @@
 package main
 
 import (
-	"fmt"
+	//"fmt"
 	"golang.org/x/sys/unix"
 	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
-
-// at what level are we operating here?
-// -> assume the container is running, and we know its name.
-// - get all PID that are owned by non-root
-// - for each PID send sig term
-// - wait some, then if any PID still exists owned by non-root send hard kill (or reboot the container)
-// -
 
 type process struct {
 	pid     int
@@ -26,30 +21,41 @@ type process struct {
 	command string
 }
 
-const socketPath = "/mnt/priv_sockets/recycle.sock"
+const socketPath = "/mnt/cmd-socket"
 
 func main() {
-	sleepDuration, err := time.ParseDuration("5ms")
+	f, err := os.OpenFile("/var/log/ds-sandbox-d.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println("bad duration", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
+	defer f.Close()
+	log.SetOutput(f)
+	log.Println("testing log output")
+
+	sleepDuration := 5 * time.Millisecond
 
 	// Baiscally a client that listens andwrites to a UDS
 	c, err := net.Dial("unix", socketPath)
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatalln("failed to dial", err)
 	}
 	defer c.Close()
+	log.Println("dial successful")
 
-	fmt.Println("dial successful")
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		log.Println("Caught signal, quitting.", sig)
+		c.Close() // this should unblock the read loop?
+	}()
 
 	_, err = c.Write([]byte("hi"))
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Fatalln("failed to write to socket", err)
 	}
+
+	log.Println("wrote HI")
 
 	stop := make(chan bool)
 
@@ -60,16 +66,15 @@ func main() {
 			if err != nil {
 				if err == io.EOF {
 					log.Println("got EOF from recycle conn", string(p[:n]))
-					// does that mean host disconnected? Presumably this code disconnects first?
-					// Should we then kill everything?
-					stopCh <- true
-					break
+				} else {
+					log.Println("Conn Read error, quitting.", err)
 				}
-				log.Println(err)
-				os.Exit(1)
+
+				stopCh <- true
+				break
 			}
 			command := string(p[:n])
-			fmt.Println("got command", command)
+			log.Println("got command", command)
 
 			if command == "kill" {
 				killNonRoot()
@@ -81,27 +86,26 @@ func main() {
 					// send something to host
 					_, err := conn.Write([]byte("fail"))
 					if err != nil {
-						log.Println(err)
-						os.Exit(1)
+						log.Fatal(err)
 					}
 				} else {
 					// send back "kild" to let host know it can unmount?
 					_, err := conn.Write([]byte("kild"))
 					if err != nil {
-						log.Println(err)
-						os.Exit(1)
+						log.Fatal(err)
 					}
 				}
 			} else if command == "run" {
 				startRunner()
 			} else {
-				log.Println("unrecognized command", command)
-				os.Exit(1)
+				log.Fatal("unrecognized command", command)
 			}
 		}
 	}(c, stop)
 
 	<-stop
+
+	log.Println("Exiting")
 }
 
 func killNonRoot() {
@@ -112,9 +116,9 @@ func killNonRoot() {
 func nonRootsKilled() bool {
 	processes := getNonRootProcesses()
 	if len(processes) > 0 {
-		fmt.Println("remaining processes")
+		log.Println("remaining processes")
 		for _, p := range processes {
-			fmt.Println(*p)
+			log.Println(*p)
 		}
 		return false
 	}
@@ -171,7 +175,7 @@ func sendSignal(processes []*process) {
 }
 
 func startRunner() {
-	cmd := exec.Command("node", "/home/cdeveloper/runner.js")
+	cmd := exec.Command("node", "/root/ds-sandbox-runner.js")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Start()
@@ -180,13 +184,13 @@ func startRunner() {
 	}
 
 	go func() {
-		fmt.Println("wating for cmd")
+		log.Println("wating for cmd")
 		err = cmd.Wait()
 		if err != nil {
 			log.Println("cmd Wait error", err) //this could be handy to catch node crashing out!
 		}
-		fmt.Println("done wating for cmd")
+		log.Println("done wating for cmd")
 	}()
 
-	fmt.Printf("Just started node as subprocess %d\n", cmd.Process.Pid)
+	log.Printf("Just started node as subprocess %d\n", cmd.Process.Pid)
 }
