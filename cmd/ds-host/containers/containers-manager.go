@@ -11,7 +11,6 @@ import (
 )
 
 const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
-const sandboxDataPath = "/home/developer/ds-sandboxes"
 
 // Manager manages containers
 type Manager struct {
@@ -93,11 +92,11 @@ func (cM *Manager) Init() {
 
 			// should really check to make sure dirs are empty?
 			// or you can delete dirs / files individually, it will simply error if something is left in dir.
-			err = os.Remove(sandboxDataPath + "/" + containerID + "/app/")
-			err = os.Remove(sandboxDataPath + "/" + containerID + "/app_space/")
-			err = os.Remove(sandboxDataPath + "/" + containerID + "/reverse.sock")
-			err = os.Remove(sandboxDataPath + "/" + containerID + "/recycle.sock")
-			err = os.Remove(sandboxDataPath + "/" + containerID + "/")
+			// err = os.Remove(sandboxDataPath + "/" + containerID + "/app/")
+			// err = os.Remove(sandboxDataPath + "/" + containerID + "/app_space/")
+			// err = os.Remove(sandboxDataPath + "/" + containerID + "/reverse.sock")
+			// err = os.Remove(sandboxDataPath + "/" + containerID + "/recycle.sock")
+			// err = os.Remove(sandboxDataPath + "/" + containerID + "/")
 			// shouldn't this be a separate stop?
 			// ..or should we try to go through every directory in sandboxDataPath and delete?
 			// -> in case there are containers deleted but remaining dirs for some reason.
@@ -106,9 +105,20 @@ func (cM *Manager) Init() {
 	}
 
 	// now create a handful of containers
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		cM.launchNewSandbox()
 	}
+}
+
+// StopAll takes all known containers and stops them
+func (cM *Manager) StopAll() {
+	for _, c := range cM.containers {
+		// If we get to this point assume the connection from the host http proxy has been stopped
+		// so it should be safe to shut things down
+		// ..barring anything "waiting for"...
+		c.Stop()
+	}
+
 }
 
 // launchNewSandbox creates a new container from sandbox image and starts it.
@@ -130,23 +140,26 @@ func (cM *Manager) launchNewSandbox() {
 
 	cM.containers = append(cM.containers, &newContainer)
 
+	newContainer.recycleListener = newRecycleListener(containerID, newContainer.onRecyclerMsg)
+
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	// create dir structure
-	os.MkdirAll(sandboxDataPath+"/"+containerID+"/app/", 0700)
-	os.MkdirAll(sandboxDataPath+"/"+containerID+"/app_space/", 0700)
-	// I think the sockets are created by the connections (as would logically expect)
-
-	// create container from image
+	// add a unix socket proxy
 	dev := map[string]map[string]string{
-		"visiting-data": {
-			"type":   "disk",
-			"path":   "/mnt/data/",
-			"source": sandboxDataPath + "/" + containerID + "/"}}
+		"cmd-proxy": {
+			"type":    "proxy",
+			"bind":    "container",
+			"connect": "unix:/home/developer/ds-socket-proxies/recycler-" + containerID,
+			"listen":  "unix:/mnt/cmd-socket"},
+		"eth0": {
+			"type":      "nic",
+			"nictype":   "p2p",
+			"name":      "eth0",
+			"host_name": "ds-sandbox-" + containerID + "-nic"}}
 
 	req := lxdApi.ContainersPost{
 		Name: "ds-sandbox-" + containerID,
@@ -170,7 +183,12 @@ func (cM *Manager) launchNewSandbox() {
 		os.Exit(1)
 	}
 
-	newContainer.start()
+	go newContainer.start()
+
+	newContainer.recycleListener.waitFor("hi")
+
+	fmt.Println("container started, recycling")
+	newContainer.recycle()
 }
 
 // StartContainer actually just reccycles an existing container for now

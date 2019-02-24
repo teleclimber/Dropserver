@@ -1,11 +1,8 @@
 package main
 
 import (
-	//"fmt"
 	"golang.org/x/sys/unix"
-	"io"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -13,6 +10,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"nanomsg.org/go/mangos/v2"
+	"nanomsg.org/go/mangos/v2/protocol/pair"
+	// register transports...
+	_ "nanomsg.org/go/mangos/v2/transport/ipc"
 )
 
 type process struct {
@@ -23,6 +25,8 @@ type process struct {
 
 const socketPath = "/mnt/cmd-socket"
 
+var sleepDuration = 5 * time.Millisecond
+
 func main() {
 	f, err := os.OpenFile("/var/log/ds-sandbox-d.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -32,49 +36,45 @@ func main() {
 	log.SetOutput(f)
 	log.Println("testing log output")
 
-	sleepDuration := 5 * time.Millisecond
-
-	// Baiscally a client that listens andwrites to a UDS
-	c, err := net.Dial("unix", socketPath)
+	sock, err := pair.NewSocket()
 	if err != nil {
-		log.Fatalln("failed to dial", err)
+		log.Fatal(err)
 	}
-	defer c.Close()
-	log.Println("dial successful")
+
+	err = sock.Dial("ipc://" + socketPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ended := make(chan bool)
+	go recvLoop(sock, ended)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
 		log.Println("Caught signal, quitting.", sig)
-		c.Close() // this should unblock the read loop?
+		//c.Close() // this should unblock the read loop?
 	}()
 
-	_, err = c.Write([]byte("hi"))
-	if err != nil {
-		log.Fatalln("failed to write to socket", err)
-	}
+	send(sock, "hi")
 
-	log.Println("wrote HI")
+	<-ended
 
-	stop := make(chan bool)
+	log.Println("Exiting")
+}
 
-	go func(conn net.Conn, stopCh chan bool) {
-		p := make([]byte, 4)
-		for {
-			n, err := conn.Read(p)
-			if err != nil {
-				if err == io.EOF {
-					log.Println("got EOF from recycle conn", string(p[:n]))
-				} else {
-					log.Println("Conn Read error, quitting.", err)
-				}
-
-				stopCh <- true
-				break
-			}
-			command := string(p[:n])
-			log.Println("got command", command)
+/// cmd channel handling
+func recvLoop(sock mangos.Socket, end chan bool) {
+	for {
+		msg, err := sock.Recv()
+		command := string(msg)
+		if err != nil {
+			log.Println("Error in receiving in recvLoop", err)
+			end <- true
+			break
+		} else {
+			log.Println("Received in loop:", command)
 
 			if command == "kill" {
 				killNonRoot()
@@ -83,14 +83,12 @@ func main() {
 				killed := nonRootsKilled()
 
 				if !killed {
-					// send something to host
-					_, err := conn.Write([]byte("fail"))
+					send(sock, "fail")
 					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
-					// send back "kild" to let host know it can unmount?
-					_, err := conn.Write([]byte("kild"))
+					send(sock, "kild")
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -101,13 +99,18 @@ func main() {
 				log.Fatal("unrecognized command", command)
 			}
 		}
-	}(c, stop)
-
-	<-stop
-
-	log.Println("Exiting")
+	}
 }
 
+func send(sock mangos.Socket, msg string) {
+	log.Println("Sending", msg)
+	err := sock.Send([]byte(msg))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+///////////////// process kill
 func killNonRoot() {
 	processes := getNonRootProcesses()
 

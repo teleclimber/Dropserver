@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -32,8 +34,19 @@ func main() {
 	trusted.Init()
 
 	cM := containers.Manager{}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println("Caught signal, quitting.", sig)
+		cM.StopAll()
+		fmt.Println("All containers stopped")
+		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
+	}()
+
 	cM.Init()
-	cM.StartContainer()
+	//cM.StartContainer()
 
 	fmt.Println("Main after container start")
 

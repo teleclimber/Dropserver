@@ -34,6 +34,41 @@ type Container struct {
 	appSpaceSession appSpaceSession
 }
 
+// Stop stops the container and its associated open connections
+func (c *Container) Stop() {
+	c.recycleListener.close()
+	// delete it? how do we restart?
+
+	// reverse listener...
+
+	lxdState := c.getLxdState()
+
+	if lxdState.Status == "Running" {
+		// stop it
+		fmt.Println("Stopping Running Container", c.Name)
+
+		lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		reqState := lxdApi.ContainerStatePut{
+			Action:  "stop",
+			Timeout: -1}
+
+		op, err := lxdConn.UpdateContainerState("ds-sandbox-"+c.Name, reqState, "")
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = op.Wait()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
 // TouchSession sets lastActive of appSpaceSession to now
 func (c *Container) TouchSession() {
 	c.appSpaceSession.lastActive = time.Now()
@@ -77,6 +112,24 @@ func (c *Container) start() {
 	// ugh does that put us in a difficult "run while leaving unattended"
 }
 
+func (c *Container) getLxdState() *lxdApi.ContainerState {
+	fmt.Println("getting sandbox LXD state", c.Name)
+
+	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + c.Name)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	return state
+}
+
 func (c *Container) recycle() {
 	fmt.Println("starting recycle")
 	defer timetrack.Track(time.Now(), "recycle")
@@ -103,9 +156,10 @@ func (c *Container) recycle() {
 
 	mountappspace.UnMount(c.Name)
 
-	c.reverseListener = newReverseListener("c7", c.onReverseMsg)
+	// c.reverseListener = newReverseListener("c7", c.onReverseMsg)
 	c.recycleListener.send("run")
-	c.reverseListener.waitFor("hi")
+	// c.reverseListener.waitFor("hi")
+	// ^^ ignore for now
 
 	c.Status = "ready"
 
@@ -182,7 +236,7 @@ func (c *Container) waitForDone(status string) {
 	// though probably lock the array?
 }
 func (c *Container) onRecyclerMsg(msg string) {
-	//fmt.Println("onRecyclerMsg", msg, c.name)
+	fmt.Println("onRecyclerMsg", msg, c.Name)
 }
 func (c *Container) onReverseMsg(msg string) {
 	//fmt.Println("onReverseMsg", msg, c.name)
