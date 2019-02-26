@@ -159,7 +159,7 @@ func (cM *Manager) launchNewSandbox() {
 			"type":      "nic",
 			"nictype":   "p2p",
 			"name":      "eth0",
-			"host_name": "ds-sandbox-" + containerID + "-nic"}}
+			"host_name": "ds-sandbox-" + containerID}}
 
 	req := lxdApi.ContainersPost{
 		Name: "ds-sandbox-" + containerID,
@@ -186,6 +186,10 @@ func (cM *Manager) launchNewSandbox() {
 	go newContainer.start()
 
 	newContainer.recycleListener.waitFor("hi")
+
+	newContainer.getHostIP()
+
+	newContainer.reverseListener = newReverseListener(newContainer.Name, newContainer.hostIP, newContainer.onReverseMsg)
 
 	fmt.Println("container started, recycling")
 	newContainer.recycle()

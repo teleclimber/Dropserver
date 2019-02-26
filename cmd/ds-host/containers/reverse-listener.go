@@ -8,26 +8,20 @@ import (
 )
 
 type reverseListener struct { //do we really need two distinct types here?
-	ln       *net.Listener
-	conn     *net.Conn
-	msgSub   map[string]chan bool
-	sockPath string
+	ln     *net.Listener
+	conn   *net.Conn
+	msgSub map[string]chan bool
 }
 
-func newReverseListener(containerName string, msgCb func(msg string)) *reverseListener {
-	sockPath := "/home/developer/container_mount/" + containerName + "/reverse.sock"
-	err := os.Remove(sockPath)
-	if err != nil {
-		fmt.Println(err)
-		//os.Exit(1)	// don't exit. if file didn't exist it errs.
-	}
-	listener, err := net.Listen("unix", sockPath)
+func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg string)) *reverseListener {
+	hostPort := "[" + hostIP.String() + "%ds-sandbox-" + containerName + "]:45454"
+	listener, err := net.Listen("tcp", hostPort)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	rl := reverseListener{ln: &listener, msgSub: make(map[string]chan bool), sockPath: sockPath}
+	rl := reverseListener{ln: &listener, msgSub: make(map[string]chan bool)}
 
 	go func(ln net.Listener) {
 		revConn, err := ln.Accept() // I think this blocks until aconn shows up?
@@ -86,9 +80,9 @@ func (rl *reverseListener) waitFor(msg string) {
 }
 func (rl reverseListener) close() {
 	//conn.end() or some such
-	err := os.Remove(rl.sockPath)
-	if err != nil {
-		fmt.Println(err)
-		//os.Exit(1)	// don't exit. if file didn't exist it errs.
-	}
+	// err := os.Remove(rl.sockPath)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	//os.Exit(1)	// don't exit. if file didn't exist it errs.
+	// }
 }

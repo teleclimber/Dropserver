@@ -6,6 +6,7 @@ import (
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
 	"github.com/teleclimber/DropServer/internal/timetrack"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -26,6 +27,7 @@ type Container struct {
 	Name            string
 	Status          string
 	Address         string
+	hostIP          net.IP
 	appSpaceID      string
 	recycleListener *recycleListener
 	reverseListener *reverseListener
@@ -129,6 +131,37 @@ func (c *Container) getLxdState() *lxdApi.ContainerState {
 
 	return state
 }
+func (c *Container) getHostIP() { //may not be a string, prob golang type
+	iface, err := net.InterfaceByName("ds-sandbox-" + c.Name)
+	if err != nil {
+		fmt.Println("unable to get interface for container", err)
+		os.Exit(1)
+	}
+
+	addresses, err := iface.Addrs()
+	if err != nil {
+		fmt.Println("unable to get addresses for interface", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("addresses for container", addresses)
+
+	if len(addresses) != 1 {
+		fmt.Println("number of IP addresses is not 1. addresses:", addresses)
+		os.Exit(1)
+	}
+
+	address := addresses[0]
+	ip, _, err := net.ParseCIDR(address.String())
+	if err != nil {
+		fmt.Println("error getting ip from address", address, err)
+		os.Exit(1)
+	}
+
+	fmt.Println("host side IP:", ip)
+
+	c.hostIP = ip
+}
 
 func (c *Container) recycle() {
 	fmt.Println("starting recycle")
@@ -147,9 +180,10 @@ func (c *Container) recycle() {
 	}
 
 	// stop reverse channel? Or will it stop itself with kill?
-	if c.reverseListener != nil {
-		c.reverseListener.close()
-	}
+	// if c.reverseListener != nil {
+	// 	c.reverseListener.close()
+	// }
+	// ^^ since host is the server, it can just kep listening and wait for another connection?
 
 	c.recycleListener.send("kill")
 	c.recycleListener.waitFor("kild")
@@ -157,9 +191,8 @@ func (c *Container) recycle() {
 	mountappspace.UnMount(c.Name)
 
 	// c.reverseListener = newReverseListener("c7", c.onReverseMsg)
-	c.recycleListener.send("run")
-	// c.reverseListener.waitFor("hi")
-	// ^^ ignore for now
+	c.recycleListener.send("run " + c.hostIP.String())
+	c.reverseListener.waitFor("hi")
 
 	c.Status = "ready"
 
@@ -239,5 +272,5 @@ func (c *Container) onRecyclerMsg(msg string) {
 	fmt.Println("onRecyclerMsg", msg, c.Name)
 }
 func (c *Container) onReverseMsg(msg string) {
-	//fmt.Println("onReverseMsg", msg, c.name)
+	fmt.Println("onReverseMsg", msg, c.Name)
 }

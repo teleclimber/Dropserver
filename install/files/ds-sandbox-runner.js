@@ -12,19 +12,21 @@ process.setuid(user_id);
 
 ///////////////////////////////////////////
 // reverse channel client
-// const rev_stream = net.connect(sock_path, () => {
-// 	console.log( 'RUNNER rev_stream connected');
-// });
-// rev_stream.on( 'data', data => {
-// 	const cmd = data.toString();
-// 	//...
-// });
-// rev_stream.on( 'error', error => {
-// 	console.log( 'RUNNER: rev_stream error', error );
-// })
-// rev_stream.on( 'end', () => {
-// 	console.log( 'RUNNER: rev_stream got end event' );
-// })
+const ip = process.argv[process.argv.length -1];
+
+const rev_stream = net.connect(45454, ip+"%eth0", () => {
+	console.log( 'RUNNER rev_stream connected');
+});
+rev_stream.on( 'data', data => {
+	const cmd = data.toString();
+	//...
+});
+rev_stream.on( 'error', error => {
+	console.log( 'RUNNER: rev_stream error', error );
+})
+rev_stream.on( 'end', () => {
+	console.log( 'RUNNER: rev_stream got end event' );
+})
 
 //////////////////////////////////////////////
 // HTTP Server
@@ -85,7 +87,7 @@ server.on( 'clientError', (err, socket) => {
 });
 
 server.listen( 3030, () => {
-	//rev_stream.write( 'hi' );
+	rev_stream.write( 'hi' );
 	//console.log( 'uncomment this line');
 } );
 
@@ -95,9 +97,8 @@ process.on( 'SIGTERM', () => {
 		console.log( 'RUNNER: server closed')
 	});
 
-	// rev_stream.end();
-	// rev_stream.unref();
-})
+	rev_stream.end();
+});
 
 
 // the http handler inside the container.

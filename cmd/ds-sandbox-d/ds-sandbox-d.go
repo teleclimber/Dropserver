@@ -93,8 +93,9 @@ func recvLoop(sock mangos.Socket, end chan bool) {
 						log.Fatal(err)
 					}
 				}
-			} else if command == "run" {
-				startRunner()
+			} else if command[0:3] == "run" {
+				log.Println("Gto run with ip", command[4:])
+				startRunner(command[4:])
 			} else {
 				log.Fatal("unrecognized command", command)
 			}
@@ -177,11 +178,16 @@ func sendSignal(processes []*process) {
 	}
 }
 
-func startRunner() {
-	cmd := exec.Command("node", "/root/ds-sandbox-runner.js")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Start()
+func startRunner(hostIP string) {
+	f, err := os.OpenFile("/var/log/ds-sandbox-runner.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cmd := exec.Command("node", "/root/ds-sandbox-runner.js", hostIP)
+	cmd.Stdout = f
+	cmd.Stderr = f
+	err = cmd.Start()
 	if err != nil {
 		log.Println(err)
 	}
