@@ -31,6 +31,12 @@ unsquashfs -d rootfs/ *.squashfs
 cp ~/"$SCRIPTDIR"/../bin/ds-trusted rootfs/bin/
 
 # probably need to create directories...
+mkdir -p rootfs/data/apps
+mkdir rootfs/data/app-spaces
+
+# move test data in here too?
+cp -r ~/dummy_apps/app1 rootfs/data/apps/app1
+cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as1
 
 # Now tar rootfs
 

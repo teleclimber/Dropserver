@@ -47,7 +47,7 @@ server.on( 'request', (request,response) => {
 
 		console.log( 'RUNNER:', script, fn, user_id );
 
-		const script_module = require( path.join('/home/cdeveloper/run_files/app/', script) );
+		const script_module = require( path.join('/app/', script) );
 		script_module[fn]( request, response );
 
 		// let body = [];

@@ -44,6 +44,8 @@ cp ~/"$SCRIPTDIR"/files/ds-sandbox-runner.js rootfs/root/
 chmod 0600 rootfs/root/ds-sandbox-runner.js
 
 # probably need to create directories...
+mkdir rootfs/app-space/
+mkdir rootfs/app/
 
 # Now tar rootfs
 

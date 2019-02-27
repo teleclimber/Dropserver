@@ -114,16 +114,15 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	cReq, err := http.NewRequest(oReq.Method, container.Address, oReq.Body)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("http.NewRequest error", oReq.Method, container.Address, err)
 		os.Exit(1)
 	}
 
 	cReq.Header = header
 
 	cRes, err := container.Transport.RoundTrip(cReq)
-
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("container.Transport.RoundTrip(cReq) error", err)
 		os.Exit(1)
 	}
 

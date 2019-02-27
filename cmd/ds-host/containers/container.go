@@ -28,6 +28,7 @@ type Container struct {
 	Status          string
 	Address         string
 	hostIP          net.IP
+	containerIP     string
 	appSpaceID      string
 	recycleListener *recycleListener
 	reverseListener *reverseListener
@@ -131,7 +132,7 @@ func (c *Container) getLxdState() *lxdApi.ContainerState {
 
 	return state
 }
-func (c *Container) getHostIP() { //may not be a string, prob golang type
+func (c *Container) getIPs() {
 	iface, err := net.InterfaceByName("ds-sandbox-" + c.Name)
 	if err != nil {
 		fmt.Println("unable to get interface for container", err)
@@ -161,6 +162,25 @@ func (c *Container) getHostIP() { //may not be a string, prob golang type
 	fmt.Println("host side IP:", ip)
 
 	c.hostIP = ip
+
+	//then use lxc info to get container side IP
+	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + c.Name)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// state.Network is map[string]ContainerStateNetwork
+	// ContainerStateNetwork is { Addresses, Counter, Hwadr, HostName, ...}
+	c.containerIP = state.Network["eth0"].Addresses[0].Address
+
+	fmt.Println("containerIP", c.containerIP, state.Network)
 }
 
 func (c *Container) recycle() {

@@ -30,7 +30,7 @@ func (cM *Manager) Init() {
 		os.Exit(1)
 	}
 
-	containers, err := lxdConn.GetContainersFull()
+	lxdContainers, err := lxdConn.GetContainersFull()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -38,31 +38,31 @@ func (cM *Manager) Init() {
 
 	isSandbox := regexp.MustCompile(`ds-sandbox-[0-9]+$`).MatchString
 
-	for _, container := range containers {
+	for _, lxdContainer := range lxdContainers {
 		// fmt.Println(container.Name, container.Status, container.State.Network)
 		// network := container.State.Network
 		// for k, v := range network {
 		// 	fmt.Println(k, "Hwaddr:", v.Hwaddr, "HostName:", v.HostName, "Addresses:", v.Addresses)
 		// }
 
-		if isSandbox(container.Name) {
+		if isSandbox(lxdContainer.Name) {
 			// shutdown
 			// since we are at init, then nothing should be connected to this process.
 			// so just turn it off.
 
-			containerID := container.Name[11:]
+			containerID := lxdContainer.Name[11:]
 
-			fmt.Println("Container Status", container.Status)
+			fmt.Println("Container Status", lxdContainer.Status)
 
-			if container.Status == "Running" {
+			if lxdContainer.Status == "Running" {
 				// stop it
-				fmt.Println("Stopping Container", container.Name)
+				fmt.Println("Stopping Container", lxdContainer.Name)
 
 				reqState := lxdApi.ContainerStatePut{
 					Action:  "stop",
 					Timeout: -1}
 
-				op, err := lxdConn.UpdateContainerState(container.Name, reqState, "")
+				op, err := lxdConn.UpdateContainerState(lxdContainer.Name, reqState, "")
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -73,10 +73,13 @@ func (cM *Manager) Init() {
 				}
 			}
 
-			//then delete it.
-			fmt.Println("Deleting Container", container.Name)
+			// unmount or delete container will fail
+			mountappspace.UnMount(containerID)
 
-			op, err := lxdConn.DeleteContainer(container.Name)
+			//then delete it.
+			fmt.Println("Deleting Container", lxdContainer.Name)
+
+			op, err := lxdConn.DeleteContainer(lxdContainer.Name)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -85,22 +88,6 @@ func (cM *Manager) Init() {
 			if err != nil {
 				fmt.Println(err)
 			}
-
-			// then delete the directory structure
-			// should we ensure that there is nothing mounted there first?
-			mountappspace.UnMount(containerID)
-
-			// should really check to make sure dirs are empty?
-			// or you can delete dirs / files individually, it will simply error if something is left in dir.
-			// err = os.Remove(sandboxDataPath + "/" + containerID + "/app/")
-			// err = os.Remove(sandboxDataPath + "/" + containerID + "/app_space/")
-			// err = os.Remove(sandboxDataPath + "/" + containerID + "/reverse.sock")
-			// err = os.Remove(sandboxDataPath + "/" + containerID + "/recycle.sock")
-			// err = os.Remove(sandboxDataPath + "/" + containerID + "/")
-			// shouldn't this be a separate stop?
-			// ..or should we try to go through every directory in sandboxDataPath and delete?
-			// -> in case there are containers deleted but remaining dirs for some reason.
-
 		}
 	}
 
@@ -134,7 +121,6 @@ func (cM *Manager) launchNewSandbox() {
 	newContainer := Container{
 		Name:       containerID, // change that key please
 		Status:     "starting",
-		Address:    "",
 		appSpaceID: "",
 		statusSub:  make(map[string][]chan bool)}
 
@@ -187,7 +173,10 @@ func (cM *Manager) launchNewSandbox() {
 
 	newContainer.recycleListener.waitFor("hi")
 
-	newContainer.getHostIP()
+	newContainer.getIPs()
+
+	newContainer.Address = "http://[" + newContainer.containerIP + "%25ds-sandbox-" + containerID + "]:3030"
+	// ^ %25 is % escaped
 
 	newContainer.reverseListener = newReverseListener(newContainer.Name, newContainer.hostIP, newContainer.onReverseMsg)
 
