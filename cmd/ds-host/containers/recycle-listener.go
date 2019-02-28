@@ -52,8 +52,6 @@ func (rl *recycleListener) recvLoop() {
 			break
 		} else {
 			command := string(msg)
-			fmt.Println("Received in loop:", command)
-
 			if subChan, ok := rl.msgSub[command]; ok {
 				subChan <- true
 			}
@@ -66,7 +64,6 @@ func (rl *recycleListener) recvLoop() {
 
 func (rl *recycleListener) send(msg string) { // return err?
 	sock := *rl.sock
-	fmt.Println("Sending message", msg)
 	err := sock.Send([]byte(msg))
 	if err != nil {
 		fmt.Println(err)
@@ -74,11 +71,9 @@ func (rl *recycleListener) send(msg string) { // return err?
 	}
 }
 func (rl *recycleListener) waitFor(msg string) {
-	fmt.Println("waiting for", msg)
 	done := make(chan bool)
 	rl.msgSub[msg] = done
 	<-done
-	//fmt.Println("DONE waiting for", msg)
 	delete(rl.msgSub, msg)
 }
 func (rl *recycleListener) close() {

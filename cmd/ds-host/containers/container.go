@@ -145,8 +145,6 @@ func (c *Container) getIPs() {
 		os.Exit(1)
 	}
 
-	fmt.Println("addresses for container", addresses)
-
 	if len(addresses) != 1 {
 		fmt.Println("number of IP addresses is not 1. addresses:", addresses)
 		os.Exit(1)
@@ -158,8 +156,6 @@ func (c *Container) getIPs() {
 		fmt.Println("error getting ip from address", address, err)
 		os.Exit(1)
 	}
-
-	fmt.Println("host side IP:", ip)
 
 	c.hostIP = ip
 
@@ -180,7 +176,7 @@ func (c *Container) getIPs() {
 	// ContainerStateNetwork is { Addresses, Counter, Hwadr, HostName, ...}
 	c.containerIP = state.Network["eth0"].Addresses[0].Address
 
-	fmt.Println("containerIP", c.containerIP, state.Network)
+	fmt.Println("host / container IPs:", c.hostIP, c.containerIP)
 }
 
 func (c *Container) recycle() {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"time"
 )
 
 type reverseListener struct { //do we really need two distinct types here?
@@ -15,9 +16,21 @@ type reverseListener struct { //do we really need two distinct types here?
 
 func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg string)) *reverseListener {
 	hostPort := "[" + hostIP.String() + "%ds-sandbox-" + containerName + "]:45454"
-	listener, err := net.Listen("tcp", hostPort)
+
+	// now we need to try and listen in a loop because
+	// the kernel might still be doing "duplicate address detection"
+	var listener net.Listener
+	var err error
+	for i := 0; i < 10; i++ {
+		listener, err = net.Listen("tcp6", hostPort)
+		if err == nil {
+			break
+		}
+		fmt.Println("No luck listening, pausing then trying again", containerName)
+		time.Sleep(200 * time.Millisecond)
+	}
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("rev listen err", err)
 		os.Exit(1)
 	}
 
@@ -29,7 +42,6 @@ func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg stri
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Println("reverse connection accepted")
 
 		rl.conn = &revConn
 
@@ -63,8 +75,6 @@ func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg stri
 	return &rl
 }
 func (rl *reverseListener) send(msg string) { // return err?
-	fmt.Println("Sending to reverse message", msg)
-	//c := *rl.conn
 	_, err := (*rl.conn).Write([]byte(msg))
 	if err != nil {
 		fmt.Println(err)
@@ -72,7 +82,6 @@ func (rl *reverseListener) send(msg string) { // return err?
 	}
 }
 func (rl *reverseListener) waitFor(msg string) {
-	fmt.Println("rev waiting for", msg)
 	done := make(chan bool)
 	rl.msgSub[msg] = done
 	<-done

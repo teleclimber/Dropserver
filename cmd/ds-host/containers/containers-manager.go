@@ -91,8 +91,10 @@ func (cM *Manager) Init() {
 		}
 	}
 
+	cM.nextID = 1
+
 	// now create a handful of containers
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 3; i++ {
 		cM.launchNewSandbox()
 	}
 }
@@ -181,23 +183,6 @@ func (cM *Manager) launchNewSandbox() {
 	newContainer.reverseListener = newReverseListener(newContainer.Name, newContainer.hostIP, newContainer.onReverseMsg)
 
 	fmt.Println("container started, recycling")
-	newContainer.recycle()
-}
-
-// StartContainer actually just reccycles an existing container for now
-func (cM *Manager) StartContainer() {
-	newContainer := Container{
-		Name:       "c7",
-		Status:     "starting",
-		Address:    "http://10.140.177.203:3030",
-		appSpaceID: "",
-		statusSub:  make(map[string][]chan bool)}
-
-	cM.containers = append(cM.containers, &newContainer)
-	// ^^ you want it in there early so that you don't start another one?
-
-	newContainer.recycleListener = newRecycleListener("c7", newContainer.onRecyclerMsg)
-
 	newContainer.recycle()
 }
 
