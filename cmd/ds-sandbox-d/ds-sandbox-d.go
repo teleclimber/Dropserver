@@ -54,7 +54,8 @@ func main() {
 	go func() {
 		sig := <-sigs
 		log.Println("Caught signal, quitting.", sig)
-		//c.Close() // this should unblock the read loop?
+		killNonRoot()
+		sock.Close() // this should unblock the read loop?
 	}()
 
 	send(sock, "hi")
