@@ -78,10 +78,10 @@ func (c *Container) TouchSession() {
 }
 
 // StartTask adds a new task to session tasks and returns it
-func (c *Container) StartTask() Task {
+func (c *Container) StartTask() *Task {
 	reqTask := Task{}
 	c.appSpaceSession.tasks = append(c.appSpaceSession.tasks, &reqTask)
-	return reqTask
+	return &reqTask
 }
 
 func (c *Container) start() {
@@ -206,13 +206,14 @@ func (c *Container) recycle() {
 
 	mountappspace.UnMount(c.Name)
 
-	// c.reverseListener = newReverseListener("c7", c.onReverseMsg)
+	go c.reverseListener.waitForConn()
+
 	c.recycleListener.send("run " + c.hostIP.String())
 	c.reverseListener.waitFor("hi")
 
 	c.Status = "ready"
 
-	c.waitForDone("ready")
+	c.waitForDone("ready") // it's "wait for is done". urg  bad name.
 }
 func (c *Container) commit(app, appSpace string) {
 	defer timetrack.Track(time.Now(), "commit")

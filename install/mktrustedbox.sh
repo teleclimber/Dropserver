@@ -35,8 +35,15 @@ mkdir -p rootfs/data/apps
 mkdir rootfs/data/app-spaces
 
 # move test data in here too?
-cp -r ~/dummy_apps/app1 rootfs/data/apps/app1
-cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as1
+for i in {1..10}
+do
+	cp -r ~/dummy_apps/app1 rootfs/data/apps/app$i
+	cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as$i
+	#ideally tweak the app so it reflects its i
+done
+
+#output some debug data:
+ls -lR rootfs/data/apps/
 
 # Now tar rootfs
 

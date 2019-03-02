@@ -12,6 +12,7 @@ type reverseListener struct { //do we really need two distinct types here?
 	ln     *net.Listener
 	conn   *net.Conn
 	msgSub map[string]chan bool
+	msgCb  func(msg string)
 }
 
 func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg string)) *reverseListener {
@@ -34,45 +35,46 @@ func newReverseListener(containerName string, hostIP net.IP, msgCb func(msg stri
 		os.Exit(1)
 	}
 
-	rl := reverseListener{ln: &listener, msgSub: make(map[string]chan bool)}
+	rl := reverseListener{ln: &listener, msgSub: make(map[string]chan bool), msgCb: msgCb}
 
-	go func(ln net.Listener) {
-		revConn, err := ln.Accept() // I think this blocks until aconn shows up?
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+	return &rl
+}
+func (rl *reverseListener) waitForConn() {
+	ln := *rl.ln
+	revConn, err := ln.Accept() // I think this blocks until aconn shows up?
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
-		rl.conn = &revConn
+	rl.conn = &revConn
 
-		go func(rc net.Conn) {
-			p := make([]byte, 4)
-			for {
-				n, err := rc.Read(p)
-				if err != nil {
-					if err == io.EOF {
-						fmt.Println("got EOF from reverse conn, closing this side", string(p[:n]))
-						err := rc.Close()
-						if err != nil {
-							fmt.Println("error clsing rev conn after EOF")
-						}
-						break
+	go func(rc net.Conn) {
+		p := make([]byte, 4)
+		for {
+			n, err := rc.Read(p)
+			if err != nil {
+				if err == io.EOF {
+					fmt.Println("got EOF from reverse conn, closing", string(p[:n]))
+					err := rc.Close()
+					if err != nil {
+						fmt.Println("error clsing rev conn after EOF")
 					}
+					break
+				} else {
 					fmt.Println(err)
 					os.Exit(1)
 				}
+			} else {
 				command := string(p[:n])
 				//fmt.Println("reverse listener got message", command)
 				if subChan, ok := rl.msgSub[command]; ok {
 					subChan <- true
 				}
-				msgCb(command)
+				rl.msgCb(command)
 			}
-		}(revConn)
-
-	}(listener)
-
-	return &rl
+		}
+	}(revConn)
 }
 func (rl *reverseListener) send(msg string) { // return err?
 	_, err := (*rl.conn).Write([]byte(msg))

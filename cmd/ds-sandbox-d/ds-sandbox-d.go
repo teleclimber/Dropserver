@@ -78,22 +78,7 @@ func recvLoop(sock mangos.Socket, end chan bool) {
 			log.Println("Received in loop:", command)
 
 			if command == "kill" {
-				killNonRoot()
-				time.Sleep(sleepDuration)
-
-				killed := nonRootsKilled()
-
-				if !killed {
-					send(sock, "fail")
-					if err != nil {
-						log.Fatal(err)
-					}
-				} else {
-					send(sock, "kild")
-					if err != nil {
-						log.Fatal(err)
-					}
-				}
+				doKill(sock)
 			} else if command[0:3] == "run" {
 				log.Println("Gto run with ip", command[4:])
 				startRunner(command[4:])
@@ -113,6 +98,28 @@ func send(sock mangos.Socket, msg string) {
 }
 
 ///////////////// process kill
+func doKill(sock mangos.Socket) {
+	var killed bool
+
+	killNonRoot()
+
+	for i := 1; i < 11; i++ {
+
+		time.Sleep(5 * time.Millisecond)
+
+		killed = nonRootsKilled()
+
+		if killed {
+			break
+		}
+	}
+
+	if !killed {
+		send(sock, "fail")
+	} else {
+		send(sock, "kild")
+	}
+}
 func killNonRoot() {
 	processes := getNonRootProcesses()
 

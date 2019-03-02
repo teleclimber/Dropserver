@@ -213,9 +213,9 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Co
 	if !ok {
 		// now see if there is a container we can commit
 		for _, c := range cM.containers {
-			if c.Status == "starting" || c.Status == "recycling" {
+			if (c.Status == "starting" || c.Status == "recycling") && c.appSpaceID == "" {
 				// can we have a c.reserve?
-				fmt.Println("reserving container that is starting or recycling")
+				fmt.Println("reserving container that is starting or recycling", c.Name)
 				c.appSpaceID = appSpace
 				c.waitFor("ready")
 				c.commit(app, appSpace)
@@ -237,22 +237,12 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Co
 				} else if candidate.appSpaceSession.lastActive.After(c.appSpaceSession.lastActive) {
 					candidate = c
 				}
-				// loop over tasks and see the latest finish time
-				// recycle the container with the longest idle state
-				// or other option is to keep a running tally for each container?
-
-				fmt.Println("reserving container that is starting or recycling")
-				c.appSpaceID = appSpace
-				c.waitFor("ready")
-				c.commit(app, appSpace)
-				retContainer = c
-				ok = true
-				break
 			}
 		}
 
 		if candidate != nil {
-			// go ahead and recycle this one
+			fmt.Println("forced recycling of container", candidate.Name)
+			candidate.appSpaceID = appSpace
 			candidate.recycle()
 			candidate.commit(app, appSpace)
 			retContainer = candidate
@@ -261,4 +251,15 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Co
 	}
 
 	return
+}
+
+// PrintContainers outputs containersa and status
+func (cM *Manager) PrintContainers() {
+	for _, c := range cM.containers {
+		tiedUp := "not tied"
+		if c.isTiedUp() {
+			tiedUp = "tied up"
+		}
+		fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp)
+	}
 }

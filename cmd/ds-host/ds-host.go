@@ -22,14 +22,14 @@ import (
 // - start and shutdown containers
 // - detect failed states in containers and quarantine them
 
-var hostAppSpace = map[string]string{
-	"as1.teleclimber.dropserver.org": "as1"}
-
-var appSpaceApp = map[string]string{
-	"as1": "app1"}
+var hostAppSpace = map[string]string{}
+var appSpaceApp = map[string]string{}
 
 func main() {
 	fmt.Println("ds-host is starting")
+
+	generateHostAppSpaces(10)
+	fmt.Println(hostAppSpace, appSpaceApp)
 
 	trusted.Init()
 
@@ -60,6 +60,17 @@ func main() {
 	}
 }
 
+func generateHostAppSpaces(n int) {
+	var host, appSpace, app string
+	for i := 0; i < n; i++ {
+		host = fmt.Sprintf("as%d.teleclimber.dropserver.org", i)
+		appSpace = fmt.Sprintf("as%d", i)
+		app = fmt.Sprintf("app%d", i)
+		hostAppSpace[host] = appSpace
+		appSpaceApp[appSpace] = app
+	}
+}
+
 /////////////////////////////////////////////////
 // proxy
 func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.Manager) {
@@ -82,6 +93,8 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 	// then gotta run through auth and route...
 
 	fmt.Println("in request handler", host, appSpace, app)
+
+	cM.PrintContainers()
 
 	// Here, if we need a container, then find one, commit one, recycle one, or start one.
 	container, ok := cM.GetForAppSpace(app, appSpace)
