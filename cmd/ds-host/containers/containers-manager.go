@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -21,12 +22,10 @@ type Manager struct {
 	nextID     int
 }
 
-// Now to really manage containers.
-// - first get and import lxd client API
-// -
-
 // Init zaps existing sandboxes and creates fresh ones
-func (cM *Manager) Init() {
+func (cM *Manager) Init(initWg *sync.WaitGroup) {
+	defer initWg.Done()
+
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
 		fmt.Println(err)
@@ -41,31 +40,48 @@ func (cM *Manager) Init() {
 
 	isSandbox := regexp.MustCompile(`ds-sandbox-[0-9]+$`).MatchString
 
-	for _, lxdContainer := range lxdContainers {
-		// fmt.Println(container.Name, container.Status, container.State.Network)
-		// network := container.State.Network
-		// for k, v := range network {
-		// 	fmt.Println(k, "Hwaddr:", v.Hwaddr, "HostName:", v.HostName, "Addresses:", v.Addresses)
-		// }
+	var delWg sync.WaitGroup
 
-		if isSandbox(lxdContainer.Name) {
-			// shutdown
+	for _, lxdC := range lxdContainers {
+
+		if isSandbox(lxdC.Name) {
 			// since we are at init, then nothing should be connected to this process.
 			// so just turn it off.
 
-			containerID := lxdContainer.Name[11:]
+			delWg.Add(1)
 
-			fmt.Println("Container Status", lxdContainer.Status)
+			go func(lxdContainer lxdApi.ContainerFull, wg *sync.WaitGroup) {
+				defer wg.Done()
 
-			if lxdContainer.Status == "Running" {
-				// stop it
-				fmt.Println("Stopping Container", lxdContainer.Name)
+				containerID := lxdContainer.Name[11:]
 
-				reqState := lxdApi.ContainerStatePut{
-					Action:  "stop",
-					Timeout: -1}
+				fmt.Println("Container Status", lxdContainer.Status)
 
-				op, err := lxdConn.UpdateContainerState(lxdContainer.Name, reqState, "")
+				if lxdContainer.Status == "Running" {
+					fmt.Println("Stopping Container", lxdContainer.Name)
+
+					reqState := lxdApi.ContainerStatePut{
+						Action:  "stop",
+						Timeout: -1}
+
+					op, err := lxdConn.UpdateContainerState(lxdContainer.Name, reqState, "")
+					if err != nil {
+						fmt.Println(err)
+					}
+
+					err = op.Wait()
+					if err != nil {
+						fmt.Println(err)
+					}
+				}
+
+				// unmount or delete container will fail
+				mountappspace.UnMount(containerID)
+
+				//then delete it.
+				fmt.Println("Deleting Container", lxdContainer.Name)
+
+				op, err := lxdConn.DeleteContainer(lxdContainer.Name)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -74,49 +90,45 @@ func (cM *Manager) Init() {
 				if err != nil {
 					fmt.Println(err)
 				}
-			}
-
-			// unmount or delete container will fail
-			mountappspace.UnMount(containerID)
-
-			//then delete it.
-			fmt.Println("Deleting Container", lxdContainer.Name)
-
-			op, err := lxdConn.DeleteContainer(lxdContainer.Name)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			err = op.Wait()
-			if err != nil {
-				fmt.Println(err)
-			}
+			}(lxdC, &delWg)
 		}
 	}
+
+	delWg.Wait()
 
 	cM.nextID = 1
 
 	// now create a handful of containers
-	for i := 0; i < 3; i++ {
-		cM.launchNewSandbox()
+	var wg sync.WaitGroup
+	num := 9
+	wg.Add(num)
+	for i := 0; i < num; i++ {
+		go cM.launchNewSandbox(&wg)
 	}
+
+	wg.Wait()
 }
 
 // StopAll takes all known containers and stops them
 func (cM *Manager) StopAll() {
+	var stopWg sync.WaitGroup
 	for _, c := range cM.containers {
 		// If we get to this point assume the connection from the host http proxy has been stopped
 		// so it should be safe to shut things down
 		// ..barring anything "waiting for"...
-		c.Stop()
+		stopWg.Add(1)
+		go c.Stop(&stopWg)
 	}
 
+	stopWg.Wait()
 }
 
 // launchNewSandbox creates a new container from sandbox image and starts it.
-func (cM *Manager) launchNewSandbox() {
+func (cM *Manager) launchNewSandbox(wg *sync.WaitGroup) {
 	// get a next id, by taking current nextId and checking to be sure there is nothing there in dir.
 	// ..AND checking to make sure there is no container by that name ?
+
+	defer wg.Done()
 
 	containerID := strconv.Itoa(cM.nextID)
 	cM.nextID++

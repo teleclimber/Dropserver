@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -40,7 +41,9 @@ type Container struct {
 }
 
 // Stop stops the container and its associated open connections
-func (c *Container) Stop() {
+func (c *Container) Stop(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	c.recycleListener.close()
 	// delete it? how do we restart?
 

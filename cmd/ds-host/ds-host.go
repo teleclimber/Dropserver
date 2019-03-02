@@ -9,17 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
 
 // TODO
-// - manage containers pool
-// - track when a container is "in use" by app space
-// - proper shutdown of things as much as possible
-//   ..including shutting down sanboxes and deleting them (for now)
 // - check yourself on concurrency issues
-// - start and shutdown containers
 // - detect failed states in containers and quarantine them
 
 var hostAppSpace = map[string]string{}
@@ -31,7 +27,10 @@ func main() {
 	generateHostAppSpaces(10)
 	fmt.Println(hostAppSpace, appSpaceApp)
 
-	trusted.Init()
+	var initWg sync.WaitGroup
+	initWg.Add(2)
+
+	go trusted.Init(&initWg)
 
 	cM := containers.Manager{}
 
@@ -45,8 +44,9 @@ func main() {
 		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
 	}()
 
-	cM.Init()
-	//cM.StartContainer()
+	go cM.Init(&initWg)
+
+	initWg.Wait()
 
 	fmt.Println("Main after container start")
 

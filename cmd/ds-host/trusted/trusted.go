@@ -6,6 +6,7 @@ import (
 	lxdApi "github.com/lxc/lxd/shared/api"
 	//"github.com/teleclimber/DropServer/internal/trustedinterface"
 	"os"
+	"sync"
 )
 
 // this package manages connection with trusted container.
@@ -21,7 +22,9 @@ const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
 const trustedDataPath = "/home/developer/ds-data"
 
 // Init creates the trusted container and launches it
-func Init() {
+func Init(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
 		fmt.Println(err)
