@@ -94,8 +94,6 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	fmt.Println("in request handler", host, appSpace, app)
 
-	cM.PrintContainers()
-
 	// Here, if we need a container, then find one, commit one, recycle one, or start one.
 	container, ok := cM.GetForAppSpace(app, appSpace)
 	if !ok {
@@ -104,21 +102,7 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 		return
 	}
 
-	// here we should start a timer
-	// and we sould mark the container as processing a request.
-	// OK, how? -> container holds array of ongoing requests
-	// when a request ends you can remove it off the array and stash it in a log or whatever
-	// ..along with requet type and return status, time taken, etc...
-	// reqTask := task{}
-	// container.appSpaceSession.tasks = append(container.appSpaceSession.tasks, &reqTask)
-	// Here I'm thinking we can make this a method of container
-	reqTask := container.StartTask()
-
-	//container.resetTimer() // this should be managed more carfully.
-	// maybe it should be paused (or stopped)
-	// and restarted when the container is no longer in use
-	// And in any case we shouldn't do things this way.
-	// -> we should just maintain a steady pool of "Ready" containers
+	reqTask := container.TaskBegin()
 
 	header := cloneHeader(oReq.Header)
 	//header["ds-user-id"] = []string{"teleclimber"}
@@ -148,9 +132,7 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	cRes.Body.Close()
 
-	reqTask.Finished = true
-
-	container.TouchSession()
+	container.TaskEnd(reqTask)
 }
 
 // From https://golang.org/src/net/http/httputil/reverseproxy.go

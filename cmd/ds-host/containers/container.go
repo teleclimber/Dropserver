@@ -15,6 +15,7 @@ import (
 type appSpaceSession struct {
 	tasks      []*Task
 	lastActive time.Time
+	tiedUp     bool
 }
 
 // Task tracks the container being tied up for one request
@@ -35,6 +36,7 @@ type Container struct {
 	statusSub       map[string][]chan bool
 	Transport       http.RoundTripper
 	appSpaceSession appSpaceSession
+	recycleScore    float64
 }
 
 // Stop stops the container and its associated open connections
@@ -72,16 +74,20 @@ func (c *Container) Stop() {
 	}
 }
 
-// TouchSession sets lastActive of appSpaceSession to now
-func (c *Container) TouchSession() {
-	c.appSpaceSession.lastActive = time.Now()
-}
-
-// StartTask adds a new task to session tasks and returns it
-func (c *Container) StartTask() *Task {
+// TaskBegin adds a new task to session tasks and returns it
+func (c *Container) TaskBegin() *Task {
 	reqTask := Task{}
 	c.appSpaceSession.tasks = append(c.appSpaceSession.tasks, &reqTask)
+	c.appSpaceSession.lastActive = time.Now()
+	c.appSpaceSession.tiedUp = true
 	return &reqTask
+}
+
+// TaskEnd stops the task and evaluates container tie up and last active
+func (c *Container) TaskEnd(task *Task) {
+	task.Finished = true
+	c.appSpaceSession.lastActive = time.Now()
+	c.appSpaceSession.tiedUp = c.isTiedUp()
 }
 
 func (c *Container) start() {
@@ -185,7 +191,8 @@ func (c *Container) recycle() {
 
 	c.Status = "recycling"
 	c.appSpaceID = ""
-	c.appSpaceSession = appSpaceSession{lastActive: time.Now()}
+	c.appSpaceSession = appSpaceSession{lastActive: time.Now()} //?? why?
+	// ^^ appSpaceSession isn't really relevant until committed?
 
 	// close all connections (they should all be idle if we are recycling)
 	transport, ok := c.Transport.(*http.Transport)
@@ -231,12 +238,6 @@ func (c *Container) commit(app, appSpace string) {
 
 	// ^^ I suspect we are going to get random glitches due to concurrency.
 	// Probably need to lock something somewhere. Not sure what though.
-
-	// duration, err := time.ParseDuration("5s")
-	// if err != nil {
-	// 	fmt.Println("error parsing duration")
-	// }
-	// c.timer = time.AfterFunc(duration, c.recycle)
 }
 
 func (c *Container) isTiedUp() (tiedUp bool) {
@@ -249,18 +250,6 @@ func (c *Container) isTiedUp() (tiedUp bool) {
 	return
 }
 
-// func (c *Container) resetTimer() {
-// 	// basically just reset the timer before self-recycle
-// 	duration, err := time.ParseDuration("5s")
-// 	if err != nil {
-// 		fmt.Println("error parsing duration")
-// 	}
-// 	t := c.timer
-// 	if !t.Stop() {
-// 		<-t.C
-// 	}
-// 	t.Reset(duration)
-// }
 func (c *Container) waitFor(status string) {
 	if c.Status == status {
 		return

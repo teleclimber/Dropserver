@@ -5,9 +5,12 @@ import (
 	"github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
+	"math"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
+	"time"
 )
 
 const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
@@ -231,7 +234,7 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Co
 		// now see if there is a container we can recycle
 		var candidate *Container
 		for _, c := range cM.containers {
-			if c.Status == "committed" && !c.isTiedUp() {
+			if c.Status == "committed" && !c.appSpaceSession.tiedUp {
 				if candidate == nil {
 					candidate = c
 				} else if candidate.appSpaceSession.lastActive.After(c.appSpaceSession.lastActive) {
@@ -250,16 +253,56 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Co
 		}
 	}
 
+	go cM.evaluatePool()
+
 	return
+}
+
+func (cM *Manager) evaluatePool() {
+	// look at the list of containers and decide whether some should be recycled.
+	num := len(cM.containers)
+	target := int(math.Round(float64(num) / 3))
+
+	cur := 0
+	for _, c := range cM.containers {
+		if c.Status == "ready" {
+			cur++
+			c.recycleScore = 0
+		} else {
+			// calculate recycle score
+			duration := time.Since(c.appSpaceSession.lastActive)
+			c.recycleScore = duration.Seconds()
+		}
+	}
+
+	cM.PrintContainers()
+
+	if cur < target {
+		sort.Slice(cM.containers, func(i, j int) bool {
+			return cM.containers[i].recycleScore > cM.containers[j].recycleScore
+		})
+
+		numRecyc := target - cur
+		recycled := 0
+		for _, c := range cM.containers {
+			if !c.appSpaceSession.tiedUp {
+				c.recycle()
+				recycled++
+				if recycled == numRecyc {
+					break
+				}
+			}
+		}
+	}
 }
 
 // PrintContainers outputs containersa and status
 func (cM *Manager) PrintContainers() {
 	for _, c := range cM.containers {
-		tiedUp := "not tied"
-		if c.isTiedUp() {
-			tiedUp = "tied up"
+		tiedUp := "not-tied"
+		if c.appSpaceSession.tiedUp {
+			tiedUp = "tied-up"
 		}
-		fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp)
+		fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp, c.recycleScore)
 	}
 }
