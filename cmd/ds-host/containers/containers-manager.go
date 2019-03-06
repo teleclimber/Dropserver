@@ -103,7 +103,9 @@ func (cM *Manager) Init(initWg *sync.WaitGroup) {
 	num := 9
 	wg.Add(num)
 	for i := 0; i < num; i++ {
-		go cM.launchNewSandbox(&wg)
+		containerID := strconv.Itoa(cM.nextID)
+		cM.nextID++
+		go cM.launchNewSandbox(containerID, &wg)
 	}
 
 	wg.Wait()
@@ -124,14 +126,11 @@ func (cM *Manager) StopAll() {
 }
 
 // launchNewSandbox creates a new container from sandbox image and starts it.
-func (cM *Manager) launchNewSandbox(wg *sync.WaitGroup) {
+func (cM *Manager) launchNewSandbox(containerID string, wg *sync.WaitGroup) {
 	// get a next id, by taking current nextId and checking to be sure there is nothing there in dir.
 	// ..AND checking to make sure there is no container by that name ?
 
 	defer wg.Done()
-
-	containerID := strconv.Itoa(cM.nextID)
-	cM.nextID++
 
 	fmt.Println("Creating new Sandbox", containerID)
 
@@ -147,7 +146,7 @@ func (cM *Manager) launchNewSandbox(wg *sync.WaitGroup) {
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(containerID, err)
 		os.Exit(1)
 	}
 
@@ -176,13 +175,13 @@ func (cM *Manager) launchNewSandbox(wg *sync.WaitGroup) {
 
 	op, err := lxdConn.CreateContainer(req)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(containerID, err)
 		os.Exit(1)
 	}
 
 	err = op.Wait()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(containerID, err)
 		os.Exit(1)
 	}
 
@@ -197,7 +196,7 @@ func (cM *Manager) launchNewSandbox(wg *sync.WaitGroup) {
 
 	newContainer.reverseListener = newReverseListener(newContainer.Name, newContainer.hostIP, newContainer.onReverseMsg)
 
-	fmt.Println("container started, recycling")
+	fmt.Println(containerID, "container started, recycling")
 	newContainer.recycle()
 }
 

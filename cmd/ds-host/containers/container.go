@@ -57,7 +57,7 @@ func (c *Container) Stop(wg *sync.WaitGroup) {
 
 		lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(c.Name, err)
 			os.Exit(1)
 		}
 
@@ -67,12 +67,12 @@ func (c *Container) Stop(wg *sync.WaitGroup) {
 
 		op, err := lxdConn.UpdateContainerState("ds-sandbox-"+c.Name, reqState, "")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(c.Name, err)
 		}
 
 		err = op.Wait()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(c.Name, err)
 		}
 	}
 }
@@ -98,7 +98,7 @@ func (c *Container) start() {
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
@@ -109,14 +109,14 @@ func (c *Container) start() {
 
 	op, err := lxdConn.UpdateContainerState("ds-sandbox-"+c.Name, reqState, "")
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
 	// Wait for the operation to complete
 	err = op.Wait()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
@@ -129,13 +129,13 @@ func (c *Container) getLxdState() *lxdApi.ContainerState {
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
 	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + c.Name)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
@@ -144,25 +144,25 @@ func (c *Container) getLxdState() *lxdApi.ContainerState {
 func (c *Container) getIPs() {
 	iface, err := net.InterfaceByName("ds-sandbox-" + c.Name)
 	if err != nil {
-		fmt.Println("unable to get interface for container", err)
+		fmt.Println(c.Name, "unable to get interface for container", err)
 		os.Exit(1)
 	}
 
 	addresses, err := iface.Addrs()
 	if err != nil {
-		fmt.Println("unable to get addresses for interface", err)
+		fmt.Println(c.Name, "unable to get addresses for interface", err)
 		os.Exit(1)
 	}
 
 	if len(addresses) != 1 {
-		fmt.Println("number of IP addresses is not 1. addresses:", addresses)
+		fmt.Println(c.Name, "number of IP addresses is not 1. addresses:", addresses)
 		os.Exit(1)
 	}
 
 	address := addresses[0]
 	ip, _, err := net.ParseCIDR(address.String())
 	if err != nil {
-		fmt.Println("error getting ip from address", address, err)
+		fmt.Println(c.Name, "error getting ip from address", address, err)
 		os.Exit(1)
 	}
 
@@ -171,13 +171,13 @@ func (c *Container) getIPs() {
 	//then use lxc info to get container side IP
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
 	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + c.Name)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(c.Name, err)
 		os.Exit(1)
 	}
 
@@ -185,11 +185,11 @@ func (c *Container) getIPs() {
 	// ContainerStateNetwork is { Addresses, Counter, Hwadr, HostName, ...}
 	c.containerIP = state.Network["eth0"].Addresses[0].Address
 
-	fmt.Println("host / container IPs:", c.hostIP, c.containerIP)
+	fmt.Println(c.Name, "host / container IPs:", c.hostIP, c.containerIP)
 }
 
 func (c *Container) recycle() {
-	fmt.Println("starting recycle")
+	fmt.Println("starting recycle", c.Name)
 	defer timetrack.Track(time.Now(), "recycle")
 
 	c.Status = "recycling"
@@ -200,7 +200,7 @@ func (c *Container) recycle() {
 	// close all connections (they should all be idle if we are recycling)
 	transport, ok := c.Transport.(*http.Transport)
 	if !ok {
-		fmt.Println("did not find transport, sorry")
+		fmt.Println(c.Name, "did not find transport, sorry")
 	} else {
 		transport.CloseIdleConnections()
 	}
@@ -223,7 +223,7 @@ func (c *Container) recycle() {
 
 	c.Status = "ready"
 
-	c.waitForDone("ready") // it's "wait for is done". urg  bad name.
+	c.waitForDone("ready") // it's "thing is done so you can stop waiting". urg  bad name.
 }
 func (c *Container) commit(app, appSpace string) {
 	defer timetrack.Track(time.Now(), "commit")
@@ -257,7 +257,7 @@ func (c *Container) waitFor(status string) {
 	if c.Status == status {
 		return
 	}
-	fmt.Println("waiting for container status", status)
+	fmt.Println(c.Name, "waiting for container status", status)
 
 	if _, ok := c.statusSub[status]; !ok {
 		c.statusSub[status] = []chan bool{}

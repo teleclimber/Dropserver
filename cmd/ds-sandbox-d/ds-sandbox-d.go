@@ -27,7 +27,11 @@ const socketPath = "/mnt/cmd-socket"
 
 var sleepDuration = 5 * time.Millisecond
 
+var curState string // starting => ready > start-run -> running -> killing -> ready
+
 func main() {
+	curState = "starting"
+
 	f, err := os.OpenFile("/var/log/ds-sandbox-d.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -58,6 +62,8 @@ func main() {
 		sock.Close() // this should unblock the read loop?
 	}()
 
+	curState = "ready"
+
 	send(sock, "hi")
 
 	<-ended
@@ -67,6 +73,14 @@ func main() {
 
 /// cmd channel handling
 func recvLoop(sock mangos.Socket, end chan bool) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			log.Println("Panic recover:", r)
+			send(sock, "fail")
+		}
+	}()
+
 	for {
 		msg, err := sock.Recv()
 		command := string(msg)
@@ -80,8 +94,14 @@ func recvLoop(sock mangos.Socket, end chan bool) {
 			if command == "kill" {
 				doKill(sock)
 			} else if command[0:3] == "run" {
-				log.Println("Gto run with ip", command[4:])
-				startRunner(command[4:])
+				if curState != "ready" {
+					log.Println("Received kill while in state", curState)
+					send(sock, "fail")
+					curState = "failed"
+				} else {
+					log.Println("Gto run with ip", command[4:])
+					startRunner(command[4:])
+				}
 			} else {
 				log.Fatal("unrecognized command", command)
 			}
@@ -99,6 +119,8 @@ func send(sock mangos.Socket, msg string) {
 
 ///////////////// process kill
 func doKill(sock mangos.Socket) {
+	curState = "killing"
+
 	var killed bool
 
 	killNonRoot()
@@ -116,8 +138,10 @@ func doKill(sock mangos.Socket) {
 
 	if !killed {
 		send(sock, "fail")
+		curState = "failed-to-kill"
 	} else {
 		send(sock, "kild")
+		curState = "ready"
 	}
 }
 func killNonRoot() {
@@ -187,6 +211,9 @@ func sendSignal(processes []*process) {
 }
 
 func startRunner(hostIP string) {
+	curState = "start-run"
+	log.Println(curState)
+
 	f, err := os.OpenFile("/var/log/ds-sandbox-runner.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -200,6 +227,10 @@ func startRunner(hostIP string) {
 		log.Println(err)
 	}
 
+	// var wg sync.WaitGroup
+	// wg.Add(1)
+	leave := false
+
 	go func() {
 		log.Println("wating for cmd")
 		err = cmd.Wait()
@@ -207,7 +238,45 @@ func startRunner(hostIP string) {
 			log.Println("cmd Wait error", err) //this could be handy to catch node crashing out!
 		}
 		log.Println("done wating for cmd")
+		//wg.Done()
+		leave = true
 	}()
 
-	log.Printf("Just started node as subprocess %d\n", cmd.Process.Pid)
+	// maybe we should wait until we see the process show up before returning
+	// ..however if the process crashes before we see it, we have to leave it
+	waits := 0
+	for leave == false {
+		time.Sleep(2 * time.Millisecond)
+		waits++
+
+		//log.Println("looking for cmd new pid in ps", cmd.Process.Pid)
+		pidStr := strconv.Itoa(cmd.Process.Pid)
+
+		psCmd := exec.Command("ps", "-opid,comm")
+		output, err := psCmd.CombinedOutput()
+		if err != nil {
+			log.Println("error in getting PIDs", err)
+		}
+
+		outputLines := strings.Split(string(output), "\n")
+
+		for _, line := range outputLines {
+			pieces := strings.Fields(line)
+			log.Println(line, pieces)
+			if len(pieces) > 1 && pieces[0] == pidStr && pieces[1] == "node" {
+				leave = true
+				curState = "running"
+				log.Printf("running: Started node as subprocess %d, found it after %d waits\n", cmd.Process.Pid, waits)
+				//log.Println("found pid in ps, leaving loop")
+				break
+			}
+		}
+
+		if waits > 10 && leave == false {
+			curState = "start-run-failed"
+			log.Println(curState, "Never found pid in ps", outputLines)
+			// his should really trigger an error condition in sandbox
+			break
+		}
+	}
 }

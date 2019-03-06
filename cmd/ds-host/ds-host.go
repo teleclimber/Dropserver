@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/teleclimber/DropServer/cmd/ds-host/containers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
@@ -9,10 +10,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/pprof"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
+
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 // TODO
 // - check yourself on concurrency issues
@@ -22,6 +27,8 @@ var hostAppSpace = map[string]string{}
 var appSpaceApp = map[string]string{}
 
 func main() {
+	flag.Parse()
+
 	fmt.Println("ds-host is starting")
 
 	generateHostAppSpaces(10)
@@ -39,6 +46,7 @@ func main() {
 	go func() {
 		sig := <-sigs
 		fmt.Println("Caught signal, quitting.", sig)
+		pprof.StopCPUProfile()
 		cM.StopAll()
 		fmt.Println("All containers stopped")
 		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
@@ -50,6 +58,22 @@ func main() {
 
 	fmt.Println("Main after container start")
 
+	// maybe we can start profiler here?
+	if *cpuprofile != "" {
+		fmt.Println("Starting CPU Profile")
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			fmt.Println("failed to start cpu profiler", err)
+			os.Exit(1)
+		}
+		//defer pprof.StopCPUProfile()
+	}
+
 	// Proxy:
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		handleRequest(w, r, &cM)
@@ -58,12 +82,14 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	fmt.Println("Leaving main func")
 }
 
 func generateHostAppSpaces(n int) {
 	var host, appSpace, app string
-	for i := 0; i < n; i++ {
-		host = fmt.Sprintf("as%d.teleclimber.dropserver.org", i)
+	for i := 1; i <= n; i++ {
+		host = fmt.Sprintf("as%d.teleclimber.dropserver.develop", i)
 		appSpace = fmt.Sprintf("as%d", i)
 		app = fmt.Sprintf("app%d", i)
 		hostAppSpace[host] = appSpace
@@ -75,7 +101,8 @@ func generateHostAppSpaces(n int) {
 // proxy
 func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.Manager) {
 	defer timetrack.Track(time.Now(), "handleRequest")
-	host := oReq.Host
+
+	host := strings.Split(oReq.Host, ":")[0] //in case the port was included in host
 	appSpace, ok := hostAppSpace[host]
 	if !ok {
 		//this is a request error
@@ -111,7 +138,7 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	cReq, err := http.NewRequest(oReq.Method, container.Address, oReq.Body)
 	if err != nil {
-		fmt.Println("http.NewRequest error", oReq.Method, container.Address, err)
+		fmt.Println("http.NewRequest error", container.Name, oReq.Method, container.Address, err)
 		os.Exit(1)
 	}
 
@@ -119,7 +146,7 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	cRes, err := container.Transport.RoundTrip(cReq)
 	if err != nil {
-		fmt.Println("container.Transport.RoundTrip(cReq) error", err)
+		fmt.Println("container.Transport.RoundTrip(cReq) error", container.Name, err)
 		os.Exit(1)
 	}
 
