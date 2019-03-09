@@ -35,7 +35,7 @@ mkdir -p rootfs/data/apps
 mkdir rootfs/data/app-spaces
 
 # move test data in here too?
-for i in {1..10}
+for i in {1..100}
 do
 	cp -r ~/dummy_apps/app1 rootfs/data/apps/app$i
 	cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as$i

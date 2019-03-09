@@ -31,7 +31,7 @@ func main() {
 
 	fmt.Println("ds-host is starting")
 
-	generateHostAppSpaces(10)
+	generateHostAppSpaces(100)
 	fmt.Println(hostAppSpace, appSpaceApp)
 
 	var initWg sync.WaitGroup
