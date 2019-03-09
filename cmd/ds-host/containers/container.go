@@ -188,7 +188,7 @@ func (c *Container) getIPs() {
 	fmt.Println(c.Name, "host / container IPs:", c.hostIP, c.containerIP)
 }
 
-func (c *Container) recycle() {
+func (c *Container) recycle(readyCh chan *Container) {
 	fmt.Println("starting recycle", c.Name)
 	defer timetrack.Track(time.Now(), "recycle")
 
@@ -224,6 +224,8 @@ func (c *Container) recycle() {
 	c.Status = "ready"
 
 	c.waitForDone("ready") // it's "thing is done so you can stop waiting". urg  bad name.
+
+	readyCh <- c
 }
 func (c *Container) commit(app, appSpace string) {
 	defer timetrack.Track(time.Now(), "commit")

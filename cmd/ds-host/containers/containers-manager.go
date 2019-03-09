@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
@@ -18,8 +19,20 @@ const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
 
 // Manager manages containers
 type Manager struct {
-	containers []*Container
-	nextID     int
+	containers          []*Container
+	nextID              int
+	poolMux             sync.Mutex
+	requests            map[string]request
+	committedContainers map[string]*Container
+	readyContainers     list.List //[]*Container //make that a FIFO list?
+	readyCh             chan *Container
+	readyStop           chan bool
+}
+
+type request struct {
+	appSpace        string
+	app             string
+	sandboxChannels []chan *Container
 }
 
 // Init zaps existing sandboxes and creates fresh ones
@@ -95,6 +108,12 @@ func (cM *Manager) Init(initWg *sync.WaitGroup) {
 	}
 
 	delWg.Wait()
+
+	cM.requests = make(map[string]request)
+	cM.committedContainers = make(map[string]*Container)
+
+	cM.readyCh = make(chan *Container)
+	go cM.readyIn()
 
 	cM.nextID = 1
 
@@ -197,118 +216,156 @@ func (cM *Manager) launchNewSandbox(containerID string, wg *sync.WaitGroup) {
 	newContainer.reverseListener = newReverseListener(newContainer.Name, newContainer.hostIP, newContainer.onReverseMsg)
 
 	fmt.Println(containerID, "container started, recycling")
-	newContainer.recycle()
+	newContainer.recycle(cM.readyCh)
 }
 
-// GetForAppSpace tries to find an available container for an app-space
-func (cM *Manager) GetForAppSpace(app string, appSpace string) (retContainer *Container, ok bool) {
-	// first look to see if there is a container that is already commited
-	for _, c := range cM.containers {
-		if c.appSpaceID == appSpace {
-			retContainer = c
-			ok = true //note that it might not be ready!
-			c.waitFor("committed")
+// GetForAppSpace records the need for a sandbox and returns a channel
+func (cM *Manager) GetForAppSpace(app string, appSpace string) chan *Container {
+	ch := make(chan *Container)
+
+	cM.poolMux.Lock()
+	defer cM.poolMux.Unlock()
+
+	c, ok := cM.committedContainers[appSpace]
+	if ok {
+		//OK, but is the container ready yet?
+		// it may have *just* been mark for commit, so it'll get there but have to wait
+		fmt.Println("GFAS found container already committed", appSpace)
+		go func() {
+			c.waitFor("committed") // I don't like this. If something si going to wait, I'd rather it get put in requests or something.
+			ch <- c                // do this in goroutine because it will block
+		}()
+	} else {
+		req, ok := cM.requests[appSpace]
+		if !ok {
+			req = request{
+				appSpace:        appSpace,
+				app:             app,
+				sandboxChannels: make([]chan *Container, 0)}
+		}
+
+		req.sandboxChannels = append(req.sandboxChannels, ch)
+
+		cM.requests[appSpace] = req
+
+		go cM.dispatchPool()
+	}
+
+	return ch
+}
+
+func (cM *Manager) dispatchPool() {
+	// assigns sandboxes to  app-spaces.
+	// if a container needs to be committed, then subsequently call recyclePool
+	// this has to be fast. No waiting!
+
+	// there may be requests but no sandboxes
+	// or no requests but sandboxes
+	// or both,
+	// or none.
+
+	fmt.Println("dispatchPool")
+	cM.poolMux.Lock()
+	defer cM.poolMux.Unlock()
+
+	for appSpace := range cM.requests {
+		// maybe check that all requests are still active first..
+		front := cM.readyContainers.Front()
+		if front == nil {
+			fmt.Println("dispatch pool: no conatiners left for ", appSpace)
 			break
+		} else {
+			r := cM.requests[appSpace]
+
+			c := front.Value.(*Container)
+			c.appSpaceID = r.appSpace
+			c.Status = "committing"
+
+			cM.readyContainers.Remove(front)
+			delete(cM.requests, appSpace)
+			cM.committedContainers[r.appSpace] = c
+
+			go cM.commit(c, r)
+
+			go cM.recyclePool()
 		}
 	}
+}
+func (cM *Manager) commit(container *Container, request request) {
+	fmt.Println("cmcommit for ", container.Name, request.appSpace)
 
-	if !ok {
-		// now see if there is a container we can commit
-		for _, c := range cM.containers {
-			if c.Status == "ready" && c.appSpaceID == "" {
-				c.commit(app, appSpace)
-				retContainer = c
-				ok = true
-				break
-			}
-		}
+	container.commit(request.app, request.appSpace)
+
+	fmt.Println("sandbox channels", request)
+
+	for _, ch := range request.sandboxChannels {
+		ch <- container // will panic if ch is closed! Will block if nobody at the other end
+		// -> requires precise management of the channel.
 	}
-
-	if !ok {
-		// now see if there is a container we can commit
-		for _, c := range cM.containers {
-			if (c.Status == "starting" || c.Status == "recycling") && c.appSpaceID == "" {
-				// can we have a c.reserve?
-				fmt.Println("reserving container that is starting or recycling", c.Name)
-				c.appSpaceID = appSpace
-				c.waitFor("ready")
-				c.commit(app, appSpace)
-				retContainer = c
-				ok = true
-				break
-			}
-		}
-	}
-
-	// next we can also try to recycle a container or start a new one
-	if !ok {
-		// now see if there is a container we can recycle
-		var candidate *Container
-		for _, c := range cM.containers {
-			if c.Status == "committed" && !c.appSpaceSession.tiedUp {
-				if candidate == nil {
-					candidate = c
-				} else if candidate.appSpaceSession.lastActive.After(c.appSpaceSession.lastActive) {
-					candidate = c
-				}
-			}
-		}
-
-		if candidate != nil {
-			fmt.Println("forced recycling of container", candidate.Name)
-			candidate.appSpaceID = appSpace
-			candidate.recycle()
-			candidate.commit(app, appSpace)
-			retContainer = candidate
-			ok = true
-		}
-	}
-
-	go cM.evaluatePool()
-
-	return
 }
 
-func (cM *Manager) evaluatePool() {
-	// look at the list of containers and decide whether some should be recycled.
-	num := len(cM.containers)
-	target := int(math.Round(float64(num) / 3))
+func (cM *Manager) recyclePool() {
+	cM.poolMux.Lock()
+	defer cM.poolMux.Unlock()
 
-	cur := 0
-	for _, c := range cM.containers {
-		if c.Status == "ready" {
-			cur++
-			c.recycleScore = 0
-		} else {
-			// calculate recycle score
-			duration := time.Since(c.appSpaceSession.lastActive)
-			c.recycleScore = duration.Seconds()
+	numC := len(cM.containers)
+	maxCommitted := int(math.Round(float64(numC) * 2 / 3))
+	numRecyc := len(cM.committedContainers) - maxCommitted
+
+	if numRecyc > 0 {
+		var sortedAppSpaces []string
+
+		for appSpace := range cM.committedContainers {
+			c := cM.committedContainers[appSpace]
+			if c.Status == "committed" && !c.appSpaceSession.tiedUp {
+				duration := time.Since(c.appSpaceSession.lastActive)
+				c.recycleScore = duration.Seconds()
+				sortedAppSpaces = append(sortedAppSpaces, appSpace)
+			}
 		}
-	}
 
-	cM.PrintContainers()
-
-	if cur < target {
-		sort.Slice(cM.containers, func(i, j int) bool {
-			return cM.containers[i].recycleScore > cM.containers[j].recycleScore
+		sort.Slice(sortedAppSpaces, func(i, j int) bool {
+			asi := sortedAppSpaces[i]
+			asj := sortedAppSpaces[j]
+			return cM.committedContainers[asi].recycleScore > cM.committedContainers[asj].recycleScore
 		})
 
-		numRecyc := target - cur
-		recycled := 0
-		for _, c := range cM.containers {
-			if !c.appSpaceSession.tiedUp {
-				c.recycle()
-				recycled++
-				if recycled == numRecyc {
-					break
-				}
-			}
+		for i := 0; i < numRecyc && i < len(sortedAppSpaces); i++ {
+			appSpace := sortedAppSpaces[i]
+			c := cM.committedContainers[appSpace]
+			c.Status = "recycling"
+			c.appSpaceID = ""
+			delete(cM.committedContainers, appSpace)
+			go c.recycle(cM.readyCh)
+
+		}
+	}
+}
+
+func (cM *Manager) readyIn() { //deliberately bad name
+	for {
+		select {
+		case readyC := <-cM.readyCh:
+			cM.poolMux.Lock()
+			cM.readyContainers.PushBack(readyC)
+			cM.poolMux.Unlock()
+			cM.dispatchPool()
+		case <-cM.readyStop:
+			break
 		}
 	}
 }
 
 // PrintContainers outputs containersa and status
 func (cM *Manager) PrintContainers() {
+	var readys []string
+	for rc := cM.readyContainers.Front(); rc != nil; rc = rc.Next() {
+		readys = append(readys, rc.Value.(*Container).Name)
+	}
+
+	fmt.Println("Ready Containers", readys)
+
+	fmt.Println("Committed containers", cM.committedContainers)
 	for _, c := range cM.containers {
 		tiedUp := "not-tied"
 		if c.appSpaceSession.tiedUp {

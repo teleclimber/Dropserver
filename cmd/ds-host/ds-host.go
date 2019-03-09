@@ -121,13 +121,12 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	fmt.Println("in request handler", host, appSpace, app)
 
-	// Here, if we need a container, then find one, commit one, recycle one, or start one.
-	container, ok := cM.GetForAppSpace(app, appSpace)
-	if !ok {
-		fmt.Println("no containers available", appSpace)
-		oRes.WriteHeader(503)
-		return
-	}
+	getTime := time.Now()
+
+	sandboxChan := cM.GetForAppSpace(app, appSpace)
+	container := <-sandboxChan
+
+	timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+container.Name)
 
 	reqTask := container.TaskBegin()
 
