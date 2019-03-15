@@ -5,6 +5,7 @@ import (
 	"github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/timetrack"
 	"net"
 	"net/http"
@@ -38,6 +39,7 @@ type Container struct {
 	Transport       http.RoundTripper
 	appSpaceSession appSpaceSession
 	recycleScore    float64
+	LogClient       *record.DsLogClient
 }
 
 // Stop stops the container and its associated open connections
@@ -94,7 +96,7 @@ func (c *Container) TaskEnd(task *Task) {
 }
 
 func (c *Container) start() {
-	fmt.Println("starting sandbox", c.Name)
+	c.LogClient.Log(record.INFO, nil, "Starting sandbox")
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
@@ -189,8 +191,10 @@ func (c *Container) getIPs() {
 }
 
 func (c *Container) recycle(readyCh chan *Container) {
-	fmt.Println("starting recycle", c.Name)
+	c.LogClient.Log(record.INFO, nil, "recycling start")
+
 	defer timetrack.Track(time.Now(), "recycle")
+	defer record.SandboxRecycleTime(time.Now())
 
 	c.Status = "recycling"
 	c.appSpaceID = ""
@@ -213,6 +217,7 @@ func (c *Container) recycle(readyCh chan *Container) {
 
 	c.recycleListener.send("kill")
 	c.recycleListener.waitFor("kild")
+	// ^^ here we should wait for either "kild" or "fail", and act in consequence
 
 	mountappspace.UnMount(c.Name)
 
@@ -220,15 +225,22 @@ func (c *Container) recycle(readyCh chan *Container) {
 
 	c.recycleListener.send("run " + c.hostIP.String())
 	c.reverseListener.waitFor("hi")
+	// ^ wait for ready or a timeout, otherwise this blocks forever in case of problem
 
 	c.Status = "ready"
 
 	c.waitForDone("ready") // it's "thing is done so you can stop waiting". urg  bad name.
 
 	readyCh <- c
+
+	c.LogClient.Log(record.INFO, nil, "recycling complete") // include time in tehre for good measure?
 }
 func (c *Container) commit(app, appSpace string) {
+	c.LogClient.Log(record.INFO, map[string]string{
+		"app": app, "app-space": appSpace}, "commit start")
+
 	defer timetrack.Track(time.Now(), "commit")
+	defer record.SandboxCommitTime(time.Now())
 
 	c.appSpaceID = appSpace
 
@@ -241,8 +253,8 @@ func (c *Container) commit(app, appSpace string) {
 	c.Status = "committed"
 	c.waitForDone("commited")
 
-	// ^^ I suspect we are going to get random glitches due to concurrency.
-	// Probably need to lock something somewhere. Not sure what though.
+	c.LogClient.Log(record.INFO, map[string]string{
+		"app": app, "app-space": appSpace}, "commit complete")
 }
 
 func (c *Container) isTiedUp() (tiedUp bool) {

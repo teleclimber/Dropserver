@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/teleclimber/DropServer/cmd/ds-host/containers"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/internal/timetrack"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -29,10 +31,11 @@ var appSpaceApp = map[string]string{}
 func main() {
 	flag.Parse()
 
-	fmt.Println("ds-host is starting")
+	record.Init()
+
+	record.Log(record.INFO, nil, "ds-host is starting")
 
 	generateHostAppSpaces(100)
-	fmt.Println(hostAppSpace, appSpaceApp)
 
 	var initWg sync.WaitGroup
 	initWg.Add(2)
@@ -87,6 +90,7 @@ func main() {
 }
 
 func generateHostAppSpaces(n int) {
+	record.Log(record.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
 	var host, appSpace, app string
 	for i := 1; i <= n; i++ {
 		host = fmt.Sprintf("as%d.teleclimber.dropserver.develop", i)
@@ -100,19 +104,19 @@ func generateHostAppSpaces(n int) {
 /////////////////////////////////////////////////
 // proxy
 func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.Manager) {
-	defer timetrack.Track(time.Now(), "handleRequest")
+	defer record.HostHandleReq(time.Now())
 
 	host := strings.Split(oReq.Host, ":")[0] //in case the port was included in host
 	appSpace, ok := hostAppSpace[host]
 	if !ok {
 		//this is a request error
-		fmt.Println("app space not found for host", host)
+		fmt.Println("app space not found for host", host) //request id, host
 		oRes.WriteHeader(404)
 		return
 	}
 	app, ok := appSpaceApp[appSpace]
 	if !ok {
-		fmt.Println("app not found for app space", appSpace)
+		fmt.Println("app not found for app space", appSpace) //request id, appspace
 		oRes.WriteHeader(500)
 		return
 	}
@@ -159,6 +163,10 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 	cRes.Body.Close()
 
 	container.TaskEnd(reqTask)
+
+	container.LogClient.Log(record.INFO, map[string]string{
+		"app-space": appSpace, "app": app},
+		"Request handled")
 }
 
 // From https://golang.org/src/net/http/httputil/reverseproxy.go

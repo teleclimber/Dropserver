@@ -6,6 +6,7 @@ import (
 	"github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"math"
 	"os"
 	"regexp"
@@ -157,9 +158,12 @@ func (cM *Manager) launchNewSandbox(containerID string, wg *sync.WaitGroup) {
 		Name:       containerID, // change that key please
 		Status:     "starting",
 		appSpaceID: "",
-		statusSub:  make(map[string][]chan bool)}
+		statusSub:  make(map[string][]chan bool),
+		LogClient:  record.NewSandboxLogClient(containerID)}
 
 	cM.containers = append(cM.containers, &newContainer)
+
+	cM.recordContainerStatusMetric()
 
 	newContainer.recycleListener = newRecycleListener(containerID, newContainer.onRecyclerMsg)
 
@@ -232,8 +236,9 @@ func (cM *Manager) GetForAppSpace(app string, appSpace string) chan *Container {
 		// it may have *just* been mark for commit, so it'll get there but have to wait
 		fmt.Println("GFAS found container already committed", appSpace)
 		go func() {
-			c.waitFor("committed") // I don't like this. If something si going to wait, I'd rather it get put in requests or something.
-			ch <- c                // do this in goroutine because it will block
+			c.waitFor("committed")           // I don't like this. If something si going to wait, I'd rather it get put in requests or something.
+			ch <- c                          // do this in goroutine because it will block
+			cM.recordContainerStatusMetric() // really?
 		}()
 	} else {
 		req, ok := cM.requests[appSpace]
@@ -272,7 +277,8 @@ func (cM *Manager) dispatchPool() {
 		// maybe check that all requests are still active first..
 		front := cM.readyContainers.Front()
 		if front == nil {
-			fmt.Println("dispatch pool: no conatiners left for ", appSpace)
+			record.Log(record.WARN, map[string]string{"app-space": appSpace},
+				"dispatch pool: no sandboxes left for app-space")
 			break
 		} else {
 			r := cM.requests[appSpace]
@@ -290,18 +296,20 @@ func (cM *Manager) dispatchPool() {
 			go cM.recyclePool()
 		}
 	}
+
+	go cM.recordContainerStatusMetric()
 }
 func (cM *Manager) commit(container *Container, request request) {
 	fmt.Println("cmcommit for ", container.Name, request.appSpace)
 
 	container.commit(request.app, request.appSpace)
 
-	fmt.Println("sandbox channels", request)
-
 	for _, ch := range request.sandboxChannels {
 		ch <- container // will panic if ch is closed! Will block if nobody at the other end
 		// -> requires precise management of the channel.
 	}
+
+	cM.recordContainerStatusMetric()
 }
 
 func (cM *Manager) recyclePool() {
@@ -340,6 +348,8 @@ func (cM *Manager) recyclePool() {
 
 		}
 	}
+
+	go cM.recordContainerStatusMetric()
 }
 
 func (cM *Manager) readyIn() { //deliberately bad name
@@ -354,6 +364,30 @@ func (cM *Manager) readyIn() { //deliberately bad name
 			break
 		}
 	}
+}
+
+func (cM *Manager) recordContainerStatusMetric() {
+	var s = &record.SandboxStatuses{
+		Starting:   0,
+		Ready:      0,
+		Committing: 0,
+		Committed:  0,
+		Recycling:  0}
+	for _, c := range cM.containers {
+		switch c.Status {
+		case "starting":
+			s.Starting++
+		case "ready":
+			s.Ready++
+		case "committing":
+			s.Committing++
+		case "committed":
+			s.Committed++
+		case "recycling":
+			s.Recycling++
+		}
+	}
+	record.SandboxStatusCounts(s)
 }
 
 // PrintContainers outputs containersa and status
