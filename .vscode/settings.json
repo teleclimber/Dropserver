@@ -1,4 +1,6 @@
 {
+	"go.gopath": "/Users/ollie/go/",
+	"go.inferGopath": true,
 	"go.toolsEnvVars": {
 		"GOOS" : "linux"
 	},
@@ -6,5 +8,21 @@
 		"enabled": false,
 		"delay": 500
 	},
-	"go.buildOnSave": "package"
+	"go.buildOnSave": "workspace",
+	"go.installDependenciesWhenBuilding": false,
+
+	"go.useLanguageServer": true,
+    "go.alternateTools": {
+        "go-langserver": "bingo"
+    },
+    "go.languageServerFlags": [
+        "-enhance-signature-help",
+        "-trace",
+        "-format-style=goimports",
+    ],
+    "go.languageServerExperimentalFeatures": {
+        "format": true,
+        "autoComplete": true
+    }
+
 }
