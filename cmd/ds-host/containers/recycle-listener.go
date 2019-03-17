@@ -1,21 +1,32 @@
 package containers
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+
 	"nanomsg.org/go/mangos/v2"
 	"nanomsg.org/go/mangos/v2/protocol/pair"
-	"os"
+
 	// register transports...
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	_ "nanomsg.org/go/mangos/v2/transport/ipc"
 )
 
 type recycleListener struct {
-	sock   *mangos.Socket
-	msgCb  func(msg string)
-	msgSub map[string]chan bool
+	sock      *mangos.Socket
+	msgCb     func(msg string)
+	msgSub    map[string]chan bool
+	logClient *record.DsLogClient
 }
 
-func newRecycleListener(containerName string, msgCb func(msg string)) *recycleListener {
+type msgStruct struct {
+	Status   string
+	Severity int
+	Message  string
+}
+
+func newRecycleListener(containerName string, logClient *record.DsLogClient, msgCb func(msg string)) *recycleListener {
 	recyclerSockPath := "/home/developer/ds-socket-proxies/recycler-" + containerName
 	err := os.Remove(recyclerSockPath)
 	if err != nil {
@@ -35,7 +46,11 @@ func newRecycleListener(containerName string, msgCb func(msg string)) *recycleLi
 		os.Exit(1)
 	}
 
-	rl := recycleListener{sock: &sock, msgCb: msgCb, msgSub: make(map[string]chan bool)}
+	rl := recycleListener{
+		sock:      &sock,
+		msgCb:     msgCb,
+		msgSub:    make(map[string]chan bool),
+		logClient: logClient}
 
 	go rl.recvLoop()
 
@@ -45,19 +60,46 @@ func newRecycleListener(containerName string, msgCb func(msg string)) *recycleLi
 func (rl *recycleListener) recvLoop() {
 	sock := *rl.sock
 	for {
-		msg, err := sock.Recv()
+		rcv, err := sock.Recv()
 		if err != nil {
-			fmt.Println("Error in receiving in recvLoop", err)
+			fmt.Println("Error in receiving in recvLoop", rcv)
 			// end <- true
 			break
 		} else {
-			command := string(msg)
-			if subChan, ok := rl.msgSub[command]; ok {
+			//str := string(msg) // make that a json message, which will need to be parsed.
+
+			var msg msgStruct
+
+			err = json.Unmarshal(rcv, &msg)
+			if err != nil {
+				rl.logClient.Log(record.ERROR, nil, "recycleListener: Error unmarshalling json message")
+				// probably need to shut things down. This is badnews.
+			}
+
+			fmt.Println("received recyc msg data", msg)
+
+			if subChan, ok := rl.msgSub[msg.Status]; ok {
 				subChan <- true
 			}
 
 			// not sure if this is useful after all
-			rl.msgCb(command)
+			rl.msgCb(msg.Status)
+
+			if msg.Status == "log" {
+				//...
+				var sev record.LogLevel
+				switch msg.Severity {
+				case 0:
+					sev = record.DEBUG
+				case 1:
+					sev = record.INFO
+				case 2:
+					sev = record.WARN
+				case 3:
+					sev = record.ERROR
+				}
+				rl.logClient.Log(sev, nil, "From sandbox: "+msg.Message)
+			}
 		}
 	}
 }

@@ -165,7 +165,7 @@ func (cM *Manager) launchNewSandbox(containerID string, wg *sync.WaitGroup) {
 
 	cM.recordContainerStatusMetric()
 
-	newContainer.recycleListener = newRecycleListener(containerID, newContainer.onRecyclerMsg)
+	newContainer.recycleListener = newRecycleListener(containerID, newContainer.LogClient, newContainer.onRecyclerMsg)
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {

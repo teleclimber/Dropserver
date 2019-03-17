@@ -1,7 +1,6 @@
 package main
 
 import (
-	"golang.org/x/sys/unix"
 	"log"
 	"os"
 	"os/exec"
@@ -11,10 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"nanomsg.org/go/mangos/v2"
-	"nanomsg.org/go/mangos/v2/protocol/pair"
-	// register transports...
-	_ "nanomsg.org/go/mangos/v2/transport/ipc"
+	"golang.org/x/sys/unix"
+
+	"github.com/teleclimber/DropServer/cmd/ds-sandbox-d/hostcomms"
 )
 
 type process struct {
@@ -23,11 +21,11 @@ type process struct {
 	command string
 }
 
-const socketPath = "/mnt/cmd-socket"
-
 var sleepDuration = 5 * time.Millisecond
 
 var curState string // starting => ready > start-run -> running -> killing -> ready
+
+var hostComms *hostcomms.HostComms
 
 func main() {
 	curState = "starting"
@@ -40,92 +38,54 @@ func main() {
 	log.SetOutput(f)
 	log.Println("testing log output")
 
-	sock, err := pair.NewSocket()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sock.Dial("ipc://" + socketPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ended := make(chan bool)
-	go recvLoop(sock, ended)
+	hostComms = hostcomms.GetComms(hostCommsCb)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
+		hostComms.SendLog(hostcomms.INFO, "Caught signal, quitting.")
 		log.Println("Caught signal, quitting.", sig)
 		killNonRoot()
-		sock.Close() // this should unblock the read loop?
+		hostComms.Close()
 	}()
 
 	curState = "ready"
 
-	send(sock, "hi")
+	hostComms.SendStatus("hi")
 
-	<-ended
+	<-hostComms.Ended
 
 	log.Println("Exiting")
 }
 
-/// cmd channel handling
-func recvLoop(sock mangos.Socket, end chan bool) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			log.Println("Panic recover:", r)
-			send(sock, "fail")
-		}
-	}()
-
-	for {
-		msg, err := sock.Recv()
-		command := string(msg)
-		if err != nil {
-			log.Println("Error in receiving in recvLoop", err)
-			end <- true
-			break
+func hostCommsCb(command string) {
+	if command == "kill" {
+		doKill()
+	} else if command[0:3] == "run" {
+		if curState != "ready" {
+			log.Println("Received kill while in state", curState)
+			hostComms.SendLog(hostcomms.ERROR, "Received kill while in state " + curState )
+			hostComms.SendStatus("fail")
+			curState = "failed"
 		} else {
-			log.Println("Received in loop:", command)
-
-			if command == "kill" {
-				doKill(sock)
-			} else if command[0:3] == "run" {
-				if curState != "ready" {
-					log.Println("Received kill while in state", curState)
-					send(sock, "fail")
-					curState = "failed"
-				} else {
-					log.Println("Gto run with ip", command[4:])
-					startRunner(command[4:])
-				}
-			} else {
-				log.Fatal("unrecognized command", command)
-			}
+			log.Println("Gto run with ip", command[4:])
+			startRunner(command[4:])
 		}
-	}
-}
-
-func send(sock mangos.Socket, msg string) {
-	log.Println("Sending", msg)
-	err := sock.Send([]byte(msg))
-	if err != nil {
-		log.Fatal(err)
+	} else {
+		log.Fatal("unrecognized command", command)
 	}
 }
 
 ///////////////// process kill
-func doKill(sock mangos.Socket) {
+func doKill() {
 	curState = "killing"
 
 	var killed bool
 
 	killNonRoot()
 
-	for i := 1; i < 11; i++ {
+	for i := 1; i < 21; i++ {
 
 		time.Sleep(5 * time.Millisecond)
 
@@ -137,10 +97,11 @@ func doKill(sock mangos.Socket) {
 	}
 
 	if !killed {
-		send(sock, "fail")
+		hostComms.SendLog(hostcomms.ERROR, "Failed to kill all non-root processes")
+		hostComms.SendStatus("fail")
 		curState = "failed-to-kill"
 	} else {
-		send(sock, "kild")
+		hostComms.SendStatus("kild")
 		curState = "ready"
 	}
 }
@@ -171,6 +132,7 @@ func getAllProcesses() (processes []*process) {
 	cmd := exec.Command("ps", "-opid,user,comm")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		hostComms.SendLog(hostcomms.ERROR, "error in getPIDs "+ err.Error() )
 		log.Println("error in getPIDs", err)
 	}
 
@@ -267,7 +229,7 @@ func startRunner(hostIP string) {
 				leave = true
 				curState = "running"
 				log.Printf("running: Started node as subprocess %d, found it after %d waits\n", cmd.Process.Pid, waits)
-				//log.Println("found pid in ps, leaving loop")
+				hostComms.SendLog(hostcomms.INFO, "running: Started node as subprocess")
 				break
 			}
 		}
@@ -275,6 +237,7 @@ func startRunner(hostIP string) {
 		if waits > 10 && leave == false {
 			curState = "start-run-failed"
 			log.Println(curState, "Never found pid in ps", outputLines)
+			hostComms.SendLog(hostcomms.ERROR, "Never found pid in ps" )
 			// his should really trigger an error condition in sandbox
 			break
 		}
