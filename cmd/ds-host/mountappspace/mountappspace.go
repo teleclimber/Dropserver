@@ -6,14 +6,14 @@ import (
 	"os/exec"
 )
 
-// Mount app space in container
-func Mount(app, appSpace, containerName string) { // later pass app space data so we can get user and app version
-	dsAsMounter([]string{app, appSpace, containerName})
+// Mount app space in sandbox
+func Mount(app, appSpace, sandboxName string) { // later pass app space data so we can get user and app version
+	dsAsMounter([]string{app, appSpace, sandboxName})
 }
 
-// UnMount app-space from container
-func UnMount(containerName string) {
-	dsAsMounter([]string{containerName})
+// UnMount app-space from sandbox
+func UnMount(sandboxName string) {
+	dsAsMounter([]string{sandboxName})
 }
 func dsAsMounter(args []string) {
 	cmd := exec.Command("/home/developer/ds-files/bin/ds-mount-appspace", args...)

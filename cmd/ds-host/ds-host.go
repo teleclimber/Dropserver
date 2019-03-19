@@ -3,10 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/teleclimber/DropServer/cmd/ds-host/containers"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
-	"github.com/teleclimber/DropServer/internal/timetrack"
 	"io"
 	"net/http"
 	"os"
@@ -17,13 +13,18 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
+	"github.com/teleclimber/DropServer/internal/timetrack"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 // TODO
 // - check yourself on concurrency issues
-// - detect failed states in containers and quarantine them
+// - detect failed states in sandbox and quarantine them
 
 var hostAppSpace = map[string]string{}
 var appSpaceApp = map[string]string{}
@@ -42,7 +43,7 @@ func main() {
 
 	go trusted.Init(&initWg)
 
-	cM := containers.Manager{}
+	sM := sandbox.Manager{}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -50,16 +51,16 @@ func main() {
 		sig := <-sigs
 		fmt.Println("Caught signal, quitting.", sig)
 		pprof.StopCPUProfile()
-		cM.StopAll()
-		fmt.Println("All containers stopped")
+		sM.StopAll()
+		fmt.Println("All sandbox stopped")
 		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
 	}()
 
-	go cM.Init(&initWg)
+	go sM.Init(&initWg)
 
 	initWg.Wait()
 
-	fmt.Println("Main after container start")
+	fmt.Println("Main after constainers start")
 
 	// maybe we can start profiler here?
 	if *cpuprofile != "" {
@@ -79,7 +80,7 @@ func main() {
 
 	// Proxy:
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handleRequest(w, r, &cM)
+		handleRequest(w, r, &sM)
 	})
 	if err := http.ListenAndServe(":3000", nil); err != nil {
 		fmt.Println(err)
@@ -103,7 +104,7 @@ func generateHostAppSpaces(n int) {
 
 /////////////////////////////////////////////////
 // proxy
-func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.Manager) {
+func handleRequest(oRes http.ResponseWriter, oReq *http.Request, sM *sandbox.Manager) {
 	defer record.HostHandleReq(time.Now())
 
 	host := strings.Split(oReq.Host, ":")[0] //in case the port was included in host
@@ -127,29 +128,29 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	getTime := time.Now()
 
-	sandboxChan := cM.GetForAppSpace(app, appSpace)
-	container := <-sandboxChan
+	sandboxChan := sM.GetForAppSpace(app, appSpace)
+	sb := <-sandboxChan
 
-	timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+container.Name)
+	timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sb.Name)
 
-	reqTask := container.TaskBegin()
+	reqTask := sb.TaskBegin()
 
 	header := cloneHeader(oReq.Header)
 	//header["ds-user-id"] = []string{"teleclimber"}
 	header["app-space-script"] = []string{"hello.js"}
 	header["app-space-fn"] = []string{"hello"}
 
-	cReq, err := http.NewRequest(oReq.Method, container.Address, oReq.Body)
+	cReq, err := http.NewRequest(oReq.Method, sb.Address, oReq.Body)
 	if err != nil {
-		fmt.Println("http.NewRequest error", container.Name, oReq.Method, container.Address, err)
+		fmt.Println("http.NewRequest error", sb.Name, oReq.Method, sb.Address, err)
 		os.Exit(1)
 	}
 
 	cReq.Header = header
 
-	cRes, err := container.Transport.RoundTrip(cReq)
+	cRes, err := sb.Transport.RoundTrip(cReq)
 	if err != nil {
-		fmt.Println("container.Transport.RoundTrip(cReq) error", container.Name, err)
+		fmt.Println("sb.Transport.RoundTrip(cReq) error", sb.Name, err)
 		os.Exit(1)
 	}
 
@@ -162,9 +163,9 @@ func handleRequest(oRes http.ResponseWriter, oReq *http.Request, cM *containers.
 
 	cRes.Body.Close()
 
-	container.TaskEnd(reqTask)
+	sb.TaskEnd(reqTask)
 
-	container.LogClient.Log(record.INFO, map[string]string{
+	sb.LogClient.Log(record.INFO, map[string]string{
 		"app-space": appSpace, "app": app},
 		"Request handled")
 }
