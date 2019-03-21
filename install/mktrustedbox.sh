@@ -14,7 +14,9 @@ fi
 # if alias is ds-alpine..
 # should we auto-update?
 
-SCRIPTDIR=$(dirname "$0")
+PROJECTDIR=$(cd "$(dirname "$0")"/../ && pwd)
+
+echo "PROJECTDIR: $PROJECTDIR"
 
 echo "Copying Alpine image"
 
@@ -28,7 +30,7 @@ lxc image export ds-alpine
 
 unsquashfs -d rootfs/ *.squashfs
 
-cp ~/"$SCRIPTDIR"/../bin/ds-trusted rootfs/bin/
+cp "$PROJECTDIR"/bin/ds-trusted rootfs/bin/
 
 # probably need to create directories...
 mkdir -p rootfs/data/apps
