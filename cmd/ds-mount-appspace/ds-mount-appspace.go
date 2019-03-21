@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"os"
 	"regexp"
 	"sync"
+
+	"golang.org/x/sys/unix"
 )
 
 // todo:
@@ -17,16 +18,16 @@ import (
 // - refuse to work if permissions on self or config wrong?
 // ...
 
+var inputRegex *regexp.Regexp
+
 func main() {
 	args := os.Args[1:]
 	// we will also need args for user_id and app version
 
-	isValid := regexp.MustCompile(`^[A-Za-z0-9\-]+$`).MatchString
+	inputRegex = regexp.MustCompile(`^[A-Za-z0-9\-]+$`)
+
 	for _, a := range args {
-		if !isValid(a) {
-			fmt.Fprintf(os.Stderr, "invalid arg %v\n", a)
-			os.Exit(1)
-		}
+		validateInput(a)
 	}
 
 	appsPath := "/var/snap/lxd/common/lxd/storage-pools/dir-pool/containers/ds-trusted/rootfs/data/apps/"
@@ -52,6 +53,12 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+func validateInput(input string) {
+	if !inputRegex.MatchString(input) {
+		panic(fmt.Sprintf("invalid arg %v\n", input))
+	}
 }
 
 func mount(src, dest string, wg *sync.WaitGroup) {
