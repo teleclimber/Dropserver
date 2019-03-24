@@ -13,8 +13,9 @@ import (
 
 	lxd "github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
-	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace" //bad
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"        //bad
 )
 
 const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
@@ -34,7 +35,7 @@ type Manager struct {
 type request struct {
 	appSpace        string
 	app             string
-	sandboxChannels []chan *Sandbox
+	sandboxChannels []chan domain.SandboxI
 }
 
 // Init zaps existing sandboxes and creates fresh ones
@@ -225,8 +226,8 @@ func (sM *Manager) launchNewSandbox(sandboxID string, wg *sync.WaitGroup) {
 }
 
 // GetForAppSpace records the need for a sandbox and returns a channel
-func (sM *Manager) GetForAppSpace(app string, appSpace string) chan *Sandbox {
-	ch := make(chan *Sandbox)
+func (sM *Manager) GetForAppSpace(app string, appSpace string) chan domain.SandboxI {
+	ch := make(chan domain.SandboxI)
 
 	sM.poolMux.Lock()
 	defer sM.poolMux.Unlock()
@@ -247,7 +248,7 @@ func (sM *Manager) GetForAppSpace(app string, appSpace string) chan *Sandbox {
 			req = request{
 				appSpace:        appSpace,
 				app:             app,
-				sandboxChannels: make([]chan *Sandbox, 0)}
+				sandboxChannels: make([]chan domain.SandboxI, 0)}
 		}
 
 		req.sandboxChannels = append(req.sandboxChannels, ch)
@@ -278,7 +279,7 @@ func (sM *Manager) dispatchPool() {
 		// maybe check that all requests are still active first..
 		front := sM.readySandboxes.Front()
 		if front == nil {
-			record.Log(record.WARN, map[string]string{"app-space": appSpace},
+			record.Log(domain.WARN, map[string]string{"app-space": appSpace},
 				"dispatch pool: no sandboxes left for app-space")
 			break
 		} else {

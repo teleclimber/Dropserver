@@ -11,6 +11,8 @@
 	"go.buildOnSave": "workspace",
 	"go.installDependenciesWhenBuilding": false,
 
+	"go.testFlags": ["./..."],
+
 	"go.useLanguageServer": true,
     "go.alternateTools": {
         "go-langserver": "bingo"

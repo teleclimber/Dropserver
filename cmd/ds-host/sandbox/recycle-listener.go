@@ -9,7 +9,8 @@ import (
 	"nanomsg.org/go/mangos/v2/protocol/pair"
 
 	// register transports...
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record" //bad
 	_ "nanomsg.org/go/mangos/v2/transport/ipc"
 )
 
@@ -72,7 +73,7 @@ func (rl *recycleListener) recvLoop() {
 
 			err = json.Unmarshal(rcv, &msg)
 			if err != nil {
-				rl.logClient.Log(record.ERROR, nil, "recycleListener: Error unmarshalling json message")
+				rl.logClient.Log(domain.ERROR, nil, "recycleListener: Error unmarshalling json message")
 				// probably need to shut things down. This is badnews.
 			}
 
@@ -87,16 +88,16 @@ func (rl *recycleListener) recvLoop() {
 
 			if msg.Status == "log" {
 				//...
-				var sev record.LogLevel
+				var sev domain.LogLevel
 				switch msg.Severity {
 				case 0:
-					sev = record.DEBUG
+					sev = domain.DEBUG
 				case 1:
-					sev = record.INFO
+					sev = domain.INFO
 				case 2:
-					sev = record.WARN
+					sev = domain.WARN
 				case 3:
-					sev = record.ERROR
+					sev = domain.ERROR
 				}
 				rl.logClient.Log(sev, nil, "From sandbox: "+msg.Message)
 			}

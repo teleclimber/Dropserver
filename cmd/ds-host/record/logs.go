@@ -3,8 +3,10 @@ package record
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/afiskon/promtail-client/promtail"
 	"time"
+
+	"github.com/afiskon/promtail-client/promtail"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // DsLogClient is used to log messages in that special ds-host way
@@ -13,19 +15,6 @@ type DsLogClient struct {
 }
 
 var defaultClient *DsLogClient //no let's make that a custom client with custom methods.
-
-// LogLevel expresses the severity of a log entry as an int
-type LogLevel int
-
-// DEBUG is for debug
-const (
-	DEBUG LogLevel = iota
-	INFO  LogLevel = iota
-	WARN  LogLevel = iota
-	ERROR LogLevel = iota
-	// DISABLE Maximum level, disables sending or printing
-	DISABLE LogLevel = iota
-)
 
 // LogDataHash are transcribed as json in the log message
 type LogDataHash struct {
@@ -74,7 +63,7 @@ func NewSandboxLogClient(sandboxName string) *DsLogClient {
 }
 
 // Log logs a message to Loki
-func (c *DsLogClient) Log(severity LogLevel, data map[string]string, msg string) {
+func (c *DsLogClient) Log(severity domain.LogLevel, data map[string]string, msg string) {
 
 	// turn hash to json?
 	if data != nil {
@@ -88,19 +77,19 @@ func (c *DsLogClient) Log(severity LogLevel, data map[string]string, msg string)
 	}
 
 	switch severity {
-	case DEBUG:
+	case domain.DEBUG:
 		c.loki.Debugf(msg)
-	case INFO:
+	case domain.INFO:
 		c.loki.Infof(msg)
-	case WARN:
+	case domain.WARN:
 		c.loki.Warnf(msg)
-	case ERROR:
+	case domain.ERROR:
 		c.loki.Errorf(msg)
 	}
 }
 
 // Log sends log entry to default logging client
-func Log(severity LogLevel, data map[string]string, msg string) {
+func Log(severity domain.LogLevel, data map[string]string, msg string) {
 	(*defaultClient).Log(severity, data, msg)
 }
 

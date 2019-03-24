@@ -10,8 +10,9 @@ import (
 
 	lxd "github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record" // should be able to rm this import
 	"github.com/teleclimber/DropServer/internal/timetrack"
 )
 
@@ -28,7 +29,7 @@ type Task struct {
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	Name            string
+	Name            string // Every property should be non-exported to guarantee use of the interface
 	Status          string
 	Address         string
 	hostIP          net.IP
@@ -80,24 +81,50 @@ func (s *Sandbox) Stop(wg *sync.WaitGroup) {
 	}
 }
 
+// basic getters
+
+// GetName gets the name of the sandbox
+func (s *Sandbox) GetName() string {
+	return s.Name
+}
+
+// GetAddress gets the IP address of the sandbox
+func (s *Sandbox) GetAddress() string {
+	return s.Address
+}
+
+// GetTransport gets the http transport of the sandbox
+func (s *Sandbox) GetTransport() http.RoundTripper {
+	return s.Transport
+}
+
+// GetLogClient retuns the Logging client
+func (s *Sandbox) GetLogClient() domain.LogCLientI {
+	return s.LogClient
+}
+
 // TaskBegin adds a new task to session tasks and returns it
-func (s *Sandbox) TaskBegin() *Task {
+func (s *Sandbox) TaskBegin() chan bool {
 	reqTask := Task{}
 	s.appSpaceSession.tasks = append(s.appSpaceSession.tasks, &reqTask)
 	s.appSpaceSession.lastActive = time.Now()
 	s.appSpaceSession.tiedUp = true
-	return &reqTask
-}
 
-// TaskEnd stops the task and evaluates sandbox tie up and last active
-func (s *Sandbox) TaskEnd(task *Task) {
-	task.Finished = true
-	s.appSpaceSession.lastActive = time.Now()
-	s.appSpaceSession.tiedUp = s.isTiedUp()
+	ch := make(chan bool)
+
+	// go func here that blocks on chanel.
+	go func() {
+		<-ch
+		reqTask.Finished = true
+		s.appSpaceSession.lastActive = time.Now()
+		s.appSpaceSession.tiedUp = s.isTiedUp()
+	}()
+
+	return ch //instead of returning a task we should return a chanel.
 }
 
 func (s *Sandbox) start() {
-	s.LogClient.Log(record.INFO, nil, "Starting sandbox")
+	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
 	if err != nil {
@@ -192,7 +219,7 @@ func (s *Sandbox) getIPs() {
 }
 
 func (s *Sandbox) recycle(readyCh chan *Sandbox) {
-	s.LogClient.Log(record.INFO, nil, "recycling start")
+	s.LogClient.Log(domain.INFO, nil, "recycling start")
 
 	defer timetrack.Track(time.Now(), "recycle")
 	defer record.SandboxRecycleTime(time.Now())
@@ -234,10 +261,10 @@ func (s *Sandbox) recycle(readyCh chan *Sandbox) {
 
 	readyCh <- s
 
-	s.LogClient.Log(record.INFO, nil, "recycling complete") // include time in tehre for good measure?
+	s.LogClient.Log(domain.INFO, nil, "recycling complete") // include time in tehre for good measure?
 }
 func (s *Sandbox) commit(app, appSpace string) {
-	s.LogClient.Log(record.INFO, map[string]string{
+	s.LogClient.Log(domain.INFO, map[string]string{
 		"app": app, "app-space": appSpace}, "commit start")
 
 	defer timetrack.Track(time.Now(), "commit")
@@ -254,7 +281,7 @@ func (s *Sandbox) commit(app, appSpace string) {
 	s.Status = "committed"
 	s.waitForDone("commited")
 
-	s.LogClient.Log(record.INFO, map[string]string{
+	s.LogClient.Log(domain.INFO, map[string]string{
 		"app": app, "app-space": appSpace}, "commit complete")
 }
 

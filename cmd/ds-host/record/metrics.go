@@ -2,13 +2,21 @@ package record
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// can we make metrics a struct or something
+// .. so that we can use an interface to define the methods we want?
+
+// Metrics encapsulates the metrics calls
+type Metrics struct {
+}
 
 func initMetrics() {
 	// prometheus metrics. Do metrics just accumulate if prometheus is not pulling them?
@@ -24,6 +32,13 @@ func initMetrics() {
 
 // maybe a var to turn on metrics,
 // ..and maybe to set their detail level (less dtail for low power, non-dev)
+
+// This probably needs to be refactored
+// probably a map[string] struct {
+// 	Help string
+// 	Buckets []float64
+// }
+// ..or not. Not sure what it's buying us.
 
 var promeReqDur = promauto.NewHistogram(prometheus.HistogramOpts{
 	Name:    "dshost_requests_duration_s",
@@ -44,7 +59,7 @@ var commitDur = promauto.NewHistogram(prometheus.HistogramOpts{
 })
 
 // HostHandleReq measures ds-host' requets durations
-func HostHandleReq(start time.Time) {
+func (m *Metrics) HostHandleReq(start time.Time) {
 	promeReqDur.Observe(time.Since(start).Seconds())
 }
 
