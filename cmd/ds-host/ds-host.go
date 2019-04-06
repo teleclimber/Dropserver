@@ -15,13 +15,13 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-
-// TODO
-// - check yourself on concurrency issues
-// - detect failed states in sandbox and quarantine them
 
 var hostAppSpace = map[string]string{}	// this stuff is DB model
 var appSpaceApp = map[string]string{}
@@ -33,7 +33,11 @@ func main() {
 
 	record.Log(domain.INFO, nil, "ds-host is starting")
 
-	generateHostAppSpaces(100)
+	// models
+	appModel := appmodel.NewAppModel()
+	appspaceModel := appspacemodel.NewAppspaceModel()
+
+	generateHostAppSpaces(100, appModel, appspaceModel)
 
 	var initWg sync.WaitGroup
 	initWg.Add(2)
@@ -78,13 +82,23 @@ func main() {
 
 	m := record.Metrics{}
 
-	// Create server. pass it sandbox manager I suppose?
-	// Or you actually want to set these dependencies by setting them directly on the struct.
-	server := &server.Server{
+	// Create proxy
+	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
-		Metrics: &m,
-		HostAppSpace: &hostAppSpace,
-		AppSpaceApp: &appSpaceApp}
+		Metrics: &m	}
+
+	// Create routes
+	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}
+	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
+		AppModel:	appModel,
+		AppspaceModel: appspaceModel,
+		DropserverRoutes: dropserverASRoutes,
+		SandboxProxy: sandboxProxy }
+
+	// Create server.
+	server := &server.Server{
+		AppspaceRoutes: appspaceRoutes,
+		Metrics: &m	}
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
@@ -92,15 +106,14 @@ func main() {
 	fmt.Println("Leaving main func")
 }
 
-func generateHostAppSpaces(n int) {
+func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel) {
 	record.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
-	var host, appSpace, app string
+	var appSpace, app string
 	for i := 1; i <= n; i++ {
-		host = fmt.Sprintf("as%d.teleclimber.dropserver.develop", i)
 		appSpace = fmt.Sprintf("as%d", i)
 		app = fmt.Sprintf("app%d", i)
-		hostAppSpace[host] = appSpace
-		appSpaceApp[appSpace] = app
+		am.Create( &domain.App{Name:app})
+		asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
 	}
 }
 

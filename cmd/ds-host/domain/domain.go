@@ -76,3 +76,57 @@ type SandboxI interface {
 // ..it's more of an application logic struct.
 // we'll see what that means when we start doing composable routes. Will we need server then?
 
+///////////////////////////////////////////////////////////
+// route stuff
+
+// AppspaceRouteData represents data for the route being executed
+// instead of passing string for path tail, pass whole request context object, with:
+// - *App
+// - *Appspace
+// - *AuthState (or some such thing that summarizes the auth story for this request)
+// - *AppspaceRoute (the route metadata, match path, type, function, auth ...)
+// - path tail?
+// - golang Context thing? We need to read up on that.
+type AppspaceRouteData struct {
+	App      *App
+	Appspace *Appspace
+	URLTail  string
+}
+
+// RouteHandler is a generic interface for sub route handling.
+// we will need to pass context of some sort
+type RouteHandler interface {
+	ServeHTTP(http.ResponseWriter, *http.Request, *AppspaceRouteData)
+}
+
+///////////////////////////////////
+// Data Models:
+
+// App represents the data structure for an App.
+type App struct {
+	Name string
+	// Version string
+	// OwnerID UserID
+}
+
+// AppModel is the interface for the appspace model
+type AppModel interface {
+	GetForName(string) (*App, bool)
+	Create(*App)
+}
+
+// Appspace represents the data structure for App spaces.
+type Appspace struct {
+	Name    string
+	AppName string
+	// AppVersion string
+	// Paused bool
+	// OwnerID UserID
+	// Config AppspaceConfig ..this one is harder
+}
+
+// AppspaceModel is the interface for the appspace model
+type AppspaceModel interface {
+	GetForName(string) (*Appspace, bool)
+	Create(*Appspace)
+}
