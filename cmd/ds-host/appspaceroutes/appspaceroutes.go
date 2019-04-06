@@ -1,9 +1,7 @@
 package appspaceroutes
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
@@ -25,24 +23,16 @@ type AppspaceRoutes struct {
 
 // ServeHTTP handles http traffic to the appspace
 func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	var ok bool
 
-	appspaceName, ok := getAppspaceName(req.Host)
+	subdomains := *routeData.Subdomains
+	appspaceName := subdomains[len(subdomains)-1]
+
+	appspace, ok := r.AppspaceModel.GetForName(appspaceName)
 	if !ok {
-		http.Error(res, "Error getting appspace from host string", http.StatusInternalServerError)
-		//TODO log an error please
-	}
-
-	var appspace *domain.Appspace
-	if ok {
-		// use appspace model to get
-		fmt.Println(appspaceName)
-
-		appspace, ok = r.AppspaceModel.GetForName(appspaceName)
-		if !ok {
-			http.Error(res, "Appspace does not exist", http.StatusNotFound)
-		} else {
-			routeData.Appspace = appspace
-		}
+		http.Error(res, "Appspace does not exist", http.StatusNotFound)
+	} else {
+		routeData.Appspace = appspace
 	}
 
 	var app *domain.App
@@ -72,43 +62,4 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		r.SandboxProxy.ServeHTTP(res, req, routeData)
 
 	}
-}
-
-func getAppspaceName(host string) (appspace string, ok bool) {
-	// here we need to know something about the configuration
-	// how many domain levels to ignore?
-	// also, consider that it might be a third-party domain.
-	// so: explode host into pieces,
-	// ..walk known host domain pieces [org, dropserver]
-	// at end of walk if still matching, that first one is your app-space
-	// ... for now. we may do appspace.username.dropserver.org later?
-
-	// this may need to be pulled out and put in top level server handler,
-	// ..since it will have to detect user.<root-domain>, etc.
-
-	ok = true
-
-	rootHost := [2]string{"develop", "dropserver"} //TODO do not hard-code this, obviously
-	numRoot := 2
-
-	host = strings.Split(host, ":")[0] // in case host includes port
-	hostPieces := strings.Split(host, ".")
-	numPieces := len(hostPieces)
-
-	if numPieces <= numRoot {
-		ok = false
-	} else {
-		for i, p := range rootHost {
-			if hostPieces[numPieces-i-1] != p {
-				ok = false
-				break
-			}
-		}
-	}
-
-	if ok {
-		appspace = hostPieces[numPieces-numRoot-1]
-	}
-
-	return
 }

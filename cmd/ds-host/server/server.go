@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
@@ -37,7 +38,7 @@ func (s *Server) Start() { //return a server type
 // func (s *Server) Start() {
 // }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// switch on top level routes:
 	// - admin
 	// - user
@@ -49,10 +50,66 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// ..check agains known subdomains (user, admin...) and route accordingly
 	// ..check against our blacklist subdomains and drop accordingly
 	// ..then pass remainder to appspace routes.
+	subdomains, ok := getSubdomains(req.Host)
+	if !ok {
+		http.Error(res, "Error getting appspace from host string", http.StatusInternalServerError)
+	} else {
+		if len(subdomains) == 0 {
+			// no subdomain. It's the site itself?
+			http.Error(res, "Not found", http.StatusNotFound)
+			ok = false
+		}
+	}
 
-	// for now just create the RouteMeta and pass to appspace routes
-	routeData := &domain.AppspaceRouteData{
-		URLTail: r.URL.Path}
+	if ok {
+		topSub := subdomains[len(subdomains)-1]
+		switch topSub {
+		case "user":
+			http.Error(res, "user not implemented", http.StatusNotImplemented)
+		case "admin":
+			http.Error(res, "admin not implemented", http.StatusNotImplemented)
+		default:
+			// first filter through blacklist of subdomains
 
-	s.AppspaceRoutes.ServeHTTP(w, r, routeData)
+			routeData := &domain.AppspaceRouteData{
+				URLTail:    req.URL.Path,
+				Subdomains: &subdomains}
+
+			s.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		}
+	}
+}
+
+func getSubdomains(host string) (subdomains []string, ok bool) {
+	// here we need to know something about the configuration
+	// how many domain levels to ignore?
+	// also, consider that it might be a third-party domain.
+	// so: explode host into pieces,
+	// ..walk known host domain pieces [org, dropserver]
+
+	ok = true
+
+	rootHost := [2]string{"develop", "dropserver"} //TODO do not hard-code this, obviously
+	numRoot := 2
+
+	host = strings.Split(host, ":")[0] // in case host includes port
+	hostPieces := strings.Split(host, ".")
+	numPieces := len(hostPieces)
+
+	if numPieces < numRoot {
+		ok = false
+	} else {
+		for i, p := range rootHost {
+			if hostPieces[numPieces-i-1] != p {
+				ok = false
+				break
+			}
+		}
+	}
+
+	if ok {
+		subdomains = hostPieces[:numPieces-2]
+	}
+
+	return
 }

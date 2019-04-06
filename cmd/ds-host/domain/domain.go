@@ -88,9 +88,10 @@ type SandboxI interface {
 // - path tail?
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
-	App      *App
-	Appspace *Appspace
-	URLTail  string
+	App        *App
+	Appspace   *Appspace
+	URLTail    string
+	Subdomains *[]string
 }
 
 // RouteHandler is a generic interface for sub route handling.

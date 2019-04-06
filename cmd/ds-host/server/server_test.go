@@ -2,13 +2,56 @@ package server
 
 import (
 // 	"fmt"
-// 	"testing"
+ 	"testing"
 // 	"net/http"
 // 	"net/http/httptest"
 // 	"github.com/golang/mock/gomock"
 // 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+
+func TestGetSubdomains(t *testing.T) {
+	cases := []struct {
+		input    string
+		subdomains []string
+		ok       bool
+	}{
+		{"dropserver.develop", []string{}, true},
+		{"dropserver.xyz", []string{}, false},
+		{"dropserver", []string{}, false},
+		{"du-report.dropserver.develop", []string{"du-report"}, true},
+		{"foo.du-report.dropserver.develop", []string{"foo","du-report"}, true},
+		{"foo.du-report.dropserver.develop:3000", []string{"foo","du-report"}, true},
+	}
+
+	// TODO: cases should take configuration into consideration
+	// ..config needs to be set up and injectable.
+
+	for _, c := range cases {
+		subdomains, ok := getSubdomains(c.input)
+		if c.ok != ok {
+			t.Errorf("%s: expected OK %t, got %t", c.input, c.ok, ok)
+		}
+		if !stringSlicesEqual(c.subdomains, subdomains) {
+			t.Error(c.input, "expected subdomains / got:", c.subdomains, subdomains)
+		}
+	}
+}
+
+// Equal tells whether a and b contain the same elements.
+// A nil argument is equivalent to an empty slice.
+// from https://yourbasic.org/golang/compare-slices/
+func stringSlicesEqual(a, b []string) bool {
+    if len(a) != len(b) {
+        return false
+    }
+    for i, v := range a {
+        if v != b[i] {
+            return false
+        }
+    }
+    return true
+}
 
 // // TestServerProxy tests the proxy (sort of, we're just trying it out here)
 // func TestServerProxy(t *testing.T) {
