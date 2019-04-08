@@ -16,7 +16,7 @@ type AppspaceRoutes struct {
 	AppspaceModel    domain.AppspaceModel
 	DropserverRoutes domain.RouteHandler
 	SandboxProxy     domain.RouteHandler
-	// TODO have a logger please
+	Logger           domain.LogCLientI
 }
 
 // ^^ Also need access to sessions
@@ -31,6 +31,8 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	appspace, ok := r.AppspaceModel.GetForName(appspaceName)
 	if !ok {
 		http.Error(res, "Appspace does not exist", http.StatusNotFound)
+		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName},
+			"Appspace does not exist: "+appspaceName)
 	} else {
 		routeData.Appspace = appspace
 	}
@@ -47,7 +49,8 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			app, ok = r.AppModel.GetForName(appspace.AppName)
 			if !ok {
 				http.Error(res, "App does not exist", http.StatusInternalServerError)
-				//TODO log this for sure
+				r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName, "app": appspace.AppName},
+					"App does not exist: "+appspace.AppName)
 			} else {
 				routeData.App = app
 			}

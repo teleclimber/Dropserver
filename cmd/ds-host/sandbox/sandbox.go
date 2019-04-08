@@ -41,7 +41,7 @@ type Sandbox struct {
 	Transport       http.RoundTripper
 	appSpaceSession appSpaceSession
 	recycleScore    float64
-	LogClient       *record.DsLogClient
+	LogClient       domain.LogCLientI
 }
 
 // Stop stops the container and its associated open connections

@@ -15,7 +15,7 @@ import (
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace" //bad
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"        //bad
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
@@ -30,6 +30,8 @@ type Manager struct {
 	readySandboxes     list.List //[]*Sandbox //make that a FIFO list?
 	readyCh            chan *Sandbox
 	readyStop          chan bool
+	Logger             domain.LogCLientI
+	// metrics, ...
 }
 
 type request struct {
@@ -161,7 +163,7 @@ func (sM *Manager) launchNewSandbox(sandboxID string, wg *sync.WaitGroup) {
 		Status:     "starting",
 		appSpaceID: "",
 		statusSub:  make(map[string][]chan bool),
-		LogClient:  record.NewSandboxLogClient(sandboxID)}
+		LogClient:  sM.Logger.NewSandboxLogClient(sandboxID)}
 
 	sM.sandboxes = append(sM.sandboxes, &newSandbox)
 
@@ -279,7 +281,7 @@ func (sM *Manager) dispatchPool() {
 		// maybe check that all requests are still active first..
 		front := sM.readySandboxes.Front()
 		if front == nil {
-			record.Log(domain.WARN, map[string]string{"app-space": appSpace},
+			sM.Logger.Log(domain.WARN, map[string]string{"app-space": appSpace},
 				"dispatch pool: no sandboxes left for app-space")
 			break
 		} else {
@@ -369,7 +371,7 @@ func (sM *Manager) readyIn() { //deliberately bad name
 }
 
 func (sM *Manager) recordSandboxStatusMetric() {
-	var s = &record.SandboxStatuses{
+	var s = &record.SandboxStatuses{ //TODO nope
 		Starting:   0,
 		Ready:      0,
 		Committing: 0,
@@ -389,7 +391,7 @@ func (sM *Manager) recordSandboxStatusMetric() {
 			s.Recycling++
 		}
 	}
-	record.SandboxStatusCounts(s)
+	record.SandboxStatusCounts(s) //TODO nope
 }
 
 // PrintSandboxes outputs containersa and status

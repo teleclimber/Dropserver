@@ -10,7 +10,6 @@ import (
 
 	// register transports...
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record" //bad
 	_ "nanomsg.org/go/mangos/v2/transport/ipc"
 )
 
@@ -18,7 +17,7 @@ type recycleListener struct {
 	sock      *mangos.Socket
 	msgCb     func(msg string)
 	msgSub    map[string]chan bool
-	logClient *record.DsLogClient
+	logClient domain.LogCLientI
 }
 
 type msgStruct struct {
@@ -27,7 +26,7 @@ type msgStruct struct {
 	Message  string
 }
 
-func newRecycleListener(containerName string, logClient *record.DsLogClient, msgCb func(msg string)) *recycleListener {
+func newRecycleListener(containerName string, logClient domain.LogCLientI, msgCb func(msg string)) *recycleListener {
 	recyclerSockPath := "/home/developer/ds-socket-proxies/recycler-" + containerName
 	err := os.Remove(recyclerSockPath)
 	if err != nil {

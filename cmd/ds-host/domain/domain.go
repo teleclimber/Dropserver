@@ -33,6 +33,7 @@ const (
 
 // LogCLientI represents an interface for logging
 type LogCLientI interface {
+	NewSandboxLogClient(string) LogCLientI
 	Log(LogLevel, map[string]string, string)
 }
 

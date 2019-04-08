@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -12,8 +11,8 @@ import (
 
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
-	//TODO logger?
 	SandboxManager domain.SandboxManagerI // not needed at server level
+	Logger         domain.LogCLientI
 	Metrics        domain.MetricsI
 }
 
@@ -45,16 +44,24 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)
 	if err != nil {
+		sb.GetLogClient().Log(domain.ERROR, map[string]string{
+			"app-space": appspaceName, "app": appName},
+			"http.NewRequest error: "+err.Error())
+
 		fmt.Println("http.NewRequest error", sbName, oReq.Method, sbAddress, err)
-		os.Exit(1)
+		//os.Exit(1)
+		// don't exit, but need to think about how to deal with this gracefully.
 	}
 
 	cReq.Header = header
 
 	cRes, err := sbTransport.RoundTrip(cReq)
 	if err != nil {
+		sb.GetLogClient().Log(domain.ERROR, map[string]string{
+			"app-space": appspaceName, "app": appName},
+			"sb.Transport.RoundTrip(cReq) error: "+err.Error())
 		fmt.Println("sb.Transport.RoundTrip(cReq) error", sbName, err)
-		os.Exit(1)
+		//os.Exit(1)
 	}
 
 	// futz around with headers

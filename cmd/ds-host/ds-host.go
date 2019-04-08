@@ -29,22 +29,26 @@ var appSpaceApp = map[string]string{}
 func main() {
 	flag.Parse()
 
-	record.Init()
+	record.Init()	// ok, but that's not how we should do it.
+	// ^^ preserve this for metrics, but get rid of it eventually
 
-	record.Log(domain.INFO, nil, "ds-host is starting")
+	logger := record.NewLogClient()
+
+	logger.Log(domain.INFO, nil, "ds-host is starting")
 
 	// models
 	appModel := appmodel.NewAppModel()
 	appspaceModel := appspacemodel.NewAppspaceModel()
 
-	generateHostAppSpaces(100, appModel, appspaceModel)
+	generateHostAppSpaces(100, appModel, appspaceModel, logger)
 
 	var initWg sync.WaitGroup
 	initWg.Add(2)
 
 	go trusted.Init(&initWg)
 
-	sM := sandbox.Manager{}
+	sM := sandbox.Manager{
+		Logger: logger }
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -85,6 +89,7 @@ func main() {
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
+		Logger: logger,
 		Metrics: &m	}
 
 	// Create routes
@@ -93,12 +98,14 @@ func main() {
 		AppModel:	appModel,
 		AppspaceModel: appspaceModel,
 		DropserverRoutes: dropserverASRoutes,
-		SandboxProxy: sandboxProxy }
+		SandboxProxy: sandboxProxy,
+		Logger: logger }
 
 	// Create server.
 	server := &server.Server{
 		AppspaceRoutes: appspaceRoutes,
-		Metrics: &m	}
+		Metrics: &m,
+		Logger: logger	}
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
@@ -106,8 +113,8 @@ func main() {
 	fmt.Println("Leaving main func")
 }
 
-func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel) {
-	record.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
+func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, logger domain.LogCLientI) {
+	logger.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
 	var appSpace, app string
 	for i := 1; i <= n; i++ {
 		appSpace = fmt.Sprintf("as%d", i)

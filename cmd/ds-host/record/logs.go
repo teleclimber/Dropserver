@@ -14,8 +14,6 @@ type DsLogClient struct {
 	loki promtail.Client
 }
 
-var defaultClient *DsLogClient //no let's make that a custom client with custom methods.
-
 // LogDataHash are transcribed as json in the log message
 type LogDataHash struct {
 	AppSpace  string
@@ -23,7 +21,8 @@ type LogDataHash struct {
 	RequestID string
 }
 
-func initLogging() { //maybe pass a config
+// NewLogClient returns a generic log client
+func NewLogClient() domain.LogCLientI {
 	lokiConf := promtail.ClientConfig{
 		PushURL:            "http://localhost:3100/api/prom/push",
 		Labels:             "{cmd=\"ds-host\"}",
@@ -39,11 +38,11 @@ func initLogging() { //maybe pass a config
 		fmt.Println("error creating loki client", err)
 	}
 
-	defaultClient = &DsLogClient{loki: loki}
+	return &DsLogClient{loki: loki}
 }
 
 // NewSandboxLogClient creates a logging client with sandbox name as a label
-func NewSandboxLogClient(sandboxName string) *DsLogClient {
+func (c *DsLogClient) NewSandboxLogClient(sandboxName string) domain.LogCLientI {
 	lokiConf := promtail.ClientConfig{
 		PushURL:            "http://localhost:3100/api/prom/push",
 		Labels:             "{cmd=\"ds-host\", sandbox=\"" + sandboxName + "\"}", //hmm
@@ -86,11 +85,6 @@ func (c *DsLogClient) Log(severity domain.LogLevel, data map[string]string, msg 
 	case domain.ERROR:
 		c.loki.Errorf(msg)
 	}
-}
-
-// Log sends log entry to default logging client
-func Log(severity domain.LogLevel, data map[string]string, msg string) {
-	(*defaultClient).Log(severity, data, msg)
 }
 
 // how to structure the rest of this?

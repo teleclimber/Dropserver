@@ -14,8 +14,8 @@ type Server struct {
 	// admin routes, user routes, auth routes....
 	AppspaceRoutes domain.RouteHandler
 
-	// TODO logger!
 	Metrics domain.MetricsI
+	Logger  domain.LogCLientI
 }
 
 // Start starts up the server so it listens for connections
@@ -52,7 +52,8 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// ..then pass remainder to appspace routes.
 	subdomains, ok := getSubdomains(req.Host)
 	if !ok {
-		http.Error(res, "Error getting appspace from host string", http.StatusInternalServerError)
+		http.Error(res, "Error getting subdomains from host string", http.StatusInternalServerError)
+		s.Logger.Log(domain.DEBUG, map[string]string{}, "Error getting subdomains from host string: "+req.Host)
 	} else {
 		if len(subdomains) == 0 {
 			// no subdomain. It's the site itself?
