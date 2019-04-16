@@ -14,6 +14,9 @@ func TestShiftPath(t *testing.T) {
 		{"", "", "/"},
 		{"/", "", "/"},
 		{"abc/def", "abc", "/def"},
+		{"/abc/def", "abc", "/def"},
+		{"/abc/def/", "abc", "/def"},
+		{"abc/def/", "abc", "/def"},
 	}
 
 	for _, c := range cases {
