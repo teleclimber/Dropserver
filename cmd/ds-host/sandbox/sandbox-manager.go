@@ -27,9 +27,10 @@ type Manager struct {
 	poolMux            sync.Mutex
 	requests           map[string]request
 	committedSandboxes map[string]*Sandbox
-	readySandboxes     list.List //[]*Sandbox //make that a FIFO list?
+	readySandboxes     list.List
 	readyCh            chan *Sandbox
 	readyStop          chan bool
+	Config             *domain.RuntimeConfig
 	Logger             domain.LogCLientI
 	// metrics, ...
 }
@@ -124,7 +125,7 @@ func (sM *Manager) Init(initWg *sync.WaitGroup) {
 
 	// now create a handful of sandboxes
 	var wg sync.WaitGroup
-	num := 9
+	num := sM.Config.Sandbox.Num
 	wg.Add(num)
 	for i := 0; i < num; i++ {
 		sandboxID := strconv.Itoa(sM.nextID)
@@ -371,7 +372,7 @@ func (sM *Manager) readyIn() { //deliberately bad name
 }
 
 func (sM *Manager) recordSandboxStatusMetric() {
-	var s = &record.SandboxStatuses{ //TODO nope
+	var s = &record.SandboxStatuses{ //TODO nope do not use imported record. inject instead
 		Starting:   0,
 		Ready:      0,
 		Committing: 0,

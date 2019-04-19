@@ -58,7 +58,7 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	}
 
 	if ok && app != nil {
-		// get config, match route, do auth, route type switch
+		// get app space config, match route, do auth, route type switch
 		// lots of stuff here that we won't have implemented for a while.
 
 		// For now assume it goes to sandbox

@@ -11,7 +11,8 @@ import (
 
 // DsLogClient is used to log messages in that special ds-host way
 type DsLogClient struct {
-	loki promtail.Client
+	loki   promtail.Client
+	Config *domain.RuntimeConfig
 }
 
 // LogDataHash are transcribed as json in the log message
@@ -22,29 +23,29 @@ type LogDataHash struct {
 }
 
 // NewLogClient returns a generic log client
-func NewLogClient() domain.LogCLientI {
+func NewLogClient(Config *domain.RuntimeConfig) domain.LogCLientI {
 	lokiConf := promtail.ClientConfig{
-		PushURL:            "http://localhost:3100/api/prom/push",
+		PushURL:            Config.Loki.PushURL,
 		Labels:             "{cmd=\"ds-host\"}",
 		BatchWait:          time.Second,
 		BatchEntriesNumber: 1000,
 		SendLevel:          promtail.DEBUG,
 		PrintLevel:         promtail.DEBUG,
 	}
-	// ^^ most of this has to come from config
+	// ^^ most of this has to come from config <<<
 
 	loki, err := promtail.NewClientJson(lokiConf)
 	if err != nil {
 		fmt.Println("error creating loki client", err)
 	}
 
-	return &DsLogClient{loki: loki}
+	return &DsLogClient{loki: loki, Config: Config}
 }
 
 // NewSandboxLogClient creates a logging client with sandbox name as a label
 func (c *DsLogClient) NewSandboxLogClient(sandboxName string) domain.LogCLientI {
 	lokiConf := promtail.ClientConfig{
-		PushURL:            "http://localhost:3100/api/prom/push",
+		PushURL:            c.Config.Loki.PushURL,
 		Labels:             "{cmd=\"ds-host\", sandbox=\"" + sandboxName + "\"}", //hmm
 		BatchWait:          time.Second,
 		BatchEntriesNumber: 1000,
@@ -58,7 +59,7 @@ func (c *DsLogClient) NewSandboxLogClient(sandboxName string) domain.LogCLientI 
 		fmt.Println("error creating loki client", err)
 	}
 
-	return &DsLogClient{loki: loki}
+	return &DsLogClient{loki: loki, Config: c.Config}
 }
 
 // Log logs a message to Loki

@@ -17,6 +17,7 @@ func UnMount(sandboxName string) {
 }
 func dsAsMounter(args []string) {
 	cmd := exec.Command("/home/developer/ds-files/bin/ds-mount-appspace", args...)
+	// ^^ yikes do not hard-code. Instead, can we not assume it's in the same dir as ds-host?
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()

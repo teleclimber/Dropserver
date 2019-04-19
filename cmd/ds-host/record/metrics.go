@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // can we make metrics a struct or something
@@ -18,11 +20,12 @@ import (
 type Metrics struct {
 }
 
-func initMetrics() {
+func initMetrics(cfg *domain.RuntimeConfig) {
 	// prometheus metrics. Do metrics just accumulate if prometheus is not pulling them?
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		err := http.ListenAndServe(":2112", nil) //this should come from config
+		addr := ":" + strconv.FormatInt(int64(cfg.Prometheus.Port), 10)
+		err := http.ListenAndServe(addr, nil) //this should come from config <<
 		if err != nil {
 			fmt.Println("Error starting prometheus metrics handler", err)
 			os.Exit(1)

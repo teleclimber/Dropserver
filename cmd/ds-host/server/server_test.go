@@ -1,34 +1,46 @@
 package server
 
 import (
-// 	"fmt"
+	"fmt"
  	"testing"
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"github.com/golang/mock/gomock"
-// 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 
 func TestGetSubdomains(t *testing.T) {
 	cases := []struct {
 		input    string
+		rootPieces []string
 		subdomains []string
 		ok       bool
 	}{
-		{"dropserver.develop", []string{}, true},
-		{"dropserver.xyz", []string{}, false},
-		{"dropserver", []string{}, false},
-		{"du-report.dropserver.develop", []string{"du-report"}, true},
-		{"foo.du-report.dropserver.develop", []string{"foo","du-report"}, true},
-		{"foo.du-report.dropserver.develop:3000", []string{"foo","du-report"}, true},
+		// correct domain, no subdomains:
+		{"dropserver.develop", dsDevPieces(), []string{}, true},
+		// incorect domain
+		{"dropserver.xyz", dsDevPieces(), []string{}, false},
+		{"dropserver", dsDevPieces(), []string{}, false},
+		// incomplete domain
+		{"develop", dsDevPieces(), []string{}, false},
+		// correct domain and one subdomain
+		{"du-report.dropserver.develop", dsDevPieces(), []string{"du-report"}, true},
+		// throw in some capital letters:
+		{"du-Report.dropserVer.develoP", dsDevPieces(), []string{"du-report"}, true},
+		// correct and two subdomains
+		{"foo.du-report.dropserver.develop", dsDevPieces(), []string{"foo","du-report"}, true},
+		// correct and subdomains and throw a :port in
+		{"foo.du-report.dropserver.develop:3000", dsDevPieces(), []string{"foo","du-report"}, true},
+		// Single-level domain (like for local dev)
+		{"dropserver", []string{"dropserver"}, []string{}, true},
+		// three level root domain, no subdomain
+		{"dropserver.co.uk", []string{"uk", "co", "dropserver"}, []string{}, true},
+		// Three levels, incomplete
+		{"co.uk", []string{"uk", "co", "dropserver"}, []string{}, false},
+		// Three levels one subdomain
+		{"abc.dropserver.co.uk", []string{"uk", "co", "dropserver"}, []string{"abc"}, true},
 	}
 
-	// TODO: cases should take configuration into consideration
-	// ..config needs to be set up and injectable.
-
 	for _, c := range cases {
-		subdomains, ok := getSubdomains(c.input)
+		fmt.Println(c.input)
+		subdomains, ok := getSubdomains(c.input, c.rootPieces)
 		if c.ok != ok {
 			t.Errorf("%s: expected OK %t, got %t", c.input, c.ok, ok)
 		}
@@ -36,6 +48,9 @@ func TestGetSubdomains(t *testing.T) {
 			t.Error(c.input, "expected subdomains / got:", c.subdomains, subdomains)
 		}
 	}
+}
+func dsDevPieces() []string {
+	return []string{"develop", "dropserver"}
 }
 
 // Equal tells whether a and b contain the same elements.
@@ -53,91 +68,25 @@ func stringSlicesEqual(a, b []string) bool {
     return true
 }
 
-// // TestServerProxy tests the proxy (sort of, we're just trying it out here)
-// func TestServerProxy(t *testing.T) {
-// 	// Testing this function is super non-ideal because
-// 	// - the handler function in Server is welded to the Server, so have to create the server.
-// 	// - the proxy handler performs multiple things (determine app-space and app, get sandbox, proxy)
-// 	//   ..these should all be composable middlewares
-// 	// - the proxy will forward to an address, so gotta set a server up to receive
+func TestReverse(t *testing.T) {
+	cases := []struct {
+		in []string
+		out []string
+	}{
+		{[]string{"a"}, []string{"a"}},
+		{[]string{"a", "b"}, []string{"b", "a"}},
+		{[]string{"a", "b", "c"}, []string{"c", "b", "a"}},
+	}
 
-// 	mockCtrl := gomock.NewController(t)
-//     defer mockCtrl.Finish()
+	for _, c := range cases {
+		reverse(c.in)
+		if !stringSlicesEqual(c.in, c.out) {
+			t.Error(c.in, "expected / got", c.out, c.in)
+		}
+	}
+}
 
-// 	sM := domain.NewMockSandboxManagerI(mockCtrl)
-// 	sandbox := domain.NewMockSandboxI(mockCtrl)
-// 	metrics := domain.NewMockMetricsI(mockCtrl)
-// 	logClient := domain.NewMockLogCLientI(mockCtrl)
+// TODO need to test ServeHTTP
 
-// 	hostAppSpace := map[string]string{
-// 		"as1.teleclimber.dropserver.org": "as1"}
-
-// 	appSpaceApp := map[string]string{
-// 		"as1": "app1"}
-
-// 	server := &Server{
-// 		SandboxManager: sM,
-// 		Metrics: metrics,
-// 		HostAppSpace: &hostAppSpace,
-// 		AppSpaceApp: &appSpaceApp}
-
-// 	// dummy server to stand in for sandbox
-// 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		fmt.Println("got request in dummy sandbox server")
-// 		w.WriteHeader(200)
-// 		fmt.Fprintf(w, "Hello World")
-// 	}))
-// 	defer ts.Close()
-
-// 	sM.EXPECT().GetForAppSpace("app1", "as1").DoAndReturn( func(a, b string) chan domain.SandboxI {
-// 		sandboxChan := make( chan domain.SandboxI )
-// 		go func() {
-// 			sandboxChan <- sandbox
-// 		}()
-// 		return sandboxChan
-// 	})
-
-// 	sandbox.EXPECT().GetName().Return("1")
-// 	sandbox.EXPECT().GetAddress().Return(ts.URL)
-// 	sandbox.EXPECT().GetTransport().Return(http.DefaultTransport)
-
-// 	taskCh := make(chan bool)
-// 	sandbox.EXPECT().TaskBegin().Return(taskCh)
-// 	go func() {
-// 		<- taskCh
-// 		fmt.Println("task done")
-// 	}()
-
-// 	sandbox.EXPECT().GetLogClient().Return(logClient)
-// 	logClient.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any())
-// 	metrics.EXPECT().HostHandleReq(gomock.Any())
-
-// 	// from https://blog.questionable.services/article/testing-http-handlers-go/
-// 	// craft a request
-// 	req, err := http.NewRequest("GET", "/", nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	req.Host = "as1.teleclimber.dropserver.org"
-
-// 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
-// 	rr := httptest.NewRecorder()
-// 	handler := http.HandlerFunc(server.handleRequest)
-
-// 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method 
-// 	// directly and pass in our Request and ResponseRecorder.
-// 	handler.ServeHTTP(rr, req)
-
-// 	// Check the status code is what we expect.
-// 	if status := rr.Code; status != http.StatusOK {
-// 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-// 	}
-
-// 	// Check the response body is what we expect.
-// 	expected := `Hello World`
-// 	if rr.Body.String() != expected {
-// 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
-// 	}
-// }
 
 

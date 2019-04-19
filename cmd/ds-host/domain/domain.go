@@ -18,6 +18,27 @@ import (
 // So there would be a domain.User struct, but no u.ChangeEmail()
 // ..the change email function is a coll to the UserModel, which creates and oerates on domain.User
 
+// RuntimeConfig represents the variables that can be set at runtime
+// Or at least set via config file or cli flags that get read once
+// upon starting ds-host.
+type RuntimeConfig struct {
+	Server struct {
+		Port int16  `json:"port"`
+		Host string `json:"host"`
+	} `json:"server"`
+	Sandbox struct {
+		Num int `json:"num"`
+	} `json:"sandbox"`
+	Loki struct {
+		PushURL string `json:"push-url"`
+	} `json:"loki"`
+	Prometheus struct {
+		Port int16 `json:"port"`
+	} `json:"prometheus"`
+}
+
+// ^^ configs for metrics, logs, LXD stuff, sandboxes, etc...
+
 // LogLevel represents the logging severity level
 type LogLevel int
 

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
@@ -23,16 +24,20 @@ import (
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
+var configFlag = flag.String("config", "", "use this JSON confgiuration file")
+
 var hostAppSpace = map[string]string{}	// this stuff is DB model
 var appSpaceApp = map[string]string{}
 
 func main() {
 	flag.Parse()
 
-	record.Init()	// ok, but that's not how we should do it.
+	runtimeConfig := runtimeconfig.Load(*configFlag)
+
+	record.Init(runtimeConfig)	// ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	logger := record.NewLogClient()
+	logger := record.NewLogClient(runtimeConfig)
 
 	logger.Log(domain.INFO, nil, "ds-host is starting")
 
@@ -48,6 +53,7 @@ func main() {
 	go trusted.Init(&initWg)
 
 	sM := sandbox.Manager{
+		Config: runtimeConfig,
 		Logger: logger }
 
 	sigs := make(chan os.Signal, 1)
@@ -103,6 +109,7 @@ func main() {
 
 	// Create server.
 	server := &server.Server{
+		Config: runtimeConfig,
 		AppspaceRoutes: appspaceRoutes,
 		Metrics: &m,
 		Logger: logger	}
