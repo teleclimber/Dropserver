@@ -16,6 +16,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
+	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
@@ -99,6 +100,13 @@ func main() {
 		Metrics: &m	}
 
 	// Create routes
+	applicationRoutes := &userroutes.ApplicationRoutes{
+		AppModel: appModel,
+		Logger: logger }
+	userRoutes := &userroutes.UserRoutes{
+		ApplicationRoutes: applicationRoutes,
+		Logger: logger }
+
 	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
 		AppModel:	appModel,
@@ -110,9 +118,10 @@ func main() {
 	// Create server.
 	server := &server.Server{
 		Config: runtimeConfig,
+		UserRoutes: userRoutes,
 		AppspaceRoutes: appspaceRoutes,
 		Metrics: &m,
-		Logger: logger	}
+		Logger: logger }
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.

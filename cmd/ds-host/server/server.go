@@ -15,6 +15,7 @@ type Server struct {
 	Config *domain.RuntimeConfig
 
 	// admin routes, user routes, auth routes....
+	UserRoutes     domain.RouteHandler
 	AppspaceRoutes domain.RouteHandler
 
 	Metrics domain.MetricsI
@@ -80,7 +81,12 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		topSub := subdomains[len(subdomains)-1]
 		switch topSub {
 		case "user":
-			http.Error(res, "user not implemented", http.StatusNotImplemented)
+			routeData := &domain.AppspaceRouteData{
+				URLTail:    req.URL.Path,
+				Subdomains: &subdomains}
+
+			s.UserRoutes.ServeHTTP(res, req, routeData)
+
 		case "admin":
 			http.Error(res, "admin not implemented", http.StatusNotImplemented)
 		default:

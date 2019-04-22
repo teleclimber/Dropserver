@@ -118,6 +118,9 @@ type AppspaceRouteData struct {
 
 // RouteHandler is a generic interface for sub route handling.
 // we will need to pass context of some sort
+// -> wait is this not AppspaceRouteHandler?
+// Or do we use the sameRouteData? Surely quite a lot is in common?
+// ..but would it not muddy the meaning of the Fields?
 type RouteHandler interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, *AppspaceRouteData)
 }
