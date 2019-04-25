@@ -30,19 +30,25 @@ lxc image export ds-alpine
 
 unsquashfs -d rootfs/ *.squashfs
 
+# put ds-trusted in place and auto-start
 cp "$PROJECTDIR"/bin/ds-trusted rootfs/bin/
+cp "$PROJECTDIR"/install/files/ds-trusted-openrc rootfs/etc/init.d/ds-trusted
+chmod u+x rootfs/etc/init.d/ds-trusted
+ln -s /etc/init.d/ds-trusted rootfs/etc/runlevels/default/ds-trusted
 
 # probably need to create directories...
+# this can be done by ds-trusted as needed.
 mkdir -p rootfs/data/apps
 mkdir rootfs/data/app-spaces
 
 # move test data in here too?
-for i in {1..100}
-do
-	cp -r ~/dummy_apps/app1 rootfs/data/apps/app$i
-	cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as$i
-	#ideally tweak the app so it reflects its i
-done
+# this is purely mockup shenanigans. Move out of here.
+# for i in {1..100}
+# do
+# 	cp -r ~/dummy_apps/app1 rootfs/data/apps/app$i
+# 	cp -r ~/dummy_app_spaces/as1 rootfs/data/app-spaces/as$i
+# 	#ideally tweak the app so it reflects its i
+# done
 
 #output some debug data:
 ls -lR rootfs/data/apps/
