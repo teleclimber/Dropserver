@@ -2,44 +2,34 @@ package userroutes
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"testing"
-
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-func TestPost(t *testing.T) {
-	fmt.Println("Testing post")
-
+func TestExtractFiles(t *testing.T) {
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
-	//defer writer.Close()
 
 	part, err := writer.CreateFormFile("app_dir", "foo.txt")
 	if err != nil {
 		panic(err)
 	}
-	fakeFile := newFakeFile(200)
-	if _, err = io.Copy(part, fakeFile); err != nil {
+	fakeFoo := newFakeFile(200)
+	if _, err = io.Copy(part, fakeFoo); err != nil {
 		panic(err)
 	}
 
-	// another file?
+	// another file
 	part, err = writer.CreateFormFile("app_dir", "bar.txt")
 	if err != nil {
 		panic(err)
 	}
-	fakeFile = newFakeFile(1000)
-	if _, err = io.Copy(part, fakeFile); err != nil {
+	fakeBar := newFakeFile(1000)
+	if _, err = io.Copy(part, fakeBar); err != nil {
 		panic(err)
 	}
-
-	// hmm, ok we don't have a url per se.
-	// need to craft our request by hand.
-	//http.Post(url, writer.FormDataContentType(), buf)
 
 	err = writer.Close()
 	if err != nil {
@@ -53,24 +43,84 @@ func TestPost(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	appRoutes := &ApplicationRoutes{}
-	appRoutes.post(req, &domain.AppspaceRouteData{})
+	fileData := appRoutes.extractFiles(req)
 
-	//TODO: actually test that we got what we wanted.
+	if len(*fileData) != 2 {
+		t.Error("fileData should have 2 files", fileData)
+	} else {
+		if !fakeFoo.matches((*fileData)["foo.txt"]) || !fakeBar.matches((*fileData)["bar.txt"]) {
+			t.Error("filedata does not match", fileData)
+		}
+	}
 
 }
 
-// fakefile so we have something to upload
+// Test that extract files doesn't fail with empty body
+func TestExtractFilesEmptyBody(t *testing.T) {
+	buf := new(bytes.Buffer)
+	writer := multipart.NewWriter(buf)
+
+	err := writer.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "/", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	appRoutes := &ApplicationRoutes{}
+	fileData := appRoutes.extractFiles(req)
+
+	if len(*fileData) != 0 {
+		t.Error("filedata shouldbe zero length", fileData)
+	}
+
+}
+
+// check taht a file with no content doesn't muck things up.
+func TestExtractFilesEmptyFile(t *testing.T) {
+	buf := new(bytes.Buffer)
+	writer := multipart.NewWriter(buf)
+
+	_, err := writer.CreateFormFile("app_dir", "foo.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "/", buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	appRoutes := &ApplicationRoutes{}
+	fileData := appRoutes.extractFiles(req)
+
+	if len(*fileData) != 1 {
+		t.Error("filedata should be have 1 file", fileData)
+	} else if len((*fileData)["foo.txt"]) != 0 {
+		t.Error("length of file should be 0", fileData)
+	}
+}
 
 // from https://play.golang.org/p/9BbS54d8pb
 // and https://stackoverflow.com/questions/28174970/implementing-reader-interface
 
 type fakeFile struct {
 	// stash supposed file size and currently read amount
-	size int64
-	read int64
+	size int
+	read int
 }
 
-func newFakeFile(size int64) *fakeFile { // need to pass size I suppose
+func newFakeFile(size int) *fakeFile { // need to pass size I suppose
 	return &fakeFile{
 		size: size,
 		read: 0}
@@ -96,4 +146,20 @@ func (f *fakeFile) Read(p []byte) (n int, err error) {
 		}
 	}
 	return
+}
+
+// matches compares the bytes from the args
+// with the bytes that would be produced by fake file
+func (f *fakeFile) matches(b []byte) bool {
+	if f.size != len(b) {
+		return false
+	}
+
+	theByte := []byte("A")[0]
+	for i := 0; i < f.size; i++ {
+		if b[i] != theByte {
+			return false
+		}
+	}
+	return true
 }

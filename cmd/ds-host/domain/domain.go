@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,TrustedClientI
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -39,6 +39,19 @@ type RuntimeConfig struct {
 
 // ^^ configs for metrics, logs, LXD stuff, sandboxes, etc...
 
+// ErrorCode represents integer codes for each error mesage
+type ErrorCode int
+
+// Error is dropserver error type
+type Error interface {
+	//Error() string
+	Code() ErrorCode
+	ExtraMessage() string
+	PublicString() string
+	ToStandard() error
+	HTTPError(http.ResponseWriter)
+}
+
 // LogLevel represents the logging severity level
 type LogLevel int
 
@@ -62,6 +75,8 @@ type LogCLientI interface {
 type MetricsI interface {
 	HostHandleReq(start time.Time)
 }
+
+// TODO: do for TrustedManager?
 
 // SandboxManagerI is an interface that describes sm
 type SandboxManagerI interface {
@@ -155,4 +170,46 @@ type Appspace struct {
 type AppspaceModel interface {
 	GetForName(string) (*Appspace, bool)
 	Create(*Appspace)
+}
+
+// TrustedClientI is the interface for the client of the ds-trusted remote service
+type TrustedClientI interface {
+	Init(string)
+	SaveAppFiles(*TrustedSaveAppFiles) (*TrustedSaveAppFilesReply, Error)
+	GetAppMeta(*TrustedGetAppMeta) (*TrustedGetAppMetaReply, Error)
+}
+
+// huh, we could almost make trusted client and server the same interface?!?
+
+// TrustedSaveAppFiles is args for trusted RPC call
+type TrustedSaveAppFiles struct {
+	Files *map[string][]byte
+}
+
+// TrustedSaveAppFilesReply is reply
+type TrustedSaveAppFilesReply struct {
+	LocationKey string
+}
+
+// TrustedGetAppMeta is arguments for GetAppMeta
+type TrustedGetAppMeta struct {
+	LocationKey string
+}
+
+// TrustedGetAppMetaReply is the reply contain application metadata.
+// May need to contain a domain-wide application meta?
+// Or app-file-meta, given there will be app-meta from DB.
+// In fact this should just be a app-file meta struct that is returned?
+// ..though slightly concerned about the versioning of application meta data.
+type TrustedGetAppMetaReply struct {
+	AppFilesMetadata AppFilesMetadata
+}
+
+// AppFilesMetadata containes metadata that can be gleaned from
+// reading the application files
+type AppFilesMetadata struct {
+	AppName    string `json:"name"`
+	AppVersion string `json:"version"`
+	// there is a whole gaggle of stuff, at least according to earlier node version.
+	// currently we have it in app.json what the routes are.
 }

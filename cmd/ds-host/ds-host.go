@@ -51,7 +51,12 @@ func main() {
 	var initWg sync.WaitGroup
 	initWg.Add(2)
 
-	go trusted.Init(&initWg)
+	trustedClient := trusted.RPCClient{}
+
+	trustedManager := trusted.Trusted{
+		RPCClient: &trustedClient }
+
+	trustedManager.Init(&initWg)
 
 	sM := sandbox.Manager{
 		Config: runtimeConfig,
@@ -63,7 +68,13 @@ func main() {
 		sig := <-sigs
 		fmt.Println("Caught signal, quitting.", sig)
 		pprof.StopCPUProfile()
-		sM.StopAll()
+
+		var stopWg sync.WaitGroup
+		stopWg.Add(1)
+		trustedManager.Stop(&stopWg)
+		sM.StopAll()	//should take a waitgroup
+		stopWg.Wait()
+		
 		fmt.Println("All sandbox stopped")
 		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
 	}()
@@ -101,6 +112,7 @@ func main() {
 
 	// Create routes
 	applicationRoutes := &userroutes.ApplicationRoutes{
+		TrustedClient: &trustedClient,
 		AppModel: appModel,
 		Logger: logger }
 	userRoutes := &userroutes.UserRoutes{

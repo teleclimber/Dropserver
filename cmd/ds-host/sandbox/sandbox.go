@@ -210,6 +210,7 @@ func (s *Sandbox) getIPs() {
 		fmt.Println(s.Name, err)
 		os.Exit(1)
 	}
+	// ^^ can't we get state from dedicated function above?
 
 	// state.Network is map[string]ContainerStateNetwork
 	// ContainerStateNetwork is { Addresses, Counter, Hwadr, HostName, ...}

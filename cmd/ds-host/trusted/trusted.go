@@ -2,11 +2,15 @@ package trusted
 
 import (
 	"fmt"
-	"github.com/lxc/lxd/client"
+
+	lxd "github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
-	//"github.com/teleclimber/DropServer/internal/trustedinterface"
+
 	"os"
 	"sync"
+	"time"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // this package manages connection with trusted container.
@@ -18,11 +22,18 @@ import (
 
 // for now let's just be hacky.
 
-const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
-const trustedDataPath = "/home/developer/ds-data"
+// Trusted manages the ds-trusted container and its communications
+type Trusted struct {
+	RPCClient domain.TrustedClientI
+}
+
+// ^^ there has to be config.
+
+const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket" // yikes hardcoded
+const trustedDataPath = "/home/developer/ds-data"            // uhm no.
 
 // Init creates the trusted container and launches it
-func Init(wg *sync.WaitGroup) {
+func (t *Trusted) Init(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
@@ -56,7 +67,8 @@ func Init(wg *sync.WaitGroup) {
 			}
 		}
 
-		fmt.Println("Deleting Container", oldContainer.Name)
+		fmt.Println("Deleting Container", oldContainer.Name) //TODO: Ahh no! don't do taht!! OR find better way to do that!
+		// You're going to lose all your data this way.
 
 		op, err := lxdConn.DeleteContainer(oldContainer.Name)
 		if err != nil {
@@ -122,4 +134,98 @@ func Init(wg *sync.WaitGroup) {
 		os.Exit(1)
 	}
 
+	// then establish a RPC client
+	// TODO: move this to TrustedClient
+	IP := t.getIP()
+
+	t.RPCClient.Init(IP)
+
+}
+
+func (t *Trusted) getIP() (containerIP string) {
+
+	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	if err != nil {
+		fmt.Println("ds-trusted get ip err connecting to lxc", err)
+		os.Exit(1)
+	}
+
+	/////// -------- get via leases
+	var leases []lxdApi.NetworkLease
+	for tries := 0; containerIP == "" && tries < 30; {
+		leases, err = lxdConn.GetNetworkLeases("lxdbr0") //TODO: make lxdbr0 a config thing
+		if err != nil {
+			fmt.Println("error getting lxd network leases", err)
+			os.Exit(1)
+		}
+
+		for _, l := range leases {
+			if l.Hostname == "ds-trusted" {
+				containerIP = l.Address
+				break
+			}
+		}
+
+		time.Sleep(time.Second)
+		tries++
+	}
+
+	if containerIP == "" {
+		fmt.Println("no lease found for ds-trusted")
+		os.Exit(1)
+	}
+
+	fmt.Println("ds-trusted IP:", containerIP)
+
+	return
+}
+
+// Stop stops the ds-trusted server.
+func (t *Trusted) Stop(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	lxdState := t.getLxdState()
+
+	if lxdState.Status == "Running" {
+		// stop it
+		fmt.Println("Stopping ds-trusted")
+
+		lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+		if err != nil {
+			fmt.Println("ds-trusted", err)
+			os.Exit(1)
+		}
+
+		reqState := lxdApi.ContainerStatePut{
+			Action:  "stop",
+			Timeout: -1}
+
+		op, err := lxdConn.UpdateContainerState("ds-trusted", reqState, "")
+		if err != nil {
+			fmt.Println("ds-trusted", err)
+		}
+
+		err = op.Wait()
+		if err != nil {
+			fmt.Println("ds-trusted", err)
+		}
+	}
+}
+
+func (t *Trusted) getLxdState() *lxdApi.ContainerState {
+	fmt.Println("getting ds-trusted LXD state")
+
+	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	if err != nil {
+		fmt.Println("ds-trusted", err)
+		os.Exit(1)
+	}
+
+	state, _, err := lxdConn.GetContainerState("ds-trusted")
+	if err != nil {
+		fmt.Println("ds-trusted", err)
+		os.Exit(1)
+	}
+
+	return state
 }

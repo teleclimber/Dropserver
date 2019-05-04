@@ -12,38 +12,14 @@ import (
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
-	AppModel domain.AppModel
-	Logger   domain.LogCLientI
+	TrustedClient domain.TrustedClientI
+	AppModel      domain.AppModel
+	Logger        domain.LogCLientI
 }
 
-// hmm, need to consider all the ways in which applications can be created
-// And not corener ourselves with the API.
-// -> I think /upload is a bad idea.
-// instead, let's consider:
 // post to / to create a new application even if only partially,
 // ..it gets an entry in DB along with an ID, which is returned with that first request.
 // Subsequent updates, finalizing, etc... all reference the id /:id/ and use patch or update.
-// ^^ yes.
-
-// OK, but Question: what about versions of applications?
-// Do we treat each version as an application, and keep track of them in DB?
-// What's the API for uploading / creating a new version of an application?
-// -> it seems it should be POST /application/<app-id>/
-// OK, but that muddies things a bit.
-// ..because the creation of an application might be POST /applicatoin/
-// ..but it would contain files that are attached to a version and metadata that is attached to application.
-
-// Further thoughts:
-// Any app files that land in ds-trusted for storage must have a json that includes a version, yes?
-// And if so ds-trusted can read and validate that and use the version as a subdirectory for app files.
-// -> it's only the application name that is ephemeral, and tehrefore should use app-id for that directory.
-//    ..app-id being created at any POST request on application/
-// -> if the files fail validation, what do you do with them?
-//   - delete them immediately?
-//   - preserve them for analytical purposes? It seems this should be an option.
-// Counterpoint: consider ad-hoc application creation, like where a user can create an application live on the host?
-// ..meh?
-// ->
 
 // ServeHTTP handles http traffic to the application routes
 // Namely upload, create new application, delete, ...
@@ -61,14 +37,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 			// check query string params for more info on what to return.
 			http.Error(res, "get /application", http.StatusNotImplemented)
 		case http.MethodPost:
-			// this is where it gets juicy.
-			// You have to create a DB row, and figure out how to populate data
-			// ..inlucding potentially shipping files over to ds-trusted.
-			// ..which will look at them and validate and extract metadata, like name and version.
-			// Then the ds-host will have to populate the version data for the application.
-			// Then subsequent patches are either for application, or for version specifically (are there any?)
-			// If this is a file upload, then you must also create a directory key and send that to ds-trusted.
-
+			// Posting to applictaion implies creating an application. Response will include app-id
+			a.handlePost(res, req, routeData)
 		default:
 			http.Error(res, "bad method for /application", http.StatusBadRequest)
 		}
@@ -115,74 +85,55 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	}
 }
 
-// func reqContainsFiles(req *http.Request) {
-// 	err := r.ParseMultipartForm(100000)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// }
-// uhrf. Turning uploads into usable data is pretty heavy in Go.
-// Takes up a big block of memory, writes to disk if block exceeded in size.
+// handlePost is for Post with no app-id
+// if there are files attached send to ds-trusted for storage,
+// ..then ask ds-trusted for files metadata.
+// Create DB row for application and return app-id.
+func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	fileData := a.extractFiles(req)
+	if len(*fileData) > 0 {
+		data := domain.TrustedSaveAppFiles{
+			Files: fileData}
+		saveReply, err := a.TrustedClient.SaveAppFiles(&data)
+		if err != nil {
+			err.HTTPError(res)
+			return
+		}
 
-func (a *ApplicationRoutes) post(req *http.Request, routeData *domain.AppspaceRouteData) {
-	// You can assume auth
+		fmt.Println("got response from ds-trusted", saveReply)
+
+		metaReply, err := a.TrustedClient.GetAppMeta(&domain.TrustedGetAppMeta{
+			LocationKey: saveReply.LocationKey})
+		if err != nil {
+			fmt.Println(err, err.ExtraMessage())
+			err.HTTPError(res)
+
+			// delete the files? ..it really depends on the error.
+			return
+		}
+
+		// now you have to add a row to the DB (or two?)
+		// - one row for application (new app-id because we posted without specifying an app-id)
+		// - one for the actual uploaded code: appid, version, locationKey
+
+		fmt.Println("got response for metadata", metaReply.AppFilesMetadata)
+
+		res.WriteHeader(http.StatusOK)
+
+	} else {
+		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)
+	}
+}
+
+func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
+	fileData := map[string][]byte{}
 
 	// copied from http://sanatgersappa.blogspot.com/2013/03/handling-multiple-file-uploads-in-go.html
-	//----- Buffered version:
-
-	// err := req.ParseMultipartForm(100000)
-	// if err != nil {
-	// 	//http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	fmt.Println("Error in parseMultipart ", err.Error())
-	// 	return
-	// }
-
-	// //get a ref to the parsed multipart form
-	// m := req.MultipartForm
-
-	// fmt.Println("parsed mpf", m)
-
-	// //get the *fileheaders
-	// files := m.File["app_dir"]
-	// for i := range files {
-	// 	//for each fileheader, get a handle to the actual file
-	// 	fileHeader := files[i]
-	// 	fmt.Println("Fileheader Size:", fileHeader.Filename, fileHeader.Size)
-
-	// 	file, err := files[i].Open()
-	// 	defer file.Close()
-	// 	if err != nil {
-	// 		fmt.Println("Error in files[i].Open ", err.Error())
-	// 		return
-	// 	}
-
-	// 	buf := &bytes.Buffer{}
-	// 	buf.ReadFrom(file)
-	// 	str := buf.String()
-
-	// 	fmt.Println("as string:", str)
-
-	// 	// //create destination file making sure the path is writeable.
-	// 	// dst, err := os.Create("/home/developer/test-uploads/" + files[i].Filename)
-	// 	// defer dst.Close()
-	// 	// if err != nil {
-	// 	// 	fmt.Println("Error in os Create ", err.Error())
-	// 	// 	return
-	// 	// }
-	// 	// //copy the uploaded file to the destination file
-	// 	// if _, err := io.Copy(dst, file); err != nil {
-	// 	// 	fmt.Println("Error in files[i].Open ", err.Error())
-	// 	// 	return
-	// 	// }
-
-	// }
-
-	// ---------- streaming version
+	// streaming version
 	reader, err := req.MultipartReader()
 	if err != nil {
-		fmt.Println("request may not be of type multipart form data")
-		panic(err)
+		a.Logger.Log(domain.INFO, map[string]string{}, "Approutes:extractFiles: Request apparently not multipart form")
+		return &fileData
 	}
 
 	for {
@@ -197,13 +148,10 @@ func (a *ApplicationRoutes) post(req *http.Request, routeData *domain.AppspaceRo
 			continue
 		}
 
-		fmt.Println("part:", part.FileName()) //does that mean we don't know the size?
-
 		buf := &bytes.Buffer{}
 		buf.ReadFrom(part) //maybe limit bytes to read to avert file bomb.
-		str := buf.String()
-
-		fmt.Println("as string:", str)
+		fileData[part.FileName()] = buf.Bytes()
 	}
 
+	return &fileData
 }

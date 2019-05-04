@@ -1,7 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"net"
+	"net/http"
+	"net/rpc"
+
+	"github.com/teleclimber/DropServer/cmd/ds-trusted/appfiles"
+	"github.com/teleclimber/DropServer/cmd/ds-trusted/trustedservice"
 )
 
 // what do we do in here?
@@ -17,6 +22,23 @@ import (
 // - create new app code dir, with appropriate permissions, (owner, group?)
 // -
 
+// We should have injectable packages for
+// - logging and metrics
+// - config
+
 func main() {
-	fmt.Println("Hello from ds-trusted")
+
+	appFiles := appfiles.AppFiles{}
+	trustedAPI := trustedservice.TrustedAPI{
+		AppFiles: &appFiles}
+
+	rpc.Register(&trustedAPI)
+	rpc.HandleHTTP()
+	listener, err := net.Listen("tcp", ":1234") // this should be a config I suppose, but not clear how it makes it into ds-trusted
+	if err != nil {
+		panic(err)
+	}
+
+	http.Serve(listener, nil)
+	// ^^ blocks, whihc is fine until we need to do something more elaborate
 }
