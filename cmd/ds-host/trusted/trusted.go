@@ -134,8 +134,6 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 		os.Exit(1)
 	}
 
-	// then establish a RPC client
-	// TODO: move this to TrustedClient
 	IP := t.getIP()
 
 	t.RPCClient.Init(IP)

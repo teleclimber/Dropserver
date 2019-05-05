@@ -51,7 +51,8 @@ func main() {
 	var initWg sync.WaitGroup
 	initWg.Add(2)
 
-	trustedClient := trusted.RPCClient{}
+	trustedClient := trusted.RPCClient{
+		Logger: logger }
 
 	trustedManager := trusted.Trusted{
 		RPCClient: &trustedClient }

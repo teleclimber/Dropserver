@@ -1,7 +1,6 @@
 package trusted
 
 import (
-	"fmt"
 	"net/rpc"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -11,15 +10,14 @@ import (
 // RPCClient is used to communicate with ds-trusted
 type RPCClient struct {
 	client *rpc.Client
-	// Logger
+	Logger domain.LogCLientI
 }
 
 // Init makes the connection with the Trusted container
 func (r *RPCClient) Init(ip string) {
 	client, err := rpc.DialHTTP("tcp", ip+":1234") //preserve client in trusted struct so we can call again and stop it too
 	if err != nil {
-		fmt.Println("error dialing ds-trusted", err.Error())
-		// TODO: log this
+		r.Logger.Log(domain.ERROR, nil, "error dialing ds-trusted "+err.Error())
 	}
 
 	r.client = client
@@ -29,8 +27,10 @@ func (r *RPCClient) call(fnName string, args interface{}, reply interface{}) dom
 	// reply has to be a pointer. Can we check?
 	err := r.client.Call("TrustedAPI."+fnName, args, reply)
 	if err != nil {
-		fmt.Println("error returned by rpc", err.Error())
-		// it appears that "unexpected eof" error implies our service died.
+		if !dserror.Encoded(err) {
+			// any error that is not an encoded ds-error happened on the rpc side, and is a loggable problem.
+			r.Logger.Log(domain.ERROR, nil, "trustedclient: "+err.Error())
+		}
 		return dserror.FromStandard(err)
 	}
 

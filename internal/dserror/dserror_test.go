@@ -34,6 +34,24 @@ func TestPublicString(t *testing.T) {
 	}
 }
 
+func TestEncoded(t *testing.T) {
+	cases := []struct{
+		input string
+		ret bool
+	}{
+		{"ds-error:123:abc", true},
+		{"gobbidy-goop", false},
+	}
+
+	for _, c := range cases {
+		err := errors.New(c.input)
+		ret := Encoded(err)
+		if ret != c.ret {
+			t.Error("mismatch in return value", c.input, ret)
+		}
+	}
+}
+
 func TestFromStandard(t *testing.T) {
 	cases := []struct {
 		input string

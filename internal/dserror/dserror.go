@@ -78,7 +78,6 @@ func New(code domain.ErrorCode, extraMessages ...string) Error {
 // FromStandard takes a regular error type and turns it into ds error
 func FromStandard(err error) Error {
 	matches := stdRegex.FindStringSubmatch(err.Error())
-	fmt.Println(matches)
 	if len(matches) > 0 {
 		codeInt, err := strconv.Atoi(matches[1])
 		if err != nil {
@@ -88,6 +87,14 @@ func FromStandard(err error) Error {
 		return New(code, matches[2])
 	}
 	return New(InternalError, err.Error())
+}
+
+// Encoded tells you if an error is an encoded ds-error
+// Useful if you need to know whether to handle a stanard error
+// or if it was likely handled when it was made into a dserror
+func Encoded(err error) bool {
+	matches := stdRegex.FindStringSubmatch(err.Error())
+	return len(matches) > 0
 }
 
 // we might have a method that writes the 4xx response?
