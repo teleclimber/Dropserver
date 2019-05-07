@@ -21,7 +21,7 @@ var configDefault = []byte(`{
 		"num": 3
 	},
 	"loki": {
-		"push-url": "http://localhost:3100/api/prom/push"
+		"port": 3100
 	},
 	"prometheus": {
 		"port": 2112
@@ -89,8 +89,11 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 
 	// Loki:
-	if rtc.Loki.PushURL == "" { // would be btter if we could disable Loki
-		panic("you need a push url for Loki")
+	if rtc.Loki.Address == "" { // would be btter if we could disable Loki
+		panic("you need an address for Loki")
+	}
+	if rtc.Loki.Port == 0 {
+		panic("you need a port for Loki")
 	}
 
 	// Prometheus:

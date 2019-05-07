@@ -23,9 +23,11 @@ type LogDataHash struct {
 }
 
 // NewLogClient returns a generic log client
-func NewLogClient(Config *domain.RuntimeConfig) domain.LogCLientI {
+func NewLogClient(config *domain.RuntimeConfig) domain.LogCLientI {
+	pushURL := fmt.Sprintf("http://%s:%d/api/prom/push", config.Loki.Address, config.Loki.Port)
+	// ^^ isolate this and test it.
 	lokiConf := promtail.ClientConfig{
-		PushURL:            Config.Loki.PushURL,
+		PushURL:            pushURL,
 		Labels:             "{cmd=\"ds-host\"}",
 		BatchWait:          time.Second,
 		BatchEntriesNumber: 1000,
@@ -39,13 +41,14 @@ func NewLogClient(Config *domain.RuntimeConfig) domain.LogCLientI {
 		fmt.Println("error creating loki client", err)
 	}
 
-	return &DsLogClient{loki: loki, Config: Config}
+	return &DsLogClient{loki: loki, Config: config}
 }
 
 // NewSandboxLogClient creates a logging client with sandbox name as a label
 func (c *DsLogClient) NewSandboxLogClient(sandboxName string) domain.LogCLientI {
+	pushURL := fmt.Sprintf("http://%s:%d/api/prom/push", c.Config.Loki.Address, c.Config.Loki.Port)
 	lokiConf := promtail.ClientConfig{
-		PushURL:            c.Config.Loki.PushURL,
+		PushURL:            pushURL,
 		Labels:             "{cmd=\"ds-host\", sandbox=\"" + sandboxName + "\"}", //hmm
 		BatchWait:          time.Second,
 		BatchEntriesNumber: 1000,

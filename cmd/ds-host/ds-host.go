@@ -55,6 +55,7 @@ func main() {
 		Logger: logger }
 
 	trustedManager := trusted.Trusted{
+		Config: runtimeConfig,
 		RPCClient: &trustedClient }
 
 	trustedManager.Init(&initWg)

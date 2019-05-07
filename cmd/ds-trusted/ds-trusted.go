@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"net/rpc"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-trusted/appfiles"
+	"github.com/teleclimber/DropServer/cmd/ds-trusted/record"
+	"github.com/teleclimber/DropServer/cmd/ds-trusted/runtimeconfig"
 	"github.com/teleclimber/DropServer/cmd/ds-trusted/trustedservice"
 )
 
@@ -27,8 +30,15 @@ import (
 // - config
 
 func main() {
+	runtimeConfig := runtimeconfig.Load()
 
-	appFiles := appfiles.AppFiles{}
+	logger := record.NewLogClient(runtimeConfig)
+
+	logger.Log(domain.INFO, nil, "ds-trusted starting up")
+
+	appFiles := appfiles.AppFiles{
+		Logger: logger}
+
 	trustedAPI := trustedservice.TrustedAPI{
 		AppFiles: &appFiles}
 

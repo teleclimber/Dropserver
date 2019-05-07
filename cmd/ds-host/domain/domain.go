@@ -30,14 +30,21 @@ type RuntimeConfig struct {
 		Num int `json:"num"`
 	} `json:"sandbox"`
 	Loki struct {
-		PushURL string `json:"push-url"`
+		Port    int16  `json:"port"`
+		Address string `json:"address"`
 	} `json:"loki"`
 	Prometheus struct {
 		Port int16 `json:"port"`
 	} `json:"prometheus"`
 }
 
-// ^^ configs for metrics, logs, LXD stuff, sandboxes, etc...
+// TrustedConfig is the runtime configuration data for ds-trusted
+type TrustedConfig struct {
+	Loki struct {
+		Port    int16  `json:"port"`
+		Address string `json:"address"`
+	} `json:"loki"`
+}
 
 // ErrorCode represents integer codes for each error mesage
 type ErrorCode int

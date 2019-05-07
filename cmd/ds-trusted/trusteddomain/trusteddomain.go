@@ -9,6 +9,11 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+// LogCLientI represents an interface for logging
+type LogCLientI interface {
+	Log(domain.LogLevel, map[string]string, string)
+}
+
 // AppFilesI is the interface for saving and reading files of an application
 type AppFilesI interface {
 	Save(*domain.TrustedSaveAppFiles) (string, domain.Error)

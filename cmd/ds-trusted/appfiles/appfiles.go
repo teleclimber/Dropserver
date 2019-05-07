@@ -2,12 +2,14 @@ package appfiles
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-trusted/trusteddomain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -23,7 +25,7 @@ var appsPath = "/data/apps"
 // AppFiles is struct for application files manager
 type AppFiles struct {
 	// maybe a config?
-	// Logger
+	Logger trusteddomain.LogCLientI
 }
 
 // Save puts the data passed in files in an apps directory
@@ -31,20 +33,27 @@ func (a *AppFiles) Save(files *domain.TrustedSaveAppFiles) (string, domain.Error
 
 	dir, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {
-		// TODO: log and return internal error?
+		a.Logger.Log(domain.ERROR, nil, "AppFiles: failed to create app directory: "+err.Error())
 		return "", dserror.New(dserror.InternalError)
 	}
 
 	for f, data := range *files.Files {
-		f = filepath.Join(dir, f)
-		err = ioutil.WriteFile(f, data, 0666) // TODO: permissions?
+		fPath := filepath.Join(dir, f)
+		err = ioutil.WriteFile(fPath, data, 0666) // TODO: permissions?
 		if err != nil {
-			// TODO: log and return internal error?
+			a.Logger.Log(domain.ERROR, nil, "AppFiles: failed to write app file: "+f+": "+err.Error())
 			return "", dserror.New(dserror.InternalError, err.Error())
 		}
 	}
 
-	return filepath.Base(dir), nil
+	locationKey := filepath.Base(dir)
+
+	a.Logger.Log(domain.INFO,
+		map[string]string{"location-key": locationKey},
+		fmt.Sprintf("Appfiles: Saved %d files", len(*files.Files)))
+	// ^^ here locationKey is good to include in map, but it should really be a type so we can reliably use it
+
+	return locationKey, nil
 }
 
 // ReadMeta reads metadata from the files at location key
@@ -57,7 +66,9 @@ func (a *AppFiles) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domai
 		// Or it could be a more internal problem, like directory of apps not where it's expected to be.
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
-			// TODO: log that location key does not exist
+			a.Logger.Log(domain.ERROR,
+				map[string]string{"location-key": locationKey},
+				"AppFiles: Locationkey does not exist")
 			return nil, dserror.New(dserror.InternalError, "ReadMeta: Location key not found "+locationKey)
 		}
 		return nil, dserror.New(dserror.AppConfigNotFound)

@@ -1,6 +1,8 @@
 package trusted
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	lxd "github.com/lxc/lxd/client"
@@ -25,6 +27,7 @@ import (
 // Trusted manages the ds-trusted container and its communications
 type Trusted struct {
 	RPCClient domain.TrustedClientI
+	Config    *domain.RuntimeConfig
 }
 
 // ^^ there has to be config.
@@ -83,7 +86,7 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 	}
 
 	//////////
-	// now start the container
+	// now create and start the container
 
 	fmt.Println("Creating new Trusted Container")
 
@@ -115,7 +118,30 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	// ^^ only create a container if it's missing or needs to be upgraded?
 
+	// here we should inject runtime config...
+	trustedConfig := t.getTrustedConfig()
+	jsonConfig, err := json.Marshal(trustedConfig)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	configFileArgs := lxd.ContainerFileArgs{
+		Content:   bytes.NewReader(jsonConfig),
+		UID:       0,
+		GID:       0,
+		Mode:      440,
+		Type:      "file",
+		WriteMode: "overwrite"}
+	err = lxdConn.CreateContainerFile("ds-trusted", "/root/ds-trusted-config.json", configFileArgs)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// start the container
 	reqState := lxdApi.ContainerStatePut{
 		Action:  "start",
 		Timeout: -1,
@@ -138,6 +164,11 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 
 	t.RPCClient.Init(IP)
 
+}
+
+func (t *Trusted) getTrustedConfig() *domain.TrustedConfig {
+	return &domain.TrustedConfig{
+		Loki: t.Config.Loki}
 }
 
 func (t *Trusted) getIP() (containerIP string) {
