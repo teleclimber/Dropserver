@@ -12,6 +12,8 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
+	"github.com/teleclimber/DropServer/cmd/ds-host/database"
+	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
@@ -27,13 +29,47 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
-var hostAppSpace = map[string]string{}	// this stuff is DB model
-var appSpaceApp = map[string]string{}
+var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
 
 func main() {
 	flag.Parse()
 
 	runtimeConfig := runtimeconfig.Load(*configFlag)
+
+	dbManager := &database.Manager{
+		Config: runtimeConfig }
+
+	db, err := dbManager.Open()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	migrator := &migrate.Migrator{
+		OrderedSteps: migrate.OrderedSteps,
+		StringSteps: migrate.StringSteps,
+		Config: runtimeConfig,
+		DBManager: dbManager }
+
+	if *migrateFlag {
+		
+		dsErr := migrator.Migrate("")
+		if dsErr != nil {
+			fmt.Println("Error Migrating", dsErr.PublicString(), dsErr.ExtraMessage())
+			os.Exit(1)
+		}
+
+		sc := dbManager.GetSchema()
+		fmt.Println("schema after migration:", sc)
+
+		os.Exit(0)
+	}
+
+	// now check schema?
+	if dbManager.GetSchema() != migrator.LastStepName() {
+		fmt.Println("gotta migrate:", dbManager.GetSchema(), "->", migrator.LastStepName())
+		os.Exit(1)
+	}
 
 	record.Init(runtimeConfig)	// ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
@@ -43,7 +79,11 @@ func main() {
 	logger.Log(domain.INFO, nil, "ds-host is starting")
 
 	// models
-	appModel := appmodel.NewAppModel()
+	appModel := &appmodel.AppModel{
+		DB: db,
+		Logger: logger }
+	appModel.PrepareStatements()
+
 	appspaceModel := appspacemodel.NewAppspaceModel()
 
 	generateHostAppSpaces(100, appModel, appspaceModel, logger)
@@ -149,7 +189,7 @@ func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, 
 	for i := 1; i <= n; i++ {
 		appSpace = fmt.Sprintf("as%d", i)
 		app = fmt.Sprintf("app%d", i)
-		am.Create( &domain.App{Name:app})
+		//am.Create( &domain.App{Name:app})
 		asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
 	}
 }

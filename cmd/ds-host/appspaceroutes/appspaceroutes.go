@@ -33,36 +33,27 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		http.Error(res, "Appspace does not exist", http.StatusNotFound)
 		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName},
 			"Appspace does not exist: "+appspaceName)
+		return
+	}
+	routeData.Appspace = appspace
+
+	//... now shift path to get the first param and see if it is dropserver
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
+	if head == "dropserver" {
+		// handle with dropserver routes handler
+		routeData.URLTail = tail
+		r.DropserverRoutes.ServeHTTP(res, req, routeData)
 	} else {
-		routeData.Appspace = appspace
-	}
-
-	var app *domain.App
-	if ok {
-		//... now shift path to get the first param and see if it is dropserver
-		head, tail := shiftpath.ShiftPath(routeData.URLTail)
-		if head == "dropserver" {
-			// handle with dropserver routes handler
-			routeData.URLTail = tail
-			r.DropserverRoutes.ServeHTTP(res, req, routeData)
-		} else {
-			app, ok = r.AppModel.GetForName(appspace.AppName)
-			if !ok {
-				http.Error(res, "App does not exist", http.StatusInternalServerError)
-				r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName, "app": appspace.AppName},
-					"App does not exist: "+appspace.AppName)
-			} else {
-				routeData.App = app
-			}
+		app, dsErr := r.AppModel.GetFromID(appspace.AppID)
+		if dsErr != nil {
+			//http.Error(res, "App does not exist", http.StatusInternalServerError)
+			r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName, "app": appspace.AppName},
+				"App does not exist: "+appspace.AppName)
+			dsErr.HTTPError(res)
+			return
 		}
-	}
+		routeData.App = app
 
-	if ok && app != nil {
-		// get app space config, match route, do auth, route type switch
-		// lots of stuff here that we won't have implemented for a while.
-
-		// For now assume it goes to sandbox
 		r.SandboxProxy.ServeHTTP(res, req, routeData)
-
 	}
 }

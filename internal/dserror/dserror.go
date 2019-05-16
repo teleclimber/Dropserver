@@ -113,7 +113,13 @@ func Encoded(err error) bool {
 // 32xx application route errors
 // 34xx appspace management route errors
 // 50xx admin route errors
-// 70xx app-space route errors
+// 60xx app-space route errors
+// 90xx config / administriator errors (emitted at startup/migration time, or whenever administrator is interacting)
+// 92xx migrations
+// 94xx db errors (schema mismatch, inaccessible, ...)
+
+// now I'm thinking I want individual error codes for internal errors too.
+// Could we ue negative numbers for internal errors?
 
 const (
 	// InternalError is a special error code that will not print its extra messages
@@ -121,6 +127,10 @@ const (
 	AppConfigNotFound    domain.ErrorCode = 3201
 	AppConfigParseFailed domain.ErrorCode = 3202
 	AppConfigProblem 	 domain.ErrorCode = 3203
+
+	MigrateDownNotSupported	domain.ErrorCode = 9201
+	MigrationNameNotFound domain.ErrorCode = 9202
+	MigrationNotPossible domain.ErrorCode = 9203
 )
 
 var errorMesage = map[domain.ErrorCode]string{
@@ -128,6 +138,10 @@ var errorMesage = map[domain.ErrorCode]string{
 	AppConfigNotFound:    "Could not find application.json",
 	AppConfigParseFailed: "Failed to parse application.json",
 	AppConfigProblem:     "Problem in application.json",
+
+	MigrateDownNotSupported: "Migrate down not supported",
+	MigrationNameNotFound: "Migration string not found",
+	MigrationNotPossible: "Migration is not possible",
 }
 
 var httpCode = map[domain.ErrorCode]int{

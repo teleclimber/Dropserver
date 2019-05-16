@@ -1,11 +1,13 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,TrustedClientI
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,TrustedClientI
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
 	"net/http"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // don't import anything
@@ -22,7 +24,8 @@ import (
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
 type RuntimeConfig struct {
-	Server struct {
+	DataDir string `json:"data-dir"`
+	Server  struct {
 		Port int16  `json:"port"`
 		Host string `json:"host"`
 	} `json:"server"`
@@ -36,6 +39,20 @@ type RuntimeConfig struct {
 	Prometheus struct {
 		Port int16 `json:"port"`
 	} `json:"prometheus"`
+}
+
+// DB is the global host database handler
+// OK, but it does not need to be wrapped in a struct!
+type DB struct {
+	Handle *sqlx.DB
+}
+
+// DBManagerI is Migration interface
+type DBManagerI interface {
+	Open() (*DB, Error)
+	GetHandle() *DB
+	GetSchema() string
+	SetSchema(string) Error
 }
 
 // TrustedConfig is the runtime configuration data for ds-trusted
@@ -152,19 +169,23 @@ type RouteHandler interface {
 
 // App represents the data structure for an App.
 type App struct {
-	Name string
-	// Version string
+	AppID       int64 `db:"rowid"`
+	Name        string
+	LocationKey string `db:"location_key"`
+	// Version string ...no, that's AppVersion
 	// OwnerID UserID
 }
 
 // AppModel is the interface for the appspace model
 type AppModel interface {
-	GetForName(string) (*App, bool)
-	Create(*App)
+	//GetForName(string) (*App, bool) //this one needs work. Probably don't rely on names!
+	GetFromID(int64) (*App, Error)
+	Create(string, string) (*App, Error)
 }
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
+	AppID   int64 // should we wrap that in a type? Seems like that could be nice
 	Name    string
 	AppName string
 	// AppVersion string

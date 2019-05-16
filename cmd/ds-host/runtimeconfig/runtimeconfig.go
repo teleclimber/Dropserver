@@ -71,6 +71,10 @@ func mergeLocal(rtc *domain.RuntimeConfig, handle io.Reader) {
 func validateConfig(rtc *domain.RuntimeConfig) {
 	// just panic if it fails.
 
+	if rtc.DataDir == "" {
+		panic("You need to specify a data directory")
+	}
+
 	// Server:
 	if rtc.Server.Port == 0 {
 		panic("Server.port can not be 0")

@@ -33,12 +33,27 @@ func (m *MockAppFilesI) EXPECT() *MockAppFilesIMockRecorder {
 	return m.recorder
 }
 
+// ReadMeta mocks base method
+func (m *MockAppFilesI) ReadMeta(arg0 string) (*domain.AppFilesMetadata, domain.Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadMeta", arg0)
+	ret0, _ := ret[0].(*domain.AppFilesMetadata)
+	ret1, _ := ret[1].(domain.Error)
+	return ret0, ret1
+}
+
+// ReadMeta indicates an expected call of ReadMeta
+func (mr *MockAppFilesIMockRecorder) ReadMeta(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMeta", reflect.TypeOf((*MockAppFilesI)(nil).ReadMeta), arg0)
+}
+
 // Save mocks base method
-func (m *MockAppFilesI) Save(arg0 *domain.TrustedSaveAppFiles) (string, error) {
+func (m *MockAppFilesI) Save(arg0 *domain.TrustedSaveAppFiles) (string, domain.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save", arg0)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
+	ret1, _ := ret[1].(domain.Error)
 	return ret0, ret1
 }
 

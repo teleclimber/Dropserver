@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // test ServeHTTP
@@ -134,7 +135,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	appspaceModel.EXPECT().GetForName("as1").Return(&domain.Appspace{Name: "as1", AppName: "app1"}, true)
-	appModel.EXPECT().GetForName("app1").Return(nil, false)
+	appModel.EXPECT().GetFromID(gomock.Any()).Return(nil, dserror.New(dserror.InternalError))
 	logger.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
@@ -177,10 +178,15 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	appspaceModel.EXPECT().GetForName("as1").Return(&domain.Appspace{Name: "as1", AppName: "app1"}, true)
-	appModel.EXPECT().GetForName("app1").Return(&domain.App{Name: "app1"}, true)
+	appModel.EXPECT().GetFromID(gomock.Any()).Return(&domain.App{Name: "app1"}, nil)
 	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
 
+	// ^^ here we are checking against routeData, which is a pointer
+	// so it's not testing whether the call populated routeData correctly.
+
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
+
+	// TODO: check routeData was properly augmented (app, appspace)
 }
 
 func getASR(mockCtrl *gomock.Controller) *AppspaceRoutes {
