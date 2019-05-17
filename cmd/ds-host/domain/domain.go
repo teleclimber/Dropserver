@@ -169,23 +169,32 @@ type RouteHandler interface {
 
 // App represents the data structure for an App.
 type App struct {
-	AppID       int64 `db:"rowid"`
-	Name        string
+	OwnerID uint32 `db:"owner_id"` // just int, or can we wrap that in a type?
+	AppID   uint32 `db:"app_id"`
+	Name    string
+	Created time.Time
+}
+
+// AppVersion represents a set of app files with a version
+type AppVersion struct {
+	AppID       uint32 `db:"app_id"`
+	Version     string
+	Created     time.Time
 	LocationKey string `db:"location_key"`
-	// Version string ...no, that's AppVersion
-	// OwnerID UserID
 }
 
 // AppModel is the interface for the appspace model
 type AppModel interface {
 	//GetForName(string) (*App, bool) //this one needs work. Probably don't rely on names!
-	GetFromID(int64) (*App, Error)
-	Create(string, string) (*App, Error)
+	GetFromID(uint32) (*App, Error)
+	Create(uint32, string) (*App, Error)
+	GetVersion(uint32, string) (*AppVersion, Error)
+	CreateVersion(uint32, string, string) (*AppVersion, Error)
 }
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
-	AppID   int64 // should we wrap that in a type? Seems like that could be nice
+	AppID   uint32 // should we wrap that in a type? Seems like that could be nice
 	Name    string
 	AppName string
 	// AppVersion string

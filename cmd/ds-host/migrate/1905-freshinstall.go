@@ -19,7 +19,21 @@ func freshInstallUp(args *stepArgs) domain.Error {
 
 	//... skipping a bunch of tables for the moment
 
-	args.dbExec(`CREATE TABLE "apps" ("name" TEXT, "location_key" TEXT)`)
+	args.dbExec(`CREATE TABLE "apps" (
+		"owner_id" INTEGER,
+		"app_id" INTEGER PRIMARY KEY ASC,
+		"name" TEXT,
+		"created" DATETIME
+	)`)
+	// probably need to index owner-id
+	// consider using autoincrement on app-id to prevent id reuse from deleted rows
+
+	args.dbExec(`CREATE TABLE "app_versions" (
+		"app_id" INTEGER,
+		"version" TEXT,
+		"location_key" TEXT,
+		"created" DATETIME
+	)`)
 
 	if args.dbErr != nil {
 		return dserror.FromStandard(args.dbErr)

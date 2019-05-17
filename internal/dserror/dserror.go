@@ -131,6 +131,8 @@ const (
 	MigrateDownNotSupported	domain.ErrorCode = 9201
 	MigrationNameNotFound domain.ErrorCode = 9202
 	MigrationNotPossible domain.ErrorCode = 9203
+
+	OutOFBounds domain.ErrorCode = 9401
 )
 
 var errorMesage = map[domain.ErrorCode]string{
@@ -142,6 +144,8 @@ var errorMesage = map[domain.ErrorCode]string{
 	MigrateDownNotSupported: "Migrate down not supported",
 	MigrationNameNotFound: "Migration string not found",
 	MigrationNotPossible: "Migration is not possible",
+
+	OutOFBounds: "Value can not be stored or read as it is too big",
 }
 
 var httpCode = map[domain.ErrorCode]int{

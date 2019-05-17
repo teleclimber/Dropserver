@@ -57,16 +57,13 @@ func TestCreate(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, dsErr := appModel.Create("test-app", "some-location")
+	app, dsErr := appModel.Create(uint32(1), "test-app")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
 
 	if app.Name != "test-app" {
 		t.Error("input name does not match output name", app)
-	}
-	if app.LocationKey != "some-location" {
-		t.Error("input location key does not match output")
 	}
 }
 
@@ -82,7 +79,7 @@ func TestGetFromID(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	_, dsErr := appModel.Create("test-app", "some-location")
+	_, dsErr := appModel.Create(1, "test-app")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -97,3 +94,44 @@ func TestGetFromID(t *testing.T) {
 		t.Error("app.AppID does not match requested ID", app)
 	}
 }
+
+func TestVersion(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", "foo-location")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if appVersion.Version != "0.0.1" {
+		t.Error("input version does not match output version", appVersion)
+	}
+
+	if appVersion.LocationKey != "foo-location" {
+		t.Error("input does not match output location key", appVersion)
+	}
+
+	// just go ahead and test GetVersion here for completeness
+	appVersion, dsErr = appModel.GetVersion(1, "0.0.1")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if appVersion.Version != "0.0.1" {
+		t.Error("input version does not match output version", appVersion)
+	}
+
+	if appVersion.LocationKey != "foo-location" {
+		t.Error("input does not match output location key", appVersion)
+	}
+}
+

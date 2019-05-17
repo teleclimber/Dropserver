@@ -364,7 +364,7 @@ func (m *MockAppModel) EXPECT() *MockAppModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppModel) Create(arg0, arg1 string) (*App, Error) {
+func (m *MockAppModel) Create(arg0 uint32, arg1 string) (*App, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(*App)
@@ -378,8 +378,23 @@ func (mr *MockAppModelMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppModel)(nil).Create), arg0, arg1)
 }
 
+// CreateVersion mocks base method
+func (m *MockAppModel) CreateVersion(arg0 uint32, arg1, arg2 string) (*AppVersion, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*AppVersion)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// CreateVersion indicates an expected call of CreateVersion
+func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2)
+}
+
 // GetFromID mocks base method
-func (m *MockAppModel) GetFromID(arg0 int64) (*App, Error) {
+func (m *MockAppModel) GetFromID(arg0 uint32) (*App, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFromID", arg0)
 	ret0, _ := ret[0].(*App)
@@ -391,6 +406,21 @@ func (m *MockAppModel) GetFromID(arg0 int64) (*App, Error) {
 func (mr *MockAppModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromID", reflect.TypeOf((*MockAppModel)(nil).GetFromID), arg0)
+}
+
+// GetVersion mocks base method
+func (m *MockAppModel) GetVersion(arg0 uint32, arg1 string) (*AppVersion, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVersion", arg0, arg1)
+	ret0, _ := ret[0].(*AppVersion)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetVersion indicates an expected call of GetVersion
+func (mr *MockAppModelMockRecorder) GetVersion(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockAppModel)(nil).GetVersion), arg0, arg1)
 }
 
 // MockAppspaceModel is a mock of AppspaceModel interface

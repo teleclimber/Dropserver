@@ -100,8 +100,6 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		fmt.Println("got response from ds-trusted", saveReply)
-
 		metaReply, err := a.TrustedClient.GetAppMeta(&domain.TrustedGetAppMeta{
 			LocationKey: saveReply.LocationKey})
 		if err != nil {
@@ -112,11 +110,22 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		// now you have to add a row to the DB (or two?)
-		// - one row for application (new app-id because we posted without specifying an app-id)
-		// - one for the actual uploaded code: appid, version, locationKey
+		var ownerID uint32 = 111 // TODO: use an acutal owner id from auth
+		app, dsErr := a.AppModel.Create(ownerID, metaReply.AppFilesMetadata.AppName)
+		if dsErr != nil {
+			fmt.Println(err, err.ExtraMessage())
+			dsErr.HTTPError(res)
+			return
+		}
 
-		fmt.Println("got response for metadata", metaReply.AppFilesMetadata)
+		appVersion, dsErr := a.AppModel.CreateVersion(app.AppID, metaReply.AppFilesMetadata.AppVersion, saveReply.LocationKey)
+		if dsErr != nil {
+			fmt.Println(err, err.ExtraMessage())
+			dsErr.HTTPError(res)
+			return
+		}
+
+		fmt.Println("got response for metadata", metaReply.AppFilesMetadata, app, appVersion)
 
 		res.WriteHeader(http.StatusOK)
 
