@@ -20,7 +20,7 @@ import (
 // Gah should we inject a filesystem abstraction, or is it not worth it?
 // Probably inject a config with file locations, and use that to mock files?
 
-var appsPath = "/data/apps"
+var appsPath = "/mnt/data/apps"
 
 // AppFiles is struct for application files manager
 type AppFiles struct {
@@ -30,6 +30,12 @@ type AppFiles struct {
 
 // Save puts the data passed in files in an apps directory
 func (a *AppFiles) Save(files *domain.TrustedSaveAppFiles) (string, domain.Error) {
+
+	err := os.MkdirAll(appsPath, 0666)
+	if err != nil {
+		a.Logger.Log(domain.ERROR, nil, "AppFiles: failed to create apps directory: "+err.Error())
+		return "", dserror.New(dserror.InternalError)
+	}
 
 	dir, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {

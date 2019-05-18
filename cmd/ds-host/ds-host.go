@@ -86,7 +86,7 @@ func main() {
 
 	appspaceModel := appspacemodel.NewAppspaceModel()
 
-	generateHostAppSpaces(100, appModel, appspaceModel, logger)
+	//generateHostAppSpaces(100, appModel, appspaceModel, logger)
 
 	var initWg sync.WaitGroup
 	initWg.Add(2)

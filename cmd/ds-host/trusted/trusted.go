@@ -86,7 +86,7 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 	}
 
 	//////////
-	// now create and start the container
+	// now create the container anew
 
 	fmt.Println("Creating new Trusted Container")
 
@@ -95,7 +95,8 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 		"trusted-data": {
 			"type":   "disk",
 			"path":   "/mnt/data/",
-			"source": trustedDataPath + "/"}}
+			"pool":   "dir-pool", // these should come from Config I suppose.
+			"source": "ds-data"}} // And the creation of the volume should be handled by install script
 
 	req := lxdApi.ContainersPost{
 		Name: "ds-trusted",
@@ -141,7 +142,7 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 		os.Exit(1)
 	}
 
-	// start the container
+	// now start the container
 	reqState := lxdApi.ContainerStatePut{
 		Action:  "start",
 		Timeout: -1,

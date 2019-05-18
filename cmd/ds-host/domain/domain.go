@@ -24,7 +24,7 @@ import (
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
 type RuntimeConfig struct {
-	DataDir string `json:"data-dir"`
+	DataDir string `json:"data-dir"` // this might get confusing when we also config trusted volume data
 	Server  struct {
 		Port int16  `json:"port"`
 		Host string `json:"host"`
