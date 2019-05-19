@@ -55,7 +55,7 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetForName("as1").Return(nil, false)
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(nil, dserror.New(dserror.NoRowsInResultSet))
 	logger.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
@@ -96,7 +96,7 @@ func TestServeHTTPDropserverRoute(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetForName("as1").Return(&domain.Appspace{Name: "as1", AppName: "app1"}, true)
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	dropserverRoutes.EXPECT().ServeHTTP(rr, req, routeData)
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
@@ -134,7 +134,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetForName("as1").Return(&domain.Appspace{Name: "as1", AppName: "app1"}, true)
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	appModel.EXPECT().GetFromID(gomock.Any()).Return(nil, dserror.New(dserror.InternalError))
 	logger.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
 
@@ -177,7 +177,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetForName("as1").Return(&domain.Appspace{Name: "as1", AppName: "app1"}, true)
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	appModel.EXPECT().GetFromID(gomock.Any()).Return(&domain.App{Name: "app1"}, nil)
 	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
 

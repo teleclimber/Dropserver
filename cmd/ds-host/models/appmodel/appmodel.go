@@ -61,10 +61,14 @@ func (m *AppModel) PrepareStatements() {
 	}
 }
 
-// GetForUser
+// Additional methods:
+// - GetForUser
+// - Get versions
+// - Delete, DeleteVersion
+// Some of the other methods from nodejs impl prob belong in trusted
 
 // GetFromID gets the app using its unique ID on the system
-func (m *AppModel) GetFromID(appID uint32) (*domain.App, domain.Error) {
+func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, domain.Error) {
 	var app domain.App
 
 	err := m.stmt.selectID.QueryRowx(appID).StructScan(&app)
@@ -80,7 +84,7 @@ func (m *AppModel) GetFromID(appID uint32) (*domain.App, domain.Error) {
 // This should return an unique ID, right?
 // Other arguments: owner, and possibly other things like create date
 // Should we have CreateArgs type struct to guarantee proper data passing? -> yes
-func (m *AppModel) Create(ownerID uint32, name string) (*domain.App, domain.Error) {
+func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, domain.Error) {
 	// location key isn't here. It's in a version.
 	// do we check name and locationKey for epty string or excess length?
 	// -> probably, yes. Or where should that actually happen?
@@ -98,7 +102,7 @@ func (m *AppModel) Create(ownerID uint32, name string) (*domain.App, domain.Erro
 		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
 	}
 
-	appID := uint32(lastID)
+	appID := domain.AppID(lastID) //uint32(lastID)
 
 	app, dsErr := m.GetFromID(appID)
 	if dsErr != nil {
@@ -109,7 +113,7 @@ func (m *AppModel) Create(ownerID uint32, name string) (*domain.App, domain.Erro
 }
 
 // GetVersion returns the version for the app
-func (m *AppModel) GetVersion(appID uint32, version string) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, domain.Error) {
 	var appVersion domain.AppVersion
 
 	err := m.stmt.selectVersion.QueryRowx(appID, version).StructScan(&appVersion)
@@ -124,7 +128,7 @@ func (m *AppModel) GetVersion(appID uint32, version string) (*domain.AppVersion,
 // has appid, version, location key, create date
 // use appid and version as primary keys
 // index on appid as well
-func (m *AppModel) CreateVersion(appID uint32, version string, locationKey string) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, locationKey string) (*domain.AppVersion, domain.Error) {
 
 	_, err := m.stmt.insertVersion.Exec(appID, version, locationKey)
 	if err != nil {

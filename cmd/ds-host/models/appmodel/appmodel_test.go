@@ -7,11 +7,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 )
 
-// Issues with testing models against a live (in-memory DB)
-// - need to consistently create a db that is at the latest schema
-// - this needs to be done in a test rig close to migration so it can be reused in all models
-// - in-memory dbs are tiesd to a single connection and vanish when it closes. So watch out for that.
-
 func TestPrepareStatements(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
@@ -57,7 +52,7 @@ func TestCreate(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, dsErr := appModel.Create(uint32(1), "test-app")
+	app, dsErr := appModel.Create(domain.UserID(1), "test-app")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}

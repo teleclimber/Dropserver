@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -23,16 +24,17 @@ type AppspaceRoutes struct {
 
 // ServeHTTP handles http traffic to the appspace
 func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	var ok bool
-
 	subdomains := *routeData.Subdomains
-	appspaceName := subdomains[len(subdomains)-1]
+	appspaceSubdomain := subdomains[len(subdomains)-1]
 
-	appspace, ok := r.AppspaceModel.GetForName(appspaceName)
-	if !ok {
+	appspace, dsErr := r.AppspaceModel.GetFromSubdomain(appspaceSubdomain)
+	if dsErr != nil && dsErr.Code() == dserror.NoRowsInResultSet {
 		http.Error(res, "Appspace does not exist", http.StatusNotFound)
-		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName},
-			"Appspace does not exist: "+appspaceName)
+		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain},
+			"Appspace does not exist: "+appspaceSubdomain)
+		return
+	} else if dsErr != nil {
+		dsErr.HTTPError(res)
 		return
 	}
 	routeData.Appspace = appspace
@@ -45,10 +47,9 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		r.DropserverRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		app, dsErr := r.AppModel.GetFromID(appspace.AppID)
-		if dsErr != nil {
-			//http.Error(res, "App does not exist", http.StatusInternalServerError)
-			r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceName, "app": appspace.AppName},
-				"App does not exist: "+appspace.AppName)
+		if dsErr != nil { // do we differentiate between empty result vs other errors?
+			r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain, "app": string(appspace.AppID)},
+				"App does not exist: "+string(appspace.AppID))
 			dsErr.HTTPError(res)
 			return
 		}

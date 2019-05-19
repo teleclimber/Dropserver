@@ -26,7 +26,7 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"created" DATETIME
 	)`)
 	// probably need to index owner-id
-	// consider using autoincrement on app-id to prevent id reuse from deleted rows
+	// TODO: use autoincrement on all *-id to prevent id reuse from deleted rows
 
 	args.dbExec(`CREATE TABLE "app_versions" (
 		"app_id" INTEGER,
@@ -34,6 +34,20 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"location_key" TEXT,
 		"created" DATETIME
 	)`)
+
+	// appspaces:
+	args.dbExec(`CREATE TABLE "appspaces" (
+		"appspace_id" INTEGER PRIMARY KEY ASC,
+		"owner_id" INTEGER,
+		"app_id" INTEGER,
+		"app_version" TEXT,
+		"subdomain" TEXT,
+		"paused" INTEGER DEFAULT 0,
+		"created" DATETIME
+	)`)
+	args.dbExec(`CREATE UNIQUE INDEX appspace_subdomain ON appspaces (subdomain)`)
+	// probably index owner_id. and maybe app_id?
+	// can we enforce unique subdomain at DB level?
 
 	if args.dbErr != nil {
 		return dserror.FromStandard(args.dbErr)

@@ -110,7 +110,7 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		var ownerID uint32 = 111 // TODO: use an acutal owner id from auth
+		ownerID := domain.UserID(111) // TODO: use an actual owner id from auth
 		app, dsErr := a.AppModel.Create(ownerID, metaReply.AppFilesMetadata.AppName)
 		if dsErr != nil {
 			fmt.Println(err, err.ExtraMessage())

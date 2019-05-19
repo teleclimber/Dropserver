@@ -70,8 +70,7 @@ func (t *Trusted) Init(wg *sync.WaitGroup) {
 			}
 		}
 
-		fmt.Println("Deleting Container", oldContainer.Name) //TODO: Ahh no! don't do taht!! OR find better way to do that!
-		// You're going to lose all your data this way.
+		fmt.Println("Deleting Container", oldContainer.Name) //find better way to do that!
 
 		op, err := lxdConn.DeleteContainer(oldContainer.Name)
 		if err != nil {

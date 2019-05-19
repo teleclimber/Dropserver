@@ -105,7 +105,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		URLTail:    "/abc",           // parametrize
 		Subdomains: &[]string{"as1"}, // parametrize, or override in test fn.
 		App:        &domain.App{Name: "app1"},
-		Appspace:   &domain.Appspace{Name: "as1", AppName: "app1"}}
+		Appspace:   &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}}
 
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 

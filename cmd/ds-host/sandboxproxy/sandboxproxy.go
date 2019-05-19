@@ -22,7 +22,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	defer s.Metrics.HostHandleReq(time.Now())
 
 	appName := routeData.App.Name
-	appspaceName := routeData.Appspace.Name
+	appspaceName := routeData.Appspace.Subdomain
 
 	fmt.Println("in request handler", appspaceName, appName)
 

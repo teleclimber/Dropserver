@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
-	"strconv"
 	"sync"
 	"syscall"
 
@@ -84,7 +83,10 @@ func main() {
 		Logger: logger }
 	appModel.PrepareStatements()
 
-	appspaceModel := appspacemodel.NewAppspaceModel()
+	appspaceModel := &appspacemodel.AppspaceModel{
+		DB: db,
+		Logger: logger }
+	appspaceModel.PrepareStatements()
 
 	//generateHostAppSpaces(100, appModel, appspaceModel, logger)
 
@@ -183,14 +185,14 @@ func main() {
 	fmt.Println("Leaving main func")
 }
 
-func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, logger domain.LogCLientI) {
-	logger.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
-	var appSpace, app string
-	for i := 1; i <= n; i++ {
-		appSpace = fmt.Sprintf("as%d", i)
-		app = fmt.Sprintf("app%d", i)
-		//am.Create( &domain.App{Name:app})
-		asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
-	}
-}
+// func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, logger domain.LogCLientI) {
+// 	logger.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
+// 	var appSpace, app string
+// 	for i := 1; i <= n; i++ {
+// 		appSpace = fmt.Sprintf("as%d", i)
+// 		app = fmt.Sprintf("app%d", i)
+// 		//am.Create( &domain.App{Name:app})
+// 		//asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
+// 	}
+// }
 

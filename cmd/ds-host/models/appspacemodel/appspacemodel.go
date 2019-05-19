@@ -1,38 +1,112 @@
 package appspacemodel
 
 import (
+	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 )
-
-// inject DB, logger, ...
 
 // AppspaceModel represents the model for app spaces
 type AppspaceModel struct {
-	appspaces map[string]domain.Appspace
-}
+	DB *domain.DB
+	Logger domain.LogCLientI
 
-// NewAppspaceModel creates and initializes AppspaceModel
-func NewAppspaceModel() *AppspaceModel {
-	return &AppspaceModel{
-		appspaces: make(map[string]domain.Appspace),
+	stmt struct {
+		selectID      *sqlx.Stmt
+		selectSubdomain *sqlx.Stmt
+		insert     *sqlx.Stmt
 	}
 }
 
-// GetForName returns the apps space data by app space name
-func (m *AppspaceModel) GetForName(appspaceName string) (appspace *domain.Appspace, ok bool) {
-	as, ok := m.appspaces[appspaceName]
+// PrepareStatements for appspace model
+func (m *AppspaceModel) PrepareStatements() {
+	// Here is the place to get clever with statements if using multiple DBs.
 
-	if ok {
-		return &as, ok
+	var err error
+
+	//get from ID
+	m.stmt.selectID, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE appspace_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM appspaces..."+err.Error())
+		panic(err)
 	}
-	return nil, false
+
+	//get from subdomain
+	m.stmt.selectSubdomain, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE subdomain = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT with subdomain..."+err.Error())
+		panic(err)
+	}
+
+	// insert app:
+	m.stmt.insert, err = m.DB.Handle.Preparex(`INSERT INTO appspaces
+		("owner_id", "app_id", "app_version", subdomain, created) VALUES (?, ?, ?, ?, datetime("now"))`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO appspaces..."+err.Error())
+		panic(err)
+	}
 }
 
-// GetForUser...
+// Methods:
+// - GetForUSer 
+// - GetFromID
+// - Create
+// - Update
+// - Delete
 
+// GetFromID gets an AppSpace by its ID
+func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error) {
+	var appspace domain.Appspace
+
+	err := m.stmt.selectID.QueryRowx(appspaceID).StructScan(&appspace)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+	// ^^ here we should differentiate between no rows returned and every other error
+
+	return &appspace, nil
+}
+
+// GetFromSubdomain gets an AppSpace by looking up the subdomain
+func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, domain.Error) {
+	var appspace domain.Appspace
+
+	err := m.stmt.selectSubdomain.QueryRowx(subdomain).StructScan(&appspace)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, dserror.New(dserror.NoRowsInResultSet)
+		}
+		return nil, dserror.FromStandard(err)
+	}
+
+	return &appspace, nil
+}
 
 // Create adds an appspace to the database
-func (m *AppspaceModel) Create(appspace *domain.Appspace) {
-	m.appspaces[appspace.Name] = *appspace
+func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string) (*domain.Appspace, domain.Error) {
+	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain)
+	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: appspaces.subdomain" {
+			return nil, dserror.New(dserror.DomainNotUnique)
+		}
+		return nil, dserror.FromStandard(err)
+	}
+
+	lastID, err := r.LastInsertId()
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+	if lastID >= 0xFFFFFFFF {
+		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
+	}
+
+	appspaceID := domain.AppspaceID(lastID)
+
+	appspace, dsErr := m.GetFromID(appspaceID)
+	if dsErr != nil {
+		return nil, dsErr
+	}
+
+	return appspace, nil	
 }
 

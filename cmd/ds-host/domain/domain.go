@@ -167,46 +167,60 @@ type RouteHandler interface {
 ///////////////////////////////////
 // Data Models:
 
+// UserID represents the user ID
+type UserID uint32
+
+// AppID is an application ID
+type AppID uint32
+
+// Version is a version string like 0.0.1
+type Version string
+
+// AppspaceID is a nique ID for an appspace
+type AppspaceID uint32
+
 // App represents the data structure for an App.
 type App struct {
-	OwnerID uint32 `db:"owner_id"` // just int, or can we wrap that in a type?
-	AppID   uint32 `db:"app_id"`
+	OwnerID UserID `db:"owner_id"` // just int, or can we wrap that in a type?
+	AppID   AppID  `db:"app_id"`
 	Name    string
 	Created time.Time
 }
 
 // AppVersion represents a set of app files with a version
 type AppVersion struct {
-	AppID       uint32 `db:"app_id"`
-	Version     string
+	AppID       AppID `db:"app_id"`
+	Version     Version
 	Created     time.Time
 	LocationKey string `db:"location_key"`
 }
 
 // AppModel is the interface for the appspace model
 type AppModel interface {
-	//GetForName(string) (*App, bool) //this one needs work. Probably don't rely on names!
-	GetFromID(uint32) (*App, Error)
-	Create(uint32, string) (*App, Error)
-	GetVersion(uint32, string) (*AppVersion, Error)
-	CreateVersion(uint32, string, string) (*AppVersion, Error)
+	GetFromID(AppID) (*App, Error)
+	Create(UserID, string) (*App, Error)
+	GetVersion(AppID, Version) (*AppVersion, Error)
+	CreateVersion(AppID, Version, string) (*AppVersion, Error)
 }
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
-	AppID   uint32 // should we wrap that in a type? Seems like that could be nice
-	Name    string
-	AppName string
-	// AppVersion string
-	// Paused bool
-	// OwnerID UserID
+	OwnerID    UserID     `db:"owner_id"`
+	AppspaceID AppspaceID `db:"appspace_id"`
+	AppID      AppID      `db:"app_id"`
+	AppVersion Version    `db:"app_version"`
+	Subdomain  string
+	Created    time.Time
+	Paused     bool
+
 	// Config AppspaceConfig ..this one is harder
 }
 
 // AppspaceModel is the interface for the appspace model
 type AppspaceModel interface {
-	GetForName(string) (*Appspace, bool)
-	Create(*Appspace)
+	GetFromID(AppspaceID) (*Appspace, Error)
+	GetFromSubdomain(string) (*Appspace, Error)
+	Create(UserID, AppID, Version, string) (*Appspace, Error)
 }
 
 // TrustedClientI is the interface for the client of the ds-trusted remote service
@@ -245,8 +259,8 @@ type TrustedGetAppMetaReply struct {
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName    string `json:"name"`
-	AppVersion string `json:"version"`
+	AppName    string  `json:"name"`
+	AppVersion Version `json:"version"`
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
 }

@@ -133,6 +133,8 @@ const (
 	MigrationNotPossible domain.ErrorCode = 9203
 
 	OutOFBounds domain.ErrorCode = 9401
+	NoRowsInResultSet domain.ErrorCode = 9402
+	DomainNotUnique domain.ErrorCode = 9410
 )
 
 var errorMesage = map[domain.ErrorCode]string{
@@ -146,6 +148,10 @@ var errorMesage = map[domain.ErrorCode]string{
 	MigrationNotPossible: "Migration is not possible",
 
 	OutOFBounds: "Value can not be stored or read as it is too big",
+	NoRowsInResultSet: "No rows in result set",
+
+	DomainNotUnique: "The subdomain or address is not unique",
+
 }
 
 var httpCode = map[domain.ErrorCode]int{

@@ -364,7 +364,7 @@ func (m *MockAppModel) EXPECT() *MockAppModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppModel) Create(arg0 uint32, arg1 string) (*App, Error) {
+func (m *MockAppModel) Create(arg0 UserID, arg1 string) (*App, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(*App)
@@ -379,7 +379,7 @@ func (mr *MockAppModelMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // CreateVersion mocks base method
-func (m *MockAppModel) CreateVersion(arg0 uint32, arg1, arg2 string) (*AppVersion, Error) {
+func (m *MockAppModel) CreateVersion(arg0 AppID, arg1 Version, arg2 string) (*AppVersion, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*AppVersion)
@@ -394,7 +394,7 @@ func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2 interface{}) 
 }
 
 // GetFromID mocks base method
-func (m *MockAppModel) GetFromID(arg0 uint32) (*App, Error) {
+func (m *MockAppModel) GetFromID(arg0 AppID) (*App, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFromID", arg0)
 	ret0, _ := ret[0].(*App)
@@ -409,7 +409,7 @@ func (mr *MockAppModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
 }
 
 // GetVersion mocks base method
-func (m *MockAppModel) GetVersion(arg0 uint32, arg1 string) (*AppVersion, Error) {
+func (m *MockAppModel) GetVersion(arg0 AppID, arg1 Version) (*AppVersion, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVersion", arg0, arg1)
 	ret0, _ := ret[0].(*AppVersion)
@@ -447,30 +447,48 @@ func (m *MockAppspaceModel) EXPECT() *MockAppspaceModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppspaceModel) Create(arg0 *Appspace) {
+func (m *MockAppspaceModel) Create(arg0 UserID, arg1 AppID, arg2 Version, arg3 string) (*Appspace, Error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Create", arg0)
-}
-
-// Create indicates an expected call of Create
-func (mr *MockAppspaceModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0)
-}
-
-// GetForName mocks base method
-func (m *MockAppspaceModel) GetForName(arg0 string) (*Appspace, bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetForName", arg0)
+	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*Appspace)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(Error)
 	return ret0, ret1
 }
 
-// GetForName indicates an expected call of GetForName
-func (mr *MockAppspaceModelMockRecorder) GetForName(arg0 interface{}) *gomock.Call {
+// Create indicates an expected call of Create
+func (mr *MockAppspaceModelMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForName", reflect.TypeOf((*MockAppspaceModel)(nil).GetForName), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0, arg1, arg2, arg3)
+}
+
+// GetFromID mocks base method
+func (m *MockAppspaceModel) GetFromID(arg0 AppspaceID) (*Appspace, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFromID", arg0)
+	ret0, _ := ret[0].(*Appspace)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetFromID indicates an expected call of GetFromID
+func (mr *MockAppspaceModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromID", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromID), arg0)
+}
+
+// GetFromSubdomain mocks base method
+func (m *MockAppspaceModel) GetFromSubdomain(arg0 string) (*Appspace, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFromSubdomain", arg0)
+	ret0, _ := ret[0].(*Appspace)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetFromSubdomain indicates an expected call of GetFromSubdomain
+func (mr *MockAppspaceModelMockRecorder) GetFromSubdomain(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromSubdomain", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromSubdomain), arg0)
 }
 
 // MockTrustedClientI is a mock of TrustedClientI interface
