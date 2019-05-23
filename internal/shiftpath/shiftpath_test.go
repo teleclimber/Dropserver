@@ -13,6 +13,7 @@ func TestShiftPath(t *testing.T) {
 	}{
 		{"", "", "/"},
 		{"/", "", "/"},
+		{"abc", "abc", "/"},
 		{"abc/def", "abc", "/def"},
 		{"/abc/def", "abc", "/def"},
 		{"/abc/def/", "abc", "/def"},

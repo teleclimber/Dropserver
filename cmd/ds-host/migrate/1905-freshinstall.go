@@ -47,7 +47,6 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX appspace_subdomain ON appspaces (subdomain)`)
 	// probably index owner_id. and maybe app_id?
-	// can we enforce unique subdomain at DB level?
 
 	if args.dbErr != nil {
 		return dserror.FromStandard(args.dbErr)

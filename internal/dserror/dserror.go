@@ -127,6 +127,9 @@ const (
 	AppConfigNotFound    domain.ErrorCode = 3201
 	AppConfigParseFailed domain.ErrorCode = 3202
 	AppConfigProblem 	 domain.ErrorCode = 3203
+	AppRouteConfigProblem		domain.ErrorCode = 3204
+
+	AppspaceRouteNotFound domain.ErrorCode = 6001
 
 	MigrateDownNotSupported	domain.ErrorCode = 9201
 	MigrationNameNotFound domain.ErrorCode = 9202
@@ -142,6 +145,9 @@ var errorMesage = map[domain.ErrorCode]string{
 	AppConfigNotFound:    "Could not find application.json",
 	AppConfigParseFailed: "Failed to parse application.json",
 	AppConfigProblem:     "Problem in application.json",
+	AppRouteConfigProblem: "Problem creating or configuring a route",
+
+	AppspaceRouteNotFound: "No route handler found for path given",
 
 	MigrateDownNotSupported: "Migrate down not supported",
 	MigrationNameNotFound: "Migration string not found",
@@ -156,5 +162,6 @@ var errorMesage = map[domain.ErrorCode]string{
 
 var httpCode = map[domain.ErrorCode]int{
 	InternalError: http.StatusInternalServerError,
+	AppspaceRouteNotFound: http.StatusNotFound,
 }
 

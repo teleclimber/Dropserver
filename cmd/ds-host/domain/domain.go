@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,TrustedClientI
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -149,10 +149,11 @@ type SandboxI interface {
 // - path tail?
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
-	App        *App
-	Appspace   *Appspace
-	URLTail    string
-	Subdomains *[]string
+	App         *App
+	Appspace    *Appspace
+	URLTail     string
+	RouteConfig *RouteConfig
+	Subdomains  *[]string
 }
 
 // RouteHandler is a generic interface for sub route handling.
@@ -223,6 +224,11 @@ type AppspaceModel interface {
 	Create(UserID, AppID, Version, string) (*Appspace, Error)
 }
 
+// ASRoutesModel is the appspaces routes model interface
+type ASRoutesModel interface {
+	GetRouteConfig(AppVersion, string, string) (*RouteConfig, Error)
+}
+
 // TrustedClientI is the interface for the client of the ds-trusted remote service
 type TrustedClientI interface {
 	Init(string)
@@ -259,8 +265,40 @@ type TrustedGetAppMetaReply struct {
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName    string  `json:"name"`
-	AppVersion Version `json:"version"`
+	AppName    string      `json:"name"`
+	AppVersion Version     `json:"version"`
+	Routes     []JSONRoute `json:"routes"`
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
+}
+
+// JSONRoute represents the json-formatted Routes from application.json
+type JSONRoute struct {
+	Route     string           `json:"route"`
+	Method    string           `json:"method"`
+	Authorize string           `json:"authorize"`
+	Handler   JSONRouteHandler `json:"handler"`
+}
+
+// JSONRouteHandler is the handler part of route in JSON
+type JSONRouteHandler struct {
+	Type     string `json:"type"` // how can we validate that "type" is entered corrently?
+	File     string `json:"file"` // this is called "location" downstream.
+	Function string `json:"function"`
+}
+
+// RouteConfig gives necessary data to handle a appspace route
+type RouteConfig struct {
+	Type      string // static, crud, exec, [and maybe filter, or auth to allow "middlewares"?]
+	Authorize string
+	Location  string
+	Function  string
+}
+
+// RoutePart is a sub path of an appspace route, with possible handlers
+type RoutePart struct {
+	GET  *RouteConfig
+	POST *RouteConfig
+	// ..others
+	Parts map[string]*RoutePart
 }

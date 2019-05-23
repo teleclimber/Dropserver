@@ -15,6 +15,7 @@ import (
 type AppspaceRoutes struct {
 	AppModel         domain.AppModel
 	AppspaceModel    domain.AppspaceModel
+	ASRoutesModel    domain.ASRoutesModel
 	DropserverRoutes domain.RouteHandler
 	SandboxProxy     domain.RouteHandler
 	Logger           domain.LogCLientI
@@ -55,6 +56,23 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		}
 		routeData.App = app
 
-		r.SandboxProxy.ServeHTTP(res, req, routeData)
+		appVersion := domain.AppVersion{AppID: appspace.AppID, Version: appspace.AppVersion}
+		routeConfig, dsErr := r.ASRoutesModel.GetRouteConfig(appVersion, req.Method, routeData.URLTail)
+		if dsErr != nil {
+			//..if not found then go 404 ... or do that automatically from errors?
+			// here we don't log (for now) because it's not a system error to have the wrong route requested
+			// Though the app owner may be interested in seeing the errors?
+			dsErr.HTTPError(res)
+			return
+		}
+
+		// TODO: auth.
+
+		switch routeConfig.Type {
+		case "function":
+			r.SandboxProxy.ServeHTTP(res, req, routeData)
+		default:
+			http.Error(res, "route type not implemented", http.StatusInternalServerError)
+		}
 	}
 }

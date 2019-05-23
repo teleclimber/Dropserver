@@ -101,6 +101,10 @@ func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, domain.Error) {
 	if err != nil {
 		return nil, dserror.New(dserror.AppConfigParseFailed, err.Error())
 	}
+
+	// TODO: clean up data too, like trim whitespace on trings
+	// ..could lowercap on keywords?
+
 	return &meta, nil
 }
 
@@ -111,6 +115,10 @@ func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
 	if meta.AppVersion == "" {
 		return dserror.New(dserror.AppConfigProblem, "Version can not be blank")
 	}
+
+	//TODO: validate what comes out of JSON against valid values
+	// auth keywords, routes can be empty strings, handler type is enum...
+
 	return nil
 }
 

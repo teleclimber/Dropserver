@@ -22,6 +22,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -102,6 +103,10 @@ func main() {
 
 	trustedManager.Init(&initWg)
 
+	asRoutesModel := &asroutesmodel.ASRoutesModel{
+		Logger: logger,
+		TrustedClient: &trustedClient }
+
 	sM := sandbox.Manager{
 		Config: runtimeConfig,
 		Logger: logger }
@@ -167,6 +172,7 @@ func main() {
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
 		AppModel:	appModel,
 		AppspaceModel: appspaceModel,
+		ASRoutesModel: asRoutesModel,
 		DropserverRoutes: dropserverASRoutes,
 		SandboxProxy: sandboxProxy,
 		Logger: logger }

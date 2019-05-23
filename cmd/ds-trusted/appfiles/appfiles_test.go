@@ -1,9 +1,11 @@
 package appfiles
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -20,13 +22,66 @@ func TestDecodeAppJsonError(t *testing.T) {
 }
 
 func TestDecodeAppJSON(t *testing.T) {
-	r := strings.NewReader(`{ "name":"blah", "version":"0.0.1" }`)
+	r := strings.NewReader(`{
+		"name":"blah",
+		"version":"0.0.1",
+		"routes": [{
+			"route":	"/",
+			"method":	"get",
+			"authorize": "owner",
+			"handler": {
+				"type":		"static",
+				"file":		"index.html"
+			}
+		},{
+			"route": 	"/hit",
+			"method":	"post",
+			"authorize":"owner",
+			"handler": {
+				"type":		"function",
+				"file":		"routes.js",
+				"function":	"postHit"
+			}
+		},
+		{
+			"route": 	"/hit",
+			"method":	"get",
+			"authorize":"owner",
+			"handler": {
+				"type":		"function",
+				"file":		"routes.js",
+				"function":	"getHit"
+			}
+		}
+	]
+	}`)
+
 	meta, err := decodeAppJSON(r)
 	if err != nil {
 		t.Error("got error for well formed json")
-	} else if meta.AppName != "blah" || meta.AppVersion != "0.0.1" {
+	}
+	if meta.AppName != "blah" || meta.AppVersion != "0.0.1" {
 		t.Error("got incorrect values for meta")
 	}
+	if len(meta.Routes) != 3 {
+		t.Error("expecte 3 routes", meta)
+	}
+
+	route := meta.Routes[1]
+	expectedRoute := domain.JSONRoute{
+		Route:     "/hit",
+		Method:    "post",
+		Authorize: "owner",
+		Handler: domain.JSONRouteHandler{
+			Type:     "function",
+			File:     "routes.js",
+			Function: "postHit"}}
+
+	if route != expectedRoute {
+		fmt.Println("expetced / got:", expectedRoute, route)
+		t.Error("route doesn't match expected")
+	}
+
 }
 
 func TestValidateAppMeta(t *testing.T) {

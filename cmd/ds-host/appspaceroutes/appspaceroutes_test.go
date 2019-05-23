@@ -154,6 +154,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	asRoutesModel := domain.NewMockASRoutesModel(mockCtrl)
 	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
 	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 	logger := domain.NewMockLogCLientI(mockCtrl)
@@ -161,6 +162,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	appspaceRoutes := &AppspaceRoutes{
 		AppModel:         appModel,
 		AppspaceModel:    appspaceModel,
+		ASRoutesModel:    asRoutesModel,
 		DropserverRoutes: dropserverRoutes,
 		SandboxProxy:     sandboxProxy,
 		Logger:           logger}
@@ -179,6 +181,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 
 	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	appModel.EXPECT().GetFromID(gomock.Any()).Return(&domain.App{Name: "app1"}, nil)
+	asRoutesModel.EXPECT().GetRouteConfig(gomock.Any(), "GET", "/abc").Return(&domain.RouteConfig{Type: "function"}, nil)
 	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
 
 	// ^^ here we are checking against routeData, which is a pointer

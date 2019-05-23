@@ -39,8 +39,8 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	header := cloneHeader(oReq.Header)
 	//header["ds-user-id"] = []string{"teleclimber"}
-	header["app-space-script"] = []string{"hello.js"}
-	header["app-space-fn"] = []string{"hello"}
+	header["app-space-script"] = []string{routeData.RouteConfig.Location}
+	header["app-space-fn"] = []string{routeData.RouteConfig.Function}
 
 	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)
 	if err != nil {
