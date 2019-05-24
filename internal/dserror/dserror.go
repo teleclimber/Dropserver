@@ -124,6 +124,10 @@ func Encoded(err error) bool {
 const (
 	// InternalError is a special error code that will not print its extra messages
 	InternalError        domain.ErrorCode = 1
+
+	AuthenticationIncorrect domain.ErrorCode = 2002
+	EmailExists domain.ErrorCode = 2003
+
 	AppConfigNotFound    domain.ErrorCode = 3201
 	AppConfigParseFailed domain.ErrorCode = 3202
 	AppConfigProblem 	 domain.ErrorCode = 3203
@@ -142,6 +146,10 @@ const (
 
 var errorMesage = map[domain.ErrorCode]string{
 	InternalError:        "Internal Error",
+
+	AuthenticationIncorrect: "Authentication incorrect",
+	EmailExists: "Email is already in the users DB",
+
 	AppConfigNotFound:    "Could not find application.json",
 	AppConfigParseFailed: "Failed to parse application.json",
 	AppConfigProblem:     "Problem in application.json",

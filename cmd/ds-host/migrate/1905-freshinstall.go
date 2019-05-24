@@ -19,6 +19,18 @@ func freshInstallUp(args *stepArgs) domain.Error {
 
 	//... skipping a bunch of tables for the moment
 
+	args.dbExec(`CREATE TABLE "users" (
+		"user_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"email" TEXT,
+		"password" TEXT 
+	)`)
+	args.dbExec(`CREATE UNIQUE INDEX user_emails ON users (email)`)
+
+	args.dbExec(`CREATE TABLE "admin_users" (
+		"user_id" INTEGER
+	)`)
+	args.dbExec(`CREATE UNIQUE INDEX admin_user_ids ON admin_users (user_id)`)
+
 	args.dbExec(`CREATE TABLE "apps" (
 		"owner_id" INTEGER,
 		"app_id" INTEGER PRIMARY KEY ASC,

@@ -180,6 +180,12 @@ type Version string
 // AppspaceID is a nique ID for an appspace
 type AppspaceID uint32
 
+// User is basic representation of User
+type User struct {
+	UserID UserID `db:"user_id"`
+	Email  string
+}
+
 // App represents the data structure for an App.
 type App struct {
 	OwnerID UserID `db:"owner_id"` // just int, or can we wrap that in a type?

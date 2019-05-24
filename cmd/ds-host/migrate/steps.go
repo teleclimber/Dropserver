@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"errors"
 	"database/sql"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -28,7 +29,7 @@ func (sa *stepArgs) dbExec(q string, args ...interface{}) sql.Result {
 
 	ret, err := handle.Exec(q, args...)
 	if err != nil {
-		sa.dbErr = err
+		sa.dbErr = errors.New("Error Executing statement: "+q+" "+err.Error())
 	}
 
 	return ret
