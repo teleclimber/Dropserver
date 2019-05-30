@@ -108,6 +108,7 @@ func Encoded(err error) bool {
 // If you run out of digits within a pair, extend the int by two digits ("grow a pair")
 
 // 10xx not found, plain bad requests, basics
+// 12xx validation errors
 // 20xx auth errors
 // 30xx user route errors
 // 32xx application route errors
@@ -124,6 +125,8 @@ func Encoded(err error) bool {
 const (
 	// InternalError is a special error code that will not print its extra messages
 	InternalError        domain.ErrorCode = 1
+
+	InputValidationError domain.ErrorCode = 1201
 
 	AuthenticationIncorrect domain.ErrorCode = 2002
 	EmailExists domain.ErrorCode = 2003
@@ -146,6 +149,8 @@ const (
 
 var errorMesage = map[domain.ErrorCode]string{
 	InternalError:        "Internal Error",
+
+	InputValidationError: "Input validation error",
 
 	AuthenticationIncorrect: "Authentication incorrect",
 	EmailExists: "Email is already in the users DB",
@@ -170,6 +175,7 @@ var errorMesage = map[domain.ErrorCode]string{
 
 var httpCode = map[domain.ErrorCode]int{
 	InternalError: http.StatusInternalServerError,
+	InputValidationError: http.StatusBadRequest,
 	AppspaceRouteNotFound: http.StatusNotFound,
 }
 

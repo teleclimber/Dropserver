@@ -54,6 +54,11 @@ func (s *Server) init() {
 // }
 
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	// Can we have some application-global iddlewares at work here?
+	// Like CSRF? -> Any POST, PUT, PATCH, .. gets checked for a CSRF token?
+	// I guess the middleware would have same signature as others, and include reouteData
+	//
+
 	// switch on top level routes:
 	// - admin
 	// - user
@@ -69,35 +74,33 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if !ok {
 		http.Error(res, "Error getting subdomains from host string", http.StatusInternalServerError)
 		s.Logger.Log(domain.DEBUG, map[string]string{}, "Error getting subdomains from host string: "+req.Host)
-	} else {
-		if len(subdomains) == 0 {
-			// no subdomain. It's the site itself?
-			http.Error(res, "Not found", http.StatusNotFound)
-			ok = false
-		}
+		return
+	} else if len(subdomains) == 0 {
+		// no subdomain. It's the site itself?
+		http.Error(res, "Not found", http.StatusNotFound)
+		return
 	}
 
-	if ok {
-		topSub := subdomains[len(subdomains)-1]
-		switch topSub {
-		case "user":
-			routeData := &domain.AppspaceRouteData{
-				URLTail:    req.URL.Path,
-				Subdomains: &subdomains}
+	topSub := subdomains[len(subdomains)-1]
+	switch topSub {
+	case "user":
+		routeData := &domain.AppspaceRouteData{
+			URLTail:    req.URL.Path,
+			Subdomains: &subdomains}
 
-			s.UserRoutes.ServeHTTP(res, req, routeData)
+		s.UserRoutes.ServeHTTP(res, req, routeData)
 
-		case "admin":
-			http.Error(res, "admin not implemented", http.StatusNotImplemented)
-		default:
-			// first filter through blacklist of subdomains
+	case "admin":
+		http.Error(res, "admin not implemented", http.StatusNotImplemented)
+	default:
+		// first filter through blacklist of subdomains
+		// ..though probably do that in appspace routes handler, not here.
 
-			routeData := &domain.AppspaceRouteData{
-				URLTail:    req.URL.Path,
-				Subdomains: &subdomains}
+		routeData := &domain.AppspaceRouteData{
+			URLTail:    req.URL.Path,
+			Subdomains: &subdomains}
 
-			s.AppspaceRoutes.ServeHTTP(res, req, routeData)
-		}
+		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
 	}
 }
 

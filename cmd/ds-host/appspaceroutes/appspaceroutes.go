@@ -67,6 +67,11 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		}
 
 		// TODO: auth.
+		// r.Authenticator.ForAppspace(appspaceID)
+		// Consider that there are a number of possible results here:
+		// - no cookie
+		// - cookie but not authorized on this route (non-owner)
+		// - non-owner, but authorized
 
 		switch routeConfig.Type {
 		case "function":

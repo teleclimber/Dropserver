@@ -26,6 +26,15 @@ type ApplicationRoutes struct {
 func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	// I think all the routes require auth.
 	// ..so run / check auth and bail if not authenticated
+	// RouteData should have been augmented with cookie,
+	// .but is there a way to check that very quickly?
+	if routeData.Cookie == nil || !routeData.Cookie.UserAccount {
+		panic("Should not have made it to app routes without a proper cookie")
+	}
+	// OK, I suupose. But I would still like something cleaner.
+	// Can't we just call authenticator again? -> yes but it has to be injected
+	// Other option is to add another object to routeData, like *Auth that describes auth state.
+	// -> but then I'd rather switch to our new approach of an injectable request data interface
 
 	appID, tail := shiftpath.ShiftPath(routeData.URLTail)
 	method := req.Method
@@ -110,8 +119,7 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		ownerID := domain.UserID(111) // TODO: use an actual owner id from auth
-		app, dsErr := a.AppModel.Create(ownerID, metaReply.AppFilesMetadata.AppName)
+		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, metaReply.AppFilesMetadata.AppName)
 		if dsErr != nil {
 			fmt.Println(err, err.ExtraMessage())
 			dsErr.HTTPError(res)

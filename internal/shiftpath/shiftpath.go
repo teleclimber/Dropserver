@@ -16,3 +16,5 @@ func ShiftPath(p string) (head, tail string) {
 }
 
 // TODO: really need to consider what happens in case of query string parameters /foo/bar?baz
+
+// TODO: make head ToLowerCase?

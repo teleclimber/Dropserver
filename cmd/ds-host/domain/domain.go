@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI,Authenticator,Validator
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -100,8 +100,6 @@ type MetricsI interface {
 	HostHandleReq(start time.Time)
 }
 
-// TODO: do for TrustedManager?
-
 // SandboxManagerI is an interface that describes sm
 type SandboxManagerI interface {
 	GetForAppSpace(app string, appSpace string) chan SandboxI
@@ -137,6 +135,12 @@ type SandboxI interface {
 // ..it's more of an application logic struct.
 // we'll see what that means when we start doing composable routes. Will we need server then?
 
+// Authenticator is an interface
+type Authenticator interface {
+	SetForAccount(http.ResponseWriter, UserID) Error
+	GetForAccount(http.ResponseWriter, *http.Request, *AppspaceRouteData) bool
+}
+
 ///////////////////////////////////////////////////////////
 // route stuff
 
@@ -149,6 +153,7 @@ type SandboxI interface {
 // - path tail?
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
+	Cookie      *Cookie
 	App         *App
 	Appspace    *Appspace
 	URLTail     string
@@ -163,6 +168,13 @@ type AppspaceRouteData struct {
 // ..but would it not muddy the meaning of the Fields?
 type RouteHandler interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, *AppspaceRouteData)
+}
+
+// Validator is an interface for validation module
+type Validator interface {
+	Init()
+	Email(string) Error
+	Password(string) Error
 }
 
 ///////////////////////////////////
@@ -184,6 +196,41 @@ type AppspaceID uint32
 type User struct {
 	UserID UserID `db:"user_id"`
 	Email  string
+}
+
+// CookieModel is the interface for storing and retriving cookies
+type CookieModel interface {
+	PrepareStatements()
+	Get(string) (*Cookie, Error)
+	Create(Cookie) (string, Error)
+	UpdateExpires(string, time.Time) Error
+}
+
+// Cookie represents the server-side representation of a stored cookie
+// Might be called DBCookie to differentiate from thing that came from client?
+type Cookie struct {
+	CookieID string    `db:"cookie_id"`
+	UserID   UserID    `db:"user_id"`
+	Expires  time.Time `db:"expires"`
+
+	// UserAccount indicates whether this cookie is for the user's account management
+	UserAccount bool `db:"user_account"`
+
+	// Appspace is the identifier of the appspace that this cookie gives acess to
+	// It's mutually exclusive with UserHome.
+	AppspaceID AppspaceID `db:"appspace_id"`
+}
+
+// UserModel is the interface for user model
+type UserModel interface {
+	PrepareStatements()
+	Create(string, string) (*User, Error)
+	GetFromID(UserID) (*User, Error)
+	GetFromEmail(string) (*User, Error)
+	GetFromEmailPassword(string, string) (*User, Error)
+	IsAdmin(UserID) bool
+	MakeAdmin(UserID) Error
+	DeleteAdmin(UserID) Error
 }
 
 // App represents the data structure for an App.

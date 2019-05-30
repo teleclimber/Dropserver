@@ -31,6 +31,16 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX admin_user_ids ON admin_users (user_id)`)
 
+	args.dbExec(`CREATE TABLE cookies (
+		"cookie_id" TEXT,
+		"user_id" INTEGER,
+		"expires" DATETIME,
+		"user_account" INTEGER,
+		"appspace_id" INTEGER
+	)`)
+	args.dbExec(`CREATE UNIQUE INDEX cookies_cookie_id ON cookies (cookie_id)`)
+	// could index on user_id and appspace_id too
+
 	args.dbExec(`CREATE TABLE "apps" (
 		"owner_id" INTEGER,
 		"app_id" INTEGER PRIMARY KEY ASC,

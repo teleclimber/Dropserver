@@ -15,6 +15,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
@@ -23,6 +24,9 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -78,7 +82,20 @@ func main() {
 
 	logger.Log(domain.INFO, nil, "ds-host is starting")
 
+	validator := &validator.Validator{}
+	validator.Init()
+
 	// models
+	userModel := &usermodel.UserModel{
+		DB: db,
+		Logger: logger }
+	userModel.PrepareStatements()
+
+	cookieModel := &cookiemodel.CookieModel{
+		DB: db,
+		Logger: logger }
+	cookieModel.PrepareStatements()
+
 	appModel := &appmodel.AppModel{
 		DB: db,
 		Logger: logger }
@@ -159,12 +176,23 @@ func main() {
 		Logger: logger,
 		Metrics: &m	}
 
+	// auth
+	authenticator := &authenticator.Authenticator{
+		CookieModel: cookieModel }
+
 	// Create routes
+	authRoutes := &userroutes.AuthRoutes{
+		UserModel: userModel,
+		Authenticator: authenticator,
+		Validator: validator}
+
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		TrustedClient: &trustedClient,
 		AppModel: appModel,
 		Logger: logger }
 	userRoutes := &userroutes.UserRoutes{
+		Authenticator: authenticator,
+		AuthRoutes: authRoutes,
 		ApplicationRoutes: applicationRoutes,
 		Logger: logger }
 

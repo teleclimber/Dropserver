@@ -7,38 +7,57 @@ import (
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
-// route handler for when we know the route is for an app-space.
-// Could be proxied to sandbox, or static file, or crud or whatever
-
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
+	Authenticator     domain.Authenticator
+	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
 	Logger            domain.LogCLientI
 }
 
-// ^^ Also need access to sessions
-
 // ServeHTTP handles http traffic to the user routes
 func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	//var ok bool
 
-	// beware that we may need to serve static things like the html for that route?
-	// - shiftPath and test head for api,
-	// - otherwise pass to static handler?
+	// Consider that apart from login routes, everything else requires authentication
+	// Would like to make that abundantly clear in code structure.
+	// There should be a single point where we check auth, and if no good, bail.
 
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "api" {
+	switch head {
+	case "static":
+		// goes to static files, which are understood to be non sensitive
+		// This could also be a subdomain, such that using a CDN is easier
+	case "login":
+		routeData.URLTail = tail
+		u.AuthRoutes.ServeHTTP(res, req, routeData)
+	default:
+		// handle logged in routes.
+		u.serveLoggedInRoutes(res, req, routeData)
+	}
+}
+
+func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+
+	ok := u.Authenticator.GetForAccount(res, req, routeData)
+	if !ok {
+		return
+	}
+
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
+	switch head {
+	case "api":
+		// All the async routes essentially?
 		head, tail = shiftpath.ShiftPath(tail)
 		switch head {
 		case "application": //handle application route (separate file)
 			routeData.URLTail = tail
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
-		default: // bugger not implemented yet?
+		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
 		}
-
-	} else {
-		// static server
+		//case "....":
+		// There will be other pages.
+		// I suspect "manage applications" will be its own page
+		// It's possible "/" page is more summary, and /appspaces will be its own page.
 	}
-
 }
