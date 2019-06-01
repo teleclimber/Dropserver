@@ -22,16 +22,10 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// Would like to make that abundantly clear in code structure.
 	// There should be a single point where we check auth, and if no good, bail.
 
-	head, tail := shiftpath.ShiftPath(routeData.URLTail)
-	switch head {
-	case "static":
-		// goes to static files, which are understood to be non sensitive
-		// This could also be a subdomain, such that using a CDN is easier
-	case "login":
-		routeData.URLTail = tail
+	head, _ := shiftpath.ShiftPath(routeData.URLTail)
+	if head == "signup" || head == "login" {
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
-	default:
-		// handle logged in routes.
+	} else {
 		u.serveLoggedInRoutes(res, req, routeData)
 	}
 }

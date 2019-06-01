@@ -16,7 +16,8 @@ type Views struct {
 
 	base BaseData
 
-	loginTemplate *template.Template
+	loginTemplate  *template.Template
+	signupTemplate *template.Template
 }
 
 // BaseData is the basic data that the page needs to render
@@ -39,6 +40,7 @@ func (v *Views) PrepareTemplates() {
 	templatesPath := path.Join(v.Config.ResourcesDir, "go-templates/")
 
 	v.loginTemplate = template.Must(template.ParseFiles(path.Join(templatesPath, "login.html")))
+	v.signupTemplate = template.Must(template.ParseFiles(path.Join(templatesPath, "signup.html")))
 }
 
 type loginData struct {
@@ -53,6 +55,25 @@ func (v *Views) Login(res http.ResponseWriter, viewData domain.LoginViewData) {
 		LoginViewData: viewData}
 
 	err := v.loginTemplate.Execute(res, d)
+	if err != nil {
+		v.Logger.Log(domain.ERROR, nil, err.Error())
+		// Too late to send error status. Hopefully the logger is enough.
+	}
+}
+
+// Signup..
+type signupData struct {
+	BaseData
+	SignupViewData domain.SignupViewData
+}
+
+// Signup presents the signup (account registration) page
+func (v *Views) Signup(res http.ResponseWriter, viewData domain.SignupViewData) {
+	d := signupData{
+		BaseData:       v.base,
+		SignupViewData: viewData}
+
+	err := v.signupTemplate.Execute(res, d)
 	if err != nil {
 		v.Logger.Log(domain.ERROR, nil, err.Error())
 		// Too late to send error status. Hopefully the logger is enough.

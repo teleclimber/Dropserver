@@ -970,3 +970,15 @@ func (mr *MockViewsMockRecorder) PrepareTemplates() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareTemplates", reflect.TypeOf((*MockViews)(nil).PrepareTemplates))
 }
+
+// Signup mocks base method
+func (m *MockViews) Signup(arg0 http.ResponseWriter, arg1 SignupViewData) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Signup", arg0, arg1)
+}
+
+// Signup indicates an expected call of Signup
+func (mr *MockViewsMockRecorder) Signup(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Signup", reflect.TypeOf((*MockViews)(nil).Signup), arg0, arg1)
+}

@@ -147,10 +147,19 @@ type Authenticator interface {
 type Views interface {
 	PrepareTemplates()
 	Login(http.ResponseWriter, LoginViewData)
+	Signup(http.ResponseWriter, SignupViewData)
 }
 
 // LoginViewData is used to pass messages and parameters to the login page
 type LoginViewData struct {
+	Message string
+	Email   string
+}
+
+// SignupViewData is used to pass messages and parameters to the login page
+type SignupViewData struct {
+	RegistrationClosed bool
+	// username?
 	Message string
 	Email   string
 }

@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+	<title>Signup</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="{{.BaseData.PublicStaticPrefix}}/login-style.css" rel="stylesheet">
+</head>
+<body>
+	<div class="login-grid">
+		<h1 class="dropserver-logo">
+			<a href="/">dr<span class="drop-o">o</span>p<span class="s">server</span></a>
+		</h1>
+	
+		<div class="login-box">
+			{{if .SignupViewData.Message}}
+				<div class="flash-message">
+					<span>{{.SignupViewData.Message}}</span>
+				</div>
+			{{end}}
+
+			<h2>Create Account</h2>
+
+			{{if .SignupViewData.RegistrationClosed}}
+				<div class="reg-closed">
+					Account creation is open to invited users only.
+					Your email must be recognized to proceed.
+				</div>
+			{{end}}
+
+			<form action="/signup" method="post" class="form-grid">
+				<!-- label>Username:</label>
+				<input type="text" name="username" value="" -->
+				<label>Email:</label>
+				<input type="text" name="email" value="{{.SignupViewData.Email}}">
+				<label>Password:</label>
+				<input type="password" name="password">
+				<label>Password Again:</label>
+				<input type="password" name="password2">
+
+				<button type="submit">Create</button>
+			</form>
+
+			<hr>
+
+			<p>Already have an account? <a href="/login">Log in</a></p>
+		</div>
+
+	</div>
+</body>
+</html>
