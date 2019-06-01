@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI,Authenticator,Validator
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI,Authenticator,Validator,Views
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -24,8 +24,10 @@ import (
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
 type RuntimeConfig struct {
-	DataDir string `json:"data-dir"` // this might get confusing when we also config trusted volume data
-	Server  struct {
+	ResourcesDir    string `json:"resources-dir"`
+	PublicStaticDir string `json:"public-static-dir"`
+	DataDir         string `json:"data-dir"` // this might get confusing when we also config trusted volume data
+	Server          struct {
 		Port int16  `json:"port"`
 		Host string `json:"host"`
 	} `json:"server"`
@@ -139,6 +141,18 @@ type SandboxI interface {
 type Authenticator interface {
 	SetForAccount(http.ResponseWriter, UserID) Error
 	GetForAccount(http.ResponseWriter, *http.Request, *AppspaceRouteData) bool
+}
+
+// Views interface
+type Views interface {
+	PrepareTemplates()
+	Login(http.ResponseWriter, LoginViewData)
+}
+
+// LoginViewData is used to pass messages and parameters to the login page
+type LoginViewData struct {
+	Message string
+	Email   string
 }
 
 ///////////////////////////////////////////////////////////

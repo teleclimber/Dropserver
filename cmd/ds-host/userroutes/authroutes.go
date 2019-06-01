@@ -13,6 +13,7 @@ import (
 
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
+	Views         domain.Views
 	UserModel     domain.UserModel
 	Authenticator domain.Authenticator
 	Validator     domain.Validator
@@ -25,8 +26,7 @@ func (a *AuthRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	case "":
 		switch req.Method {
 		case http.MethodGet:
-			// send page down
-			http.Error(res, head+" not implemented", http.StatusNotImplemented)
+			a.Views.Login(res, domain.LoginViewData{})
 		case http.MethodPost:
 			a.loginPost(res, req, routeData)
 		default:
@@ -46,17 +46,23 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 
 	req.ParseForm()
 
+	invalidLoginMessage := domain.LoginViewData{
+		Message: "Login incorrect"}
+
 	email := strings.ToLower(req.Form.Get("email"))
 	dsErr := a.Validator.Email(email)
 	if dsErr != nil {
 		// actually re-render page with generic error
+		a.Views.Login(res, invalidLoginMessage)
 		return
 	}
+
+	invalidLoginMessage.Email = email
 
 	password := strings.ToLower(req.Form.Get("password"))
 	dsErr = a.Validator.Password(password)
 	if dsErr != nil {
-		// re-render page with generic error
+		a.Views.Login(res, invalidLoginMessage)
 		return
 	}
 
@@ -64,7 +70,7 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 	if dsErr != nil {
 		code := dsErr.Code()
 		if code == dserror.AuthenticationIncorrect || code == dserror.NoRowsInResultSet {
-			// re-render page with email and "email or pw incorrect"
+			a.Views.Login(res, invalidLoginMessage)
 		} else {
 			dsErr.HTTPError(res)
 		}

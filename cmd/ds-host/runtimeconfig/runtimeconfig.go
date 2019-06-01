@@ -13,6 +13,8 @@ import (
 // For now you can just return a hard coded set of values
 
 var configDefault = []byte(`{
+	"resources-dir": "resources/",
+	"public-static-dir": "public-static/",
 	"server": {
 		"port": 3000,
 		"host": "localhost"
@@ -85,7 +87,11 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 		panic("host can not be empty")
 	}
 
-	// need more validation for host names...
+	// TODO need more validation for host names...
+	// - don't start with //
+	// - don't start with .
+	// - don't include a : either for port or protocol
+	// - does not end in / (or include / anywhere)
 
 	// Sandbox:
 	if rtc.Sandbox.Num == 0 {

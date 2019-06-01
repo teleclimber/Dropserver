@@ -17,6 +17,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
+	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
@@ -180,8 +181,15 @@ func main() {
 	authenticator := &authenticator.Authenticator{
 		CookieModel: cookieModel }
 
+	// Views 
+	views := &views.Views{
+		Logger: logger,
+		Config: runtimeConfig }
+	views.PrepareTemplates()
+
 	// Create routes
 	authRoutes := &userroutes.AuthRoutes{
+		Views: views,
 		UserModel: userModel,
 		Authenticator: authenticator,
 		Validator: validator}

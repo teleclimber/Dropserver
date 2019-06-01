@@ -21,7 +21,8 @@ type Server struct {
 	Metrics domain.MetricsI
 	Logger  domain.LogCLientI
 
-	rootDomainPieces []string
+	rootDomainPieces    []string
+	publicStaticHandler http.Handler
 }
 
 // Start starts up the server so it listens for connections
@@ -47,6 +48,9 @@ func (s *Server) init() {
 	host := strings.ToLower(s.Config.Server.Host)
 	s.rootDomainPieces = strings.Split(host, ".")
 	reverse(s.rootDomainPieces)
+
+	// static server
+	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.PublicStaticDir))
 }
 
 // needed server graceful shutdown
@@ -83,6 +87,8 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	topSub := subdomains[len(subdomains)-1]
 	switch topSub {
+	case "static":
+		s.publicStaticHandler.ServeHTTP(res, req)
 	case "user":
 		routeData := &domain.AppspaceRouteData{
 			URLTail:    req.URL.Path,

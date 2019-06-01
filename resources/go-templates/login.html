@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+	<title>Authentication</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="{{.BaseData.PublicStaticPrefix}}/login-style.css" rel="stylesheet">
+</head>
+<body>
+	<div class="login-grid">
+		<h1 class="dropserver-logo">
+			<a href="/">dr<span class="drop-o">o</span>p<span class="s">server</span></a>
+		</h1>
+	
+		<div class="login-box">
+			{{if .LoginViewData.Message}}
+				<div class="flash-message">
+					<span>{{.LoginViewData.Message}}</span>
+				</div>
+			{{end}}
+
+			<h2>Log In</h2>
+
+			<form action="/login" method="post" class="form-grid">
+				<label>Email:</label>
+				<input type="text" name="email" value="{{.LoginViewData.Email}}">
+
+				<label>Password:</label>
+				<input type="password" name="password">
+
+				<button type="submit">Log In</button>
+			</form>
+	
+			<hr>
+	
+			<p>Need an account? <a href="/signup">Sign up</a></p>
+	
+		</div>
+	</div>
+
+</body>
+</html>

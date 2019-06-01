@@ -18,10 +18,14 @@ func TestLoginPostBadEmail(t *testing.T) {
 
 	email := "oy@foo.bar"
 
+	views := domain.NewMockViews(mockCtrl)
+	views.EXPECT().Login(gomock.Any(), gomock.Any())
+
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
 
 	a := &AuthRoutes{
+		Views:     views,
 		Validator: validator}
 
 	rr := httptest.NewRecorder()
@@ -32,8 +36,6 @@ func TestLoginPostBadEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	a.loginPost(rr, req, &domain.AppspaceRouteData{})
-
-	// TODO: improve tests when we have more complete return data from this function
 }
 
 func TestLoginPostBadPassword(t *testing.T) {
@@ -43,11 +45,15 @@ func TestLoginPostBadPassword(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
+	views := domain.NewMockViews(mockCtrl)
+	views.EXPECT().Login(gomock.Any(), gomock.Any())
+
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
 
 	a := &AuthRoutes{
+		Views:     views,
 		Validator: validator}
 
 	rr := httptest.NewRecorder()
@@ -59,8 +65,6 @@ func TestLoginPostBadPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	a.loginPost(rr, req, &domain.AppspaceRouteData{})
-
-	// TODO: improve tests when we have more complete return data from this function
 }
 
 func TestLoginPostNoRows(t *testing.T) {
@@ -70,6 +74,9 @@ func TestLoginPostNoRows(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
+	views := domain.NewMockViews(mockCtrl)
+	views.EXPECT().Login(gomock.Any(), gomock.Any())
+
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
@@ -78,6 +85,7 @@ func TestLoginPostNoRows(t *testing.T) {
 	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(nil, dserror.New(dserror.NoRowsInResultSet))
 
 	a := &AuthRoutes{
+		Views:     views,
 		Validator: validator,
 		UserModel: userModel}
 
@@ -90,8 +98,6 @@ func TestLoginPostNoRows(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	a.loginPost(rr, req, &domain.AppspaceRouteData{})
-
-	// TODO: improve tests when we have more complete return data from this function
 }
 
 func TestLoginPost(t *testing.T) {
@@ -138,6 +144,3 @@ func TestLoginPost(t *testing.T) {
 		t.Error("wrong status", rr.Code)
 	}
 }
-
-// Test that we get correct response when pw validation fails
-// ..lots of places where auth can fail, should really test all of them.
