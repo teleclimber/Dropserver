@@ -982,3 +982,15 @@ func (mr *MockViewsMockRecorder) Signup(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Signup", reflect.TypeOf((*MockViews)(nil).Signup), arg0, arg1)
 }
+
+// UserHome mocks base method
+func (m *MockViews) UserHome(arg0 http.ResponseWriter) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UserHome", arg0)
+}
+
+// UserHome indicates an expected call of UserHome
+func (mr *MockViewsMockRecorder) UserHome(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserHome", reflect.TypeOf((*MockViews)(nil).UserHome), arg0)
+}

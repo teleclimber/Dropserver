@@ -27,7 +27,7 @@ module.exports = {
 	plugins:[
 
 		new webpack.DefinePlugin({
-			DEVELOPMENT: JSON.stringify(true)
+			'window.ds_user_routes_base_url': JSON.stringify('//user.dropserver.develop:3000')
 		}),
 		
 		new VueLoaderPlugin(),

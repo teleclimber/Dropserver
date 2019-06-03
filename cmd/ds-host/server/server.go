@@ -50,7 +50,7 @@ func (s *Server) init() {
 	reverse(s.rootDomainPieces)
 
 	// static server
-	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.PublicStaticDir))
+	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.Exec.StaticAssetsDir))
 }
 
 // needed server graceful shutdown
@@ -62,6 +62,10 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// Like CSRF? -> Any POST, PUT, PATCH, .. gets checked for a CSRF token?
 	// I guess the middleware would have same signature as others, and include reouteData
 	//
+
+	// temporary CORS header to allow frontend dev.
+	// TODO: Make this a config option.
+	res.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// switch on top level routes:
 	// - admin

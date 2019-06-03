@@ -1,11 +1,11 @@
-import axios from 'axios';
+import ds_axios from '../ds-axios-helper.js'
 import user_vm from '../views/user/user-vm.js';
 import application_vm from './applications-vm.js';
 import Vue from 'vue';
 
 function loadAppSpaces() {
 	return new Promise( (resolve, reject) => {
-		axios.get( '/api/logged-in-user/appspaces' )
+		ds_axios.get( '/api/logged-in-user/appspaces' )
 		.then(function (response) {
 			console.log('got app-space data', response);
 			app_spaces_vm.app_spaces = response.data;
@@ -24,7 +24,7 @@ function showCreateAppSpace( data ) {
 function createAppSpace( data ) {	// app-spaces should have their own vm
 	app_spaces_vm.action_pending = 'Creating...';
 
-	axios.post( '/api/logged-in-user/appspaces', data )
+	ds_axios.post( '/api/logged-in-user/appspaces', data )
 	.then( function(response) {
 		console.log( 'create app space resp', response );
 		app_spaces_vm.app_spaces.push( response.data );
@@ -41,7 +41,7 @@ function manageAppSpace( app_space ) {
 
 function pauseAppSpace( app_space, pause_on ) {
 	app_spaces_vm.action_pending = pause_on ? 'Pausing...' : 'Unpausing...';
-	axios.patch( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id), {
+	ds_axios.patch( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id), {
 		pause: !!pause_on
 	} ).then( () => {
 		app_space.paused = !!pause_on;
@@ -57,7 +57,7 @@ function deleteAppSpace( app_space ) {
 
 	app_spaces_vm.action_pending = 'Deleting...';
 
-	axios.delete( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id) )
+	ds_axios.delete( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id) )
 	.then( response => {
 		return loadAppSpaces();
 	})
@@ -91,7 +91,7 @@ function doUpgradeVersion() {
 
 	const app_space = app_spaces_vm.managed_app_space;
 
-	axios.patch( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id), {
+	ds_axios.patch( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id), {
 		version: app_spaces_vm.upgrade_version
 	} ).then( resp => {
 		const index = app_spaces_vm.app_spaces.findIndex( a => a.id === app_space.id );

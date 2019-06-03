@@ -1,10 +1,10 @@
-import axios from 'axios';
 
+import ds_axios from '../../ds-axios-helper.js'
 import applications_vm from '../../vms/applications-vm.js';
 import app_spaces_vm from '../../vms/app-spaces-vm.js';
 import change_pw_vm from '../../vms/change-pw-vm.js';
 
-axios.get( '/api/logged-in-user/user-data' )
+ds_axios.get( '/api/logged-in-user/user-data' )
 	.then(function (response) {
 		console.log('got user data', response);
 		vm.user = response.data;

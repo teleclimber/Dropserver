@@ -16,8 +16,8 @@
 /vendor/
 /Godeps/
 
-# bin
-/bin/*
+# dist
+dist
 
 #frontend
 node_modules

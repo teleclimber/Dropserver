@@ -1,24 +1,12 @@
-import axios from 'axios';
 import Vue from 'vue';
 import debounce from 'debounce';
+import ds_axios from '../ds-axios-helper.js'
 
 import user_vm from '../views/user/user-vm.js';
 
-let axin;
-
-if( DEVELOPMENT ) {
-	console.log( 'DEVELOPMENT!');
-	axin = axios.create({
-		baseURL: '//user.dropserver.develop:3000'
-	})
-}
-else {
-	axin = axios.create()
-}
-
 function loadApplications() {
 	return new Promise( (resolve, reject) => {
-		axin.get( '/api/logged-in-user/application' )
+		ds_axios.get( '/api/logged-in-user/application' )
 		.then( resp => {
 			Vue.set( application_vm, 'applications', resp.data );
 			resolve();
@@ -41,7 +29,7 @@ function createDoNext( form_data ) {
 	// 
 	application_vm.create_status.state = 'uploading';
 
-	axios.post( '/api/logged-in-user/application/upload/', form_data, {	
+	ds_axios.post( '/api/logged-in-user/application/upload/', form_data, {	
 		headers: {
 			'Content-Type': 'multipart/form-data'
 		},
@@ -74,7 +62,7 @@ function createFinish( data ) {
 
 	application_vm.create_status.state = 'finishing';
 
-	axios.post( '/api/logged-in-user/application/', {
+	ds_axios.post( '/api/logged-in-user/application/', {
 		name: data.name,
 		temp_key: application_vm.create_status.temp_key
 	})
@@ -103,7 +91,7 @@ function appNameChanged( app_name ) {
 	checkAppName( app_name );
 }
 function checkAppName_( app_name ) {
-	axios.get( '/api/logged-in-user/application/', {
+	ds_axios.get( '/api/logged-in-user/application/', {
 		params: {
 			name: app_name,
 			'exists-only': true
@@ -140,7 +128,7 @@ function closeManageApplication() {
 function uploadNewVersion( app_name, form_data ) {
 	application_vm.manage_status.state = 'uploading';
 
-	axios.post( '/api/logged-in-user/application/'+encodeURIComponent(app_name)+'/upload/', form_data, {	
+	ds_axios.post( '/api/logged-in-user/application/'+encodeURIComponent(app_name)+'/upload/', form_data, {	
 		headers: {
 			'Content-Type': 'multipart/form-data'
 		},
@@ -187,7 +175,7 @@ function uploadNewVersion( app_name, form_data ) {
 
 function deleteVersion( app_name, ver_name ) {
 	return new Promise( (resolve, reject) => {
-		axios.delete( '/api/logged-in-user/application/'
+		ds_axios.delete( '/api/logged-in-user/application/'
 			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
 		.then( () => {
 			const application = application_vm.applications.find( a => a.name === app_name );
@@ -200,7 +188,7 @@ function deleteVersion( app_name, ver_name ) {
 }
 function deleteApplication( app_name ) {
 	return new Promise( (resolve, reject) => {
-		axios.delete( '/api/logged-in-user/application/'
+		ds_axios.delete( '/api/logged-in-user/application/'
 			+encodeURIComponent(app_name) )
 		.then( () => {
 			application_vm.manage_status = {};
@@ -217,7 +205,7 @@ function getVersionMeta( app_name, ver_name ) {
 	const ver_data = app.versions.find( v => v.name === ver_name );
 	if( !ver_data ) return;
 	if( !ver_data.meta ) {
-		axios.get( '/api/logged-in-user/application/'
+		ds_axios.get( '/api/logged-in-user/application/'
 			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
 		.then( resp => {
 			Vue.set( ver_data, 'meta', resp.data );

@@ -9,20 +9,14 @@ import (
 )
 
 func TestPrepareTemplates(t *testing.T) {
-	v := &Views{
-		Config: &domain.RuntimeConfig{
-			ResourcesDir: "../../../resources"},
-	}
+	v := getV()
 
 	v.PrepareTemplates()
 }
 
 // Login:
 func TestLogin(t *testing.T) {
-	v := &Views{
-		Config: &domain.RuntimeConfig{
-			ResourcesDir: "../../../resources"},
-	}
+	v := getV()
 
 	v.PrepareTemplates()
 
@@ -38,10 +32,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginMessage(t *testing.T) {
-	v := &Views{
-		Config: &domain.RuntimeConfig{
-			ResourcesDir: "../../../resources"},
-	}
+	v := getV()
 
 	v.PrepareTemplates()
 
@@ -71,10 +62,7 @@ func TestLoginMessage(t *testing.T) {
 // Signup:
 
 func TestSignup(t *testing.T) {
-	v := &Views{
-		Config: &domain.RuntimeConfig{
-			ResourcesDir: "../../../resources"},
-	}
+	v := getV()
 
 	v.PrepareTemplates()
 
@@ -90,10 +78,7 @@ func TestSignup(t *testing.T) {
 }
 
 func TestSignupData(t *testing.T) {
-	v := &Views{
-		Config: &domain.RuntimeConfig{
-			ResourcesDir: "../../../resources"},
-	}
+	v := getV()
 
 	v.PrepareTemplates()
 
@@ -121,4 +106,28 @@ func TestSignupData(t *testing.T) {
 	if !strings.Contains(bodyStr, "</html>") {
 		t.Error("End of template disappeared from html")
 	}
+}
+
+func TestUserHome(t *testing.T) {
+	v := getV()
+
+	v.PrepareTemplates()
+
+	rr := httptest.NewRecorder()
+
+	v.UserHome(rr)
+
+	bodyStr := rr.Body.String()
+
+	if !strings.Contains(bodyStr, "</html>") {
+		t.Error("End of template disappeared from html")
+	}
+}
+
+func getV() *Views {
+	v := &Views{
+		Config: &domain.RuntimeConfig{}}
+	v.Config.Exec.GoTemplatesDir = "../../../resources/go-templates"
+	v.Config.Exec.WebpackTemplatesDir = "../../../frontend/dist/resources"
+	return v
 }

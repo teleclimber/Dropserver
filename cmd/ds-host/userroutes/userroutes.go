@@ -12,6 +12,7 @@ type UserRoutes struct {
 	Authenticator     domain.Authenticator
 	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
+	Views             domain.Views
 	Logger            domain.LogCLientI
 }
 
@@ -32,13 +33,17 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 
 func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 
-	ok := u.Authenticator.GetForAccount(res, req, routeData)
-	if !ok {
-		return
-	}
+	// ok := u.Authenticator.GetForAccount(res, req, routeData)
+	// if !ok {
+	// 	fmt.Println("supposed to be authed but is not...")
+	// 	return
+	// }
+	// TODO: do cookies get set???
 
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	switch head {
+	case "":
+		u.Views.UserHome(res)
 	case "api":
 		// All the async routes essentially?
 		head, tail = shiftpath.ShiftPath(tail)

@@ -24,10 +24,8 @@ import (
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
 type RuntimeConfig struct {
-	ResourcesDir    string `json:"resources-dir"`
-	PublicStaticDir string `json:"public-static-dir"`
-	DataDir         string `json:"data-dir"` // this might get confusing when we also config trusted volume data
-	Server          struct {
+	DataDir string `json:"data-dir"` // this might get confusing when we also config trusted volume data
+	Server  struct {
 		Port int16  `json:"port"`
 		Host string `json:"host"`
 	} `json:"server"`
@@ -36,11 +34,21 @@ type RuntimeConfig struct {
 	} `json:"sandbox"`
 	Loki struct {
 		Port    int16  `json:"port"`
-		Address string `json:"address"`
+		Address string `json:"address"` // Address or IP? Or does it not matter for Loki?
 	} `json:"loki"`
 	Prometheus struct {
 		Port int16 `json:"port"`
 	} `json:"prometheus"`
+
+	// Exec contains values determined at runtime
+	// These are not settable via json.
+	Exec struct {
+		GoTemplatesDir      string
+		WebpackTemplatesDir string
+		StaticAssetsDir     string
+		PublicStaticAddress string
+		UserRoutesAddress   string
+	}
 }
 
 // DB is the global host database handler
@@ -148,6 +156,7 @@ type Views interface {
 	PrepareTemplates()
 	Login(http.ResponseWriter, LoginViewData)
 	Signup(http.ResponseWriter, SignupViewData)
+	UserHome(http.ResponseWriter)
 }
 
 // LoginViewData is used to pass messages and parameters to the login page

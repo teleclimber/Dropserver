@@ -1,4 +1,4 @@
-import axios from 'axios';
+import ds_axios from '../ds-axios-helper.js'
 
 import user_vm from '../views/user/user-vm.js';
 
@@ -28,7 +28,7 @@ async function doSave( data ) {
 		// return data may indicate old pw is wrong
 		change_pw_vm.saving = true;
 
-		const resp = await axios.post( '/api/logged-in-user/change-pw', {
+		const resp = await ds_axios.post( '/api/logged-in-user/change-pw', {
 			old_pw: data.old_pw,
 			new_pw: data.new_pw
 		}, {

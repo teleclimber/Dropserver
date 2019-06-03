@@ -2,8 +2,13 @@ package runtimeconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
@@ -13,8 +18,6 @@ import (
 // For now you can just return a hard coded set of values
 
 var configDefault = []byte(`{
-	"resources-dir": "resources/",
-	"public-static-dir": "public-static/",
 	"server": {
 		"port": 3000,
 		"host": "localhost"
@@ -48,7 +51,30 @@ func Load(configFile string) *domain.RuntimeConfig {
 
 	validateConfig(rtc)
 
+	execPath, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	setExecValues(rtc, filepath.Dir(execPath))
+
 	return rtc
+}
+
+func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
+	// set up runtime paths
+	rtc.Exec.GoTemplatesDir = path.Join(binDir, "../resources/go-templates")
+	rtc.Exec.WebpackTemplatesDir = path.Join(binDir, "../resources/webpack-html")
+	rtc.Exec.StaticAssetsDir = path.Join(binDir, "../static")
+
+	//  subdomain sorting out:
+	host := rtc.Server.Host
+	port := rtc.Server.Port
+	if port != 80 && port != 443 {
+		host += fmt.Sprintf(":%d", port)
+	}
+	rtc.Exec.PublicStaticAddress = "//static." + host
+	rtc.Exec.UserRoutesAddress = "//user." + host
 }
 
 func loadDefault() *domain.RuntimeConfig {
@@ -82,16 +108,28 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 		panic("Server.port can not be 0")
 	}
 
+	// do a little cleaning up on host:
+	rtc.Server.Host = strings.TrimSpace(rtc.Server.Host)
+
 	host := rtc.Server.Host
 	if host == "" {
 		panic("host can not be empty")
 	}
-
-	// TODO need more validation for host names...
-	// - don't start with //
-	// - don't start with .
-	// - don't include a : either for port or protocol
-	// - does not end in / (or include / anywhere)
+	if strings.HasPrefix(host, ".") {
+		panic("host can not start with a .")
+	}
+	if strings.HasSuffix(host, ".") {
+		panic("host can not end with a .")
+	}
+	if strings.Contains(host, "/") {
+		panic("host can not contain a /")
+	}
+	if strings.Contains(host, ":") {
+		panic("host can not contain a :.")
+	}
+	if addr := net.ParseIP(host); addr != nil {
+		panic("host can not be an IP")
+	}
 
 	// Sandbox:
 	if rtc.Sandbox.Num == 0 {

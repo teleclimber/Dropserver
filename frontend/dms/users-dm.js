@@ -1,4 +1,4 @@
-import axios from 'axios';
+import ds_axios from '../ds-axios-helper.js'
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
@@ -24,7 +24,7 @@ class UsersDM {
 	}
     
     async fetchUsers() {
-		const resp = await axios.get( '/api/admin/user' );
+		const resp = await ds_axios.get( '/api/admin/user' );
 		runInAction( () => {	// required because using mobx in strict mode
 			this.users = resp.data;		//resp.data.map( u => new User( this, u ) );
 		});
@@ -32,7 +32,7 @@ class UsersDM {
 	// fetchUsers() {
 	// 	const self = this;
 	// 	(flow( function * () {
-	// 		const resp = yield axios.get( '/api/admin/user' );
+	// 		const resp = yield ds_axios.get( '/api/admin/user' );
 	// 		self.users = resp.data.map( u => new User( self, u ) );
 	// 	}))();
 	// }

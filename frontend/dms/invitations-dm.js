@@ -1,4 +1,4 @@
-import axios from 'axios';
+import ds_axios from '../ds-axios-helper.js'
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
@@ -11,13 +11,13 @@ class InvitationsDM {
 
 	async add( data ) {
 		//this.users.push( new User( this, { email: Math.random()+'' } ) );
-		const resp = await axios.post( '/api/admin/invitation', data );
+		const resp = await ds_axios.post( '/api/admin/invitation', data );
 		runInAction( () => {
 			if( resp.data ) this.invitations.push( resp.data );
 		});
 	}
 	async del( invitation ) {
-		const resp = await axios.delete( '/api/admin/invitation/'
+		const resp = await ds_axios.delete( '/api/admin/invitation/'
 			+encodeURIComponent(invitation.email) );
 		runInAction( () => {
 			const index = this.invitations.findIndex( i => i.email === invitation.email );
@@ -26,7 +26,7 @@ class InvitationsDM {
 	}
 
     async fetchAll() {
-		const resp = await axios.get( '/api/admin/invitation' );
+		const resp = await ds_axios.get( '/api/admin/invitation' );
 		runInAction( () => {
 			this.invitations = resp.data;
 		});

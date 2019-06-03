@@ -202,6 +202,7 @@ func main() {
 		Authenticator: authenticator,
 		AuthRoutes: authRoutes,
 		ApplicationRoutes: applicationRoutes,
+		Views: views,
 		Logger: logger }
 
 	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}

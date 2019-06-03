@@ -12,8 +12,8 @@ module.exports = {
 	},
 	output: {
 		filename: '[name].js',
-		path: path.join( process.cwd(), 'dist/frontend/' ),
-		publicPath: '/replace-me-with-public-static-address/'	// maybe, maybe not...
+		path: path.join( process.cwd(), 'dist/static/' ),
+		publicPath: '/'
 	},
 	module: {
 		rules: [{
