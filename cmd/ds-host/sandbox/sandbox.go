@@ -1,5 +1,8 @@
 package sandbox
 
+// Keep this module but make significant changes to
+// have it just manage deno processes?
+
 import (
 	"fmt"
 	"net"
