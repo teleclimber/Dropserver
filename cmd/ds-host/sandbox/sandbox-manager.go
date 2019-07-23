@@ -14,7 +14,6 @@ import (
 	lxd "github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace" //bad
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
@@ -95,7 +94,7 @@ func (sM *Manager) Init(initWg *sync.WaitGroup) {
 				}
 
 				// unmount or delete container will fail
-				mountappspace.UnMount(containerID)
+				//mountappspace.UnMount(containerID)
 
 				//then delete it.
 				fmt.Println("Deleting Sandbox", lxdContainer.Name)

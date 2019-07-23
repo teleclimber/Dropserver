@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppModel,AppspaceModel,ASRoutesModel,TrustedClientI,Authenticator,Validator,Views
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -63,14 +63,6 @@ type DBManagerI interface {
 	GetHandle() *DB
 	GetSchema() string
 	SetSchema(string) Error
-}
-
-// TrustedConfig is the runtime configuration data for ds-trusted
-type TrustedConfig struct {
-	Loki struct {
-		Port    int16  `json:"port"`
-		Address string `json:"address"`
-	} `json:"loki"`
 }
 
 // ErrorCode represents integer codes for each error mesage
@@ -265,6 +257,12 @@ type UserModel interface {
 	DeleteAdmin(UserID) Error
 }
 
+// AppFilesModel represents the application's files saved to disk
+type AppFilesModel interface {
+	Save(*map[string][]byte) (string, Error)
+	ReadMeta(string) (*AppFilesMetadata, Error)
+}
+
 // App represents the data structure for an App.
 type App struct {
 	OwnerID UserID `db:"owner_id"` // just int, or can we wrap that in a type?
@@ -281,7 +279,7 @@ type AppVersion struct {
 	LocationKey string `db:"location_key"`
 }
 
-// AppModel is the interface for the appspace model
+// AppModel is the interface for the app model
 type AppModel interface {
 	GetFromID(AppID) (*App, Error)
 	Create(UserID, string) (*App, Error)
@@ -312,39 +310,6 @@ type AppspaceModel interface {
 // ASRoutesModel is the appspaces routes model interface
 type ASRoutesModel interface {
 	GetRouteConfig(AppVersion, string, string) (*RouteConfig, Error)
-}
-
-// TrustedClientI is the interface for the client of the ds-trusted remote service
-type TrustedClientI interface {
-	Init(string)
-	SaveAppFiles(*TrustedSaveAppFiles) (*TrustedSaveAppFilesReply, Error)
-	GetAppMeta(*TrustedGetAppMeta) (*TrustedGetAppMetaReply, Error)
-}
-
-// huh, we could almost make trusted client and server the same interface?!?
-
-// TrustedSaveAppFiles is args for trusted RPC call
-type TrustedSaveAppFiles struct {
-	Files *map[string][]byte
-}
-
-// TrustedSaveAppFilesReply is reply
-type TrustedSaveAppFilesReply struct {
-	LocationKey string
-}
-
-// TrustedGetAppMeta is arguments for GetAppMeta
-type TrustedGetAppMeta struct {
-	LocationKey string
-}
-
-// TrustedGetAppMetaReply is the reply contain application metadata.
-// May need to contain a domain-wide application meta?
-// Or app-file-meta, given there will be app-meta from DB.
-// In fact this should just be a app-file meta struct that is returned?
-// ..though slightly concerned about the versioning of application meta data.
-type TrustedGetAppMetaReply struct {
-	AppFilesMetadata AppFilesMetadata
 }
 
 // AppFilesMetadata containes metadata that can be gleaned from

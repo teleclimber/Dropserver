@@ -14,7 +14,6 @@ import (
 	lxd "github.com/lxc/lxd/client"
 	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/mountappspace"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record" // should be able to rm this import
 	"github.com/teleclimber/DropServer/internal/timetrack"
 )
@@ -251,7 +250,7 @@ func (s *Sandbox) recycle(readyCh chan *Sandbox) {
 	s.recycleListener.waitFor("kild")
 	// ^^ here we should wait for either "kild" or "fail", and act in consequence
 
-	mountappspace.UnMount(s.Name)
+	//mountappspace.UnMount(s.Name)
 
 	go s.reverseListener.waitForConn()
 
@@ -278,7 +277,7 @@ func (s *Sandbox) commit(app, appSpace string) {
 
 	s.Status = "committing"
 
-	mountappspace.Mount(app, appSpace, s.Name)
+	//mountappspace.Mount(app, appSpace, s.Name)
 
 	s.Transport = http.DefaultTransport
 

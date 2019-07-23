@@ -21,7 +21,10 @@ import (
 // ASRoutesModel holds the Appspace Routes Model
 type ASRoutesModel struct {
 	Logger domain.LogCLientI
-	TrustedClient domain.TrustedClientI
+
+	// AppFilesModel is used to access the JSON config data where app routes are declared
+	// This is a temporary solution to my current lack of proper architecture.
+	AppFilesModel domain.AppFilesModel
 	
 	appRoutes map[domain.AppID]map[domain.Version]*domain.RoutePart
 }
@@ -83,15 +86,12 @@ func (m *ASRoutesModel) getAppRoutes(appVersion domain.AppVersion) (*domain.Rout
 }
 
 func (m *ASRoutesModel) fetchAppConfig(appVersion domain.AppVersion) domain.Error {
-	// Here we go to ds-trusted for the goods
-	get := domain.TrustedGetAppMeta{
-		LocationKey: appVersion.LocationKey	}
-	reply, dsErr := m.TrustedClient.GetAppMeta(&get)
+	appMeta, dsErr := m.AppFilesModel.ReadMeta(appVersion.LocationKey)
 	if dsErr != nil {
 		return dsErr
 	}
 
-	jsonRoutes := reply.AppFilesMetadata.Routes
+	jsonRoutes := appMeta.Routes
 
 	rootRoute, dsErr := m.parseRoutes(jsonRoutes)
 	if dsErr != nil {

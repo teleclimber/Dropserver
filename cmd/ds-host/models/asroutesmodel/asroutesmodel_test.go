@@ -146,17 +146,16 @@ func RunTestFetchAppConfig(t *testing.T, appRoutes map[domain.AppID]map[domain.V
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	reply := domain.TrustedGetAppMetaReply{
-		AppFilesMetadata: domain.AppFilesMetadata{
-			Routes: []domain.JSONRoute{
-				{Route: "/", Method: "Get", Handler: domain.JSONRouteHandler{Type: "foo"}},
-				{Route: "/abc/def", Method: "Get", Handler: domain.JSONRouteHandler{Type: "bar"}},
-			}}}
-	trusted := domain.NewMockTrustedClientI(mockCtrl)
-	trusted.EXPECT().GetAppMeta(gomock.Any()).Return(&reply, nil)
+	reply := domain.AppFilesMetadata{
+		Routes: []domain.JSONRoute{
+			{Route: "/", Method: "Get", Handler: domain.JSONRouteHandler{Type: "foo"}},
+			{Route: "/abc/def", Method: "Get", Handler: domain.JSONRouteHandler{Type: "bar"}},
+		}}
+	appFilesModel := domain.NewMockAppFilesModel(mockCtrl)
+	appFilesModel.EXPECT().ReadMeta(gomock.Any()).Return(&reply, nil)
 
 	model := ASRoutesModel{
-		TrustedClient: trusted,
+		AppFilesModel: appFilesModel,
 		appRoutes:     appRoutes}
 
 	appID := domain.AppID(1)
@@ -173,17 +172,16 @@ func TestGetAppRoutes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	reply := domain.TrustedGetAppMetaReply{
-		AppFilesMetadata: domain.AppFilesMetadata{
-			Routes: []domain.JSONRoute{
-				{Route: "/", Method: "Get", Handler: domain.JSONRouteHandler{Type: "foo"}},
-				{Route: "/abc/def", Method: "Get", Handler: domain.JSONRouteHandler{Type: "bar"}},
-			}}}
-	trusted := domain.NewMockTrustedClientI(mockCtrl)
-	trusted.EXPECT().GetAppMeta(gomock.Any()).Return(&reply, nil)
+	reply := domain.AppFilesMetadata{
+		Routes: []domain.JSONRoute{
+			{Route: "/", Method: "Get", Handler: domain.JSONRouteHandler{Type: "foo"}},
+			{Route: "/abc/def", Method: "Get", Handler: domain.JSONRouteHandler{Type: "bar"}},
+		}}
+	appFilesModel := domain.NewMockAppFilesModel(mockCtrl)
+	appFilesModel.EXPECT().ReadMeta(gomock.Any()).Return(&reply, nil)
 
 	model := ASRoutesModel{
-		TrustedClient: trusted}
+		AppFilesModel: appFilesModel}
 
 	appID := domain.AppID(1)
 	ver := domain.Version("0.0.1")

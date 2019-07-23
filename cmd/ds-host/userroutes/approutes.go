@@ -12,7 +12,7 @@ import (
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
-	TrustedClient domain.TrustedClientI
+	AppFilesModel domain.AppFilesModel
 	AppModel      domain.AppModel
 	Logger        domain.LogCLientI
 }
@@ -101,16 +101,13 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	fileData := a.extractFiles(req)
 	if len(*fileData) > 0 {
-		data := domain.TrustedSaveAppFiles{
-			Files: fileData}
-		saveReply, err := a.TrustedClient.SaveAppFiles(&data)
+		locationKey, err := a.AppFilesModel.Save(fileData)
 		if err != nil {
 			err.HTTPError(res)
 			return
 		}
 
-		metaReply, err := a.TrustedClient.GetAppMeta(&domain.TrustedGetAppMeta{
-			LocationKey: saveReply.LocationKey})
+		appMeta, err := a.AppFilesModel.ReadMeta(locationKey)
 		if err != nil {
 			fmt.Println(err, err.ExtraMessage())
 			err.HTTPError(res)
@@ -119,21 +116,21 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, metaReply.AppFilesMetadata.AppName)
+		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, appMeta.AppName)
 		if dsErr != nil {
 			fmt.Println(err, err.ExtraMessage())
 			dsErr.HTTPError(res)
 			return
 		}
 
-		appVersion, dsErr := a.AppModel.CreateVersion(app.AppID, metaReply.AppFilesMetadata.AppVersion, saveReply.LocationKey)
+		appVersion, dsErr := a.AppModel.CreateVersion(app.AppID, appMeta.AppVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(err, err.ExtraMessage())
 			dsErr.HTTPError(res)
 			return
 		}
 
-		fmt.Println("got response for metadata", metaReply.AppFilesMetadata, app, appVersion)
+		fmt.Println("got response for metadata", appMeta, app, appVersion)
 
 		res.WriteHeader(http.StatusOK)
 

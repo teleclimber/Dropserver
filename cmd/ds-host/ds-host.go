@@ -16,12 +16,12 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
-	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
@@ -97,6 +97,9 @@ func main() {
 		Logger: logger }
 	cookieModel.PrepareStatements()
 
+	appFilesModel := &appfilesmodel.AppFilesModel{
+		Logger: logger}
+
 	appModel := &appmodel.AppModel{
 		DB: db,
 		Logger: logger }
@@ -112,18 +115,10 @@ func main() {
 	var initWg sync.WaitGroup
 	initWg.Add(2)
 
-	trustedClient := trusted.RPCClient{
-		Logger: logger }
-
-	trustedManager := trusted.Trusted{
-		Config: runtimeConfig,
-		RPCClient: &trustedClient }
-
-	trustedManager.Init(&initWg)
-
+	// appspaceroutesmodel is questionable because it loads the routes from the files, yet we have a model that reads from there?
 	asRoutesModel := &asroutesmodel.ASRoutesModel{
-		Logger: logger,
-		TrustedClient: &trustedClient }
+		AppFilesModel: appFilesModel,	// temporary!
+		Logger: logger }
 
 	sM := sandbox.Manager{
 		Config: runtimeConfig,
@@ -138,7 +133,6 @@ func main() {
 
 		var stopWg sync.WaitGroup
 		stopWg.Add(1)
-		trustedManager.Stop(&stopWg)
 		sM.StopAll()	//should take a waitgroup
 		stopWg.Wait()
 		
@@ -195,7 +189,7 @@ func main() {
 		Validator: validator}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		TrustedClient: &trustedClient,
+		AppFilesModel: appFilesModel,
 		AppModel: appModel,
 		Logger: logger }
 	userRoutes := &userroutes.UserRoutes{
