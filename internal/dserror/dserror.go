@@ -115,6 +115,7 @@ func Encoded(err error) bool {
 // 34xx appspace management route errors
 // 50xx admin route errors
 // 60xx app-space route errors
+// 70xx sandbox errors
 // 90xx config / administriator errors (emitted at startup/migration time, or whenever administrator is interacting)
 // 92xx migrations
 // 94xx db errors (schema mismatch, inaccessible, ...)
@@ -137,6 +138,8 @@ const (
 	AppRouteConfigProblem		domain.ErrorCode = 3204
 
 	AppspaceRouteNotFound domain.ErrorCode = 6001
+
+	SandboxFailedToTerminate domain.ErrorCode = 7001
 
 	MigrateDownNotSupported	domain.ErrorCode = 9201
 	MigrationNameNotFound domain.ErrorCode = 9202

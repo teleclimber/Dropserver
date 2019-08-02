@@ -30,7 +30,8 @@ type RuntimeConfig struct {
 		Host string `json:"host"`
 	} `json:"server"`
 	Sandbox struct {
-		Num int `json:"num"`
+		Num        int    `json:"num"`
+		SocketsDir string `json:"sockets-dir"`
 	} `json:"sandbox"`
 	Loki struct {
 		Port    int16  `json:"port"`
@@ -48,6 +49,7 @@ type RuntimeConfig struct {
 		StaticAssetsDir     string
 		PublicStaticAddress string
 		UserRoutesAddress   string
+		JSRunnerPath        string
 	}
 }
 
@@ -93,7 +95,7 @@ const (
 
 // LogCLientI represents an interface for logging
 type LogCLientI interface {
-	NewSandboxLogClient(string) LogCLientI
+	NewSandboxLogClient(int) LogCLientI
 	Log(LogLevel, map[string]string, string)
 }
 
@@ -104,12 +106,11 @@ type MetricsI interface {
 
 // SandboxManagerI is an interface that describes sm
 type SandboxManagerI interface {
-	GetForAppSpace(app string, appSpace string) chan SandboxI
+	GetForAppSpace(appspace *Appspace) chan SandboxI
 }
 
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
-	GetName() string
 	GetAddress() string
 	GetTransport() http.RoundTripper
 	GetLogClient() LogCLientI
@@ -178,7 +179,7 @@ type SignupViewData struct {
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
 	Cookie      *Cookie
-	App         *App
+	App         *App // AppVersion??
 	Appspace    *Appspace
 	URLTail     string
 	RouteConfig *RouteConfig
@@ -298,6 +299,7 @@ type Appspace struct {
 	Paused     bool
 
 	// Config AppspaceConfig ..this one is harder
+	// Location key? Or just use the ID?
 }
 
 // AppspaceModel is the interface for the appspace model

@@ -66,6 +66,7 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.GoTemplatesDir = path.Join(binDir, "../resources/go-templates")
 	rtc.Exec.WebpackTemplatesDir = path.Join(binDir, "../resources/webpack-html")
 	rtc.Exec.StaticAssetsDir = path.Join(binDir, "../static")
+	rtc.Exec.JSRunnerPath = path.Join(binDir, "../resources/ds-runner.js")
 
 	//  subdomain sorting out:
 	host := rtc.Server.Host
@@ -134,6 +135,9 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	// Sandbox:
 	if rtc.Sandbox.Num == 0 {
 		panic("you need at least one sandbox")
+	}
+	if rtc.Sandbox.SocketsDir == "" {
+		panic("sockets dir can not be blank")
 	}
 
 	// Loki:

@@ -1,36 +1,29 @@
 package sandbox
 
 import (
-	"container/list"
 	"fmt"
-	"math"
-	"os"
-	"regexp"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
-	lxd "github.com/lxc/lxd/client"
-	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
-const lxdUnixSocket = "/var/snap/lxd/common/lxd/unix.socket"
+// This is going to be different and quite simplified
+// each sandbox is always tied to an appspace id
+// So just have a map appspaceID[*sandbox]
+// -> some question on how to deal with sandbox shutting down while a request for it arrives
+// There is no recycling. You start the sb for an appspace, and then kill it completely.
 
 // Manager manages sandboxes
 type Manager struct {
-	sandboxes          []*Sandbox
-	nextID             int
-	poolMux            sync.Mutex
-	requests           map[string]request
-	committedSandboxes map[string]*Sandbox
-	readySandboxes     list.List
-	readyCh            chan *Sandbox
-	readyStop          chan bool
-	Config             *domain.RuntimeConfig
-	Logger             domain.LogCLientI
+	nextID    int //?
+	poolMux   sync.Mutex
+	requests  map[string]request             // unused?
+	sandboxes map[domain.AppspaceID]*Sandbox // all sandboxes are always committed
+	Config    *domain.RuntimeConfig
+	Logger    domain.LogCLientI
 	// metrics, ...
 }
 
@@ -40,99 +33,17 @@ type request struct {
 	sandboxChannels []chan domain.SandboxI
 }
 
-// Init zaps existing sandboxes and creates fresh ones
-func (sM *Manager) Init(initWg *sync.WaitGroup) {
-	defer initWg.Done()
-
-	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	lxdContainers, err := lxdConn.GetContainersFull()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	isSandbox := regexp.MustCompile(`ds-sandbox-[0-9]+$`).MatchString
-
-	var delWg sync.WaitGroup
-
-	for _, lxdC := range lxdContainers {
-
-		if isSandbox(lxdC.Name) {
-			// since we are at init, then nothing should be connected to this process.
-			// so just turn it off.
-
-			delWg.Add(1)
-
-			go func(lxdContainer lxdApi.ContainerFull, wg *sync.WaitGroup) {
-				defer wg.Done()
-
-				containerID := lxdContainer.Name[11:]
-
-				fmt.Println("Sandbox Status", lxdContainer.Status)
-
-				if lxdContainer.Status == "Running" {
-					fmt.Println("Stopping Sandbox", lxdContainer.Name)
-
-					reqState := lxdApi.ContainerStatePut{
-						Action:  "stop",
-						Timeout: -1}
-
-					op, err := lxdConn.UpdateContainerState(lxdContainer.Name, reqState, "")
-					if err != nil {
-						fmt.Println(err)
-					}
-
-					err = op.Wait()
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-
-				// unmount or delete container will fail
-				//mountappspace.UnMount(containerID)
-
-				//then delete it.
-				fmt.Println("Deleting Sandbox", lxdContainer.Name)
-
-				op, err := lxdConn.DeleteContainer(lxdContainer.Name)
-				if err != nil {
-					fmt.Println(err)
-				}
-
-				err = op.Wait()
-				if err != nil {
-					fmt.Println(err)
-				}
-			}(lxdC, &delWg)
-		}
-	}
-
-	delWg.Wait()
-
-	sM.requests = make(map[string]request)
-	sM.committedSandboxes = make(map[string]*Sandbox)
-
-	sM.readyCh = make(chan *Sandbox)
-	go sM.readyIn()
-
-	sM.nextID = 1
-
-	// now create a handful of sandboxes
-	var wg sync.WaitGroup
-	num := sM.Config.Sandbox.Num
-	wg.Add(num)
-	for i := 0; i < num; i++ {
-		sandboxID := strconv.Itoa(sM.nextID)
-		sM.nextID++
-		go sM.launchNewSandbox(sandboxID, &wg)
-	}
-
-	wg.Wait()
+// Init [used to] zaps existing sandboxes and creates fresh ones
+// Now it just cleans up possible earlier sandboxes
+// It does not create new ones until a request comes in.
+// Hmm, it's possible host crashes while sandboxes stay up.
+// How to deal?
+// -> at least start with clean set up:
+// - no deno processes running
+// - no unix domain sockets
+// - probably need a host session ID, and only talk to those who have that session.
+func (sM *Manager) Init() {
+	// ??
 }
 
 // StopAll takes all known sandboxes and stops them
@@ -149,225 +60,106 @@ func (sM *Manager) StopAll() {
 	stopWg.Wait()
 }
 
-// launchNewSandbox creates a new container from sandbox image and starts it.
-func (sM *Manager) launchNewSandbox(sandboxID string, wg *sync.WaitGroup) {
-	// get a next id, by taking current nextId and checking to be sure there is nothing there in dir.
-	// ..AND checking to make sure there is no container by that name ?
+// startSandbox launches a new Node/deno instance for a specific sandbox
+// not sure if it should return a channel or just a started sb.
+// Problem is if it takes too long, would like to independently send timout as response to request.
+func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.SandboxI) {
+	sandboxID := sM.nextID
+	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a service to lock!
+	// .. or trust that it only gets called with poolMux locked by caller.
 
-	defer wg.Done()
+	fmt.Println("Creating new Sandbox", appspace.AppspaceID)
 
-	fmt.Println("Creating new Sandbox", sandboxID)
+	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
+		SandboxID: sandboxID,
+		Status:    "starting",
+		appspace:  appspace,
+		statusSub: make(map[string][]chan bool),
+		LogClient: sM.Logger.NewSandboxLogClient(sandboxID)}
 
-	newSandbox := Sandbox{
-		Name:       sandboxID, // change that key please
-		Status:     "starting",
-		appSpaceID: "",
-		statusSub:  make(map[string][]chan bool),
-		LogClient:  sM.Logger.NewSandboxLogClient(sandboxID)}
-
-	sM.sandboxes = append(sM.sandboxes, &newSandbox)
+	sM.sandboxes[appspace.AppspaceID] = &newSandbox
 
 	sM.recordSandboxStatusMetric()
 
-	newSandbox.recycleListener = newRecycleListener(sandboxID, newSandbox.LogClient, newSandbox.onRecyclerMsg)
-
-	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
-	if err != nil {
-		fmt.Println(sandboxID, err)
-		os.Exit(1)
-	}
-
-	// add a unix socket proxy
-	dev := map[string]map[string]string{
-		"cmd-proxy": {
-			"type":    "proxy",
-			"bind":    "container",
-			"connect": "unix:/home/developer/ds-socket-proxies/recycler-" + sandboxID,
-			"listen":  "unix:/mnt/cmd-socket"},
-		"eth0": {
-			"type":      "nic",
-			"nictype":   "p2p",
-			"name":      "eth0",
-			"host_name": "ds-sandbox-" + sandboxID}}
-
-	req := lxdApi.ContainersPost{
-		Name: "ds-sandbox-" + sandboxID,
-		Source: lxdApi.ContainerSource{
-			Type:  "image",
-			Alias: "ds-sandbox",
-		},
-		ContainerPut: lxdApi.ContainerPut{
-			Profiles: []string{"ds-sandbox-profile"},
-			Devices:  dev}}
-
-	op, err := lxdConn.CreateContainer(req)
-	if err != nil {
-		fmt.Println(sandboxID, err)
-		os.Exit(1)
-	}
-
-	err = op.Wait()
-	if err != nil {
-		fmt.Println(sandboxID, err)
-		os.Exit(1)
-	}
-
-	go newSandbox.start()
-
-	newSandbox.recycleListener.waitFor("hi")
-
-	newSandbox.getIPs()
-
-	newSandbox.Address = "http://[" + newSandbox.containerIP + "%25ds-sandbox-" + sandboxID + "]:3030"
-	// ^ %25 is % escaped
-
-	newSandbox.reverseListener = newReverseListener(newSandbox.Name, newSandbox.hostIP, newSandbox.onReverseMsg)
-
-	fmt.Println(sandboxID, "container started, recycling")
-	newSandbox.recycle(sM.readyCh)
+	go func() {
+		newSandbox.start()
+		newSandbox.waitFor("ready")
+		ch <- &newSandbox
+	}()
 }
 
 // GetForAppSpace records the need for a sandbox and returns a channel
-func (sM *Manager) GetForAppSpace(app string, appSpace string) chan domain.SandboxI {
+// OK, this might work
+func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
+
+	// get appVersion from model
+	// Same for app if needed.
 
 	sM.poolMux.Lock()
 	defer sM.poolMux.Unlock()
 
-	c, ok := sM.committedSandboxes[appSpace]
+	c, ok := sM.sandboxes[appspace.AppspaceID]
 	if ok {
-		//OK, but is the container ready yet?
-		// it may have *just* been mark for commit, so it'll get there but have to wait
-		fmt.Println("GFAS found sandbox already committed", appSpace)
+		//OK, but is it ready yet?
+		// it may have *just* been started, so it'll get there but have to wait
 		go func() {
-			c.waitFor("committed")         // I don't like this. If something si going to wait, I'd rather it get put in requests or something.
-			ch <- c                        // do this in goroutine because it will block
+			c.waitFor("ready")
+			ch <- c
 			sM.recordSandboxStatusMetric() // really?
 		}()
 	} else {
-		req, ok := sM.requests[appSpace]
-		if !ok {
-			req = request{
-				appSpace:        appSpace,
-				app:             app,
-				sandboxChannels: make([]chan domain.SandboxI, 0)}
-		}
+		// Here we may want to start a sandbox.
+		// But we may not have enough RAM available to do it efficiently?
+		// For now just start one up. We'll fine-tune later.
+		// OK, but still need to queue up requests? .. or not.
+		// -> this could be the queueing mechanism.
 
-		req.sandboxChannels = append(req.sandboxChannels, ch)
+		sM.startSandbox(appspace, ch) // pass the channel?
+		// this ought to return quickly, like as soon as the sandbox data is established.
+		// .. so as to not tie up poolMux
 
-		sM.requests[appSpace] = req
-
-		go sM.dispatchPool()
+		go sM.killPool()
 	}
 
 	return ch
 }
 
-func (sM *Manager) dispatchPool() {
-	// assigns sandboxes to  app-spaces.
-	// if a container needs to be committed, then subsequently call recyclePool
-	// this has to be fast. No waiting!
-
-	// there may be requests but no sandboxes
-	// or no requests but sandboxes
-	// or both,
-	// or none.
-
-	fmt.Println("dispatchPool")
+// Look for sandboxes to shut down to make room for others before you run out of resources.
+func (sM *Manager) killPool() {
 	sM.poolMux.Lock()
 	defer sM.poolMux.Unlock()
 
-	for appSpace := range sM.requests {
-		// maybe check that all requests are still active first..
-		front := sM.readySandboxes.Front()
-		if front == nil {
-			sM.Logger.Log(domain.WARN, map[string]string{"app-space": appSpace},
-				"dispatch pool: no sandboxes left for app-space")
-			break
-		} else {
-			r := sM.requests[appSpace]
+	// Need to use num sb from config I think.
+	numC := sM.Config.Sandbox.Num
+	numKill := len(sM.sandboxes) - numC
 
-			c := front.Value.(*Sandbox)
-			c.appSpaceID = r.appSpace
-			c.Status = "committing"
+	if numKill > 0 {
+		var sortedSandboxes []*Sandbox
 
-			sM.readySandboxes.Remove(front)
-			delete(sM.requests, appSpace)
-			sM.committedSandboxes[r.appSpace] = c
-
-			go sM.commit(c, r)
-
-			go sM.recyclePool()
-		}
-	}
-
-	go sM.recordSandboxStatusMetric()
-}
-func (sM *Manager) commit(sandbox *Sandbox, request request) {
-	fmt.Println("cmcommit for ", sandbox.Name, request.appSpace)
-
-	sandbox.commit(request.app, request.appSpace)
-
-	for _, ch := range request.sandboxChannels {
-		ch <- sandbox // will panic if ch is closed! Will block if nobody at the other end
-		// -> requires precise management of the channel.
-	}
-
-	sM.recordSandboxStatusMetric()
-}
-
-func (sM *Manager) recyclePool() {
-	sM.poolMux.Lock()
-	defer sM.poolMux.Unlock()
-
-	numC := len(sM.sandboxes)
-	maxCommitted := int(math.Round(float64(numC) * 2 / 3))
-	numRecyc := len(sM.committedSandboxes) - maxCommitted
-
-	if numRecyc > 0 {
-		var sortedAppSpaces []string
-
-		for appSpace := range sM.committedSandboxes {
-			c := sM.committedSandboxes[appSpace]
-			if c.Status == "committed" && !c.appSpaceSession.tiedUp {
-				duration := time.Since(c.appSpaceSession.lastActive)
-				c.recycleScore = duration.Seconds()
-				sortedAppSpaces = append(sortedAppSpaces, appSpace)
+		for _, sb := range sM.sandboxes {
+			if sb.Status == "ready" && !sb.appSpaceSession.tiedUp {
+				duration := time.Since(sb.appSpaceSession.lastActive)
+				sb.killScore = duration.Seconds() //kill least recently active
+				sortedSandboxes = append(sortedSandboxes, sb)
 			}
 		}
 
-		sort.Slice(sortedAppSpaces, func(i, j int) bool {
-			asi := sortedAppSpaces[i]
-			asj := sortedAppSpaces[j]
-			return sM.committedSandboxes[asi].recycleScore > sM.committedSandboxes[asj].recycleScore
+		sort.Slice(sortedSandboxes, func(i, j int) bool {
+			return sortedSandboxes[i].killScore > sortedSandboxes[j].killScore
 		})
 
-		for i := 0; i < numRecyc && i < len(sortedAppSpaces); i++ {
-			appSpace := sortedAppSpaces[i]
-			c := sM.committedSandboxes[appSpace]
-			c.Status = "recycling"
-			c.appSpaceID = ""
-			delete(sM.committedSandboxes, appSpace)
-			go c.recycle(sM.readyCh)
-
+		var stopWg sync.WaitGroup
+		for i := 0; i < numKill && i < len(sortedSandboxes); i++ {
+			sandbox := sortedSandboxes[i]
+			sandbox.Status = "killing"
+			//sandbox.appspaceID = nil
+			stopWg.Add(1)
+			go sandbox.Stop(&stopWg) // function signature requires waitgroup, but we don't want to prevent this function from returning!
 		}
 	}
 
 	go sM.recordSandboxStatusMetric()
-}
-
-func (sM *Manager) readyIn() { //deliberately bad name
-	for {
-		select {
-		case readyC := <-sM.readyCh:
-			sM.poolMux.Lock()
-			sM.readySandboxes.PushBack(readyC)
-			sM.poolMux.Unlock()
-			sM.dispatchPool()
-		case <-sM.readyStop:
-			break
-		}
-	}
 }
 
 func (sM *Manager) recordSandboxStatusMetric() {
@@ -396,19 +188,19 @@ func (sM *Manager) recordSandboxStatusMetric() {
 
 // PrintSandboxes outputs containersa and status
 func (sM *Manager) PrintSandboxes() {
-	var readys []string
-	for rc := sM.readySandboxes.Front(); rc != nil; rc = rc.Next() {
-		readys = append(readys, rc.Value.(*Sandbox).Name)
-	}
+	// var readys []string
+	// for rc := sM.readySandboxes.Front(); rc != nil; rc = rc.Next() {
+	// 	readys = append(readys, rc.Value.(*Sandbox).Name)
+	// }
 
-	fmt.Println("Ready Sandboxes", readys)
+	// fmt.Println("Ready Sandboxes", readys)
 
-	fmt.Println("Committed sandboxes", sM.committedSandboxes)
-	for _, c := range sM.sandboxes {
-		tiedUp := "not-tied"
-		if c.appSpaceSession.tiedUp {
-			tiedUp = "tied-up"
-		}
-		fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp, c.recycleScore)
-	}
+	// fmt.Println("Committed sandboxes", sM.committedSandboxes)
+	// for _, c := range sM.sandboxes {
+	// 	tiedUp := "not-tied"
+	// 	if c.appSpaceSession.tiedUp {
+	// 		tiedUp = "tied-up"
+	// 	}
+	// 	fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp, c.recycleScore)
+	// }
 }

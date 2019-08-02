@@ -45,11 +45,11 @@ func NewLogClient(config *domain.RuntimeConfig) domain.LogCLientI {
 }
 
 // NewSandboxLogClient creates a logging client with sandbox name as a label
-func (c *DsLogClient) NewSandboxLogClient(sandboxName string) domain.LogCLientI {
+func (c *DsLogClient) NewSandboxLogClient(sandboxID int) domain.LogCLientI {
 	pushURL := fmt.Sprintf("http://%s:%d/api/prom/push", c.Config.Loki.Address, c.Config.Loki.Port)
 	lokiConf := promtail.ClientConfig{
 		PushURL:            pushURL,
-		Labels:             "{cmd=\"ds-host\", sandbox=\"" + sandboxName + "\"}", //hmm
+		Labels:             fmt.Sprintf("{cmd=\"ds-host\", sandbox=\"%d\"}", sandboxID),
 		BatchWait:          time.Second,
 		BatchEntriesNumber: 1000,
 		SendLevel:          promtail.DEBUG,

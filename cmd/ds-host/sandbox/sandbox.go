@@ -5,18 +5,26 @@ package sandbox
 
 import (
 	"fmt"
-	"net"
+	"io"
+	"log"
 	"net/http"
-	"os"
+	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
-	lxd "github.com/lxc/lxd/client"
-	lxdApi "github.com/lxc/lxd/shared/api"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record" // should be able to rm this import
-	"github.com/teleclimber/DropServer/internal/timetrack"
+	"github.com/teleclimber/DropServer/internal/dserror"
+	"golang.org/x/sys/unix"
 )
+
+// OK so this is going to be significantly different.
+// ..we may even need to delete entirely and create a fresh new module.
+// - create sandbox on-demand on incoming request (this is a limitation from Deno, for now)
+// - need to detect when it crashes/hangs
+// - need to be able to send a die message
+// - need to be able to kill if misbehaving
+// - We need a appspace-api server on host for all api requests that emanate from appspaces.
 
 type appSpaceSession struct {
 	tasks      []*Task
@@ -31,64 +39,196 @@ type Task struct {
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	Name            string // Every property should be non-exported to guarantee use of the interface
+	SandboxID       int
 	Status          string
-	Address         string
-	hostIP          net.IP
-	containerIP     string
-	appSpaceID      string
-	recycleListener *recycleListener
+	Address         string // may not be necessary, just need port I think
+	appspace        *domain.Appspace
+	cmd             *exec.Cmd
 	reverseListener *reverseListener
 	statusSub       map[string][]chan bool
 	Transport       http.RoundTripper
 	appSpaceSession appSpaceSession
-	recycleScore    float64
+	killScore       float64 // rename. It's killScore perhaps
+	Config          *domain.RuntimeConfig
 	LogClient       domain.LogCLientI
+}
+
+// Should start() return a channel or something?
+// or should callers just do go start()?
+func (s *Sandbox) start() { // return an error, presumably?
+	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
+
+	// Here start should take necessary data about appspace
+	// ..in order to pass in the right permissions to deno.
+	// I think here we don't need to return?
+	// just hold on until the process ends.
+	// Instead push status into a channel or something?
+
+	//cmd := exec.Command("node", "/root/ds-sandbox-runner.js", hostIP, rev_sock_path)
+	// ..Will have to pass location of script somehow.
+	// ..In prod it's relative to install dir, in testing it's....?
+
+	s.reverseListener = newReverseListener(s.Config, s.SandboxID, s.onReverseMsg)
+
+	cmd := exec.Command("node", s.Config.Exec.JSRunnerPath, s.reverseListener.socketPath)
+	s.cmd = cmd
+	// -> for Deno will have to pass permission flags for that sandbox.
+	// The appspace is known at this point and should probably be passed to the runner.
+	// the runner JS location is specified in some sort of runtime config
+	// Note that ultimately we need to stick this in a Cgroup
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = cmd.Start() // returns right away
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go s.monitor(stdout, stderr)
+
+	// we should also start reverse listener and wait for it to give the OK?
+	// We need config to know where the unix sockets reside.
+	// Do we pass config struct all the way to each rev listener? -> probably most consistent.
+	//s.reverseListener = newReverseListener(s.Config, s.SandboxID, s.onReverseMsg)
+
+	s.reverseListener.waitFor("hi") // wait this will block?? <- yes, yes it will
+
+	// TODO: after "hi", we have to put status at "ready", but we need a status setter/trigger
+
+}
+
+// monitor waits for cmd to end
+// It also collects output for use somewhere.
+func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		printLogs(stdout)
+	}()
+
+	go func() {
+		defer wg.Done()
+		printLogs(stderr)
+	}()
+
+	wg.Wait()
+
+	err := s.cmd.Wait()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	s.Status = "dead"
+}
+
+func printLogs(r io.ReadCloser) {
+	buf := make([]byte, 80)
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			//logfn(buf[0:n])
+			//println(string(buf[0:n]))
+			fmt.Printf("%s", buf[0:n])
+		}
+		if err != nil {
+			break
+		}
+	}
 }
 
 // Stop stops the container and its associated open connections
 func (s *Sandbox) Stop(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	s.recycleListener.close()
-	// delete it? how do we restart?
-
 	// reverse listener...
 
-	lxdState := s.getLxdState()
+	// get state and then send kill signal?
+	// Then loop over and check pid.
+	// -> I think ds-sandbox-d had this nailed down.
+	// update status and clean up after?
 
-	if lxdState.Status == "Running" {
-		// stop it
-		fmt.Println("Stopping Running Sandbox", s.Name)
+	// if sandbox status is killed, then do nothing, the killing system is working.
 
-		lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
+	// get status from pid, if running, send kill sig, then wait some.
+	// follow up as with ds-sandbox-d
+
+	s.Status = "killing"
+
+	err := s.kill(false)
+	if err != nil {
+		s.LogClient.Log(domain.ERROR, nil, "Unable to kill sandbox")
+		// force kill
+		err = s.kill(true)
 		if err != nil {
-			fmt.Println(s.Name, err)
-			os.Exit(1)
-		}
-
-		reqState := lxdApi.ContainerStatePut{
-			Action:  "stop",
-			Timeout: -1}
-
-		op, err := lxdConn.UpdateContainerState("ds-sandbox-"+s.Name, reqState, "")
-		if err != nil {
-			fmt.Println(s.Name, err)
-		}
-
-		err = op.Wait()
-		if err != nil {
-			fmt.Println(s.Name, err)
+			// ???
+			s.LogClient.Log(domain.ERROR, nil, "Unable to FORCE kill sandbox")
 		}
 	}
+	/////.....
+
+	// after you kill, whether successful or not,
+	// sandbox manager ought to remove the sandbox from sandboxes.
+	// If had to forcekill then quarantine the
+
+}
+
+func (s *Sandbox) pidAlive() bool {
+	process := s.cmd.Process
+	// what does process look like before the cmd is started? Check for nil?
+	// what does proces look like after the underlying process has dies?
+
+	err := process.Signal(syscall.Signal(0))
+	if err == nil {
+		return true
+	}
+	return false
+}
+
+// kill sandbox, which means send it the kill sig
+// This should get picked up internally and it should shut itself down.
+func (s *Sandbox) kill(force bool) domain.Error {
+	process := s.cmd.Process
+
+	sig := unix.SIGTERM
+	if force {
+		sig = unix.SIGKILL
+	}
+	err := process.Signal(sig)
+	if err != nil {
+		s.LogClient.Log(domain.INFO, nil, fmt.Sprintf("kill: Error killing process. Force: %t", force))
+	}
+
+	var alive bool
+	ms := 5
+	if force {
+		ms = 50
+	}
+	for i := 1; i < 21; i++ {
+		time.Sleep(time.Duration(ms) * time.Millisecond)
+
+		alive = s.pidAlive()
+		if !alive {
+			break
+		}
+	}
+
+	if alive {
+		return dserror.New(dserror.SandboxFailedToTerminate)
+	}
+	return nil
 }
 
 // basic getters
-
-// GetName gets the name of the sandbox
-func (s *Sandbox) GetName() string {
-	return s.Name
-}
 
 // GetAddress gets the IP address of the sandbox
 func (s *Sandbox) GetAddress() string {
@@ -125,169 +265,6 @@ func (s *Sandbox) TaskBegin() chan bool {
 	return ch //instead of returning a task we should return a chanel.
 }
 
-func (s *Sandbox) start() {
-	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
-
-	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	reqState := lxdApi.ContainerStatePut{
-		Action:  "start",
-		Timeout: -1,
-	}
-
-	op, err := lxdConn.UpdateContainerState("ds-sandbox-"+s.Name, reqState, "")
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	// Wait for the operation to complete
-	err = op.Wait()
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	// once the container is up we can launch our sandbox program
-	// ugh does that put us in a difficult "run while leaving unattended"
-}
-
-func (s *Sandbox) getLxdState() *lxdApi.ContainerState {
-	fmt.Println("getting sandbox LXD state", s.Name)
-
-	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + s.Name)
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	return state
-}
-func (s *Sandbox) getIPs() {
-	iface, err := net.InterfaceByName("ds-sandbox-" + s.Name)
-	if err != nil {
-		fmt.Println(s.Name, "unable to get interface for container", err)
-		os.Exit(1)
-	}
-
-	addresses, err := iface.Addrs()
-	if err != nil {
-		fmt.Println(s.Name, "unable to get addresses for interface", err)
-		os.Exit(1)
-	}
-
-	if len(addresses) != 1 {
-		fmt.Println(s.Name, "number of IP addresses is not 1. addresses:", addresses)
-		os.Exit(1)
-	}
-
-	address := addresses[0]
-	ip, _, err := net.ParseCIDR(address.String())
-	if err != nil {
-		fmt.Println(s.Name, "error getting ip from address", address, err)
-		os.Exit(1)
-	}
-
-	s.hostIP = ip
-
-	//then use lxc info to get container side IP
-	lxdConn, err := lxd.ConnectLXDUnix(lxdUnixSocket, nil)
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-
-	state, _, err := lxdConn.GetContainerState("ds-sandbox-" + s.Name)
-	if err != nil {
-		fmt.Println(s.Name, err)
-		os.Exit(1)
-	}
-	// ^^ can't we get state from dedicated function above?
-
-	// state.Network is map[string]ContainerStateNetwork
-	// ContainerStateNetwork is { Addresses, Counter, Hwadr, HostName, ...}
-	s.containerIP = state.Network["eth0"].Addresses[0].Address
-
-	fmt.Println(s.Name, "host / container IPs:", s.hostIP, s.containerIP)
-}
-
-func (s *Sandbox) recycle(readyCh chan *Sandbox) {
-	s.LogClient.Log(domain.INFO, nil, "recycling start")
-
-	defer timetrack.Track(time.Now(), "recycle")
-	defer record.SandboxRecycleTime(time.Now())
-
-	s.Status = "recycling"
-	s.appSpaceID = ""
-	s.appSpaceSession = appSpaceSession{lastActive: time.Now()} //?? why?
-	// ^^ appSpaceSession isn't really relevant until committed?
-
-	// close all connections (they should all be idle if we are recycling)
-	transport, ok := s.Transport.(*http.Transport)
-	if !ok {
-		fmt.Println(s.Name, "did not find transport, sorry")
-	} else {
-		transport.CloseIdleConnections()
-	}
-
-	// stop reverse channel? Or will it stop itself with kill?
-	// if s.reverseListener != nil {
-	// 	s.reverseListener.close()
-	// }
-	// ^^ since host is the server, it can just kep listening and wait for another connection?
-
-	s.recycleListener.send("kill")
-	s.recycleListener.waitFor("kild")
-	// ^^ here we should wait for either "kild" or "fail", and act in consequence
-
-	//mountappspace.UnMount(s.Name)
-
-	go s.reverseListener.waitForConn()
-
-	s.recycleListener.send("run " + s.hostIP.String())
-	s.reverseListener.waitFor("hi")
-	// ^ wait for ready or a timeout, otherwise this blocks forever in case of problem
-
-	s.Status = "ready"
-
-	s.waitForDone("ready") // it's "thing is done so you can stop waiting". urg  bad name.
-
-	readyCh <- s
-
-	s.LogClient.Log(domain.INFO, nil, "recycling complete") // include time in tehre for good measure?
-}
-func (s *Sandbox) commit(app, appSpace string) {
-	s.LogClient.Log(domain.INFO, map[string]string{
-		"app": app, "app-space": appSpace}, "commit start")
-
-	defer timetrack.Track(time.Now(), "commit")
-	defer record.SandboxCommitTime(time.Now())
-
-	s.appSpaceID = appSpace
-
-	s.Status = "committing"
-
-	//mountappspace.Mount(app, appSpace, s.Name)
-
-	s.Transport = http.DefaultTransport
-
-	s.Status = "committed"
-	s.waitForDone("commited")
-
-	s.LogClient.Log(domain.INFO, map[string]string{
-		"app": app, "app-space": appSpace}, "commit complete")
-}
-
 func (s *Sandbox) isTiedUp() (tiedUp bool) {
 	for _, task := range s.appSpaceSession.tasks {
 		if !task.Finished {
@@ -302,7 +279,7 @@ func (s *Sandbox) waitFor(status string) {
 	if s.Status == status {
 		return
 	}
-	fmt.Println(s.Name, "waiting for container status", status)
+	fmt.Println(s.SandboxID, "waiting for container status", status)
 
 	if _, ok := s.statusSub[status]; !ok {
 		s.statusSub[status] = []chan bool{}
@@ -312,19 +289,22 @@ func (s *Sandbox) waitFor(status string) {
 	<-statusMet
 	delete(s.statusSub, status)
 }
-func (s *Sandbox) waitForDone(status string) {
-	if subs, ok := s.statusSub[status]; ok {
-		for _, wCh := range subs {
-			wCh <- true
-		}
-		s.statusSub[status] = []chan bool{}
-	}
-	// then gotta empty / reset the channel.
-	// though probably lock the array?
-}
-func (s *Sandbox) onRecyclerMsg(msg string) {
-	fmt.Println("onRecyclerMsg", msg, s.Name)
-}
+
+// The whole status system needs tightening up.
+// we need to lock statusSubs
+// ..and we need to have a setter for status that can trigger subs
+
+// func (s *Sandbox) waitForDone(status string) { // I don't get what is the difference between this and waitFor?
+// 	if subs, ok := s.statusSub[status]; ok {
+// 		for _, wCh := range subs {
+// 			wCh <- true
+// 		}
+// 		s.statusSub[status] = []chan bool{}
+// 	}
+// 	// then gotta empty / reset the channel.
+// 	// though probably lock the array?
+// }
+
 func (s *Sandbox) onReverseMsg(msg string) {
-	fmt.Println("onReverseMsg", msg, s.Name)
+	fmt.Println("onReverseMsg", msg, s.SandboxID)
 }

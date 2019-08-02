@@ -111,7 +111,6 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
-	sandbox.EXPECT().GetName().Return("1")
 	sandbox.EXPECT().GetTransport().Return(http.DefaultTransport)
 
 	// dummy server to stand in for sandbox
@@ -129,7 +128,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		fmt.Println("task done")
 	}()
 
-	sandboxManager.EXPECT().GetForAppSpace("app1", "as1").DoAndReturn(func(a, b string) chan domain.SandboxI {
+	sandboxManager.EXPECT().GetForAppSpace(gomock.Any()).DoAndReturn(func(as *domain.Appspace) chan domain.SandboxI {
 		sandboxChan := make(chan domain.SandboxI)
 		go func() {
 			sandboxChan <- sandbox

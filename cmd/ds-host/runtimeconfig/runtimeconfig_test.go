@@ -72,6 +72,7 @@ func getPassingDefault() *domain.RuntimeConfig {
 	rtc := loadDefault()
 	rtc.DataDir = "/abc/def"
 	rtc.Loki.Address = "yada"
+	rtc.Sandbox.SocketsDir = "blah"
 	return rtc
 }
 func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic bool) {

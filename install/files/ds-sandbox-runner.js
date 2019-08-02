@@ -3,18 +3,18 @@
 const http = require( 'http' );
 const net = require( 'net' );
 const path = require( 'path' );
-const sock_path = '/home/cdeveloper/run_files/reverse.sock'
+//const sock_path = '/home/cdeveloper/run_files/reverse.sock'	//get from cl args
 
-const user_id = 1000;
-process.setuid(user_id);
+// const user_id = 1000;	// not needed anymore, probably.
+// process.setuid(user_id);
 
-//Q: do I still have the ability to setuid back to 0?
 
 ///////////////////////////////////////////
 // reverse channel client
-const ip = process.argv[process.argv.length -1];
+const ip = process.argv[process.argv.length -1];	// actually unix socket
+const sock_path = process.argv[process.argv.length -1];
 
-const rev_stream = net.connect(45454, ip+"%eth0", () => {
+const rev_stream = net.connect(sock_path, () => {
 	console.log( 'RUNNER rev_stream connected');
 });
 rev_stream.on( 'data', data => {
@@ -86,9 +86,10 @@ server.on( 'clientError', (err, socket) => {
 	console.log( 'RUNNER clientError', err );
 });
 
-server.listen( 3030, () => {
-	rev_stream.write( 'hi' );
-	//console.log( 'uncomment this line');
+server.listen( 0, () => {	// Here port will have to be sent via cl args.. or we can let OS assign and send it back via rev channel.
+	console.log( 'PORT:'+server.address().port);
+	rev_stream.write( 'hi' ); 	// <-- here we could send port back?
+	
 } );
 
 process.on( 'SIGTERM', () => {

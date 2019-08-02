@@ -26,11 +26,11 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	fmt.Println("in request handler", appspaceName, appName)
 
-	sandboxChan := s.SandboxManager.GetForAppSpace(appName, appspaceName)
+	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
-	sbName := sb.GetName()
-	sbAddress := sb.GetAddress()
+	//sbName := sb.GetName()       // Get ID instead of Name, only used for logging / debugging.
+	sbAddress := sb.GetAddress() // port?
 	sbTransport := sb.GetTransport()
 
 	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
@@ -48,7 +48,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 			"app-space": appspaceName, "app": appName},
 			"http.NewRequest error: "+err.Error())
 
-		fmt.Println("http.NewRequest error", sbName, oReq.Method, sbAddress, err)
+		fmt.Println("http.NewRequest error", oReq.Method, sbAddress, err)
 		//os.Exit(1)
 		// don't exit, but need to think about how to deal with this gracefully.
 	}
@@ -60,7 +60,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 		sb.GetLogClient().Log(domain.ERROR, map[string]string{
 			"app-space": appspaceName, "app": appName},
 			"sb.Transport.RoundTrip(cReq) error: "+err.Error())
-		fmt.Println("sb.Transport.RoundTrip(cReq) error", sbName, err)
+		fmt.Println("sb.Transport.RoundTrip(cReq) error", err)
 		//os.Exit(1)
 	}
 

@@ -127,7 +127,7 @@ func (mr *MockLogCLientIMockRecorder) Log(arg0, arg1, arg2 interface{}) *gomock.
 }
 
 // NewSandboxLogClient mocks base method
-func (m *MockLogCLientI) NewSandboxLogClient(arg0 string) LogCLientI {
+func (m *MockLogCLientI) NewSandboxLogClient(arg0 int) LogCLientI {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewSandboxLogClient", arg0)
 	ret0, _ := ret[0].(LogCLientI)
@@ -226,20 +226,6 @@ func (mr *MockSandboxIMockRecorder) GetLogClient() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogClient", reflect.TypeOf((*MockSandboxI)(nil).GetLogClient))
 }
 
-// GetName mocks base method
-func (m *MockSandboxI) GetName() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetName indicates an expected call of GetName
-func (mr *MockSandboxIMockRecorder) GetName() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockSandboxI)(nil).GetName))
-}
-
 // GetTransport mocks base method
 func (m *MockSandboxI) GetTransport() http.RoundTripper {
 	m.ctrl.T.Helper()
@@ -292,17 +278,17 @@ func (m *MockSandboxManagerI) EXPECT() *MockSandboxManagerIMockRecorder {
 }
 
 // GetForAppSpace mocks base method
-func (m *MockSandboxManagerI) GetForAppSpace(arg0, arg1 string) chan SandboxI {
+func (m *MockSandboxManagerI) GetForAppSpace(arg0 *Appspace) chan SandboxI {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetForAppSpace", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetForAppSpace", arg0)
 	ret0, _ := ret[0].(chan SandboxI)
 	return ret0
 }
 
 // GetForAppSpace indicates an expected call of GetForAppSpace
-func (mr *MockSandboxManagerIMockRecorder) GetForAppSpace(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSandboxManagerIMockRecorder) GetForAppSpace(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppSpace", reflect.TypeOf((*MockSandboxManagerI)(nil).GetForAppSpace), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppSpace", reflect.TypeOf((*MockSandboxManagerI)(nil).GetForAppSpace), arg0)
 }
 
 // MockRouteHandler is a mock of RouteHandler interface

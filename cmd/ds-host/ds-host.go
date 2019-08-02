@@ -112,8 +112,8 @@ func main() {
 
 	//generateHostAppSpaces(100, appModel, appspaceModel, logger)
 
-	var initWg sync.WaitGroup
-	initWg.Add(2)
+	// var initWg sync.WaitGroup
+	// initWg.Add(2)
 
 	// appspaceroutesmodel is questionable because it loads the routes from the files, yet we have a model that reads from there?
 	asRoutesModel := &asroutesmodel.ASRoutesModel{
@@ -140,11 +140,11 @@ func main() {
 		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
 	}()
 
-	go sM.Init(&initWg)
+	sM.Init()
 
-	initWg.Wait()
+	//initWg.Wait()
 
-	fmt.Println("Main after constainers start")
+	fmt.Println("Main after sandbox manager start")
 
 	// maybe we can start profiler here?
 	if *cpuprofile != "" {
@@ -215,6 +215,8 @@ func main() {
 		AppspaceRoutes: appspaceRoutes,
 		Metrics: &m,
 		Logger: logger }
+
+	fmt.Println("starting server")
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
