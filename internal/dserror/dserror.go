@@ -139,7 +139,8 @@ const (
 
 	AppspaceRouteNotFound domain.ErrorCode = 6001
 
-	SandboxFailedToTerminate domain.ErrorCode = 7001
+	SandboxReverseBadData domain.ErrorCode = 7001
+	SandboxFailedToTerminate domain.ErrorCode = 7009
 
 	MigrateDownNotSupported	domain.ErrorCode = 9201
 	MigrationNameNotFound domain.ErrorCode = 9202

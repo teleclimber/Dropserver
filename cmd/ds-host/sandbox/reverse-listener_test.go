@@ -6,6 +6,11 @@ import (
 	"testing"
 	"net"
 	"time"
+	"net/http"
+	"bytes"
+	"context"
+	"fmt"
+	"encoding/json"
 
 	"github.com/golang/mock/gomock"
 
@@ -14,11 +19,8 @@ import (
 
 func TestNewReverseListener(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
-	msgCb := func(m string) {
-		//?
-	}
 
-	newReverseListener(cfg, 1, msgCb)
+	newReverseListener(cfg, 1)
 }
 
 func TestStartReverseListener(t *testing.T) {
@@ -34,28 +36,45 @@ func TestStartReverseListener(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 
-	msgCb := func(m string) {
-		//?
+	rl, dsErr := newReverseListener(cfg, 1)
+	if dsErr != nil {
+		t.Error(dsErr)
 	}
 
-	rl := newReverseListener(cfg, 1, msgCb)
-
-	c, err := net.Dial("unix", rl.socketPath)
-	if err != nil {
-		t.Error(err)
+	httpc := http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", rl.socketPath)
+			},
+		},
 	}
-	defer c.Close()
-
+	
 	// client:
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		_, err = c.Write([]byte("hi"))
+		var hiData struct {
+			Port int	`json:"port"`
+		}
+		hiData.Port = 1234
+
+		hiJSON, err := json.Marshal(hiData)
 		if err != nil {
 			t.Error(err)
 		}
+
+		fmt.Println("sending post")
+		resp, err := httpc.Post("http://unix/status/hi", "application/json", bytes.NewBuffer(hiJSON))
+		if err != nil {
+			t.Error(err)
+		}
+
+		if resp.StatusCode != 200 {
+			t.Error(resp.Status)
+		}
 	}()
 
-	rl.waitFor("hi")
+	port := <-rl.portChan
+	fmt.Println("Port", port)
 }
 
 

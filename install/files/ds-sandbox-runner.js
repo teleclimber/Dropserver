@@ -1,32 +1,17 @@
-// container side, untrusted.
+// sandbox side, untrusted.
 
 const http = require( 'http' );
-const net = require( 'net' );
 const path = require( 'path' );
-//const sock_path = '/home/cdeveloper/run_files/reverse.sock'	//get from cl args
-
-// const user_id = 1000;	// not needed anymore, probably.
-// process.setuid(user_id);
 
 
 ///////////////////////////////////////////
 // reverse channel client
-const ip = process.argv[process.argv.length -1];	// actually unix socket
-const sock_path = process.argv[process.argv.length -1];
+/// const ip = process.argv[process.argv.length -1];	// actually unix socket
 
-const rev_stream = net.connect(sock_path, () => {
-	console.log( 'RUNNER rev_stream connected');
-});
-rev_stream.on( 'data', data => {
-	const cmd = data.toString();
-	//...
-});
-rev_stream.on( 'error', error => {
-	console.log( 'RUNNER: rev_stream error', error );
-})
-rev_stream.on( 'end', () => {
-	console.log( 'RUNNER: rev_stream got end event' );
-})
+// so how does this work now?
+// Probably need a separate function to send messages back to host.
+// And Probably a lib for the appspaceAPI
+const sock_path = process.argv[process.argv.length -1];
 
 //////////////////////////////////////////////
 // HTTP Server
@@ -88,8 +73,8 @@ server.on( 'clientError', (err, socket) => {
 
 server.listen( 0, () => {	// Here port will have to be sent via cl args.. or we can let OS assign and send it back via rev channel.
 	console.log( 'PORT:'+server.address().port);
-	rev_stream.write( 'hi' ); 	// <-- here we could send port back?
-	
+
+	revPost('/hi', { port: server.address().port } );
 } );
 
 process.on( 'SIGTERM', () => {
@@ -97,12 +82,34 @@ process.on( 'SIGTERM', () => {
 	server.close( () => {
 		console.log( 'RUNNER: server closed')
 	});
-
-	rev_stream.end();
 });
 
+function revPost( statusPath, data ) {
+	jsonStr = JSON.stringify(data)
 
-// the http handler inside the container.
+	req = http.request({
+		socketPath: sock_path,
+		path: '/status'+statusPath,
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Content-Length': jsonStr.length
+		}
+	}, res => {
+		console.log(`${statusPath} statusCode: ${res.statusCode}`)
+	});
+
+	req.on("error", (error) => {
+		console.error("error send post request", error)
+	});
+
+	req.write(jsonStr);
+
+	req.end();
+}
+
+
+// the http handler inside the sandbox.
 // this is presumably some sort of server.
 
 // The goal is to call the app_space's handler
@@ -122,12 +129,9 @@ process.on( 'SIGTERM', () => {
 // - it determines app_space
 // - determines route handler
 // - it checks against auth
-// - select a container and prep it for app_space
-// - forward the request to the container's HTTP endpoint
-// - simultaneously send via IPC some metadata on the request?
-//   ^^ or not? wouldn't it be easier to stash that data in the request headers?
+// - forward the request to the sandbox HTTP endpoint
 
-// Container side:
+// Sandbox side:
 // - server receives request
 // - augment the req and res obj to express-like level. Or just use Express?
 // - get route handler (script/fn) from header

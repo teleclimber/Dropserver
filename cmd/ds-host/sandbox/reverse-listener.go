@@ -1,14 +1,19 @@
 package sandbox
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // This is really appspaceAPIServer or something like that
@@ -24,99 +29,131 @@ import (
 // I just need to send a port over and I'm not sure I can do it easily.
 // Ultimately, if this is the system that accepts appsapceAPI requests,
 // ..it will need to be far more capable, and probably HTTP based?
-// can we assume it will be its own package?
 
-type reverseListener struct { //do we really need two distinct types here?
-	ln         *net.Listener
-	conn       *net.Conn
+//Let's think about how reverse listener passes stautus updates to sandbox?
+// There will only be one recipient for status changes, right?
+// Also, there aren't that many messages for status:
+// - hi (with port)
+// - bye (shutdown initiated)
+// - something about the connection dropping unexpectedly
+//   ..but is that even meaningful with HTTP? it doesn't expect the connection to "be there"
+
+type reverseListener struct {
+	server     *http.Server
 	socketPath string
-	msgSub     map[string]chan bool
-	msgCb      func(msg string)
+	errorChan  chan domain.Error
+	portChan   chan int
+	portSent   bool
 }
 
 //func initializeSockets() ...?
 
-func newReverseListener(config *domain.RuntimeConfig, ID int, msgCb func(msg string)) *reverseListener {
+func newReverseListener(config *domain.RuntimeConfig, ID int) (*reverseListener, domain.Error) {
 	rl := reverseListener{
 		socketPath: path.Join(config.Sandbox.SocketsDir, fmt.Sprintf("%d.sock", ID)),
-		msgSub:     make(map[string]chan bool),
-		msgCb:      msgCb}
+		errorChan:  make(chan domain.Error),
+		portChan:   make(chan int),
+		portSent:   false}
 
 	// I thgink we shold also create the directory just in case it's not there?
 	// Or we need a general initialization function that sets the directory up and removes everything
 	// ..so that we don't delay things here.
 
 	if err := os.RemoveAll(rl.socketPath); err != nil {
-		log.Fatal(err)
+		log.Print(err) //TODO: proper logger please
+		// log error then return nil, err.
 	}
 
-	ln, err := net.Listen("unix", rl.socketPath)
+	rl.server = &http.Server{
+		Handler: &rl,
+	}
+
+	unixListener, err := net.Listen("unix", rl.socketPath)
 	if err != nil {
-		log.Fatal("listen error:", err)
+		panic(err) // TODO: proper errors please
+		// log error then return nil, err.
 	}
 
-	rl.ln = &ln
+	go rl.server.Serve(unixListener)
 
-	go rl.start()
-
-	return &rl
+	return &rl, nil
 }
-func (rl *reverseListener) start() {
-	ln := *rl.ln
-
-	revConn, err := ln.Accept() // This blocks until aconn shows up
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	rl.conn = &revConn
-
-	go func(rc net.Conn) {
-		p := make([]byte, 4)
-		for {
-			n, err := rc.Read(p)
-			if err != nil {
-				if err == io.EOF {
-					fmt.Println("got EOF from reverse conn, closing", string(p[:n]))
-					err := rc.Close()
-					if err != nil {
-						fmt.Println("error clsing rev conn after EOF")
-					}
-					break
-				} else {
-					fmt.Println(err)
-					os.Exit(1)
-				}
+func (rl *reverseListener) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	head, URLTail := shiftpath.ShiftPath(req.URL.Path)
+	if head == "status" {
+		if req.Method == http.MethodPost {
+			if URLTail == "/hi" {
+				rl.handleHi(w, req)
 			} else {
-				command := string(p[:n])
-				//fmt.Println("reverse listener got message", command)
-				if subChan, ok := rl.msgSub[command]; ok {
-					subChan <- true
-				}
-				rl.msgCb(command)
+				w.WriteHeader(404) // TODO: each error / 404 should be logged
+				// log
 			}
+		} else {
+			w.WriteHeader(404)
+			// log
 		}
-	}(revConn)
-}
-func (rl *reverseListener) send(msg string) { // return err?
-	_, err := (*rl.conn).Write([]byte(msg))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	} else {
+		w.WriteHeader(404)
+		// log
 	}
+	// else if head is appspaceAPI then swith off to appspaceapi package (separate)
 }
-func (rl *reverseListener) waitFor(msg string) {
-	done := make(chan bool)
-	rl.msgSub[msg] = done
-	<-done
-	delete(rl.msgSub, msg)
+func (rl *reverseListener) handleHi(w http.ResponseWriter, req *http.Request) {
+	// error handling here:
+	// There shouldn't be errors?
+	// So if there is one prob means someone is probing system?
+	// Should sandbox continue if it triggers errors here?
+	// Why not whats the harm?
+	// just make sure these are logged on host.
+	// Actually if handle Hi has a problem, we should probably shut it down?
+
+	body, err := ioutil.ReadAll(io.LimitReader(req.Body, 1024))
+	if err != nil {
+		w.WriteHeader(422)
+		// TODO log the error
+		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Could not readall")
+		return
+	}
+	if err := req.Body.Close(); err != nil {
+		w.WriteHeader(422)
+		// TODO: log
+		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Failed to close body")
+		return
+	}
+
+	var hiData struct {
+		Port int `json:"port"`
+	}
+	if err := json.Unmarshal(body, &hiData); err != nil {
+		w.WriteHeader(422)
+		//TODO: log
+		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Could not Unmarshall JSON")
+		return
+	}
+
+	if hiData.Port < 1000 {
+		w.WriteHeader(422)
+		//panic("got port less than 1000 for sandbox")
+		//TODO: log
+		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Port less than 1000")
+		return
+	}
+
+	if rl.portSent {
+		w.WriteHeader(500)
+		// TODO: log
+		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Port already sent")
+		return
+	}
+
+	w.WriteHeader(200)
+	rl.portChan <- hiData.Port
+	rl.portSent = true
 }
+
 func (rl reverseListener) close() {
-	//conn.end() or some such
-	// err := os.Remove(rl.sockPath)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	//os.Exit(1)	// don't exit. if file didn't exist it errs.
-	// }
+	// TODO: need to shut down the server when that makes sense to do so
+	rl.server.Close()
+	//rl.server.Shutdown(ctx) //graceful. Use Close to kill conns. Not clear which to use
+
 }

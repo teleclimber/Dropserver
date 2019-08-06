@@ -41,7 +41,7 @@ type Task struct {
 type Sandbox struct {
 	SandboxID       int
 	Status          string
-	Address         string // may not be necessary, just need port I think
+	Port            int
 	appspace        *domain.Appspace
 	cmd             *exec.Cmd
 	reverseListener *reverseListener
@@ -55,7 +55,7 @@ type Sandbox struct {
 
 // Should start() return a channel or something?
 // or should callers just do go start()?
-func (s *Sandbox) start() { // return an error, presumably?
+func (s *Sandbox) start() { // TODO: return an error, presumably?
 	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
 	// Here start should take necessary data about appspace
@@ -68,7 +68,13 @@ func (s *Sandbox) start() { // return an error, presumably?
 	// ..Will have to pass location of script somehow.
 	// ..In prod it's relative to install dir, in testing it's....?
 
-	s.reverseListener = newReverseListener(s.Config, s.SandboxID, s.onReverseMsg)
+	var dsErr domain.Error
+	s.reverseListener, dsErr = newReverseListener(s.Config, s.SandboxID)
+	if dsErr != nil {
+		// just stop right here.
+		// return that error to caller
+		return
+	}
 
 	cmd := exec.Command("node", s.Config.Exec.JSRunnerPath, s.reverseListener.socketPath)
 	s.cmd = cmd
@@ -79,17 +85,21 @@ func (s *Sandbox) start() { // return an error, presumably?
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		//log.Fatal(err)
+		// return error
+		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Fatal(err)
+		//log.Fatal(err)
+		return
 	}
 
 	err = cmd.Start() // returns right away
 	if err != nil {
-		log.Fatal(err)
+		//log.Fatal(err)
+		return
 	}
 
 	go s.monitor(stdout, stderr)
@@ -99,7 +109,9 @@ func (s *Sandbox) start() { // return an error, presumably?
 	// Do we pass config struct all the way to each rev listener? -> probably most consistent.
 	//s.reverseListener = newReverseListener(s.Config, s.SandboxID, s.onReverseMsg)
 
-	s.reverseListener.waitFor("hi") // wait this will block?? <- yes, yes it will
+	//s.reverseListener.waitFor("hi") // wait this will block?? <- yes, yes it will
+
+	s.Port = <-s.reverseListener.portChan
 
 	// TODO: after "hi", we have to put status at "ready", but we need a status setter/trigger
 
@@ -176,6 +188,8 @@ func (s *Sandbox) Stop(wg *sync.WaitGroup) {
 	}
 	/////.....
 
+	s.reverseListener.close()
+
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
 	// If had to forcekill then quarantine the
@@ -230,9 +244,9 @@ func (s *Sandbox) kill(force bool) domain.Error {
 
 // basic getters
 
-// GetAddress gets the IP address of the sandbox
-func (s *Sandbox) GetAddress() string {
-	return s.Address
+// GetPort gets the IP address of the sandbox
+func (s *Sandbox) GetPort() int {
+	return s.Port
 }
 
 // GetTransport gets the http transport of the sandbox

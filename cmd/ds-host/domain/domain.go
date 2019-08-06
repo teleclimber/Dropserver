@@ -111,7 +111,7 @@ type SandboxManagerI interface {
 
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
-	GetAddress() string
+	GetPort() int
 	GetTransport() http.RoundTripper
 	GetLogClient() LogCLientI
 	TaskBegin() chan bool
