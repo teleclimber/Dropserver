@@ -26,6 +26,15 @@ import (
 // - need to be able to kill if misbehaving
 // - We need a appspace-api server on host for all api requests that emanate from appspaces.
 
+type statusInt int
+
+const (
+	statusStarting statusInt = iota + 1
+	statusReady
+	statusKilling
+	statusDead
+)
+
 type appSpaceSession struct {
 	tasks      []*Task
 	lastActive time.Time
@@ -40,12 +49,13 @@ type Task struct {
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
 	SandboxID       int
-	Status          string
+	Status          statusInt
 	Port            int
 	appspace        *domain.Appspace
 	cmd             *exec.Cmd
 	reverseListener *reverseListener
-	statusSub       map[string][]chan bool
+	statusMux       sync.Mutex
+	statusSub       map[statusInt][]chan statusInt
 	Transport       http.RoundTripper
 	appSpaceSession appSpaceSession
 	killScore       float64 // rename. It's killScore perhaps
@@ -72,7 +82,7 @@ func (s *Sandbox) start() { // TODO: return an error, presumably?
 	s.reverseListener, dsErr = newReverseListener(s.Config, s.SandboxID)
 	if dsErr != nil {
 		// just stop right here.
-		// return that error to caller
+		// TODO return that error to caller
 		return
 	}
 
@@ -86,40 +96,47 @@ func (s *Sandbox) start() { // TODO: return an error, presumably?
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		//log.Fatal(err)
-		// return error
+		// TODO return error
 		return
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		//log.Fatal(err)
+		// TODO return error
 		return
 	}
 
 	err = cmd.Start() // returns right away
 	if err != nil {
 		//log.Fatal(err)
+		// TODO return Error
 		return
 	}
 
 	go s.monitor(stdout, stderr)
 
-	// we should also start reverse listener and wait for it to give the OK?
-	// We need config to know where the unix sockets reside.
-	// Do we pass config struct all the way to each rev listener? -> probably most consistent.
-	//s.reverseListener = newReverseListener(s.Config, s.SandboxID, s.onReverseMsg)
-
-	//s.reverseListener.waitFor("hi") // wait this will block?? <- yes, yes it will
-
 	s.Port = <-s.reverseListener.portChan
 
-	// TODO: after "hi", we have to put status at "ready", but we need a status setter/trigger
-
+	s.setStatus(statusReady)
 }
 
-// monitor waits for cmd to end
+// monitor waits for cmd to end or an error gets sent
 // It also collects output for use somewhere.
 func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
+
+	go func() {
+		for { // you need to be in a loop to keep the channel "flowing"
+			dsErr := <-s.reverseListener.errorChan
+			if dsErr != nil {
+				s.LogClient.Log(domain.WARN, nil, "Shutting sandbox down because of error on reverse listener")
+				s.Stop()
+			} else {
+				break	// errorChan was closed, so exit loop
+			}
+		}
+	}()
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -140,7 +157,11 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 		log.Fatal(err)
 	}
 
-	s.Status = "dead"
+	s.setStatus(statusDead)
+	// -> it may have crashed.
+	// TODO ..should probably call regular shutdown procdure to clean everything up.
+
+	// now kill the reverse channel? Otherwise we risk killing it shile it could still provide valuable data?
 }
 
 func printLogs(r io.ReadCloser) {
@@ -148,8 +169,6 @@ func printLogs(r io.ReadCloser) {
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
-			//logfn(buf[0:n])
-			//println(string(buf[0:n]))
 			fmt.Printf("%s", buf[0:n])
 		}
 		if err != nil {
@@ -158,10 +177,8 @@ func printLogs(r io.ReadCloser) {
 	}
 }
 
-// Stop stops the container and its associated open connections
-func (s *Sandbox) Stop(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+// Stop stops the sandbox and its associated open connections
+func (s *Sandbox) Stop() {
 	// reverse listener...
 
 	// get state and then send kill signal?
@@ -174,7 +191,11 @@ func (s *Sandbox) Stop(wg *sync.WaitGroup) {
 	// get status from pid, if running, send kill sig, then wait some.
 	// follow up as with ds-sandbox-d
 
-	s.Status = "killing"
+	// how do we avoid getting into a dysfunction acondition with Proxy?
+	// Proxy should probably lock the mutex when it creates a task,
+	// ..so that task count can be considered acurate in sandox manager's killing function
+
+	s.setStatus(statusKilling)
 
 	err := s.kill(false)
 	if err != nil {
@@ -188,7 +209,7 @@ func (s *Sandbox) Stop(wg *sync.WaitGroup) {
 	}
 	/////.....
 
-	s.reverseListener.close()
+	s.reverseListener.close()	// maybe wait until "dead"?
 
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
@@ -289,36 +310,41 @@ func (s *Sandbox) isTiedUp() (tiedUp bool) {
 	return
 }
 
-func (s *Sandbox) waitFor(status string) {
-	if s.Status == status {
+// status
+func (s *Sandbox) setStatus(status statusInt) {
+	s.statusMux.Lock()
+	defer s.statusMux.Unlock()
+
+	if status > s.Status {
+		s.Status = status
+		for stat, subs := range s.statusSub {
+			if stat <= s.Status {
+				for _, sub := range subs {
+					sub <- s.Status // this might block if nobody is actually waiting on the channel?
+				}
+				delete(s.statusSub, stat)
+			}
+		}
+	}
+}
+
+func (s *Sandbox) waitFor(status statusInt) {
+	if s.Status >= status {
 		return
 	}
-	fmt.Println(s.SandboxID, "waiting for container status", status)
+	fmt.Println(s.SandboxID, "waiting for sandbox status", status)
+
+	s.statusMux.Lock()
 
 	if _, ok := s.statusSub[status]; !ok {
-		s.statusSub[status] = []chan bool{}
+		s.statusSub[status] = []chan statusInt{}
 	}
-	statusMet := make(chan bool)
+	statusMet := make(chan statusInt)
 	s.statusSub[status] = append(s.statusSub[status], statusMet)
+
+	s.statusMux.Unlock()
+
 	<-statusMet
-	delete(s.statusSub, status)
 }
 
-// The whole status system needs tightening up.
-// we need to lock statusSubs
-// ..and we need to have a setter for status that can trigger subs
 
-// func (s *Sandbox) waitForDone(status string) { // I don't get what is the difference between this and waitFor?
-// 	if subs, ok := s.statusSub[status]; ok {
-// 		for _, wCh := range subs {
-// 			wCh <- true
-// 		}
-// 		s.statusSub[status] = []chan bool{}
-// 	}
-// 	// then gotta empty / reset the channel.
-// 	// though probably lock the array?
-// }
-
-func (s *Sandbox) onReverseMsg(msg string) {
-	fmt.Println("onReverseMsg", msg, s.SandboxID)
-}

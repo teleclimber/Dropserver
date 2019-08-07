@@ -198,20 +198,6 @@ func (m *MockSandboxI) EXPECT() *MockSandboxIMockRecorder {
 	return m.recorder
 }
 
-// GetAddress mocks base method
-func (m *MockSandboxI) GetAddress() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddress")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetAddress indicates an expected call of GetAddress
-func (mr *MockSandboxIMockRecorder) GetAddress() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockSandboxI)(nil).GetAddress))
-}
-
 // GetLogClient mocks base method
 func (m *MockSandboxI) GetLogClient() LogCLientI {
 	m.ctrl.T.Helper()
@@ -224,6 +210,20 @@ func (m *MockSandboxI) GetLogClient() LogCLientI {
 func (mr *MockSandboxIMockRecorder) GetLogClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogClient", reflect.TypeOf((*MockSandboxI)(nil).GetLogClient))
+}
+
+// GetPort mocks base method
+func (m *MockSandboxI) GetPort() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPort")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetPort indicates an expected call of GetPort
+func (mr *MockSandboxIMockRecorder) GetPort() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPort", reflect.TypeOf((*MockSandboxI)(nil).GetPort))
 }
 
 // GetTransport mocks base method

@@ -18,7 +18,14 @@ import (
 )
 
 func TestNewReverseListener(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
 	cfg := &domain.RuntimeConfig{}
+	cfg.Sandbox.SocketsDir = dir
 
 	newReverseListener(cfg, 1)
 }

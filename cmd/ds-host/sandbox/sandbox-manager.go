@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // This is going to be different and quite simplified
@@ -53,8 +52,11 @@ func (sM *Manager) StopAll() {
 		// If we get to this point assume the connection from the host http proxy has been stopped
 		// so it should be safe to shut things down
 		// ..barring anything "waiting for"...
-		stopWg.Add(1)
-		go c.Stop(&stopWg)
+		go func(sb *Sandbox) {
+			stopWg.Add(1)
+			sb.Stop()
+			stopWg.Done()
+		}(c)
 	}
 
 	stopWg.Wait()
@@ -72,9 +74,9 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 
 	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
 		SandboxID: sandboxID,
-		Status:    "starting",
+		Status:    statusStarting,
 		appspace:  appspace,
-		statusSub: make(map[string][]chan bool),
+		statusSub: make(map[statusInt][]chan statusInt),
 		LogClient: sM.Logger.NewSandboxLogClient(sandboxID)}
 
 	sM.sandboxes[appspace.AppspaceID] = &newSandbox
@@ -83,7 +85,9 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 
 	go func() {
 		newSandbox.start()
-		newSandbox.waitFor("ready")
+		newSandbox.waitFor(statusReady)
+		// sandbox may not be ready if it failed to start.
+		// check status? Or maybe status ought to be checked by proxy for each request anyways?
 		ch <- &newSandbox
 	}()
 }
@@ -104,7 +108,7 @@ func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.Sandbox
 		//OK, but is it ready yet?
 		// it may have *just* been started, so it'll get there but have to wait
 		go func() {
-			c.waitFor("ready")
+			c.waitFor(statusReady)
 			ch <- c
 			sM.recordSandboxStatusMetric() // really?
 		}()
@@ -138,7 +142,7 @@ func (sM *Manager) killPool() {
 		var sortedSandboxes []*Sandbox
 
 		for _, sb := range sM.sandboxes {
-			if sb.Status == "ready" && !sb.appSpaceSession.tiedUp {
+			if sb.Status == statusReady && !sb.appSpaceSession.tiedUp {
 				duration := time.Since(sb.appSpaceSession.lastActive)
 				sb.killScore = duration.Seconds() //kill least recently active
 				sortedSandboxes = append(sortedSandboxes, sb)
@@ -149,13 +153,11 @@ func (sM *Manager) killPool() {
 			return sortedSandboxes[i].killScore > sortedSandboxes[j].killScore
 		})
 
-		var stopWg sync.WaitGroup
 		for i := 0; i < numKill && i < len(sortedSandboxes); i++ {
 			sandbox := sortedSandboxes[i]
-			sandbox.Status = "killing"
+			sandbox.Status = statusKilling // TODO: this should not be set here
 			//sandbox.appspaceID = nil
-			stopWg.Add(1)
-			go sandbox.Stop(&stopWg) // function signature requires waitgroup, but we don't want to prevent this function from returning!
+			go sandbox.Stop() // function signature requires waitgroup, but we don't want to prevent this function from returning!
 		}
 	}
 
@@ -163,27 +165,27 @@ func (sM *Manager) killPool() {
 }
 
 func (sM *Manager) recordSandboxStatusMetric() {
-	var s = &record.SandboxStatuses{ //TODO nope do not use imported record. inject instead
-		Starting:   0,
-		Ready:      0,
-		Committing: 0,
-		Committed:  0,
-		Recycling:  0}
-	for _, c := range sM.sandboxes {
-		switch c.Status {
-		case "starting":
-			s.Starting++
-		case "ready":
-			s.Ready++
-		case "committing":
-			s.Committing++
-		case "committed":
-			s.Committed++
-		case "recycling":
-			s.Recycling++
-		}
-	}
-	record.SandboxStatusCounts(s) //TODO nope
+	// var s = &record.SandboxStatuses{ //TODO nope do not use imported record. inject instead
+	// 	Starting:   0,
+	// 	Ready:      0,
+	// 	Committing: 0,
+	// 	Committed:  0,
+	// 	Recycling:  0}
+	// for _, c := range sM.sandboxes {
+	// 	switch c.Status {
+	// 	case "starting":
+	// 		s.Starting++
+	// 	case "ready":
+	// 		s.Ready++
+	// 	case "committing":
+	// 		s.Committing++
+	// 	case "committed":
+	// 		s.Committed++
+	// 	case "recycling":
+	// 		s.Recycling++
+	// 	}
+	// }
+	// record.SandboxStatusCounts(s) //TODO nope
 }
 
 // PrintSandboxes outputs containersa and status

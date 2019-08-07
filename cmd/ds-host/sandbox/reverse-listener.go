@@ -152,8 +152,10 @@ func (rl *reverseListener) handleHi(w http.ResponseWriter, req *http.Request) {
 }
 
 func (rl reverseListener) close() {
-	// TODO: need to shut down the server when that makes sense to do so
 	rl.server.Close()
 	//rl.server.Shutdown(ctx) //graceful. Use Close to kill conns. Not clear which to use
+
+	close(rl.portChan)
+	close(rl.errorChan)
 
 }
