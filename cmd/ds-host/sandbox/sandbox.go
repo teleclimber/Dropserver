@@ -26,15 +26,6 @@ import (
 // - need to be able to kill if misbehaving
 // - We need a appspace-api server on host for all api requests that emanate from appspaces.
 
-type statusInt int
-
-const (
-	statusStarting statusInt = iota + 1
-	statusReady
-	statusKilling
-	statusDead
-)
-
 type appSpaceSession struct {
 	tasks      []*Task
 	lastActive time.Time
@@ -48,24 +39,24 @@ type Task struct {
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	SandboxID       int
-	Status          statusInt
-	Port            int
+	id       int			// getter only (const), unexported
+	status          domain.SandboxStatus	// getter/setter, so make it unexported.
+	port            int			// getter only
 	appspace        *domain.Appspace
 	cmd             *exec.Cmd
 	reverseListener *reverseListener
 	statusMux       sync.Mutex
-	statusSub       map[statusInt][]chan statusInt
-	Transport       http.RoundTripper
-	appSpaceSession appSpaceSession
-	killScore       float64 // rename. It's killScore perhaps
+	statusSub       map[domain.SandboxStatus][]chan domain.SandboxStatus
+	transport       http.RoundTripper
+	appSpaceSession appSpaceSession		// put a getter for that?
+	killScore       float64 // this should not be here.
 	Config          *domain.RuntimeConfig
 	LogClient       domain.LogCLientI
 }
 
-// Should start() return a channel or something?
+// Start Should start() return a channel or something?
 // or should callers just do go start()?
-func (s *Sandbox) start() { // TODO: return an error, presumably?
+func (s *Sandbox) Start() { // TODO: return an error, presumably?
 	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
 	// Here start should take necessary data about appspace
@@ -79,7 +70,7 @@ func (s *Sandbox) start() { // TODO: return an error, presumably?
 	// ..In prod it's relative to install dir, in testing it's....?
 
 	var dsErr domain.Error
-	s.reverseListener, dsErr = newReverseListener(s.Config, s.SandboxID)
+	s.reverseListener, dsErr = newReverseListener(s.Config, s.id)
 	if dsErr != nil {
 		// just stop right here.
 		// TODO return that error to caller
@@ -116,9 +107,9 @@ func (s *Sandbox) start() { // TODO: return an error, presumably?
 
 	go s.monitor(stdout, stderr)
 
-	s.Port = <-s.reverseListener.portChan
+	s.port = <-s.reverseListener.portChan
 
-	s.setStatus(statusReady)
+	s.SetStatus(domain.SandboxReady)
 }
 
 // monitor waits for cmd to end or an error gets sent
@@ -157,7 +148,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 		log.Fatal(err)
 	}
 
-	s.setStatus(statusDead)
+	s.SetStatus(domain.SandboxDead)
 	// -> it may have crashed.
 	// TODO ..should probably call regular shutdown procdure to clean everything up.
 
@@ -195,7 +186,7 @@ func (s *Sandbox) Stop() {
 	// Proxy should probably lock the mutex when it creates a task,
 	// ..so that task count can be considered acurate in sandox manager's killing function
 
-	s.setStatus(statusKilling)
+	s.SetStatus(domain.SandboxKilling)
 
 	err := s.kill(false)
 	if err != nil {
@@ -265,19 +256,39 @@ func (s *Sandbox) kill(force bool) domain.Error {
 
 // basic getters
 
+// ID returns the ID of the sandbox
+func (s *Sandbox) ID() int {
+	return s.id
+}
+
+// Status returns the status of the Sandbox
+func (s *Sandbox) Status() domain.SandboxStatus {
+	return s.status
+}
+
 // GetPort gets the IP address of the sandbox
 func (s *Sandbox) GetPort() int {
-	return s.Port
+	return s.port
 }
 
 // GetTransport gets the http transport of the sandbox
 func (s *Sandbox) GetTransport() http.RoundTripper {
-	return s.Transport
+	return s.transport
 }
 
 // GetLogClient retuns the Logging client
 func (s *Sandbox) GetLogClient() domain.LogCLientI {
 	return s.LogClient
+}
+
+// TiedUp returns the appspaceSession
+func (s *Sandbox) TiedUp() bool {
+	return s.appSpaceSession.tiedUp
+}
+
+// LastActive returns the last used time
+func (s *Sandbox) LastActive() time.Time {
+	return s.appSpaceSession.lastActive
 }
 
 // TaskBegin adds a new task to session tasks and returns it
@@ -310,17 +321,17 @@ func (s *Sandbox) isTiedUp() (tiedUp bool) {
 	return
 }
 
-// status
-func (s *Sandbox) setStatus(status statusInt) {
+// SetStatus sets the status
+func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
-	if status > s.Status {
-		s.Status = status
+	if status > s.status {
+		s.status = status
 		for stat, subs := range s.statusSub {
-			if stat <= s.Status {
+			if stat <= s.status {
 				for _, sub := range subs {
-					sub <- s.Status // this might block if nobody is actually waiting on the channel?
+					sub <- s.status // this might block if nobody is actually waiting on the channel?
 				}
 				delete(s.statusSub, stat)
 			}
@@ -328,18 +339,19 @@ func (s *Sandbox) setStatus(status statusInt) {
 	}
 }
 
-func (s *Sandbox) waitFor(status statusInt) {
-	if s.Status >= status {
+// WaitFor blocks until status is met, or greater status is met
+func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
+	if s.status >= status {
 		return
 	}
-	fmt.Println(s.SandboxID, "waiting for sandbox status", status)
+	fmt.Println(s.id, "waiting for sandbox status", status)
 
 	s.statusMux.Lock()
 
 	if _, ok := s.statusSub[status]; !ok {
-		s.statusSub[status] = []chan statusInt{}
+		s.statusSub[status] = []chan domain.SandboxStatus{}
 	}
-	statusMet := make(chan statusInt)
+	statusMet := make(chan domain.SandboxStatus)
 	s.statusSub[status] = append(s.statusSub[status], statusMet)
 
 	s.statusMux.Unlock()

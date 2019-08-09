@@ -16,52 +16,52 @@ import (
 // First test the status subscription system
 func TestStatus(t *testing.T) {
 	s := &Sandbox{
-		Status:    statusStarting,
-		statusSub: make(map[statusInt][]chan statusInt)}
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	s.setStatus(statusReady)
+	s.SetStatus(domain.SandboxReady)
 
-	s.waitFor(statusReady)
+	s.WaitFor(domain.SandboxReady)
 }
 
 func TestStatusWait(t *testing.T) {
 	s := &Sandbox{
-		Status:    statusStarting,
-		statusSub: make(map[statusInt][]chan statusInt)}
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.setStatus(statusReady)
+		s.SetStatus(domain.SandboxReady)
 	}()
 
-	s.waitFor(statusReady)
+	s.WaitFor(domain.SandboxReady)
 }
 
 func TestStatusWaitSkip(t *testing.T) {
 	s := &Sandbox{
-		Status:    statusStarting,
-		statusSub: make(map[statusInt][]chan statusInt)}
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.setStatus(statusKilling)
+		s.SetStatus(domain.SandboxKilling)
 	}()
 
-	s.waitFor(statusReady)
+	s.WaitFor(domain.SandboxReady)
 }
 
 func TestStatusNotReached(t *testing.T) {
 	s := &Sandbox{
-		Status:    statusStarting,
-		statusSub: make(map[statusInt][]chan statusInt)}
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.setStatus(statusReady)
+		s.SetStatus(domain.SandboxReady)
 	}()
 
 	go func() {
-		s.waitFor(statusKilling)
+		s.WaitFor(domain.SandboxKilling)
 		t.Error("should not have triggered this status")
 	}()
 
@@ -70,12 +70,12 @@ func TestStatusNotReached(t *testing.T) {
 
 func TestStatusWaitMultiple(t *testing.T) {
 	s := &Sandbox{
-		Status:    statusStarting,
-		statusSub: make(map[statusInt][]chan statusInt)}
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.setStatus(statusKilling)
+		s.SetStatus(domain.SandboxKilling)
 	}()
 
 	var wg sync.WaitGroup
@@ -83,14 +83,14 @@ func TestStatusWaitMultiple(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func() {
-			s.waitFor(statusReady)
+			s.WaitFor(domain.SandboxReady)
 			wg.Done()
 		}()
 	}
 
 	wg.Add(1)
 	go func() {
-		s.waitFor(statusKilling)
+		s.WaitFor(domain.SandboxKilling)
 		wg.Done()
 	}()
 
@@ -147,21 +147,19 @@ func TestStart(t *testing.T) {
 	cfg.Exec.JSRunnerPath = getJSRuntimePath()
 
 	s := &Sandbox{
-		SandboxID: 7,
-		Status:    statusStarting,
+		id: 7,
+		status:    domain.SandboxStarting,
 		LogClient: logger,
 		Config:    cfg}
 
 	logger.EXPECT().Log(domain.INFO, nil, gomock.Any())
 
-	s.start()
+	s.Start()
 
 	// OK, shut it down
 
 	s.Stop()
 }
-
-// This is really testing the whole thing, including the node side runtime.
 
 func getJSRuntimePath() string {
 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir

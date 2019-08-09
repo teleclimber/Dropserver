@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
-	"sync"
 	"syscall"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -110,11 +109,6 @@ func main() {
 		Logger: logger }
 	appspaceModel.PrepareStatements()
 
-	//generateHostAppSpaces(100, appModel, appspaceModel, logger)
-
-	// var initWg sync.WaitGroup
-	// initWg.Add(2)
-
 	// appspaceroutesmodel is questionable because it loads the routes from the files, yet we have a model that reads from there?
 	asRoutesModel := &asroutesmodel.ASRoutesModel{
 		AppFilesModel: appFilesModel,	// temporary!
@@ -131,18 +125,13 @@ func main() {
 		fmt.Println("Caught signal, quitting.", sig)
 		pprof.StopCPUProfile()
 
-		var stopWg sync.WaitGroup
-		stopWg.Add(1)
-		sM.StopAll()	//should take a waitgroup
-		stopWg.Wait()
-		
+		sM.StopAll()
 		fmt.Println("All sandbox stopped")
-		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
+
+		os.Exit(0)
 	}()
 
 	sM.Init()
-
-	//initWg.Wait()
 
 	fmt.Println("Main after sandbox manager start")
 

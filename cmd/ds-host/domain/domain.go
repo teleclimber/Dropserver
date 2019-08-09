@@ -109,12 +109,34 @@ type SandboxManagerI interface {
 	GetForAppSpace(appspace *Appspace) chan SandboxI
 }
 
+// SandboxStatus represents the Status of a Sandbox
+type SandboxStatus int
+
+const (
+	// SandboxStarting sb is starting not ready yet
+	SandboxStarting SandboxStatus = iota + 1
+	// SandboxReady means it's ready to take incoming requests
+	SandboxReady
+	// SandboxKilling means the system considers it is going down
+	SandboxKilling
+	// SandboxDead means it's gone
+	SandboxDead
+)
+
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
+	ID() int
+	Status() SandboxStatus
 	GetPort() int
 	GetTransport() http.RoundTripper
 	GetLogClient() LogCLientI
+	TiedUp() bool
+	LastActive() time.Time
 	TaskBegin() chan bool
+	SetStatus(SandboxStatus)
+	WaitFor(SandboxStatus)
+	Start()
+	Stop()
 }
 
 // Server describes the web server

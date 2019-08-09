@@ -240,6 +240,84 @@ func (mr *MockSandboxIMockRecorder) GetTransport() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransport", reflect.TypeOf((*MockSandboxI)(nil).GetTransport))
 }
 
+// ID mocks base method
+func (m *MockSandboxI) ID() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ID")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// ID indicates an expected call of ID
+func (mr *MockSandboxIMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockSandboxI)(nil).ID))
+}
+
+// LastActive mocks base method
+func (m *MockSandboxI) LastActive() time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastActive")
+	ret0, _ := ret[0].(time.Time)
+	return ret0
+}
+
+// LastActive indicates an expected call of LastActive
+func (mr *MockSandboxIMockRecorder) LastActive() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastActive", reflect.TypeOf((*MockSandboxI)(nil).LastActive))
+}
+
+// SetStatus mocks base method
+func (m *MockSandboxI) SetStatus(arg0 SandboxStatus) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetStatus", arg0)
+}
+
+// SetStatus indicates an expected call of SetStatus
+func (mr *MockSandboxIMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockSandboxI)(nil).SetStatus), arg0)
+}
+
+// Start mocks base method
+func (m *MockSandboxI) Start() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Start")
+}
+
+// Start indicates an expected call of Start
+func (mr *MockSandboxIMockRecorder) Start() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSandboxI)(nil).Start))
+}
+
+// Status mocks base method
+func (m *MockSandboxI) Status() SandboxStatus {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Status")
+	ret0, _ := ret[0].(SandboxStatus)
+	return ret0
+}
+
+// Status indicates an expected call of Status
+func (mr *MockSandboxIMockRecorder) Status() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockSandboxI)(nil).Status))
+}
+
+// Stop mocks base method
+func (m *MockSandboxI) Stop() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Stop")
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockSandboxIMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockSandboxI)(nil).Stop))
+}
+
 // TaskBegin mocks base method
 func (m *MockSandboxI) TaskBegin() chan bool {
 	m.ctrl.T.Helper()
@@ -252,6 +330,32 @@ func (m *MockSandboxI) TaskBegin() chan bool {
 func (mr *MockSandboxIMockRecorder) TaskBegin() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskBegin", reflect.TypeOf((*MockSandboxI)(nil).TaskBegin))
+}
+
+// TiedUp mocks base method
+func (m *MockSandboxI) TiedUp() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TiedUp")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// TiedUp indicates an expected call of TiedUp
+func (mr *MockSandboxIMockRecorder) TiedUp() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TiedUp", reflect.TypeOf((*MockSandboxI)(nil).TiedUp))
+}
+
+// WaitFor mocks base method
+func (m *MockSandboxI) WaitFor(arg0 SandboxStatus) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "WaitFor", arg0)
+}
+
+// WaitFor indicates an expected call of WaitFor
+func (mr *MockSandboxIMockRecorder) WaitFor(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitFor", reflect.TypeOf((*MockSandboxI)(nil).WaitFor), arg0)
 }
 
 // MockSandboxManagerI is a mock of SandboxManagerI interface

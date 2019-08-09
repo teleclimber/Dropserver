@@ -17,10 +17,9 @@ import (
 
 // Manager manages sandboxes
 type Manager struct {
-	nextID    int //?
+	nextID    int
 	poolMux   sync.Mutex
-	requests  map[string]request             // unused?
-	sandboxes map[domain.AppspaceID]*Sandbox // all sandboxes are always committed
+	sandboxes map[domain.AppspaceID]domain.SandboxI // all sandboxes are always committed
 	Config    *domain.RuntimeConfig
 	Logger    domain.LogCLientI
 	// metrics, ...
@@ -42,7 +41,7 @@ type request struct {
 // - no unix domain sockets
 // - probably need a host session ID, and only talk to those who have that session.
 func (sM *Manager) Init() {
-	// ??
+	sM.sandboxes = make(map[domain.AppspaceID]domain.SandboxI)
 }
 
 // StopAll takes all known sandboxes and stops them
@@ -52,7 +51,7 @@ func (sM *Manager) StopAll() {
 		// If we get to this point assume the connection from the host http proxy has been stopped
 		// so it should be safe to shut things down
 		// ..barring anything "waiting for"...
-		go func(sb *Sandbox) {
+		go func(sb domain.SandboxI) {
 			stopWg.Add(1)
 			sb.Stop()
 			stopWg.Done()
@@ -73,10 +72,10 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 	fmt.Println("Creating new Sandbox", appspace.AppspaceID)
 
 	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
-		SandboxID: sandboxID,
-		Status:    statusStarting,
+		id: sandboxID,
+		status:    domain.SandboxStarting,
 		appspace:  appspace,
-		statusSub: make(map[statusInt][]chan statusInt),
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		LogClient: sM.Logger.NewSandboxLogClient(sandboxID)}
 
 	sM.sandboxes[appspace.AppspaceID] = &newSandbox
@@ -84,8 +83,8 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 	sM.recordSandboxStatusMetric()
 
 	go func() {
-		newSandbox.start()
-		newSandbox.waitFor(statusReady)
+		newSandbox.Start()
+		newSandbox.WaitFor(domain.SandboxReady)
 		// sandbox may not be ready if it failed to start.
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
 		ch <- &newSandbox
@@ -108,7 +107,7 @@ func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.Sandbox
 		//OK, but is it ready yet?
 		// it may have *just* been started, so it'll get there but have to wait
 		go func() {
-			c.waitFor(statusReady)
+			c.WaitFor(domain.SandboxReady)
 			ch <- c
 			sM.recordSandboxStatusMetric() // really?
 		}()
@@ -129,6 +128,11 @@ func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.Sandbox
 	return ch
 }
 
+type killable struct {
+	appspaceID domain.AppspaceID
+	score      float64
+}
+
 // Look for sandboxes to shut down to make room for others before you run out of resources.
 func (sM *Manager) killPool() {
 	sM.poolMux.Lock()
@@ -139,25 +143,24 @@ func (sM *Manager) killPool() {
 	numKill := len(sM.sandboxes) - numC
 
 	if numKill > 0 {
-		var sortedSandboxes []*Sandbox
+		var sortedKillable []killable
 
-		for _, sb := range sM.sandboxes {
-			if sb.Status == statusReady && !sb.appSpaceSession.tiedUp {
-				duration := time.Since(sb.appSpaceSession.lastActive)
-				sb.killScore = duration.Seconds() //kill least recently active
-				sortedSandboxes = append(sortedSandboxes, sb)
+		for appspaceID, sb := range sM.sandboxes {
+			if sb.Status() == domain.SandboxReady && !sb.TiedUp() {
+				sortedKillable = append(sortedKillable, killable{
+					appspaceID,
+					time.Since(sb.LastActive()).Seconds()})
 			}
 		}
 
-		sort.Slice(sortedSandboxes, func(i, j int) bool {
-			return sortedSandboxes[i].killScore > sortedSandboxes[j].killScore
+		sort.Slice(sortedKillable, func(i, j int) bool {
+			return sortedKillable[i].score > sortedKillable[j].score
 		})
 
-		for i := 0; i < numKill && i < len(sortedSandboxes); i++ {
-			sandbox := sortedSandboxes[i]
-			sandbox.Status = statusKilling // TODO: this should not be set here
-			//sandbox.appspaceID = nil
-			go sandbox.Stop() // function signature requires waitgroup, but we don't want to prevent this function from returning!
+		for i := 0; i < numKill && i < len(sortedKillable); i++ {
+			sandbox := sM.sandboxes[sortedKillable[i].appspaceID]
+			sandbox.SetStatus(domain.SandboxKilling) // have to set it here to prevent other requests being dispatched to it before it actually starts shutting down.
+			go sandbox.Stop()
 		}
 	}
 
