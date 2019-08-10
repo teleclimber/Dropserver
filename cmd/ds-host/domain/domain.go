@@ -24,14 +24,14 @@ import (
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
 type RuntimeConfig struct {
-	DataDir string `json:"data-dir"` // this might get confusing when we also config trusted volume data
+	DataDir string `json:"data-dir"`
 	Server  struct {
 		Port int16  `json:"port"`
 		Host string `json:"host"`
 	} `json:"server"`
 	Sandbox struct {
 		Num        int    `json:"num"`
-		SocketsDir string `json:"sockets-dir"`
+		SocketsDir string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
 	} `json:"sandbox"`
 	Loki struct {
 		Port    int16  `json:"port"`
@@ -106,7 +106,7 @@ type MetricsI interface {
 
 // SandboxManagerI is an interface that describes sm
 type SandboxManagerI interface {
-	GetForAppSpace(appspace *Appspace) chan SandboxI
+	GetForAppSpace(appVersion *AppVersion, appspace *Appspace) chan SandboxI
 }
 
 // SandboxStatus represents the Status of a Sandbox
@@ -135,7 +135,7 @@ type SandboxI interface {
 	TaskBegin() chan bool
 	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
-	Start()
+	Start(appVersion *AppVersion, appspace *Appspace)
 	Stop()
 }
 
@@ -201,7 +201,8 @@ type SignupViewData struct {
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
 	Cookie      *Cookie
-	App         *App // AppVersion??
+	App         *App
+	AppVersion  *AppVersion
 	Appspace    *Appspace
 	URLTail     string
 	RouteConfig *RouteConfig
@@ -333,7 +334,7 @@ type AppspaceModel interface {
 
 // ASRoutesModel is the appspaces routes model interface
 type ASRoutesModel interface {
-	GetRouteConfig(AppVersion, string, string) (*RouteConfig, Error)
+	GetRouteConfig(*AppVersion, string, string) (*RouteConfig, Error)
 }
 
 // AppFilesMetadata containes metadata that can be gleaned from
@@ -357,7 +358,7 @@ type JSONRoute struct {
 // JSONRouteHandler is the handler part of route in JSON
 type JSONRouteHandler struct {
 	Type     string `json:"type"` // how can we validate that "type" is entered corrently?
-	File     string `json:"file"` // this is called "location" downstream.
+	File     string `json:"file"` // this is called "location" downstream. (but why?)
 	Function string `json:"function"`
 }
 
@@ -365,7 +366,7 @@ type JSONRouteHandler struct {
 type RouteConfig struct {
 	Type      string // static, crud, exec, [and maybe filter, or auth to allow "middlewares"?]
 	Authorize string
-	Location  string
+	File      string //is this path to script within app's dir? This is confusing wrt "location" as used by files model.
 	Function  string
 }
 

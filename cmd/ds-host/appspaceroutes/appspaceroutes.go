@@ -56,7 +56,16 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		}
 		routeData.App = app
 
-		appVersion := domain.AppVersion{AppID: appspace.AppID, Version: appspace.AppVersion}
+		appVersion, dsErr := r.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
+		if dsErr != nil {
+			// is this an internal error? It seems that if an appspace is using a version, that version has to exist?!?
+			r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain, "app": string(appspace.AppID)},
+				"App version does not exist: "+string(appspace.AppVersion))
+			http.Error(res, "App Version not found", http.StatusInternalServerError)
+			return
+		}
+		routeData.AppVersion = appVersion
+
 		routeConfig, dsErr := r.ASRoutesModel.GetRouteConfig(appVersion, req.Method, routeData.URLTail)
 		if dsErr != nil {
 			//..if not found then go 404 ... or do that automatically from errors?

@@ -26,7 +26,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	fmt.Println("in request handler", appspaceName, appName)
 
-	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.Appspace) // Change this to more solid IDs
+	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
 	//sbName := sb.GetName()       // Get ID instead of Name, only used for logging / debugging.
@@ -39,7 +39,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	header := cloneHeader(oReq.Header)
 	//header["ds-user-id"] = []string{"teleclimber"}
-	header["app-space-script"] = []string{routeData.RouteConfig.Location}
+	header["app-space-script"] = []string{routeData.RouteConfig.File}
 	header["app-space-fn"] = []string{routeData.RouteConfig.Function}
 
 	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)

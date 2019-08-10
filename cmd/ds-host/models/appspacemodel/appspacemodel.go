@@ -104,7 +104,7 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 
 	appspace, dsErr := m.GetFromID(appspaceID)
 	if dsErr != nil {
-		return nil, dsErr
+		return nil, dsErr	// this indicates a severe internal problem, not "oh we coudln't find it"
 	}
 
 	return appspace, nil	

@@ -281,15 +281,15 @@ func (mr *MockSandboxIMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
 }
 
 // Start mocks base method
-func (m *MockSandboxI) Start() {
+func (m *MockSandboxI) Start(arg0 *AppVersion, arg1 *Appspace) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start")
+	m.ctrl.Call(m, "Start", arg0, arg1)
 }
 
 // Start indicates an expected call of Start
-func (mr *MockSandboxIMockRecorder) Start() *gomock.Call {
+func (mr *MockSandboxIMockRecorder) Start(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSandboxI)(nil).Start))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSandboxI)(nil).Start), arg0, arg1)
 }
 
 // Status mocks base method
@@ -382,17 +382,17 @@ func (m *MockSandboxManagerI) EXPECT() *MockSandboxManagerIMockRecorder {
 }
 
 // GetForAppSpace mocks base method
-func (m *MockSandboxManagerI) GetForAppSpace(arg0 *Appspace) chan SandboxI {
+func (m *MockSandboxManagerI) GetForAppSpace(arg0 *AppVersion, arg1 *Appspace) chan SandboxI {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetForAppSpace", arg0)
+	ret := m.ctrl.Call(m, "GetForAppSpace", arg0, arg1)
 	ret0, _ := ret[0].(chan SandboxI)
 	return ret0
 }
 
 // GetForAppSpace indicates an expected call of GetForAppSpace
-func (mr *MockSandboxManagerIMockRecorder) GetForAppSpace(arg0 interface{}) *gomock.Call {
+func (mr *MockSandboxManagerIMockRecorder) GetForAppSpace(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppSpace", reflect.TypeOf((*MockSandboxManagerI)(nil).GetForAppSpace), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppSpace", reflect.TypeOf((*MockSandboxManagerI)(nil).GetForAppSpace), arg0, arg1)
 }
 
 // MockRouteHandler is a mock of RouteHandler interface
@@ -874,7 +874,7 @@ func (m *MockASRoutesModel) EXPECT() *MockASRoutesModelMockRecorder {
 }
 
 // GetRouteConfig mocks base method
-func (m *MockASRoutesModel) GetRouteConfig(arg0 AppVersion, arg1, arg2 string) (*RouteConfig, Error) {
+func (m *MockASRoutesModel) GetRouteConfig(arg0 *AppVersion, arg1, arg2 string) (*RouteConfig, Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRouteConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*RouteConfig)

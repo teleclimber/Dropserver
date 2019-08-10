@@ -64,7 +64,7 @@ func (sM *Manager) StopAll() {
 // startSandbox launches a new Node/deno instance for a specific sandbox
 // not sure if it should return a channel or just a started sb.
 // Problem is if it takes too long, would like to independently send timout as response to request.
-func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.SandboxI) {
+func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
 	sandboxID := sM.nextID
 	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a service to lock!
 	// .. or trust that it only gets called with poolMux locked by caller.
@@ -72,10 +72,10 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 	fmt.Println("Creating new Sandbox", appspace.AppspaceID)
 
 	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
-		id: sandboxID,
+		id:        sandboxID,
 		status:    domain.SandboxStarting,
-		appspace:  appspace,
 		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:    sM.Config,
 		LogClient: sM.Logger.NewSandboxLogClient(sandboxID)}
 
 	sM.sandboxes[appspace.AppspaceID] = &newSandbox
@@ -83,7 +83,7 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 	sM.recordSandboxStatusMetric()
 
 	go func() {
-		newSandbox.Start()
+		newSandbox.Start(appVersion, appspace)
 		newSandbox.WaitFor(domain.SandboxReady)
 		// sandbox may not be ready if it failed to start.
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
@@ -93,7 +93,7 @@ func (sM *Manager) startSandbox(appspace *domain.Appspace, ch chan domain.Sandbo
 
 // GetForAppSpace records the need for a sandbox and returns a channel
 // OK, this might work
-func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.SandboxI {
+func (sM *Manager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
 
 	// get appVersion from model
@@ -118,7 +118,7 @@ func (sM *Manager) GetForAppSpace(appspace *domain.Appspace) chan domain.Sandbox
 		// OK, but still need to queue up requests? .. or not.
 		// -> this could be the queueing mechanism.
 
-		sM.startSandbox(appspace, ch) // pass the channel?
+		sM.startSandbox(appVersion, appspace, ch)
 		// this ought to return quickly, like as soon as the sandbox data is established.
 		// .. so as to not tie up poolMux
 

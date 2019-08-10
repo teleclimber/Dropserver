@@ -181,6 +181,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 
 	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	appModel.EXPECT().GetFromID(gomock.Any()).Return(&domain.App{Name: "app1"}, nil)
+	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{}, nil)
 	asRoutesModel.EXPECT().GetRouteConfig(gomock.Any(), "GET", "/abc").Return(&domain.RouteConfig{Type: "function"}, nil)
 	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
 

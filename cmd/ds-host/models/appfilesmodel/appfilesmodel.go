@@ -23,7 +23,7 @@ var appsPath = "/mnt/data/apps" // TODO make appsPath a config
 
 // AppFilesModel is struct for application files manager
 type AppFilesModel struct {
-	// maybe a config? <- yes, a config with location of app files
+	// TODO maybe a config? <- yes, a config with location of app files
 	Logger domain.LogCLientI
 }
 

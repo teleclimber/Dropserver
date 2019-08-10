@@ -31,7 +31,7 @@ type ASRoutesModel struct {
 
 // GetRouteConfig returns the route configuration for the path passed
 // Rename to RouteHandler?
-func (m *ASRoutesModel) GetRouteConfig(appVersion domain.AppVersion, method string, pathStr string) (*domain.RouteConfig, domain.Error) {
+func (m *ASRoutesModel) GetRouteConfig(appVersion *domain.AppVersion, method string, pathStr string) (*domain.RouteConfig, domain.Error) {
 	routes, dsErr := m.getAppRoutes(appVersion)
 	if dsErr != nil {
 		return nil, dsErr
@@ -72,7 +72,7 @@ func getConfig(part *domain.RoutePart, method string) *domain.RouteConfig {
 	return nil
 }
 
-func (m *ASRoutesModel) getAppRoutes(appVersion domain.AppVersion) (*domain.RoutePart, domain.Error) {
+func (m *ASRoutesModel) getAppRoutes(appVersion *domain.AppVersion) (*domain.RoutePart, domain.Error) {
 	appID := appVersion.AppID
 	ver := appVersion.Version
 	if m.appRoutes == nil || m.appRoutes[appID] == nil || m.appRoutes[appID][ver] == nil {
@@ -85,7 +85,7 @@ func (m *ASRoutesModel) getAppRoutes(appVersion domain.AppVersion) (*domain.Rout
 	return m.appRoutes[appID][ver], nil
 }
 
-func (m *ASRoutesModel) fetchAppConfig(appVersion domain.AppVersion) domain.Error {
+func (m *ASRoutesModel) fetchAppConfig(appVersion *domain.AppVersion) domain.Error {
 	appMeta, dsErr := m.AppFilesModel.ReadMeta(appVersion.LocationKey)
 	if dsErr != nil {
 		return dsErr
@@ -156,7 +156,7 @@ func applyConfig(jsonRoute domain.JSONRoute, routePart *domain.RoutePart) domain
 	rc := domain.RouteConfig{
 		Type: jsonRoute.Handler.Type,
 		Authorize: jsonRoute.Authorize,
-		Location: jsonRoute.Handler.File,
+		File: jsonRoute.Handler.File,
 		Function: jsonRoute.Handler.Function }
 
 	switch strings.ToLower(jsonRoute.Method) {

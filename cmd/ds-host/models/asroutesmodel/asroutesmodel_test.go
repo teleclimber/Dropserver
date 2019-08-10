@@ -160,7 +160,7 @@ func RunTestFetchAppConfig(t *testing.T, appRoutes map[domain.AppID]map[domain.V
 
 	appID := domain.AppID(1)
 	ver := domain.Version("0.0.1")
-	model.fetchAppConfig(domain.AppVersion{AppID: appID, Version: ver})
+	model.fetchAppConfig(&domain.AppVersion{AppID: appID, Version: ver})
 
 	if model.appRoutes[appID][ver].GET.Type != "foo" {
 		t.Error("appRoutes not as expected", model.appRoutes)
@@ -185,7 +185,7 @@ func TestGetAppRoutes(t *testing.T) {
 
 	appID := domain.AppID(1)
 	ver := domain.Version("0.0.1")
-	rp, dsErr := model.getAppRoutes(domain.AppVersion{AppID: appID, Version: ver})
+	rp, dsErr := model.getAppRoutes(&domain.AppVersion{AppID: appID, Version: ver})
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -237,7 +237,7 @@ func TestGetRouteConfig(t *testing.T) {
 		}
 		m.appRoutes[appID][ver] = rp
 
-		rc, dsErr := m.GetRouteConfig(appVersion, "gEt", c.pathStr)
+		rc, dsErr := m.GetRouteConfig(&appVersion, "gEt", c.pathStr)
 		if dsErr != nil {
 			if dsErr.Code() == dserror.AppspaceRouteNotFound {
 				if c.found {

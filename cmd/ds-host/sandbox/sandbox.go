@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -41,8 +42,7 @@ type Task struct {
 type Sandbox struct {
 	id       int			// getter only (const), unexported
 	status          domain.SandboxStatus	// getter/setter, so make it unexported.
-	port            int			// getter only
-	appspace        *domain.Appspace
+	port            int			// getter only	
 	cmd             *exec.Cmd
 	reverseListener *reverseListener
 	statusMux       sync.Mutex
@@ -56,19 +56,12 @@ type Sandbox struct {
 
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
-func (s *Sandbox) Start() { // TODO: return an error, presumably?
+func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) { // TODO: return an error, presumably?
 	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
 	// Here start should take necessary data about appspace
 	// ..in order to pass in the right permissions to deno.
-	// I think here we don't need to return?
-	// just hold on until the process ends.
-	// Instead push status into a channel or something?
-
-	//cmd := exec.Command("node", "/root/ds-sandbox-runner.js", hostIP, rev_sock_path)
-	// ..Will have to pass location of script somehow.
-	// ..In prod it's relative to install dir, in testing it's....?
-
+	
 	var dsErr domain.Error
 	s.reverseListener, dsErr = newReverseListener(s.Config, s.id)
 	if dsErr != nil {
@@ -77,7 +70,11 @@ func (s *Sandbox) Start() { // TODO: return an error, presumably?
 		return
 	}
 
-	cmd := exec.Command("node", s.Config.Exec.JSRunnerPath, s.reverseListener.socketPath)
+	cmd := exec.Command(
+		"node",
+		s.Config.Exec.JSRunnerPath,
+		s.reverseListener.socketPath,
+		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey))
 	s.cmd = cmd
 	// -> for Deno will have to pass permission flags for that sandbox.
 	// The appspace is known at this point and should probably be passed to the runner.
@@ -108,6 +105,8 @@ func (s *Sandbox) Start() { // TODO: return an error, presumably?
 	go s.monitor(stdout, stderr)
 
 	s.port = <-s.reverseListener.portChan
+
+	s.transport = http.DefaultTransport	// really not sure what this means or what it's for anymore....
 
 	s.SetStatus(domain.SandboxReady)
 }

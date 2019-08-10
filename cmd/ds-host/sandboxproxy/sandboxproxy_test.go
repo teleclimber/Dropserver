@@ -106,6 +106,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		URLTail:     "/abc",           // parametrize
 		Subdomains:  &[]string{"as1"}, // parametrize, or override in test fn.
 		App:         &domain.App{Name: "app1"},
+		AppVersion:  &domain.AppVersion{},
 		Appspace:    &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
 		RouteConfig: &domain.RouteConfig{}}
 
@@ -129,7 +130,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		fmt.Println("task done")
 	}()
 
-	sandboxManager.EXPECT().GetForAppSpace(gomock.Any()).DoAndReturn(func(as *domain.Appspace) chan domain.SandboxI {
+	sandboxManager.EXPECT().GetForAppSpace(gomock.Any(), gomock.Any()).DoAndReturn(func(av *domain.AppVersion, as *domain.Appspace) chan domain.SandboxI {
 		sandboxChan := make(chan domain.SandboxI)
 		go func() {
 			sandboxChan <- sandbox

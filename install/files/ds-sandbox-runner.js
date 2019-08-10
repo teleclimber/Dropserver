@@ -11,7 +11,8 @@ const path = require( 'path' );
 // so how does this work now?
 // Probably need a separate function to send messages back to host.
 // And Probably a lib for the appspaceAPI
-const sock_path = process.argv[process.argv.length -1];
+const sock_path = process.argv[process.argv.length -2];
+const app_path = process.argv[process.argv.length -1];
 
 //////////////////////////////////////////////
 // HTTP Server
@@ -32,7 +33,7 @@ server.on( 'request', (request,response) => {
 
 		console.log( 'RUNNER:', script, fn, user_id );
 
-		const script_module = require( path.join('/app/', script) );
+		const script_module = require( path.join(app_path, script) );
 		script_module[fn]( request, response );
 
 		// let body = [];

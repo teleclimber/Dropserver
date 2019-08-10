@@ -147,14 +147,17 @@ func TestStart(t *testing.T) {
 	cfg.Exec.JSRunnerPath = getJSRuntimePath()
 
 	s := &Sandbox{
-		id: 7,
+		id:        7,
 		status:    domain.SandboxStarting,
 		LogClient: logger,
 		Config:    cfg}
 
 	logger.EXPECT().Log(domain.INFO, nil, gomock.Any())
 
-	s.Start()
+	appVersion := &domain.AppVersion{}
+	appspace := &domain.Appspace{}
+
+	s.Start(appVersion, appspace)
 
 	// OK, shut it down
 
