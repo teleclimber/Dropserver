@@ -163,7 +163,8 @@ type SandboxI interface {
 // Authenticator is an interface
 type Authenticator interface {
 	SetForAccount(http.ResponseWriter, UserID) Error
-	GetForAccount(http.ResponseWriter, *http.Request, *AppspaceRouteData) bool
+	AccountAuthorized(http.ResponseWriter, *http.Request, *AppspaceRouteData) Error
+	UnsetForAccount(http.ResponseWriter, *http.Request)
 }
 
 // Views interface
@@ -252,6 +253,7 @@ type CookieModel interface {
 	Get(string) (*Cookie, Error)
 	Create(Cookie) (string, Error)
 	UpdateExpires(string, time.Time) Error
+	Delete(string) Error
 }
 
 // Cookie represents the server-side representation of a stored cookie

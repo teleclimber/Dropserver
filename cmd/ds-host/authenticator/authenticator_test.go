@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestSetCookie(t *testing.T) {
@@ -64,12 +65,12 @@ func TestGetForAccountNoCookie(t *testing.T) {
 
 	a := &Authenticator{}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should Not be ok")
+	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	if dsErr == nil {
+		t.Error("should error")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	if dsErr.Code() != dserror.Unauthorized {
+		t.Error("error code not as expected", dsErr)
 	}
 }
 
@@ -95,12 +96,12 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 	a := &Authenticator{
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
+	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	if dsErr == nil {
+		t.Error("should error")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	if dsErr.Code() != dserror.Unauthorized {
+		t.Error("error code not as expected", dsErr)
 	}
 }
 
@@ -131,12 +132,12 @@ func TestGetForAccountNotUser(t *testing.T) {
 	a := &Authenticator{
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
+	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	if dsErr == nil {
+		t.Error("should error")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	if dsErr.Code() != dserror.Unauthorized {
+		t.Error("error code not as expected", dsErr)
 	}
 }
 
@@ -167,16 +168,16 @@ func TestGetForAccountExpired(t *testing.T) {
 	a := &Authenticator{
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
+	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	if dsErr == nil {
+		t.Error("should error")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	if dsErr.Code() != dserror.Unauthorized {
+		t.Error("error code not as expected", dsErr)
 	}
 }
 
-func TestGetForAccount(t *testing.T) {
+func TestAccountAuthorized(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -206,9 +207,9 @@ func TestGetForAccount(t *testing.T) {
 
 	routeData := &domain.AppspaceRouteData{}
 
-	ok := a.GetForAccount(rr, req, routeData)
-	if !ok {
-		t.Error("should be ok")
+	dsErr := a.AccountAuthorized(rr, req, routeData)
+	if dsErr != nil {
+		t.Error("should not error")
 	}
 
 	if routeData.Cookie.CookieID != "abc" {
@@ -253,4 +254,26 @@ func TestSetForAccount(t *testing.T) {
 	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
+}
+
+func TestUnsetForAccount(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	cm := domain.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get(gomock.Any()).Return(&domain.Cookie{
+		CookieID:    "abc123",
+		UserAccount: true,
+		Expires:     time.Now().Add(120 * time.Second)}, nil)
+	cm.EXPECT().Delete("abc123")
+
+	a := Authenticator{
+		CookieModel: cm}
+
+	rr := httptest.NewRecorder()
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: "abc123", MaxAge: 120})
+
+	a.UnsetForAccount(rr, req)
 }

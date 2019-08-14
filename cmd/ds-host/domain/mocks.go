@@ -468,6 +468,20 @@ func (mr *MockCookieModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockCookieModel)(nil).Create), arg0)
 }
 
+// Delete mocks base method
+func (m *MockCookieModel) Delete(arg0 string) Error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret0, _ := ret[0].(Error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockCookieModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCookieModel)(nil).Delete), arg0)
+}
+
 // Get mocks base method
 func (m *MockCookieModel) Get(arg0 string) (*Cookie, Error) {
 	m.ctrl.T.Helper()
@@ -911,18 +925,18 @@ func (m *MockAuthenticator) EXPECT() *MockAuthenticatorMockRecorder {
 	return m.recorder
 }
 
-// GetForAccount mocks base method
-func (m *MockAuthenticator) GetForAccount(arg0 http.ResponseWriter, arg1 *http.Request, arg2 *AppspaceRouteData) bool {
+// AccountAuthorized mocks base method
+func (m *MockAuthenticator) AccountAuthorized(arg0 http.ResponseWriter, arg1 *http.Request, arg2 *AppspaceRouteData) Error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetForAccount", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "AccountAuthorized", arg0, arg1, arg2)
+	ret0, _ := ret[0].(Error)
 	return ret0
 }
 
-// GetForAccount indicates an expected call of GetForAccount
-func (mr *MockAuthenticatorMockRecorder) GetForAccount(arg0, arg1, arg2 interface{}) *gomock.Call {
+// AccountAuthorized indicates an expected call of AccountAuthorized
+func (mr *MockAuthenticatorMockRecorder) AccountAuthorized(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAccount", reflect.TypeOf((*MockAuthenticator)(nil).GetForAccount), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountAuthorized", reflect.TypeOf((*MockAuthenticator)(nil).AccountAuthorized), arg0, arg1, arg2)
 }
 
 // SetForAccount mocks base method
@@ -937,6 +951,18 @@ func (m *MockAuthenticator) SetForAccount(arg0 http.ResponseWriter, arg1 UserID)
 func (mr *MockAuthenticatorMockRecorder) SetForAccount(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetForAccount", reflect.TypeOf((*MockAuthenticator)(nil).SetForAccount), arg0, arg1)
+}
+
+// UnsetForAccount mocks base method
+func (m *MockAuthenticator) UnsetForAccount(arg0 http.ResponseWriter, arg1 *http.Request) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UnsetForAccount", arg0, arg1)
+}
+
+// UnsetForAccount indicates an expected call of UnsetForAccount
+func (mr *MockAuthenticatorMockRecorder) UnsetForAccount(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetForAccount", reflect.TypeOf((*MockAuthenticator)(nil).UnsetForAccount), arg0, arg1)
 }
 
 // MockValidator is a mock of Validator interface

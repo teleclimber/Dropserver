@@ -94,7 +94,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	case "static":
 		s.publicStaticHandler.ServeHTTP(res, req)
 	case "user":
-		routeData := &domain.AppspaceRouteData{
+		routeData := &domain.AppspaceRouteData{ // hrm, not named well. Open to using same interface though.
 			URLTail:    req.URL.Path,
 			Subdomains: &subdomains}
 

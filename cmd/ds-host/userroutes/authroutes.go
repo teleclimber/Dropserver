@@ -27,6 +27,8 @@ func (a *AuthRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 		a.handleSignup(res, req, routeData)
 	} else if head == "login" {
 		a.handleLogin(res, req, routeData)
+	} else if head == "logout" {
+		a.handleLogout(res, req, routeData)
 	} else {
 		http.Error(res, "Bad path", http.StatusBadRequest)
 	}
@@ -100,7 +102,7 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 		// we're in
 		a.Authenticator.SetForAccount(res, user.UserID)
 
-		http.Redirect(res, req, "/", http.StatusMovedPermanently)
+		http.Redirect(res, req, "/", http.StatusFound)
 	}
 }
 
@@ -155,4 +157,10 @@ func (a *AuthRoutes) signupPost(res http.ResponseWriter, req *http.Request, rout
 
 		http.Redirect(res, req, "/", http.StatusMovedPermanently)
 	}
+}
+
+func (a *AuthRoutes) handleLogout(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	a.Authenticator.UnsetForAccount(res, req)
+
+	http.Redirect(res, req, "/login", http.StatusFound)
 }

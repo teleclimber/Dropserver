@@ -142,7 +142,7 @@ func TestLoginPost(t *testing.T) {
 
 	a.loginPost(rr, req, routeData)
 
-	if rr.Code != http.StatusMovedPermanently {
+	if rr.Code != http.StatusFound {
 		t.Error("wrong status", rr.Code)
 	}
 }

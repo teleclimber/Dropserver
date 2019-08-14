@@ -24,21 +24,24 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// There should be a single point where we check auth, and if no good, bail.
 
 	head, _ := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "signup" || head == "login" {
+	if head == "signup" || head == "login" || head == "logout" {
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
 	} else {
-		u.serveLoggedInRoutes(res, req, routeData)
+		// Must be logged in to go past this point.
+		dsErr := u.Authenticator.AccountAuthorized(res, req, routeData)
+		if dsErr == nil {
+			u.serveLoggedInRoutes(res, req, routeData)
+		} else {
+			http.Redirect(res, req, "/login", http.StatusFound)
+		}
 	}
 }
 
 func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 
-	// ok := u.Authenticator.GetForAccount(res, req, routeData)
-	// if !ok {
-	// 	fmt.Println("supposed to be authed but is not...")
-	// 	return
-	// }
-	// TODO: do cookies get set???
+	if routeData.Cookie.UserAccount == false {
+		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
+	}
 
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	switch head {
@@ -48,6 +51,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		// All the async routes essentially?
 		head, tail = shiftpath.ShiftPath(tail)
 		switch head {
+		case "user-data":
+			// return user data...
 		case "application": //handle application route (separate file)
 			routeData.URLTail = tail
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)

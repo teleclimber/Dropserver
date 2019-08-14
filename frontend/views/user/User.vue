@@ -20,7 +20,7 @@
 			<h1>Hello.</h1>
 			<div class="user-actions">
 				<a href="#" @click="showChangePassword" class="user-email">{{user.email}}</a>
-				<a href="/logout">logout</a>
+				<a :href="logout_url">logout</a>
 			</div>
 		</div>
 
@@ -76,7 +76,8 @@ export default {
 		ui: function() { return this.$root.ui; },
 		user: function() { return this.$root.user; },
 		app_spaces: function() { return this.$root.app_spaces_vm.app_spaces; },
-		applications_vm: function() { return this.$root.applications_vm; }
+		applications_vm: function() { return this.$root.applications_vm; },
+		logout_url: function() { return window.ds_user_routes_base_url + "/logout" }
 	},
 	components: {
 		'app-space': AppSpace,

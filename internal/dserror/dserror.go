@@ -127,8 +127,11 @@ const (
 	// InternalError is a special error code that will not print its extra messages
 	InternalError        domain.ErrorCode = 1
 
+	BadRequest domain.ErrorCode = 1001
+
 	InputValidationError domain.ErrorCode = 1201
 
+	Unauthorized domain.ErrorCode = 2001
 	AuthenticationIncorrect domain.ErrorCode = 2002
 	EmailExists domain.ErrorCode = 2003
 
@@ -156,6 +159,7 @@ var errorMesage = map[domain.ErrorCode]string{
 
 	InputValidationError: "Input validation error",
 
+	Unauthorized: "Unauthorized",
 	AuthenticationIncorrect: "Authentication incorrect",
 	EmailExists: "Email is already in the users DB",
 
@@ -179,6 +183,8 @@ var errorMesage = map[domain.ErrorCode]string{
 
 var httpCode = map[domain.ErrorCode]int{
 	InternalError: http.StatusInternalServerError,
+	BadRequest: http.StatusBadRequest,
+	Unauthorized: http.StatusUnauthorized,
 	InputValidationError: http.StatusBadRequest,
 	AppspaceRouteNotFound: http.StatusNotFound,
 }

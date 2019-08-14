@@ -129,6 +129,51 @@ func TestUpdateExpires(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	cookieModel := &CookieModel{
+		DB: db}
+
+	cookieModel.PrepareStatements()
+
+	c := domain.Cookie{
+		UserID:      domain.UserID(100),
+		UserAccount: true,
+		Expires:     time.Now()}
+
+	cookieID, err := cookieModel.Create(c)
+	if err != nil {
+		t.Error(err)
+	}
+
+	c2, dsErr := cookieModel.Get(cookieID)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if c2 == nil {
+		t.Error("should have gotten a cookie")
+	}
+
+	dsErr = cookieModel.Delete(cookieID)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	c3, dsErr := cookieModel.Get(cookieID)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if c3!= nil {
+		t.Error("should have been nil because we deleted it")
+	}
+
+}
+
 // more things to test:
 // - appspace_id
 // - bad input of appspace_id + user_account?

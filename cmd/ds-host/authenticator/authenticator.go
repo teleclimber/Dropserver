@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // Authenticator contains middleware functions for performing authentication
@@ -31,48 +32,64 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 	return nil
 }
 
-// GetForAccount tells whether a request should be allowed to proceed or not.
-func (a *Authenticator) GetForAccount(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) bool {
-	c, err := req.Cookie("session_token")
-	if err != nil {
-		if err == http.ErrNoCookie {
-			// If the cookie is not set, return an unauthorized status
-			res.WriteHeader(http.StatusUnauthorized)
-			return false
-		}
-		// For any other type of error, return a bad request status
-		res.WriteHeader(http.StatusBadRequest)
-		return false
-	}
-
-	cookie, dsErr := a.CookieModel.Get(c.Value)
+// AccountAuthorized tells whether a request should be allowed to proceed or not.
+// OK, but it's not clear what the "ForAccount" means? What account are we referring to?
+func (a *Authenticator) AccountAuthorized(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) domain.Error {
+	cookie, dsErr := a.getCookie(req)
 	if dsErr != nil {
-		dsErr.HTTPError(res)
-		return false
-	}
-	if cookie == nil {
-		res.WriteHeader(http.StatusUnauthorized)
-		return false
-	}
-	if !cookie.UserAccount {
-		res.WriteHeader(http.StatusUnauthorized)
-		return false
-	}
-	if cookie.Expires.Before(time.Now()) {
-		res.WriteHeader(http.StatusUnauthorized)
-		return false
+		return dsErr
 	}
 
 	routeData.Cookie = cookie
+	// augment routeData to have convenient logged-in user Fields?
+	// apparently Cookie holds something useful there?
 
 	a.refreshCookie(res, cookie.CookieID)
 
-	return true
+	return nil
+}
+
+// UnsetForAccount is the opposite of SetForAccount
+// deletes cookie, wipes cookie from DB?
+func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Request) {
+	cookie, dsErr := a.getCookie(req)
+	if dsErr == nil {
+		a.CookieModel.Delete(cookie.CookieID)
+		a.setCookie(res, cookie.CookieID, time.Now().Add(-120*time.Second))
+	}
 }
 
 // I suspect this will be called repeatedly, so maybe separate out the functions:
 // - get cookie value
 // - get
+
+func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, domain.Error) {
+	c, err := req.Cookie("session_token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			// If the cookie is not set, return unauthorized
+			return nil, dserror.New(dserror.Unauthorized, "no cookie sent")
+		}
+		// For any other type of error, return a bad request status
+		return nil, dserror.New(dserror.BadRequest)
+	}
+
+	cookie, dsErr := a.CookieModel.Get(c.Value)
+	if dsErr != nil {
+		return nil, dsErr //this should be internal error?
+	}
+	if cookie == nil {
+		return nil, dserror.New(dserror.Unauthorized)
+	}
+	if !cookie.UserAccount {
+		return nil, dserror.New(dserror.Unauthorized)
+	}
+	if cookie.Expires.Before(time.Now()) {
+		return nil, dserror.New(dserror.Unauthorized)
+	}
+
+	return cookie, nil
+}
 
 // refreshCookie updates the expires time on both DB and client
 func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) {
@@ -95,7 +112,7 @@ func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expi
 		Name:     "session_token",
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client
-		MaxAge:   int(time.Now().Sub(expires).Seconds()),
+		MaxAge:   int(expires.Sub(time.Now()).Seconds()),
 		SameSite: http.SameSiteStrictMode,
 		//secure: true,	// doesn't work on develop
 		// domain?

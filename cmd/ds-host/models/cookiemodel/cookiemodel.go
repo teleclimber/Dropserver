@@ -25,6 +25,7 @@ type CookieModel struct {
 		selectCookieID *sqlx.Stmt
 		create         *sqlx.Stmt
 		refresh        *sqlx.Stmt
+		delete         *sqlx.Stmt
 	}
 }
 
@@ -60,6 +61,7 @@ func (m *CookieModel) PrepareStatements() {
 	m.stmt.selectCookieID = p.prep(`SELECT * FROM cookies WHERE cookie_id = ?`)
 	m.stmt.create = p.prep(`INSERT INTO cookies VALUES (?, ?, ?, ?, ?)`)
 	m.stmt.refresh = p.prep(`UPDATE cookies SET expires = ? WHERE cookie_id = ?`)
+	m.stmt.delete = p.prep(`DELETE FROM cookies WHERE cookie_id = ?`)
 
 	p.checkErrors()
 }
@@ -90,7 +92,6 @@ func (m *CookieModel) Get(cookieID string) (*domain.Cookie, domain.Error) {
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, nil
-			// wait, why not return nil, nil? -> makes way more sense.
 		}
 		m.Logger.Log(domain.ERROR, nil, "Cookie Model, db error, Get: "+err.Error())
 		return nil, dserror.FromStandard(err)
@@ -109,6 +110,17 @@ func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) domain.E
 
 	// I don't want to check that rows affected == 1 because if you call this back-to-back
 	// it's possible expires didn't change, so affected rows == 0, but this is a non-error.
+
+	return nil
+}
+
+// Delete removes the cookie from the DB
+func (m *CookieModel) Delete(cookieID string) domain.Error {
+	_, err := m.stmt.delete.Exec(cookieID)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Cookie Model, db error, Delete: "+err.Error())
+		return dserror.FromStandard(err)
+	}
 
 	return nil
 }
