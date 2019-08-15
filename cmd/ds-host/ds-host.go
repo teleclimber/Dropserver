@@ -162,7 +162,8 @@ func main() {
 
 	// auth
 	authenticator := &authenticator.Authenticator{
-		CookieModel: cookieModel }
+		CookieModel: cookieModel,
+		Config: runtimeConfig }
 
 	// Views 
 	views := &views.Views{
@@ -185,6 +186,7 @@ func main() {
 		Authenticator: authenticator,
 		AuthRoutes: authRoutes,
 		ApplicationRoutes: applicationRoutes,
+		UserModel: userModel,
 		Views: views,
 		Logger: logger }
 

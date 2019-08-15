@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -12,6 +13,7 @@ type UserRoutes struct {
 	Authenticator     domain.Authenticator
 	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
+	UserModel         domain.UserModel
 	Views             domain.Views
 	Logger            domain.LogCLientI
 }
@@ -37,6 +39,8 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	}
 }
 
+// TODO: user.domain.tld/user.js returns 200 and no useful data. This is wrong.
+
 func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 
 	if routeData.Cookie.UserAccount == false {
@@ -52,7 +56,7 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		head, tail = shiftpath.ShiftPath(tail)
 		switch head {
 		case "user-data":
-			// return user data...
+			u.userData(res, req, routeData)
 		case "application": //handle application route (separate file)
 			routeData.URLTail = tail
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
@@ -64,4 +68,27 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		// I suspect "manage applications" will be its own page
 		// It's possible "/" page is more summary, and /appspaces will be its own page.
 	}
+}
+
+// userData returns a json with {email: ""...""} I think, so far.
+func (u *UserRoutes) userData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+
+	user, dsErr := u.UserModel.GetFromID(routeData.Cookie.UserID)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	var userData struct {
+		Email string `json:"email"`
+	}
+	userData.Email = user.Email
+
+	userJSON, err := json.Marshal(userData)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.Write(userJSON)
 }

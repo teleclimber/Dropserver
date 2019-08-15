@@ -13,7 +13,8 @@ import (
 )
 
 func TestSetCookie(t *testing.T) {
-	a := &Authenticator{}
+	a := &Authenticator{
+		Config: getConfig()}
 
 	rr := httptest.NewRecorder()
 
@@ -25,7 +26,7 @@ func TestSetCookie(t *testing.T) {
 	if !ok {
 		t.Error("Set Cookie Header not set", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
@@ -38,6 +39,7 @@ func TestRefreshCookie(t *testing.T) {
 	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	rr := httptest.NewRecorder()
@@ -48,7 +50,7 @@ func TestRefreshCookie(t *testing.T) {
 	if !ok {
 		t.Error("Set Cookie Header not set", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
@@ -63,7 +65,8 @@ func TestGetForAccountNoCookie(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := &Authenticator{}
+	a := &Authenticator{
+		Config: getConfig()}
 
 	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
 	if dsErr == nil {
@@ -94,6 +97,7 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 	cm.EXPECT().Get("abc").Return(nil, nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
@@ -130,6 +134,7 @@ func TestGetForAccountNotUser(t *testing.T) {
 	}, nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
@@ -166,6 +171,7 @@ func TestGetForAccountExpired(t *testing.T) {
 	}, nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
@@ -203,6 +209,7 @@ func TestAccountAuthorized(t *testing.T) {
 	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	routeData := &domain.AppspaceRouteData{}
@@ -239,6 +246,7 @@ func TestSetForAccount(t *testing.T) {
 	cm.EXPECT().Create(gomock.Any()).Return("abc", nil)
 
 	a := Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	rr := httptest.NewRecorder()
@@ -251,7 +259,7 @@ func TestSetForAccount(t *testing.T) {
 	if !ok {
 		t.Error("cookie not set?", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
@@ -268,6 +276,7 @@ func TestUnsetForAccount(t *testing.T) {
 	cm.EXPECT().Delete("abc123")
 
 	a := Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	rr := httptest.NewRecorder()
@@ -276,4 +285,17 @@ func TestUnsetForAccount(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: "session_token", Value: "abc123", MaxAge: 120})
 
 	a.UnsetForAccount(rr, req)
+}
+
+func getConfig() *domain.RuntimeConfig {
+	var s = struct {
+		Port int16  `json:"port"`
+		Host string `json:"host"`
+	}{
+		Host: "dropserver.org"}
+
+	rtc := domain.RuntimeConfig{
+		Server: s}
+
+	return &rtc
 }

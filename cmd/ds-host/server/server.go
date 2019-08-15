@@ -89,6 +89,9 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// temp I think:
+	fmt.Println(subdomains, req.URL)
+
 	topSub := subdomains[len(subdomains)-1]
 	switch topSub {
 	case "static":

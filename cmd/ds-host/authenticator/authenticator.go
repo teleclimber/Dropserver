@@ -8,10 +8,12 @@ import (
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
+const cookieExpMinutes = 30
+
 // Authenticator contains middleware functions for performing authentication
 type Authenticator struct {
-	UserModel   domain.UserModel
 	CookieModel domain.CookieModel
+	Config      *domain.RuntimeConfig
 }
 
 // SetForAccount creates a cookie and sends it down
@@ -20,7 +22,7 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 	cookie := domain.Cookie{
 		UserID:      userID,
 		UserAccount: true,
-		Expires:     time.Now().Add(120 * time.Second)} // set expires on cookie And use that on one sent down.
+		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
 	cookieID, dsErr := a.CookieModel.Create(cookie)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -55,7 +57,7 @@ func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Reque
 	cookie, dsErr := a.getCookie(req)
 	if dsErr == nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(res, cookie.CookieID, time.Now().Add(-120*time.Second))
+		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second))
 	}
 }
 
@@ -93,7 +95,7 @@ func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, domain.Err
 
 // refreshCookie updates the expires time on both DB and client
 func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) {
-	expires := time.Now().Add(120 * time.Second)
+	expires := time.Now().Add(cookieExpMinutes * time.Minute)
 
 	dsErr := a.CookieModel.UpdateExpires(cookieID, expires)
 	if dsErr != nil {
@@ -113,6 +115,7 @@ func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expi
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client
 		MaxAge:   int(expires.Sub(time.Now()).Seconds()),
+		Domain:   "user." + a.Config.Server.Host,
 		SameSite: http.SameSiteStrictMode,
 		//secure: true,	// doesn't work on develop
 		// domain?
