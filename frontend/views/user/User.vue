@@ -19,7 +19,7 @@
 		<div class="top-bar">
 			<h1>Hello.</h1>
 			<div class="user-actions">
-				<a href="#" @click="showChangePassword" class="user-email">{{user.email}}</a>
+				<a href="#" @click.prevent="showChangePassword" class="user-email">{{user.email}}</a>
 				<a :href="logout_url">logout</a>
 			</div>
 		</div>

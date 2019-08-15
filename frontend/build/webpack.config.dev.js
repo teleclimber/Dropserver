@@ -27,7 +27,7 @@ module.exports = {
 	plugins:[
 
 		new webpack.DefinePlugin({
-			'window.ds_user_routes_base_url': JSON.stringify('//user.dropserver.develop:3000')
+			'window.ds_user_routes_base_url': JSON.stringify('//localhost:8080')	// clarify that this is the same as webpack devserver
 		}),
 		
 		new VueLoaderPlugin(),
@@ -48,5 +48,18 @@ module.exports = {
 		}),
 
 		new webpack.HotModuleReplacementPlugin()
-	]
+	],
+	devServer: {
+		proxy: {
+			"/login": {
+				target: "http://user.dropserver.develop:3000",
+				changeOrigin: true,
+				cookieDomainRewrite: ".localhost"
+			},
+			"/api": {
+				target: "http://user.dropserver.develop:3000",
+				changeOrigin: true
+			}
+		}
+	}
 };
