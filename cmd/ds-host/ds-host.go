@@ -182,12 +182,14 @@ func main() {
 		AppFilesModel: appFilesModel,
 		AppModel: appModel,
 		Logger: logger }
+		
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator: authenticator,
 		AuthRoutes: authRoutes,
 		ApplicationRoutes: applicationRoutes,
 		UserModel: userModel,
 		Views: views,
+		Validator: validator,
 		Logger: logger }
 
 	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}

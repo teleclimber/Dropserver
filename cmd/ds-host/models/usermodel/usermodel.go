@@ -21,6 +21,7 @@ type UserModel struct {
 		selectID	*sqlx.Stmt
 		selectEmail *sqlx.Stmt
 		insertUser	*sqlx.Stmt
+		updatePassword *sqlx.Stmt
 		getPassword *sqlx.Stmt
 		selectAdmin	*sqlx.Stmt
 		insertAdmin	*sqlx.Stmt
@@ -57,6 +58,8 @@ func (m *UserModel) PrepareStatements() {
 
 	m.stmt.insertUser = p.exec(`INSERT INTO users 
 		("email", "password") VALUES (?, ?)`)
+
+	m.stmt.updatePassword = p.exec(`UPDATE users SET password = ? WHERE user_id = ?`)
 	
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
 
@@ -79,16 +82,15 @@ func (m *UserModel) Create(email, password string) (*domain.User, domain.Error) 
 		m.Logger.Log(domain.WARN, nil, msg)
 		return nil, dserror.New(dserror.InternalError, msg)
 	}
-	if len(password) < 8 {
-		m.Logger.Log(domain.WARN, nil, "User Model: password less than 8 chars")
-		return nil, dserror.New(dserror.InternalError, "password less than 8 chars in User Model Create")
-	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
-	if err != nil {
-		// log here too because this is not a good error
-		m.Logger.Log(domain.ERROR, nil, "User Model: error generating bcrypt: "+err.Error())
-		return nil, dserror.FromStandard(err)
+	if dsErr := m.validatePassword(password); dsErr != nil {
+		m.Logger.Log(domain.WARN, nil, dsErr.ExtraMessage())
+		return nil, dsErr
+	}
+	
+	hash, dsErr := m.hashPassword(password)
+	if dsErr != nil {
+		return nil, dsErr
 	}
 
 	email = strings.ToLower(email)
@@ -120,6 +122,39 @@ func (m *UserModel) Create(email, password string) (*domain.User, domain.Error) 
 	}
 
 	return user, nil
+}
+
+// UpdatePassword updates the password for the user.
+func (m *UserModel) UpdatePassword(userID domain.UserID, password string) domain.Error {
+	hash, dsErr := m.hashPassword(password)
+	if dsErr != nil {
+		return dsErr
+	}
+
+	_, err := m.stmt.updatePassword.Exec(hash, userID)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	return nil
+}
+
+func (m *UserModel) validatePassword(password string) domain.Error {
+	if len(password) < 8 {
+		return dserror.New(dserror.InternalError, "password less than 8 chars in User Model Create")
+		//internal error because this shouldn't have made it this far, correct?
+	}
+	return nil
+}
+
+func (m *UserModel) hashPassword(password string) ([]byte, domain.Error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	if err != nil {
+		// log here too because this is not a good error
+		m.Logger.Log(domain.ERROR, nil, "User Model: error generating bcrypt: "+err.Error())
+		return nil, dserror.FromStandard(err)
+	}
+	return hash, nil
 }
 
 // GetFromID returns a user

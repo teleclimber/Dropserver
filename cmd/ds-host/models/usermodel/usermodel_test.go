@@ -149,6 +149,30 @@ func TestPassword(t *testing.T) {
 
 }
 
+func TestUpdatePassword(t *testing.T) {
+	userModel := initBobModel()
+	defer userModel.DB.Handle.Close()
+
+	bob, dsErr := userModel.GetFromEmail("bob@foo.com")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	dsErr = userModel.UpdatePassword(bob.UserID, "secretspice")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	bob2, dsErr := userModel.GetFromEmailPassword("bob@foo.com", "secretspice")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if bob2 == nil {
+		t.Error("Should have returned bob again")
+	}
+}
+
 func initBobModel() *UserModel {
 	h := migrate.MakeSqliteDummyDB()
 

@@ -36,7 +36,6 @@
 <template>
 	<DsModal>
 		<h2>Change Password</h2>
-		
 		<section class="input-grid">
 			<label>Old password:</label>
 			<input id="old_pw" ref="old_pw" type="password" @input="inputChanged" />

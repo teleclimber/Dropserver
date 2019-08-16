@@ -660,6 +660,20 @@ func (mr *MockUserModelMockRecorder) PrepareStatements() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareStatements", reflect.TypeOf((*MockUserModel)(nil).PrepareStatements))
 }
 
+// UpdatePassword mocks base method
+func (m *MockUserModel) UpdatePassword(arg0 UserID, arg1 string) Error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePassword", arg0, arg1)
+	ret0, _ := ret[0].(Error)
+	return ret0
+}
+
+// UpdatePassword indicates an expected call of UpdatePassword
+func (mr *MockUserModelMockRecorder) UpdatePassword(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePassword", reflect.TypeOf((*MockUserModel)(nil).UpdatePassword), arg0, arg1)
+}
+
 // MockAppFilesModel is a mock of AppFilesModel interface
 type MockAppFilesModel struct {
 	ctrl     *gomock.Controller

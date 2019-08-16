@@ -1,11 +1,13 @@
 package userroutes
 
 import (
-	"io/ioutil"
+	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/golang/mock/gomock"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -20,10 +22,10 @@ func TestUserData(t *testing.T) {
 	um := domain.NewMockUserModel(mockCtrl)
 	um.EXPECT().GetFromID(uid).Return(&domain.User{
 		UserID: uid,
-		Email: "abc@def"}, nil)
+		Email:  "abc@def"}, nil)
 
 	u := UserRoutes{
-		UserModel: um }
+		UserModel: um}
 
 	routeData := domain.AppspaceRouteData{
 		Cookie: &domain.Cookie{
@@ -38,18 +40,18 @@ func TestUserData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	u.userData(rr, req, &routeData)
+	u.getUserData(rr, req, &routeData)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
 	}
 
 	body, err := ioutil.ReadAll(rr.Body)
-    if err != nil {
-        t.Error(err)
+	if err != nil {
+		t.Error(err)
 	}
-	
-	var uData struct{
+
+	var uData struct {
 		Email string `json:"email"`
 	}
 	err = json.Unmarshal(body, &uData)
@@ -59,6 +61,49 @@ func TestUserData(t *testing.T) {
 
 	if uData.Email != "abc@def" {
 		t.Error("didn't get the email back")
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	uid := domain.UserID(1)
+
+	um := domain.NewMockUserModel(mockCtrl)
+	um.EXPECT().GetFromID(uid).Return(&domain.User{
+		UserID: uid,
+		Email:  "abc@def"}, nil)
+	um.EXPECT().GetFromEmailPassword("abc@def", "secretsauce").Return(&domain.User{}, nil)
+	um.EXPECT().UpdatePassword(uid, "secretspice").Return(nil)
+
+	v := domain.NewMockValidator(mockCtrl)
+	v.EXPECT().Password(gomock.Any()).Return(nil).Times(2)
+
+	u := UserRoutes{
+		UserModel: um,
+		Validator: v}
+
+	routeData := domain.AppspaceRouteData{
+		Cookie: &domain.Cookie{
+			UserID: uid,
+		},
+	}
+
+	rr := httptest.NewRecorder()
+
+	// craft json request
+	jsonStr := []byte(`{"old":"secretsauce", "new":"secretspice"}`)
+	req, err := http.NewRequest("GET", "/", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	u.changeUserPassword(rr, req, &routeData)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
 	}
 
 }

@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -15,6 +16,7 @@ type UserRoutes struct {
 	ApplicationRoutes domain.RouteHandler
 	UserModel         domain.UserModel
 	Views             domain.Views
+	Validator         domain.Validator
 	Logger            domain.LogCLientI
 }
 
@@ -26,7 +28,7 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// There should be a single point where we check auth, and if no good, bail.
 
 	head, _ := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "signup" || head == "login" || head == "logout" {
+	if head == "signup" || head == "login" || head == "logout" { // also resetpw
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		// Must be logged in to go past this point.
@@ -54,11 +56,18 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 	case "api":
 		// All the async routes essentially?
 		head, tail = shiftpath.ShiftPath(tail)
+		routeData.URLTail = tail
 		switch head {
-		case "user-data":
-			u.userData(res, req, routeData)
-		case "application": //handle application route (separate file)
-			routeData.URLTail = tail
+		case "user":
+			switch req.Method {
+			case http.MethodGet:
+				u.getUserData(res, req, routeData)
+			case http.MethodPatch:
+				u.setUserData(res, req, routeData)
+			default:
+				res.WriteHeader(http.StatusNotFound)
+			}
+		case "application":
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
 		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
@@ -70,9 +79,9 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 	}
 }
 
-// userData returns a json with {email: ""...""} I think, so far.
-func (u *UserRoutes) userData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-
+// getUserData returns a json with {email: ""...""} I think, so far.
+func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	// check if there is anything in routeData tail?
 	user, dsErr := u.UserModel.GetFromID(routeData.Cookie.UserID)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -91,4 +100,66 @@ func (u *UserRoutes) userData(res http.ResponseWriter, req *http.Request, routeD
 
 	res.Header().Set("Content-Type", "application/json")
 	res.Write(userJSON)
+}
+
+func (u *UserRoutes) setUserData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
+	if head == "password" {
+		u.changeUserPassword(res, req, routeData)
+	} else {
+		res.WriteHeader(http.StatusNotImplemented)
+	}
+}
+
+type changePwData struct {
+	Old string
+	New string
+}
+
+func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var data changePwData
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	dsErr := u.Validator.Password(data.Old)
+	if dsErr != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	dsErr = u.Validator.Password(data.New)
+	if dsErr != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	user, dsErr := u.UserModel.GetFromID(routeData.Cookie.UserID)
+	if dsErr != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, dsErr = u.UserModel.GetFromEmailPassword(user.Email, data.Old)
+	if dsErr != nil {
+		res.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	dsErr = u.UserModel.UpdatePassword(user.UserID, data.New)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
 }

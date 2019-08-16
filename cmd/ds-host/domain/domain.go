@@ -275,6 +275,7 @@ type Cookie struct {
 type UserModel interface {
 	PrepareStatements()
 	Create(string, string) (*User, Error)
+	UpdatePassword(UserID, string) Error
 	GetFromID(UserID) (*User, Error)
 	GetFromEmail(string) (*User, Error)
 	GetFromEmailPassword(string, string) (*User, Error)
