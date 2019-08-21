@@ -2,12 +2,40 @@ package appfilesmodel
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
+
+func TestPathInsidePath(t *testing.T) {
+	cases := []struct {
+		p      string
+		root   string
+		inside bool
+	}{
+		{"/foo/bar/baz", "/foo/bar/baz", true},
+		{"/foo/bar/zoink", "/foo/bar/baz", false},
+		{"/foo/bar/baz", "/foo/bar/baz", true},
+		{"/foo/bar/baz/../zoink", "/foo/bar/baz/", false},
+		{"/foo/bar/baz/..", "/foo/bar/baz/", false},
+	}
+
+	for _, c := range cases {
+		inside, err := pathInsidePath(c.p, c.root)
+		if err != nil {
+			t.Error(err)
+		}
+		if inside != c.inside {
+			t.Error("mismatched inside", c.p, c.root)
+		}
+	}
+}
 
 func TestDecodeAppJsonError(t *testing.T) {
 	// check that passing a json does return the struct as expceted
@@ -104,4 +132,57 @@ func TestValidateAppMeta(t *testing.T) {
 			t.Error("error mismatch", meta, dsErr.ExtraMessage())
 		}
 	}
+}
+
+func TestSave(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// create temp dir and put that in runtime config.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.DataDir = dir
+
+	logger := domain.NewMockLogCLientI(mockCtrl)
+	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
+
+	m := AppFilesModel{
+		Config: cfg,
+		Logger: logger}
+
+	// for files, create dummy data
+	// will read back to check it's there
+	files := map[string][]byte{
+		"file1":             []byte("hello world"),
+		"bar/baz/file2.txt": []byte("oink oink oink"),
+	}
+
+	locKey, dsErr := m.Save(&files)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	appsPath := m.getAppsPath()
+
+	dat, err := ioutil.ReadFile(filepath.Join(appsPath, locKey, "file1"))
+	if err != nil {
+		t.Error(err)
+	}
+	if string(dat) != "hello world" {
+		t.Error("didn't get the same file data", string(dat))
+	}
+
+	dat, err = ioutil.ReadFile(filepath.Join(appsPath, locKey, "bar/baz/file2.txt"))
+	if err != nil {
+		t.Error(err)
+	}
+	if string(dat) != "oink oink oink" {
+		t.Error("didn't get the same file2 data", string(dat))
+	}
+
 }

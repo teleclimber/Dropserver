@@ -97,6 +97,7 @@ func main() {
 	cookieModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
+		Config: runtimeConfig,
 		Logger: logger}
 
 	appModel := &appmodel.AppModel{

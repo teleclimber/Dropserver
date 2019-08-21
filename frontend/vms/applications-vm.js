@@ -6,7 +6,7 @@ import user_vm from '../views/user/user-vm.js';
 
 function loadApplications() {
 	return new Promise( (resolve, reject) => {
-		ds_axios.get( '/api/logged-in-user/application' )
+		ds_axios.get( '/api/application' )
 		.then( resp => {
 			Vue.set( application_vm, 'applications', resp.data );
 			resolve();
@@ -20,16 +20,16 @@ function createNew() {
 		state: null,	// null, uploading, processing, error, enter-meta, finishing, finished
 		upload_progress: 0,
 		error_message: '',
-		app_meta: {},	//name, version, ...
-		cur_name: '',
-		name_available: {}
+		app_meta: {},	// id, name, ... of created application
+		version_meta: {},	// app id, version, ... of created version
+		cur_name: '',	// hmm not doing this anymoer
+		name_available: {}	// or this.
 	};
 }
-function createDoNext( form_data ) {
-	// 
+function createUpload( form_data ) {
 	application_vm.create_status.state = 'uploading';
 
-	ds_axios.post( '/api/logged-in-user/application/upload/', form_data, {	
+	ds_axios.post( '/api/application/', form_data, {	
 		headers: {
 			'Content-Type': 'multipart/form-data'
 		},
@@ -43,45 +43,28 @@ function createDoNext( form_data ) {
 			console.log( 'returned 200');
 			// that means everything is peachy as far as the server is concerned.
 			// go to finishing screen?
-			application_vm.create_status.state = 'enter-meta';
+			application_vm.create_status.state = 'finished';
 		
 			application_vm.create_status.app_meta = resp.data.app_meta;
-			application_vm.create_status.temp_key = resp.data.temp_key;
+			application_vm.create_status.version_meta = resp.data.version_meta;
 
-			application_vm.create_status.cur_name = resp.data.app_meta.name;
-			checkAppName_( resp.data.app_meta.name );
+			application_vm.applications.push( resp.data.app_meta );	///eeeepp check data format
+
+			//application_vm.create_status.temp_key = resp.data.temp_key;	// no longer needed?
+
+			//application_vm.create_status.cur_name = resp.data.app_meta.name; //?
+			//checkAppName_( resp.data.app_meta.name );
 		}
 	})
 	.catch( () => {
 		console.log('FAILURE!!');
 	});
 }
-function createFinish( data ) {
-	// may have finish data
-	// send the temp_key
-
-	application_vm.create_status.state = 'finishing';
-
-	ds_axios.post( '/api/logged-in-user/application/', {
-		name: data.name,
-		temp_key: application_vm.create_status.temp_key
-	})
-	.then( resp => {
-		application_vm.create_status.state = 'finished';
-
-		application_vm.applications.push( resp.data );
-		application_vm.create_status.app_meta.name = resp.data.name;	//version can not be changed
-	})
-	.catch( () => {
-		console.log('FAILURE!!');
-	});
-
-}
 function openCreateAppSpace() {
 	user_vm.closeAllModals();
 	const app_meta = application_vm.create_status.app_meta
 	user_vm.showCreateAppSpace( {
-		app_name: app_meta.name,
+		app_name: app_meta.name,// app_name I think. app_id would be better!
 		app_version: app_meta.version
 	} );
 }
@@ -219,8 +202,7 @@ const application_vm = {
 	create_status: {},
 
 	createNew,
-	createDoNext,
-	createFinish,
+	createUpload,
 	openCreateAppSpace,
 
 	appNameChanged,

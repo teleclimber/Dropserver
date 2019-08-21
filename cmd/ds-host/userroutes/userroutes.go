@@ -88,10 +88,8 @@ func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, rou
 		return
 	}
 
-	var userData struct {
-		Email string `json:"email"`
-	}
-	userData.Email = user.Email
+	userData := userResp{
+		Email: user.Email}
 
 	userJSON, err := json.Marshal(userData)
 	if err != nil {
@@ -110,11 +108,6 @@ func (u *UserRoutes) setUserData(res http.ResponseWriter, req *http.Request, rou
 	} else {
 		res.WriteHeader(http.StatusNotImplemented)
 	}
-}
-
-type changePwData struct {
-	Old string
-	New string
 }
 
 func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {

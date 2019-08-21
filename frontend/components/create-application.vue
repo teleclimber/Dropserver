@@ -19,22 +19,13 @@
 			{{vm.create_status.error_message}}
 		</div>
 
-		<template v-if="state === 'enter-meta'">
-			<label for="app-name">Application name:</label>
-			<input 
-				type="text"
-				id="app-name"
-				:value="vm.create_status.cur_name"
-				@input="appNameChange"
-				ref="app_name_input">
-			<span>{{name_status}}</span>
-			<p>version: {{vm.create_status.app_meta.version}}</p>
-		</template>
-
 		<template v-if="state === 'finished'">
+			<p>Application created</p>
+			<p>{{vm.create_status.app_meta.app_name}} @ {{vm.create_status.version_meta.version}}</p>
+			<p>Customize application name, etc... [button]</p>
 			<p>
-				Application created
-				<DsButton @click="openCreateAppSpace">Create App Space</DsButton>
+				Create a new appspace for this application:
+				<DsButton @click="openCreateAppSpace">Create Appspace</DsButton>
 			</p>
 		</template>
 
@@ -42,9 +33,8 @@
 			<DsButton @click="doClose" type="cancel">Cancel</DsButton>
 			<span>
 				<span class="state" v-if="state === 'uploading'">Uploading</span>
-				<DsButton v-if="show_next_btn" @click="doNext" :disabled="disable_next_btn">Next</DsButton>
+				<DsButton v-if="show_upload_btn" @click="doUpload" :disabled="disable_upload_btn">Upload</DsButton>
 				<DsButton v-if="state == 'error'" @click="doStartOver" >Start Over</DsButton>
-				<DsButton v-if="show_finish_btn" @click="doFinish" :disabled="disable_finish_btn">Finish</DsButton>
 			</span>
 		</div>
 	</DsModal>
@@ -73,27 +63,11 @@ export default {
 		state: function() { 
 			return this.vm.create_status.state;
 		},
-		show_next_btn: function() { 
+		show_upload_btn: function() { 
 			return !this.state || this.state === 'uploading' || this.state === 'processing';
 		},
-		disable_next_btn: function() {
-			return this.state === 'uploading' || this.state === 'processing';
-		},
-		show_finish_btn: function() {
-			return this.state === 'enter-meta' || this.state === 'finishing';
-		},
-		disable_finish_btn: function() {
-			return this.state === 'finishing' || this.name_status !== 'available';
-		},
-		name_status: function() {
-			const cur_name = this.vm.create_status.cur_name;
-			const name_available = this.vm.create_status.name_available;
-			if( !(cur_name in name_available) ) return 'checking';
-			else if( name_available[cur_name] ) return 'available';
-			else return 'unavailable';
-
-			// Also gotta do invalid names (too short, too long, bad chars)
-			// -> requires client side validation lib.
+		disable_upload_btn: function() {
+			return !this.upload_selected || this.state === 'uploading' || this.state === 'processing';
 		}
 	},
 	methods: {
@@ -104,8 +78,8 @@ export default {
 		uploadSelectInput: function( form_data ) {
 			this.upload_selected = form_data;
 		},
-		doNext: function() {
-			this.vm.createDoNext( this.upload_selected );
+		doUpload: function() {
+			this.vm.createUpload( this.upload_selected );
 		},
 		doStartOver: function() {
 			this.vm.createNew();
@@ -113,12 +87,6 @@ export default {
 		appNameChange: function() {
 			const app_name = this.$refs.app_name_input.value;
 			this.vm.appNameChanged( app_name );
-		},
-		doFinish: function() {
-			// collect meta: name, auto-fetch updates, etc...
-			this.vm.createFinish({
-				name: this.$refs.app_name_input.value
-			});
 		},
 		openCreateAppSpace: function() {
 			this.vm.openCreateAppSpace( this.vm.create_status.app_meta.app_name );

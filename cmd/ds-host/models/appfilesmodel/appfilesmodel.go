@@ -7,51 +7,70 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // performs operations on application files
-// This might be a genenric batch file module
-// ..so that it can be used for app-space files too.
-
-// Gah should we inject a filesystem abstraction, or is it not worth it?
-// Probably inject a config with file locations, and use that to mock files?
-
-var appsPath = "/mnt/data/apps" // TODO make appsPath a config
 
 // AppFilesModel is struct for application files manager
 type AppFilesModel struct {
-	// TODO maybe a config? <- yes, a config with location of app files
+	Config *domain.RuntimeConfig
 	Logger domain.LogCLientI
 }
 
 // Save puts the data passed in files in an apps directory
 func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
+	appsPath := a.getAppsPath()
 
-	err := os.MkdirAll(appsPath, 0666)
+	err := os.MkdirAll(appsPath, 0766)
 	if err != nil {
 		a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create apps directory: "+err.Error())
 		return "", dserror.New(dserror.InternalError)
 	}
 
-	dir, err := ioutil.TempDir(appsPath, "app")
+	appPath, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {
 		a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create app directory: "+err.Error())
 		return "", dserror.New(dserror.InternalError)
 	}
 
+	writeErr := false
 	for f, data := range *files {
-		fPath := filepath.Join(dir, f)
-		err = ioutil.WriteFile(fPath, data, 0666) // TODO: permissions?
+		fPath := filepath.Join(appPath, f)
+		inside, err := pathInsidePath(fPath, appPath)
+		if err != nil {
+			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: Error determining if file path outside of app path: "+f+": "+err.Error())
+			writeErr = true
+			break
+		}
+		if !inside {
+			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: file path outside of app path: "+f)
+			writeErr = true
+			break
+		}
+
+		err = os.MkdirAll(filepath.Dir(fPath), 0766)
+		if err != nil {
+			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create app file directory: "+err.Error())
+			return "", dserror.New(dserror.InternalError)
+		}
+
+		err = ioutil.WriteFile(fPath, data, 0666) // TODO: correct permissions?
 		if err != nil {
 			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to write app file: "+f+": "+err.Error())
-			return "", dserror.New(dserror.InternalError, err.Error())
+			writeErr = true
+			break
 		}
 	}
 
-	locationKey := filepath.Base(dir)
+	if writeErr {
+		return "", dserror.New(dserror.InternalError, err.Error())
+	}
+
+	locationKey := filepath.Base(appPath)
 
 	a.Logger.Log(domain.INFO,
 		map[string]string{"location-key": locationKey},
@@ -63,7 +82,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 
 // ReadMeta reads metadata from the files at location key
 func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error) {
-
+	appsPath := a.getAppsPath()
 	jsonPath := filepath.Join(appsPath, locationKey, "application.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
@@ -122,6 +141,7 @@ func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
+	appsPath := a.getAppsPath()
 	_, err := os.Stat(filepath.Join(appsPath, locationKey))
 	if err == nil {
 		return true
@@ -131,4 +151,21 @@ func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
 	}
 	return true // OK but there could be aonther problem, like permissions out of whack?
 	// Should probably log that as warning at least.
+}
+
+func (a *AppFilesModel) getAppsPath() string {
+	return filepath.Join(a.Config.DataDir, "apps")
+}
+
+// pathInsidePath determines if A path is inside (contained within) path B
+func pathInsidePath(p, root string) (bool, error) {
+	rel, err := filepath.Rel(root, p)
+	if err != nil {
+		return false, err // not clear that is an error that is actually an error. Errors I think just mean "can't be inside"
+	}
+
+	if strings.Contains(rel, "..") {
+		return false, nil
+	}
+	return true, nil
 }

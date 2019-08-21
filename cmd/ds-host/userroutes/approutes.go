@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,17 +25,10 @@ type ApplicationRoutes struct {
 // ServeHTTP handles http traffic to the application routes
 // Namely upload, create new application, delete, ...
 func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	// I think all the routes require auth.
-	// ..so run / check auth and bail if not authenticated
-	// RouteData should have been augmented with cookie,
-	// .but is there a way to check that very quickly?
 	if routeData.Cookie == nil || !routeData.Cookie.UserAccount {
-		panic("Should not have made it to app routes without a proper cookie")
+		// maybe log it?
+		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 	}
-	// OK, I suupose. But I would still like something cleaner.
-	// Can't we just call authenticator again? -> yes but it has to be injected
-	// Other option is to add another object to routeData, like *Auth that describes auth state.
-	// -> but then I'd rather switch to our new approach of an injectable request data interface
 
 	appID, tail := shiftpath.ShiftPath(routeData.URLTail)
 	method := req.Method
@@ -44,6 +38,7 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		case http.MethodGet:
 			// return list of applications for user
 			// check query string params for more info on what to return.
+			//a.getAllApplications(res, req, routeData)
 			http.Error(res, "get /application", http.StatusNotImplemented)
 		case http.MethodPost:
 			// Posting to applictaion implies creating an application. Response will include app-id
@@ -94,45 +89,74 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	}
 }
 
+// func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+// 	// Return list (or map?) of application data
+// 	// Need to determine a data format to return
+// 	// and come up with a way of getting that data out from models.
+// 	// UI expects application_meta + list of versions with useage counts?
+// 	// -> can we limit ourselves a bit?
+// 	// -> report numbers of versions and numbers of appspaces
+
+// 	//a.AppModel....
+
+// }
+
 // handlePost is for Post with no app-id
-// if there are files attached send to ds-trusted for storage,
-// ..then ask ds-trusted for files metadata.
+// if there are files attached send appfilesmodel(?) for storage,
+// ..then ask for files metadata.
 // Create DB row for application and return app-id.
 func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	fileData := a.extractFiles(req)
 	if len(*fileData) > 0 {
-		locationKey, err := a.AppFilesModel.Save(fileData)
-		if err != nil {
-			err.HTTPError(res)
+		locationKey, dsErr := a.AppFilesModel.Save(fileData)
+		if dsErr != nil {
+			dsErr.HTTPError(res)
 			return
 		}
 
-		appMeta, err := a.AppFilesModel.ReadMeta(locationKey)
-		if err != nil {
-			fmt.Println(err, err.ExtraMessage())
-			err.HTTPError(res)
+		appMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
+		if dsErr != nil {
+			fmt.Println(dsErr, dsErr.ExtraMessage())
+			dsErr.HTTPError(res)
 
 			// delete the files? ..it really depends on the error.
 			return
 		}
 
-		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, appMeta.AppName)
+		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, appMetadata.AppName)
 		if dsErr != nil {
-			fmt.Println(err, err.ExtraMessage())
+			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
 			return
 		}
 
-		appVersion, dsErr := a.AppModel.CreateVersion(app.AppID, appMeta.AppVersion, locationKey)
+		_, dsErr = a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
 		if dsErr != nil {
-			fmt.Println(err, err.ExtraMessage())
+			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
 			return
 		}
 
-		fmt.Println("got response for metadata", appMeta, app, appVersion)
+		// Send back exact same thing we would send if doing a GET on applications.
+		respData := createAppResp{
+			AppMeta: appMeta{
+				AppID:        int(app.AppID),
+				AppName:      app.Name,
+				Created:      app.Created,
+				NumVersion:   1,
+				NumAppspaces: 0},
+			VersionMeta: versionMeta{
+				Version:      string(appMetadata.AppVersion),
+				AppID:        int(app.AppID),
+				NumAppspaces: 0}}
 
-		res.WriteHeader(http.StatusOK)
+		respJSON, err := json.Marshal(respData)
+		if err != nil {
+			res.WriteHeader(http.StatusInternalServerError)
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(respJSON)
 
 	} else {
 		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)

@@ -102,7 +102,7 @@ func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, doma
 		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
 	}
 
-	appID := domain.AppID(lastID) //uint32(lastID)
+	appID := domain.AppID(lastID)
 
 	app, dsErr := m.GetFromID(appID)
 	if dsErr != nil {

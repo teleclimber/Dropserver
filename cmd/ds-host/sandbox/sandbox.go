@@ -74,7 +74,8 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		"node",
 		s.Config.Exec.JSRunnerPath,
 		s.reverseListener.socketPath,
-		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey))
+		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey))	// TODO: This could lead to errors. Make apps dir a runtime config exec field?
+		// TODO: use filepath instead of path
 	s.cmd = cmd
 	// -> for Deno will have to pass permission flags for that sandbox.
 	// The appspace is known at this point and should probably be passed to the runner.
