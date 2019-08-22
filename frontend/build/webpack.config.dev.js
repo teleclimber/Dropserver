@@ -50,6 +50,7 @@ module.exports = {
 		new webpack.HotModuleReplacementPlugin()
 	],
 	devServer: {
+		hot: true,
 		proxy: {
 			"/login": {
 				target: "http://user.dropserver.develop:3000",

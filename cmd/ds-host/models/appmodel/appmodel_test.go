@@ -20,7 +20,7 @@ func TestPrepareStatements(t *testing.T) {
 	appModel.PrepareStatements()
 }
 
-func TestGetFromIDError(t *testing.T) {
+func TestGetFromNonExistentID(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -74,7 +74,7 @@ func TestGetFromID(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	_, dsErr := appModel.Create(1, "test-app")
+	_, dsErr := appModel.Create(7, "test-app")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -87,6 +87,43 @@ func TestGetFromID(t *testing.T) {
 
 	if app.AppID != 1 {
 		t.Error("app.AppID does not match requested ID", app)
+	}
+}
+
+func TestGetOwner(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	_, dsErr := appModel.Create(7, "test-app")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	_, dsErr = appModel.Create(7, "test-app2")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	_, dsErr = appModel.Create(11, "bad-app")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	apps, dsErr := appModel.GetForOwner(7)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if len(apps) != 2 {
+		t.Error("There should be two apps found")
 	}
 }
 
@@ -127,6 +164,54 @@ func TestVersion(t *testing.T) {
 
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
+	}
+}
+
+func TestGetVersionForApp(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	
+	ins := []struct{
+		appID domain.AppID
+		version domain.Version
+		location string
+	}{
+		{7, "0.0.1", "foo-location"},
+		{7, "0.0.2", "2foo-location"},
+		{7, "0.0.3", "3foo-location"},
+		{11, "0.0.1", "bar-location"},
+	}
+
+	for _, i := range ins {
+		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.location)
+		if dsErr != nil {
+			t.Error(dsErr)
+		}
+	}
+
+	vers, dsErr := appModel.GetVersionsForApp(7)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if len(vers) != 3 {
+		t.Error("Got wrong number of results: should be 3")
+	}
+
+	vers, dsErr = appModel.GetVersionsForApp(1)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if len(vers) != 0 {
+		t.Error("Got wrong number of results: should be 0")
 	}
 }
 

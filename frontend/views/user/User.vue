@@ -51,7 +51,7 @@
 		</CreateApplication>
 
 		<ManageApplication
-			v-if="applications_vm.manage_status.app_name">
+			v-if="applications_vm.manage_status.app_id">
 		</ManageApplication>
 
 		<ChangePassword

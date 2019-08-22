@@ -8,7 +8,7 @@ function loadApplications() {
 	return new Promise( (resolve, reject) => {
 		ds_axios.get( '/api/application' )
 		.then( resp => {
-			Vue.set( application_vm, 'applications', resp.data );
+			Vue.set( application_vm, 'applications', resp.data.apps );
 			resolve();
 		});
 	});
@@ -46,7 +46,7 @@ function createUpload( form_data ) {
 			application_vm.create_status.state = 'finished';
 		
 			application_vm.create_status.app_meta = resp.data.app_meta;
-			application_vm.create_status.version_meta = resp.data.version_meta;
+			application_vm.create_status.version_meta = resp.data.app_meta.versions[0];
 
 			application_vm.applications.push( resp.data.app_meta );	///eeeepp check data format
 
@@ -89,12 +89,11 @@ function checkAppName_( app_name ) {
 }
 const checkAppName = debounce( checkAppName_, 300 );
 
-function showManageApplication( app_name ) {
+function showManageApplication( app_id ) {
 	// need to hide manage applications modal...
 	if( user_vm.closeAllModals() ) {
-		//application_vm.managed_app_name = app_name;	//application_vm.applications.find( a => a.name === app_name );
 		application_vm.manage_status = {
-			app_name: app_name,
+			app_id: app_id,
 			state: null,
 			error_message: '',
 			temp_key: null
@@ -105,13 +104,13 @@ function showVersionUpload() {
 	application_vm.manage_status.state = 'upload';
 }
 function closeManageApplication() {
-	application_vm.manage_status.app_name = null;
+	application_vm.manage_status.app_id = null;
 }
 
-function uploadNewVersion( app_name, form_data ) {
+function uploadNewVersion( app_id, form_data ) {
 	application_vm.manage_status.state = 'uploading';
 
-	ds_axios.post( '/api/logged-in-user/application/'+encodeURIComponent(app_name)+'/upload/', form_data, {	
+	ds_axios.post( '/api/application/'+encodeURIComponent(app_id), form_data, {	
 		headers: {
 			'Content-Type': 'multipart/form-data'
 		},

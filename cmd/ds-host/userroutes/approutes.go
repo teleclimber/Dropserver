@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
@@ -30,24 +31,33 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 	}
 
-	appID, tail := shiftpath.ShiftPath(routeData.URLTail)
+	appIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
 	method := req.Method
 
-	if appID == "" {
+	if appIDStr == "" {
 		switch method {
 		case http.MethodGet:
-			// return list of applications for user
-			// check query string params for more info on what to return.
-			//a.getAllApplications(res, req, routeData)
-			http.Error(res, "get /application", http.StatusNotImplemented)
+			a.getAllApplications(res, req, routeData)
 		case http.MethodPost:
 			// Posting to applictaion implies creating an application. Response will include app-id
-			a.handlePost(res, req, routeData)
+			a.postNewApplication(res, req, routeData)
 		default:
 			http.Error(res, "bad method for /application", http.StatusBadRequest)
 		}
 	} else {
 		// get app from appid + user, error if not found.
+		appIDInt, err := strconv.Atoi(appIDStr)
+		if err != nil {
+			http.Error(res, "bad app id", http.StatusBadRequest)
+			return
+		}
+		appID := domain.AppID(appIDInt)
+
+		app, dsErr := a.AppModel.GetFromID(appID)
+		if dsErr != nil {
+			dsErr.HTTPError(res)
+			return
+		}
 
 		version, _ := shiftpath.ShiftPath(tail)
 
@@ -55,6 +65,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 			switch method {
 			case http.MethodGet:
 				// return metadata for app, and maybe versionsetc... check query strings
+				// wait are we really going to use this?
+				// Not for a long time I think.
 				http.Error(res, "get /application/<app-id>", http.StatusNotImplemented)
 			case http.MethodPatch:
 				// update application data, like its name, etc...
@@ -67,7 +79,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 				// ..and pass that on to ds-trusted, that will store it in folder <key>.
 				// ds-trusted unwraps the files, validates, reads metadata (version)
 				// ..then it returns that data so taht ds-host can put it in the DB.
-				http.Error(res, "POST /application/<app-id>", http.StatusNotImplemented)
+				//http.Error(res, "POST /application/<app-id>", http.StatusNotImplemented)
+				a.postNewVersion(app, res, req, routeData)
 			default:
 				http.Error(res, "bad method for /application/<app-id>", http.StatusBadRequest)
 			}
@@ -89,23 +102,58 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	}
 }
 
-// func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-// 	// Return list (or map?) of application data
-// 	// Need to determine a data format to return
-// 	// and come up with a way of getting that data out from models.
-// 	// UI expects application_meta + list of versions with useage counts?
-// 	// -> can we limit ourselves a bit?
-// 	// -> report numbers of versions and numbers of appspaces
+func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	apps, dsErr := a.AppModel.GetForOwner(routeData.Cookie.UserID)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+	}
 
-// 	//a.AppModel....
+	respData := getAppsResp{
+		Apps: make([]appMeta, 0)}
 
-// }
+	fail := false
+	for _, app := range apps {
+		appVersions, dsErr := a.AppModel.GetVersionsForApp(app.AppID)
+		if dsErr != nil { // willit error on zer versions found? -> it should not.
+			fail = true
+			break
+		}
 
-// handlePost is for Post with no app-id
+		verResp := make([]versionMeta, 0)
+		for _, appVersion := range appVersions {
+			verResp = append(verResp, versionMeta{
+				Version: string(appVersion.Version),
+				Created: appVersion.Created})
+		}
+
+		respData.Apps = append(respData.Apps, appMeta{
+			AppID:    int(app.AppID),
+			AppName:  app.Name,
+			Created:  app.Created,
+			Versions: verResp})
+	}
+
+	if fail {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	respJSON, err := json.Marshal(respData)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.Write(respJSON)
+
+}
+
+// postNewApplication is for Post with no app-id
 // if there are files attached send appfilesmodel(?) for storage,
 // ..then ask for files metadata.
 // Create DB row for application and return app-id.
-func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	fileData := a.extractFiles(req)
 	if len(*fileData) > 0 {
 		locationKey, dsErr := a.AppFilesModel.Save(fileData)
@@ -130,7 +178,7 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		_, dsErr = a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -140,15 +188,12 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 		// Send back exact same thing we would send if doing a GET on applications.
 		respData := createAppResp{
 			AppMeta: appMeta{
-				AppID:        int(app.AppID),
-				AppName:      app.Name,
-				Created:      app.Created,
-				NumVersion:   1,
-				NumAppspaces: 0},
-			VersionMeta: versionMeta{
-				Version:      string(appMetadata.AppVersion),
-				AppID:        int(app.AppID),
-				NumAppspaces: 0}}
+				AppID:   int(app.AppID),
+				AppName: app.Name,
+				Created: app.Created,
+				Versions: []versionMeta{{
+					Version: string(version.Version),
+					Created: version.Created}}}}
 
 		respJSON, err := json.Marshal(respData)
 		if err != nil {
@@ -158,6 +203,60 @@ func (a *ApplicationRoutes) handlePost(res http.ResponseWriter, req *http.Reques
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(respJSON)
 
+	} else {
+		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)
+	}
+}
+
+func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	fileData := a.extractFiles(req)
+	if len(*fileData) > 0 {
+		locationKey, dsErr := a.AppFilesModel.Save(fileData)
+		if dsErr != nil {
+			dsErr.HTTPError(res)
+			return
+		}
+
+		appMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
+		if dsErr != nil {
+			fmt.Println(dsErr, dsErr.ExtraMessage())
+			dsErr.HTTPError(res)
+
+			// delete the files? ..it really depends on the error.
+			return
+		}
+
+		// TODO: here we should check that this version is coherent with previously uploaded versions
+		// .. like app name, author, version is greater than last greatest
+		// though it's not clear we should not proceed.
+		// This could be purely frontend...?: compare new version wi
+		// -> although this implies sending "application data" that is actually "version data."
+		// Maybe that' workable.
+		// -> though remember that some appspaces auto-update,
+		// ..so when is it OK to migrate data, etc...?
+		// Other options is to make this deliberately 2-step?
+
+		// -> another option is to read the dropapp manifest at frontend side prior to upload?
+
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
+		if dsErr != nil {
+			fmt.Println(dsErr, dsErr.ExtraMessage())
+			dsErr.HTTPError(res)
+			return
+		}
+
+		respData := createVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
+			VersionMeta: versionMeta{
+				Version: string(version.Version),
+				Created: version.Created}}
+
+		respJSON, err := json.Marshal(respData)
+		if err != nil {
+			res.WriteHeader(http.StatusInternalServerError) //...
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(respJSON)
 	} else {
 		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)
 	}

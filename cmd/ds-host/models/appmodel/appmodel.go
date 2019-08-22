@@ -18,10 +18,12 @@ type AppModel struct {
 	Logger domain.LogCLientI
 
 	stmt struct {
-		selectID      *sqlx.Stmt
-		insertApp     *sqlx.Stmt
-		selectVersion *sqlx.Stmt
-		insertVersion *sqlx.Stmt
+		selectID         *sqlx.Stmt
+		selectOwner      *sqlx.Stmt
+		insertApp        *sqlx.Stmt
+		selectVersion    *sqlx.Stmt
+		selectAppVerions *sqlx.Stmt
+		insertVersion    *sqlx.Stmt
 	}
 }
 
@@ -38,6 +40,13 @@ func (m *AppModel) PrepareStatements() {
 		panic(err)
 	}
 
+	//get for a given owner user ID
+	m.stmt.selectOwner, err = m.DB.Handle.Preparex(`SELECT * FROM apps WHERE owner_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM apps WHERE owner_id = ..."+err.Error())
+		panic(err)
+	}
+
 	// insert app:
 	m.stmt.insertApp, err = m.DB.Handle.Preparex(`INSERT INTO apps 
 		("owner_id", "name", "created") VALUES (?, ?, datetime("now"))`)
@@ -50,6 +59,13 @@ func (m *AppModel) PrepareStatements() {
 	m.stmt.selectVersion, err = m.DB.Handle.Preparex(`SELECT * FROM app_versions WHERE app_id = ? AND version = ?`)
 	if err != nil {
 		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM app_versions..."+err.Error())
+		panic(err)
+	}
+
+	// get versions for app
+	m.stmt.selectAppVerions, err = m.DB.Handle.Preparex(`SELECT * FROM app_versions WHERE app_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectAppVerions"+err.Error())
 		panic(err)
 	}
 
@@ -78,6 +94,18 @@ func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, domain.Error) {
 	// ^^ here we should differentiate between no rows returned and every other error
 
 	return &app, nil
+}
+
+// GetForOwner returns array of application data for a given user
+func (m *AppModel) GetForOwner(userID domain.UserID) ([]*domain.App, domain.Error) {
+	ret := []*domain.App{}
+
+	err := m.stmt.selectOwner.Select(&ret, userID)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
 }
 
 // Create adds an app to the database
@@ -122,6 +150,18 @@ func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*doma
 	}
 
 	return &appVersion, nil
+}
+
+// GetVersionsForApp returns an array of versions of code for that application
+func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, domain.Error) {
+	ret := []*domain.AppVersion{}
+
+	err := m.stmt.selectAppVerions.Select(&ret, appID)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
 }
 
 // CreateVersion adds a new version for an app in the DB

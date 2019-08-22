@@ -780,6 +780,21 @@ func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2)
 }
 
+// GetForOwner mocks base method
+func (m *MockAppModel) GetForOwner(arg0 UserID) ([]*App, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetForOwner", arg0)
+	ret0, _ := ret[0].([]*App)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetForOwner indicates an expected call of GetForOwner
+func (mr *MockAppModelMockRecorder) GetForOwner(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForOwner", reflect.TypeOf((*MockAppModel)(nil).GetForOwner), arg0)
+}
+
 // GetFromID mocks base method
 func (m *MockAppModel) GetFromID(arg0 AppID) (*App, Error) {
 	m.ctrl.T.Helper()
@@ -808,6 +823,21 @@ func (m *MockAppModel) GetVersion(arg0 AppID, arg1 Version) (*AppVersion, Error)
 func (mr *MockAppModelMockRecorder) GetVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockAppModel)(nil).GetVersion), arg0, arg1)
+}
+
+// GetVersionsForApp mocks base method
+func (m *MockAppModel) GetVersionsForApp(arg0 AppID) ([]*AppVersion, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVersionsForApp", arg0)
+	ret0, _ := ret[0].([]*AppVersion)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetVersionsForApp indicates an expected call of GetVersionsForApp
+func (mr *MockAppModelMockRecorder) GetVersionsForApp(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionsForApp", reflect.TypeOf((*MockAppModel)(nil).GetVersionsForApp), arg0)
 }
 
 // MockAppspaceModel is a mock of AppspaceModel interface

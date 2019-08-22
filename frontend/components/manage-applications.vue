@@ -34,9 +34,9 @@
 					class="application"
 					v-for="application in applications"
 					:key="application.name"
-					@click="showManageApplication(application.name)">
-				<span class="app-name">{{application.name}}</span>
-				<span class="num-use">{{ application.versions.map( ver => ver.num_use ).reduce( (sum,num) => sum + num, 0 ) }}</span>
+					@click="showManageApplication(application.app_id)">
+				<span class="app-name">{{application.app_name}}</span>
+				<span class="num-use">nv: {{ application.versions.length }}</span>
 				<!-- could show latest version(?), number of app-spaces -->
 			</div>
 		</div>
@@ -67,9 +67,9 @@ export default {
 		showCreateApplication: function() {
 			this.$root.showCreateApplication();
 		},
-		showManageApplication: function( app_name ) {
-			console.log( 'manage'+app_name );
-			this.$root.applications_vm.showManageApplication( app_name );
+		showManageApplication: function( app_id ) {
+			console.log( 'manage'+app_id );
+			this.$root.applications_vm.showManageApplication( app_id );
 		}
 	}
 }

@@ -44,21 +44,22 @@
 	<DsModal>
 		<h2>Manage Application</h2>
 
-		<p>Name: {{application.name}}</p>
+		<p>Name: {{application.app_name}}</p>
 
 		<div class="error" v-if="manage_status.state === 'error'">
 			{{manage_status.error_message}}
 		</div>
 		<template v-else-if="cur_ver">
-			<h4>Version {{cur_ver.name}}</h4>
+			<h4>Version {{cur_ver.version}}</h4>
 
-			<p>{{cur_ver.num_use}} app spaces</p>
+			<p>[num??] app spaces</p>
+			<p> List the appspaces</p>
 			<!-- wonder fif we could list these? -->
 
 			<!-- show stats. if no app-spaces using it, offer a delete button -->
 			<!-- stats? resource usage, and logs and errors? -->
 
-			<DsButton @click="deleteVersion(cur_ver.name)" :disabled="cur_ver.num_use !== 0">delete version</DsButton>
+			<DsButton @click="deleteVersion(cur_ver.version)" :disabled="cur_ver.num_use !== 0">delete version</DsButton>
 		</template>
 		<template v-else-if="manage_status.state === 'upload'">
 			<p>Upload new version:</p>
@@ -78,10 +79,10 @@
 				<div 
 						class="version"
 						v-for="version in application.versions"
-						:key="version.name"
+						:key="version.version"
 						@click="cur_ver = version">
-					<span class="ver-name">{{version.name}}</span>
-					<span class="num-use">{{version.num_use}} app-spaces</span>
+					<span class="ver-name">{{version.version}}</span>
+					<span class="num-use">?? app-spaces</span>
 					<!-- could show latest version(?), number of app-spaces -->
 				</div>
 				<div v-if="application.versions.length == 0 " class="zero-versions">
@@ -132,7 +133,7 @@ export default {
 	},
 	computed: {
 		application: function() { 
-			return this.$root.applications_vm.applications.find( a => a.name === this.manage_status.app_name )
+			return this.$root.applications_vm.applications.find( a => a.app_id === this.manage_status.app_id )
 		},
 		manage_status: function() { return this.$root.applications_vm.manage_status; }
 	},
@@ -148,20 +149,20 @@ export default {
 			this.$root.applications_vm.showVersionUpload();
 		},
 		doUpload: function() {
-			this.$root.applications_vm.uploadNewVersion( this.application.name, this.upload_data );
+			this.$root.applications_vm.uploadNewVersion( this.application.app_id, this.upload_data );
 		},
 		deleteVersion: function ( ver ) {
-			this.$root.applications_vm.deleteVersion( this.application.name, ver )
+			this.$root.applications_vm.deleteVersion( this.application.app_id, ver )
 			.then( () => {
 				this.cur_ver = null;
 			});
 		},
 		delCheckInput: function() {
-			this.allow_delete = this.$refs.del_check.value.toLowerCase() === this.application.name.toLowerCase();
+			this.allow_delete = this.$refs.del_check.value.toLowerCase() === this.application.app_name.toLowerCase();
 			return this.allow_delete;
 		},
 		doDeleteApplication: function() {
-			if( this.delCheckInput() ) this.$root.applications_vm.deleteApplication( this.application.name );
+			if( this.delCheckInput() ) this.$root.applications_vm.deleteApplication( this.application.app_id );
 		}
 	}
 }

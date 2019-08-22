@@ -309,8 +309,10 @@ type AppVersion struct {
 // AppModel is the interface for the app model
 type AppModel interface {
 	GetFromID(AppID) (*App, Error)
+	GetForOwner(UserID) ([]*App, Error)
 	Create(UserID, string) (*App, Error)
 	GetVersion(AppID, Version) (*AppVersion, Error)
+	GetVersionsForApp(AppID) ([]*AppVersion, Error)
 	CreateVersion(AppID, Version, string) (*AppVersion, Error)
 }
 

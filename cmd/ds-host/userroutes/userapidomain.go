@@ -21,11 +21,10 @@ type changePwData struct {
 // application routes:
 
 type appMeta struct {
-	AppID        int       `json:"app_id"`
-	AppName      string    `json:"app_name"`
-	Created      time.Time `json:"created_dt"`
-	NumVersion   int       `json:"num_version"`
-	NumAppspaces int       `json:"num_appspace"`
+	AppID    int           `json:"app_id"`
+	AppName  string        `json:"app_name"`
+	Created  time.Time     `json:"created_dt"`
+	Versions []versionMeta `json:"versions"`
 }
 type getAppsResp struct {
 	Apps []appMeta `json:"apps"`
@@ -33,13 +32,14 @@ type getAppsResp struct {
 
 // versionListMeta is for listing versions of application code
 type versionMeta struct {
-	AppID        int    `json:"app_id"`
-	Version      string `json:"version"`
-	Created      string `json:"created_dt"`
-	NumAppspaces int    `json:"num_appspace"`
+	Version string    `json:"version"`
+	Created time.Time `json:"created_dt"`
 }
 
 type createAppResp struct {
-	AppMeta     appMeta     `json:"app_meta"`
+	AppMeta appMeta `json:"app_meta"`
+}
+
+type createVersionResp struct {
 	VersionMeta versionMeta `json:"version_meta"`
 }
