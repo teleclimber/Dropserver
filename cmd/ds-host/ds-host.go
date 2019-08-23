@@ -183,11 +183,17 @@ func main() {
 		AppFilesModel: appFilesModel,
 		AppModel: appModel,
 		Logger: logger }
+
+	appspaceUserRoutes := &userroutes.AppspaceRoutes{
+		AppspaceModel: appspaceModel,
+		AppModel: appModel,
+		Logger: logger }
 		
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator: authenticator,
 		AuthRoutes: authRoutes,
 		ApplicationRoutes: applicationRoutes,
+		AppspaceRoutes: appspaceUserRoutes,
 		UserModel: userModel,
 		Views: views,
 		Validator: validator,

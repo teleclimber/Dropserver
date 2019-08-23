@@ -878,6 +878,21 @@ func (mr *MockAppspaceModelMockRecorder) Create(arg0, arg1, arg2, arg3 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
+// GetForOwner mocks base method
+func (m *MockAppspaceModel) GetForOwner(arg0 UserID) ([]*Appspace, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetForOwner", arg0)
+	ret0, _ := ret[0].([]*Appspace)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetForOwner indicates an expected call of GetForOwner
+func (mr *MockAppspaceModelMockRecorder) GetForOwner(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForOwner", reflect.TypeOf((*MockAppspaceModel)(nil).GetForOwner), arg0)
+}
+
 // GetFromID mocks base method
 func (m *MockAppspaceModel) GetFromID(arg0 AppspaceID) (*Appspace, Error) {
 	m.ctrl.T.Helper()

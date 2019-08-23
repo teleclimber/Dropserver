@@ -5,10 +5,10 @@ import Vue from 'vue';
 
 function loadAppSpaces() {
 	return new Promise( (resolve, reject) => {
-		ds_axios.get( '/api/logged-in-user/appspaces' )
+		ds_axios.get( '/api/appspace' )
 		.then(function (response) {
 			console.log('got app-space data', response);
-			app_spaces_vm.app_spaces = response.data;
+			app_spaces_vm.app_spaces = response.data.appspaces;
 			resolve();
 		});	
 	});
@@ -24,11 +24,11 @@ function showCreateAppSpace( data ) {
 function createAppSpace( data ) {	// app-spaces should have their own vm
 	app_spaces_vm.action_pending = 'Creating...';
 
-	ds_axios.post( '/api/logged-in-user/appspaces', data )
+	ds_axios.post( '/api/appspace', data )
 	.then( function(response) {
 		console.log( 'create app space resp', response );
-		app_spaces_vm.app_spaces.push( response.data );
-		app_spaces_vm.managed_app_space = findAppSpace( response.data.id );
+		app_spaces_vm.app_spaces.push( response.data.appspace );
+		app_spaces_vm.managed_app_space = findAppSpace( response.data.appspace.appspace_id );
 
 		app_spaces_vm.action_pending = null;
 		app_spaces_vm.state = 'created';
@@ -106,7 +106,7 @@ function doUpgradeVersion() {
 
 //// util
 function findAppSpace( id ) {
-	return app_spaces_vm.app_spaces.find( a => a.id === id );
+	return app_spaces_vm.app_spaces.find( a => a.appspace_id === id );
 }
 function getBaseDomain() {	//not the right way to do this.
 	const pieces = window.location.hostname.split( '.' );
@@ -119,12 +119,12 @@ function getOpenUrl( app_space ) {
 }
 function getDisplayUrl( app_space ) {
 	//const loc = window.location;
-	return window.location.protocol+'//'+ app_space.id+'.'+getBaseDomain();
+	return window.location.protocol+'//'+ app_space.subdomain+'.'+getBaseDomain();
 }
 // could also have displayUrlParts if you wanted.
 
 const app_spaces_vm = {
-	app_spaces: [],
+	app_spaces: [],	// if this is raw appspace metadata, it is missing joined fields like application name, version, etc...
 	create_data: {},
 	managed_app_space: null,
 	action_pending: null,

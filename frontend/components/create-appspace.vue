@@ -15,7 +15,7 @@
 
 <template>
 	<DsModal>
-		<h2>Create App Space</h2>
+		<h2>Create Appspace</h2>
 
 		<div class="action-pending" v-if="app_spaces_vm.action_pending">
 			{{app_spaces_vm.action_pending}}
@@ -33,13 +33,14 @@
 		</template>
 		<template v-else>
 			Application: 
-			<select ref="app_select" v-model="app_spaces_vm.create_data.app_name">
+			<select ref="app_select" v-model="app_spaces_vm.create_data.app_id">
 				<option value=""> </option>
-				<option v-for="app in applications" :key="app.name" :value="app.name">{{app.name}}</option>
+				<option v-for="app in applications" :key="app.app_id" :value="app.app_id">{{app.app_name}}</option>
 			</select>
 			<select ref="version_select" @input="versionChanged">
 				<option v-for="version in app_versions" :key="version" :value="version">{{version}}</option>
 			</select>
+			<!-- pick version OR specify auto-update/latest -->
 
 			<div class="submit">
 				<DsButton @click="doClose" type="cancel">cancel</DsButton>
@@ -72,10 +73,10 @@ export default {
 		app_spaces_vm: function() { return this.$root.app_spaces_vm; },
 		applications: function() { return this.$root.applications_vm.applications; },
 		app_versions: function() {
-			if( !this.app_spaces_vm.create_data.app_name ) return [];
+			if( !this.app_spaces_vm.create_data.app_id ) return [];
 			else {
-				const app = this.applications.find( (a) => a.name === this.app_spaces_vm.create_data.app_name );
-				return app.versions.map( v => v.name );
+				const app = this.applications.find( (a) => a.app_id === this.app_spaces_vm.create_data.app_id );
+				return app.versions.map( v => v.version );
 			}
 		}
 	},
@@ -84,7 +85,7 @@ export default {
 		DsButton
 	},
 	watch: {
-		'app_spaces_vm.create_data.app_name': function() {
+		'app_spaces_vm.create_data.app_id': function() {
 			this.$nextTick().then( this.inputsValid );
 		}
 	},
@@ -102,18 +103,18 @@ export default {
 		inputsValid: function() {
 			this.inputs_valid = false;
 			console.log( 'checking inputs valid' );
-			const app_name = this.app_spaces_vm.create_data.app_name;
-			const app = this.applications.find( (a) => a.name === app_name );
+			const app_id = Number(this.app_spaces_vm.create_data.app_id);
+			const app = this.applications.find( (a) => a.app_id === app_id );	// string versus num?
 			if( !app ) return false;
 			const version = this.$refs.version_select.value;
 			if( !version ) return false;
-			if( !app.versions.find(v => v.name === version) ) return false;
+			if( !app.versions.find(v => v.version === version) ) return false;
 			
 			console.log( 'inputs ARE valid' );
 			this.inputs_valid = true;
 
 			return {
-				app_name,
+				app_id,
 				version
 			};
 		},

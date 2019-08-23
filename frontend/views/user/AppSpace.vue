@@ -35,7 +35,7 @@
 <template>
 	<section>
 		<h3>
-			{{app_space.app_name}}
+			{{application.app_name}}
 			<span class="version">{{app_space.app_version}}</span>
 			<span class="paused" v-if="app_space.paused">paused</span>
 		</h3>
@@ -67,10 +67,18 @@ export default {
 		display_url: function() {
 			return this.$root.app_spaces_vm.getDisplayUrl( this.app_space );
 		},
+		application: function() {
+			let a = this.$root.applications_vm.applications.find( a => a.app_id === this.app_space.app_id );
+			if( a ) {
+				return a
+			}
+			return {
+				versions:[]
+			}
+		},
 		upgrade: function() {
-			const application = this.$root.applications_vm.applications.find( a => a.name === this.app_space.app_name );
-			if( application ) {
-				const latest_version = application.versions[0];
+			if( this.application && this.application.versions.length != 0 ) {
+				const latest_version = this.application.versions[0];
 				if( latest_version.name !== this.app_space.app_version ) {
 					return latest_version.name;
 				}

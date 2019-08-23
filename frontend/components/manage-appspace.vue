@@ -44,18 +44,18 @@
 		</div>
 		<template v-else>
 			<template v-if="app_spaces_vm.state === 'pick-version'">
-				<p>{{app_space.app_name}}, {{app_space.id}}</p>
+				<p>{{application.app_name}}, {{app_space.subdomain}}</p>
 				<p>Pick version:</p>
 				<div class="versions-container">
 					<div 
 							class="version"
-							:class="{ current: version.name === app_space.app_version }"
+							:class="{ current: version.version === app_space.app_version }"
 							v-for="(version,i) in app_versions"
-							:key="version.name"
-							@click="pickVersion(version.name)">
-						<span class="ver-name">{{version.name}}</span>
+							:key="version.version"
+							@click="pickVersion(version.version)">
+						<span class="ver-name">{{version.version}}</span>
 						<span class="latest" v-if="i===0">latest</span>
-						<span class="current" v-if="version.name === app_space.app_version">current</span>
+						<span class="current" v-if="version.version === app_space.app_version">current</span>
 						<!-- could show latest version(?), number of app-spaces -->
 					</div>
 				</div>
@@ -78,7 +78,7 @@
 					<DsButton @click="pause(true)">pause</DsButton>
 				</p>
 				<p>Address: {{app_space.id}} [change?]</p>
-				<p>Application: {{app_space.app_name}}</p>
+				<p>Application: {{application.app_name}}</p>
 				<p>
 					Version: {{app_space.app_version}} 
 					<DsButton @click="$root.app_spaces_vm.showPickVersion">Change version</DsButton>
@@ -124,10 +124,18 @@ export default {
 		app_spaces_vm: function() {
 			return this.$root.app_spaces_vm;
 		},
+		application: function() {
+			let a = this.$root.applications_vm.applications.find( a => a.app_id === this.app_space.app_id );
+			if( a ) {
+				return a
+			}
+			return {
+				versions:[]
+			}
+		},
 		app_versions: function() {
-			const application = this.$root.applications_vm.applications.find( a => a.name === this.app_space.app_name );
-		 	if( application ) {
-				return application.versions;
+			if( this.application ) {
+				return this.application.versions;
 			}
 			else return [];
 		},
@@ -136,8 +144,8 @@ export default {
 		},
 		up_down: function() {
 			if( !this.app_spaces_vm.upgrade_version ) return;
-			const cur_i = this.app_versions.findIndex( v => v.name === this.app_space.app_version );
-			const mig_i = this.app_versions.findIndex( v => v.name === this.app_spaces_vm.upgrade_version );
+			const cur_i = this.app_versions.findIndex( v => v.version === this.app_space.app_version );
+			const mig_i = this.app_versions.findIndex( v => v.version === this.app_spaces_vm.upgrade_version );
 			return cur_i > mig_i ? 'upgrade' : 'downgrade';	//version array is sorted backwards
 		}
 	},

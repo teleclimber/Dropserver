@@ -14,6 +14,7 @@ type UserRoutes struct {
 	Authenticator     domain.Authenticator
 	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
+	AppspaceRoutes    domain.RouteHandler
 	UserModel         domain.UserModel
 	Views             domain.Views
 	Validator         domain.Validator
@@ -69,6 +70,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 			}
 		case "application":
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
+		case "appspace":
+			u.AppspaceRoutes.ServeHTTP(res, req, routeData)
 		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
 		}

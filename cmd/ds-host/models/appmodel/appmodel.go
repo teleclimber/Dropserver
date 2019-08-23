@@ -161,6 +161,8 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 		return nil, dserror.FromStandard(err)
 	}
 
+	// we ought to sort the versions! The order of them is part of the data.
+
 	return ret, nil
 }
 
@@ -169,6 +171,8 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 // use appid and version as primary keys
 // index on appid as well
 func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, locationKey string) (*domain.AppVersion, domain.Error) {
+	// TODO: this should fail if version exists
+	// .. but that should be caught by the route first.
 
 	_, err := m.stmt.insertVersion.Exec(appID, version, locationKey)
 	if err != nil {

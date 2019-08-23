@@ -334,6 +334,7 @@ type Appspace struct {
 type AppspaceModel interface {
 	GetFromID(AppspaceID) (*Appspace, Error)
 	GetFromSubdomain(string) (*Appspace, Error)
+	GetForOwner(UserID) ([]*Appspace, Error)
 	Create(UserID, AppID, Version, string) (*Appspace, Error)
 }
 

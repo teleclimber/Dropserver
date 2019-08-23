@@ -12,9 +12,10 @@ type AppspaceModel struct {
 	Logger domain.LogCLientI
 
 	stmt struct {
-		selectID      *sqlx.Stmt
+		selectID     	*sqlx.Stmt
+		selectOwner 	*sqlx.Stmt
 		selectSubdomain *sqlx.Stmt
-		insert     *sqlx.Stmt
+		insert			*sqlx.Stmt
 	}
 }
 
@@ -38,6 +39,13 @@ func (m *AppspaceModel) PrepareStatements() {
 		panic(err)
 	}
 
+	// get all for an owner
+	m.stmt.selectOwner, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE owner_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectOwner"+err.Error())
+		panic(err)
+	}
+
 	// insert app:
 	m.stmt.insert, err = m.DB.Handle.Preparex(`INSERT INTO appspaces
 		("owner_id", "app_id", "app_version", subdomain, created) VALUES (?, ?, ?, ?, datetime("now"))`)
@@ -46,13 +54,6 @@ func (m *AppspaceModel) PrepareStatements() {
 		panic(err)
 	}
 }
-
-// Methods:
-// - GetForUSer 
-// - GetFromID
-// - Create
-// - Update
-// - Delete
 
 // GetFromID gets an AppSpace by its ID
 func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error) {
@@ -80,6 +81,18 @@ func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, do
 	}
 
 	return &appspace, nil
+}
+
+// GetForOwner gets an AppSpace by looking up the subdomain
+func (m *AppspaceModel) GetForOwner(userID domain.UserID) ([]*domain.Appspace, domain.Error) {
+	ret := []*domain.Appspace{}
+
+	err := m.stmt.selectOwner.Select(&ret, userID)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
 }
 
 // Create adds an appspace to the database

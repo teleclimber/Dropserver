@@ -106,6 +106,7 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 	apps, dsErr := a.AppModel.GetForOwner(routeData.Cookie.UserID)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
+		return
 	}
 
 	respData := getAppsResp{
@@ -225,6 +226,9 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 			// delete the files? ..it really depends on the error.
 			return
 		}
+
+		// TODO: Check that the version does not exist already in DB for this app.
+		// .. if it does thn it's a bad request, but should have a user-friendly message.
 
 		// TODO: here we should check that this version is coherent with previously uploaded versions
 		// .. like app name, author, version is greater than last greatest
