@@ -53,6 +53,7 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	args.dbExec(`CREATE TABLE "app_versions" (
 		"app_id" INTEGER,
 		"version" TEXT,
+		"schema" INTEGER,
 		"location_key" TEXT,
 		"created" DATETIME
 	)`)

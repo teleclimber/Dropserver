@@ -44,7 +44,7 @@
 		</div>
 		<template v-else>
 			<template v-if="app_spaces_vm.state === 'pick-version'">
-				<p>{{application.app_name}}, {{app_space.subdomain}}</p>
+				<p>{{application.app_name}}, {{app_space.subdomain}}.</p>
 				<p>Pick version:</p>
 				<div class="versions-container">
 					<div 
@@ -61,11 +61,15 @@
 				</div>
 			</template>
 			<template v-else-if="app_spaces_vm.state === 'show-upgrade'">
-				<p>{{app_space.app_name}}, {{app_space.id}}</p>
-				<p>{{up_down}} to {{app_spaces_vm.upgrade_version}}</p>
-				<p>Migration levels: 
-					{{app_space ? app_space.migration_level : '...' }} to
-					{{migrate_ver_data && migrate_ver_data.meta ? migrate_ver_data.meta.migration_level : '...' }}
+				<p>{{application.app_name}}, {{app_space.subdomain}}</p>
+				<p>{{up_down}} from {{cur_app_version.version}} to {{app_spaces_vm.upgrade_version}}</p>
+				<p v-if="cur_app_version.schema !== migrate_ver_data.schema">
+					Data migration necessary:
+					from {{cur_app_version ? cur_app_version.schema : '...' }} to
+					{{migrate_ver_data ? migrate_ver_data.schema : '...' }}
+				</p>
+				<p v-else>
+					No Data migration necessary.
 				</p>
 			</template>
 			<template v-else>
@@ -78,9 +82,7 @@
 					<DsButton @click="pause(true)">pause</DsButton>
 				</p>
 				<p>Address: {{app_space.id}} [change?]</p>
-				<p>Application: {{application.app_name}}</p>
-				<p>
-					Version: {{app_space.app_version}} 
+				<p>Application: {{application.app_name}}, v{{cur_app_version.version}}, data schema {{cur_app_version.schema}}
 					<DsButton @click="$root.app_spaces_vm.showPickVersion">Change version</DsButton>
 				</p>
 				
@@ -139,14 +141,17 @@ export default {
 			}
 			else return [];
 		},
+		cur_app_version: function() {
+			return this.app_versions.find( v => v.version === this.app_space.app_version )
+		},
 		migrate_ver_data: function() {
-			return this.app_versions.find( v => v.name === this.app_spaces_vm.upgrade_version );
+			return this.app_versions.find( v => v.version === this.app_spaces_vm.upgrade_version );
 		},
 		up_down: function() {
 			if( !this.app_spaces_vm.upgrade_version ) return;
 			const cur_i = this.app_versions.findIndex( v => v.version === this.app_space.app_version );
 			const mig_i = this.app_versions.findIndex( v => v.version === this.app_spaces_vm.upgrade_version );
-			return cur_i > mig_i ? 'upgrade' : 'downgrade';	//version array is sorted backwards
+			return cur_i > mig_i ? 'Upgrade' : 'Downgrade';	//version array is sorted backwards
 		}
 	},
 	methods: {

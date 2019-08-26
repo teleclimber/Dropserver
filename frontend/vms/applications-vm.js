@@ -1,6 +1,7 @@
 import Vue from 'vue';
 import debounce from 'debounce';
 import ds_axios from '../ds-axios-helper.js'
+import semver from 'semver'
 
 import user_vm from '../views/user/user-vm.js';
 
@@ -8,7 +9,10 @@ function loadApplications() {
 	return new Promise( (resolve, reject) => {
 		ds_axios.get( '/api/application' )
 		.then( resp => {
-			Vue.set( application_vm, 'applications', resp.data.apps );
+			// sort application versions here
+			let apps = resp.data.apps;
+			apps.forEach( a => sortVersions(a.versions) );
+			Vue.set( application_vm, 'applications', apps );
 			resolve();
 		});
 	});
@@ -142,7 +146,9 @@ function uploadNewVersion( app_id, form_data ) {
 				// went straght through.
 				// finish upload and return to list of versions
 				// Though probably need to reload that application's versions first
-				loadApplications().then( () => {
+				// Not sure how this even works. Have to insert version in application.versions.
+				// -> then sort them.
+				loadApplications().then( () => {	// oh fack it literally reloads everything from the server. ALL APPS. :/
 					application_vm.manage_status.state = null;
 					application_vm.manage_status.error_message = '';
 					application_vm.manage_status.temp_key = null;
@@ -181,18 +187,24 @@ function deleteApplication( app_name ) {
 	});
 }
 
-function getVersionMeta( app_name, ver_name ) {
-	const app = application_vm.applications.find( a => a.name === app_name );
+function getVersionMeta( app_id, version ) {
+	const app = application_vm.applications.find( a => a.app_id === app_id );
 	if( !app ) return;
-	const ver_data = app.versions.find( v => v.name === ver_name );
+	const ver_data = app.versions.find( v => v.version === version );
 	if( !ver_data ) return;
 	if( !ver_data.meta ) {
 		ds_axios.get( '/api/logged-in-user/application/'
 			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
 		.then( resp => {
-			Vue.set( ver_data, 'meta', resp.data );
+			Vue.set( ver_data, 'meta', resp.data );	// I think this is stuff like migration level
 		});
 	}
+}
+
+function sortVersions( versions ) {
+	versions.sort( (a, b) => {
+		return semver.lt(a.version, b.version);
+	});
 }
 
 const application_vm = {

@@ -302,6 +302,7 @@ type App struct {
 type AppVersion struct {
 	AppID       AppID `db:"app_id"`
 	Version     Version
+	Schema      int `db:"schema"`
 	Created     time.Time
 	LocationKey string `db:"location_key"`
 }
@@ -313,7 +314,7 @@ type AppModel interface {
 	Create(UserID, string) (*App, Error)
 	GetVersion(AppID, Version) (*AppVersion, Error)
 	GetVersionsForApp(AppID) ([]*AppVersion, Error)
-	CreateVersion(AppID, Version, string) (*AppVersion, Error)
+	CreateVersion(AppID, Version, int, string) (*AppVersion, Error)
 }
 
 // Appspace represents the data structure for App spaces.
@@ -346,9 +347,10 @@ type ASRoutesModel interface {
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName    string      `json:"name"`
-	AppVersion Version     `json:"version"`
-	Routes     []JSONRoute `json:"routes"`
+	AppName       string      `json:"name"`
+	AppVersion    Version     `json:"version"`
+	SchemaVersion int         `json:"schema_version"`
+	Routes        []JSONRoute `json:"routes"`
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
 }

@@ -80,7 +80,7 @@ function showUpgradeVersion( version ) {
 	app_spaces_vm.state = 'show-upgrade';
 	app_spaces_vm.upgrade_version = version;
 
-	application_vm.getVersionMeta( app_spaces_vm.managed_app_space.app_name, version );
+	//application_vm.getVersionMeta( app_spaces_vm.managed_app_space.app_id, version );
 }
 function closeUpgradeVersion() {
 	app_spaces_vm.upgrade_version = null;
@@ -91,7 +91,7 @@ function doUpgradeVersion() {
 
 	const app_space = app_spaces_vm.managed_app_space;
 
-	ds_axios.patch( '/api/logged-in-user/appspaces/'+encodeURIComponent(app_space.id), {
+	ds_axios.post( '/api/appspace/'+encodeURIComponent(app_space.id)+'/version', {
 		version: app_spaces_vm.upgrade_version
 	} ).then( resp => {
 		const index = app_spaces_vm.app_spaces.findIndex( a => a.id === app_space.id );

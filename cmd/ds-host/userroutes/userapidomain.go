@@ -35,6 +35,7 @@ type getAppsResp struct {
 // versionListMeta is for listing versions of application code
 type versionMeta struct {
 	Version string    `json:"version"`
+	Schema  int       `json:"schema"`
 	Created time.Time `json:"created_dt"`
 }
 
@@ -67,4 +68,8 @@ type postAppspaceReq struct {
 
 type postAppspaceResp struct {
 	AppspaceMeta appspaceMeta `json:"appspace"`
+}
+
+type changeVersionReq struct {
+	Version domain.Version `json:"version"`
 }

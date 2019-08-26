@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -109,6 +111,22 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		return nil, dsErr
 	}
 
+	// Other metadata:
+	// in application.json: app name, author, ...
+	// overall: num files, total size of all files
+	// migrations: migration levels available, or at least the latest one
+
+	// Migration level:
+	mInts, dsErr := a.getMigrationDirs(locationKey)
+	if dsErr != nil {
+		return nil, dsErr
+	}
+	if len(mInts) == 0 {
+		meta.SchemaVersion = 0
+	} else {
+		meta.SchemaVersion = mInts[len(mInts)-1]
+	}
+
 	return meta, nil
 }
 
@@ -138,6 +156,47 @@ func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
 	// auth keywords, routes can be empty strings, handler type is enum...
 
 	return nil
+}
+
+func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, dsErr domain.Error) {
+	appsPath := a.getAppsPath()
+	mPath := filepath.Join(appsPath, locationKey, "migrations")
+
+	mDir, err := os.Open(mPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		dsErr = dserror.FromStandard(err)
+		return
+	}
+
+	list, err := mDir.Readdir(-1)
+	if err != nil {
+		dsErr = dserror.FromStandard(err)
+		return
+	}
+
+	for _, f := range list {
+		if !f.IsDir() {
+			continue
+		}
+
+		dirInt, err := strconv.Atoi(filepath.Base(f.Name()))
+		if err != nil {
+			continue
+		}
+
+		if dirInt == 0 { // first legit number is 1 (the 0 state is "not yet installed")
+			continue
+		}
+
+		ret = append(ret, dirInt)
+	}
+
+	sort.Ints(ret)
+
+	return
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {

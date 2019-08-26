@@ -186,3 +186,37 @@ func TestSave(t *testing.T) {
 	}
 
 }
+
+func TestGetMigrationDirs(t *testing.T) {
+	// create temp dir and put that in runtime config.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.DataDir = dir
+
+	m := AppFilesModel{
+		Config: cfg}
+
+	appsPath := m.getAppsPath()
+
+	for _, d := range []string{"boo", "0", "5", "zoink", "2b", "3"} {
+		os.MkdirAll(filepath.Join(appsPath, "abc", "migrations", d), 0766)
+	}
+
+	mInts, dsErr := m.getMigrationDirs("abc")
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+
+	if len(mInts) != 2 {
+		t.Fatal("wrong length for migration ints", mInts)
+	}
+	if mInts[0] != 3 {
+		t.Fatal("wrong order for migrations", mInts)
+	}
+
+}

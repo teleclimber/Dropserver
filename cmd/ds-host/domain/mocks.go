@@ -766,18 +766,18 @@ func (mr *MockAppModelMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // CreateVersion mocks base method
-func (m *MockAppModel) CreateVersion(arg0 AppID, arg1 Version, arg2 string) (*AppVersion, Error) {
+func (m *MockAppModel) CreateVersion(arg0 AppID, arg1 Version, arg2 int, arg3 string) (*AppVersion, Error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*AppVersion)
 	ret1, _ := ret[1].(Error)
 	return ret0, ret1
 }
 
 // CreateVersion indicates an expected call of CreateVersion
-func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2, arg3)
 }
 
 // GetForOwner mocks base method

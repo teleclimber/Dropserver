@@ -163,7 +163,7 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 			return
 		}
 
-		appMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
+		filesMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -172,14 +172,14 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 			return
 		}
 
-		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, appMetadata.AppName)
+		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, filesMetadata.AppName)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
 			return
 		}
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -194,6 +194,7 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 				Created: app.Created,
 				Versions: []versionMeta{{
 					Version: string(version.Version),
+					Schema:  version.Schema,
 					Created: version.Created}}}}
 
 		respJSON, err := json.Marshal(respData)
@@ -218,7 +219,7 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 			return
 		}
 
-		appMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
+		filesMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -242,7 +243,7 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 
 		// -> another option is to read the dropapp manifest at frontend side prior to upload?
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, appMetadata.AppVersion, locationKey)
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -252,6 +253,7 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 		respData := createVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
 			VersionMeta: versionMeta{
 				Version: string(version.Version),
+				Schema:  version.Schema,
 				Created: version.Created}}
 
 		respJSON, err := json.Marshal(respData)

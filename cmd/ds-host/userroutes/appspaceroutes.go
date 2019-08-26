@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"math/rand"
 	"time"
+	"strconv"
   
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -25,13 +26,17 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		// maybe log it? Frankly this should be a panic.
 		// It's programmer error pure and simple. Kill this thing.
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
+		return
 	}
 
-	appspaceIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
-	method := req.Method
+	appspace, dsErr := a.getAppspaceFromPath(routeData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
 
-	if appspaceIDStr == "" {
-		switch method {
+	if appspace == nil {
+		switch req.Method {
 		case http.MethodGet:
 			a.getAllAppspaces(res, req, routeData)
 		case http.MethodPost:
@@ -40,9 +45,15 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			http.Error(res, "bad method for /application", http.StatusBadRequest)
 		}
 	} else {
-		// check appspace existence
-		routeData.URLTail = tail //maybe?
-		http.Error(res, "", http.StatusBadRequest)
+		head, tail := shiftpath.ShiftPath(routeData.URLTail)
+		routeData.URLTail = tail
+
+		switch head {
+		case "version":
+			a.changeAppspaceVersion(res, req, routeData, appspace)
+		default:
+			http.Error(res, "", http.StatusNotImplemented)
+		}
 	}
 }
 
@@ -64,6 +75,31 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 	}
 
 	writeJSON(res, respData)
+}
+
+func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData) (*domain.Appspace, domain.Error) {
+	appspaceIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
+
+	if appspaceIDStr == "" {
+		return nil, nil
+	}
+
+	appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
+	if err != nil {
+		return nil, dserror.New(dserror.BadRequest)
+	}
+	appspaceID := domain.AppspaceID(appspaceIDInt)
+
+	appspace, dsErr := a.AppspaceModel.GetFromID(appspaceID)
+	if dsErr != nil {
+		return nil, dsErr
+	}
+	if appspace.OwnerID != routeData.Cookie.UserID {
+		return nil, dserror.New(dserror.Unauthorized)
+	}
+
+	return appspace, nil
 }
 
 // temporary ubdomain gneration stuff
@@ -123,6 +159,47 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	
 	writeJSON(res, resp)
 }
+
+func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "expected POST", http.StatusBadRequest)
+		return
+	}
+
+	reqData := changeVersionReq{}
+	dsErr := readJSON(req, &reqData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
+
+	/*targetVersion*/ _, dsErr = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	// Send the whole thing to a controller:
+	// dsErr = a.AppspaceCtl.ChangeVersion(appspace, targetVersion)
+
+	// Lots to do there.
+	// - record pause status 
+	// - do pause (not just through model, this need some sort of controller)
+	// - get old version and new version datas
+	// - check if migration needed
+	// - do migration
+	// - write changes
+	// - unpause if necessary
+
+	/// --- this is quite involved. Need a controller for appspaces.
+	// furthemore this should probably be a stateless "job"? -> maybe later.
+
+	res.WriteHeader(http.StatusNotImplemented)
+
+}
+
 
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 	for i := 0; i<10; i++ {

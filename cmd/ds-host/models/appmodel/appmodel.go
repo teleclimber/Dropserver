@@ -70,9 +70,9 @@ func (m *AppModel) PrepareStatements() {
 	}
 
 	m.stmt.insertVersion, err = m.DB.Handle.Preparex(`INSERT INTO app_versions
-		("app_id", "version", "location_key", created) VALUES (?, ?, ?, datetime("now"))`)
+		("app_id", "version", "schema", "location_key", created) VALUES (?, ?, ?, ?, datetime("now"))`)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO app_versions..."+err.Error())
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement insertVersion"+err.Error())
 		panic(err)
 	}
 }
@@ -161,8 +161,6 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 		return nil, dserror.FromStandard(err)
 	}
 
-	// we ought to sort the versions! The order of them is part of the data.
-
 	return ret, nil
 }
 
@@ -170,11 +168,11 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 // has appid, version, location key, create date
 // use appid and version as primary keys
 // index on appid as well
-func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, locationKey string) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, schema int, locationKey string) (*domain.AppVersion, domain.Error) {
 	// TODO: this should fail if version exists
 	// .. but that should be caught by the route first.
 
-	_, err := m.stmt.insertVersion.Exec(appID, version, locationKey)
+	_, err := m.stmt.insertVersion.Exec(appID, version, schema, locationKey)
 	if err != nil {
 		return nil, dserror.FromStandard(err)
 	}

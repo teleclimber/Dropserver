@@ -139,7 +139,7 @@ func TestVersion(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", "foo-location")
+	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", 7, "foo-location")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -147,7 +147,9 @@ func TestVersion(t *testing.T) {
 	if appVersion.Version != "0.0.1" {
 		t.Error("input version does not match output version", appVersion)
 	}
-
+	if appVersion.Schema != 7 {
+		t.Error("input schema does not match output schema", appVersion)
+	}
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
 	}
@@ -157,11 +159,9 @@ func TestVersion(t *testing.T) {
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
-
 	if appVersion.Version != "0.0.1" {
 		t.Error("input version does not match output version", appVersion)
 	}
-
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
 	}
@@ -183,16 +183,17 @@ func TestGetVersionForApp(t *testing.T) {
 	ins := []struct{
 		appID domain.AppID
 		version domain.Version
+		schema int
 		location string
 	}{
-		{7, "0.0.1", "foo-location"},
-		{7, "0.0.2", "2foo-location"},
-		{7, "0.0.3", "3foo-location"},
-		{11, "0.0.1", "bar-location"},
+		{7, "0.0.1", 1, "foo-location"},
+		{7, "0.0.2", 2, "2foo-location"},
+		{7, "0.0.3", 3, "3foo-location"},
+		{11, "0.0.1", 1, "bar-location"},
 	}
 
 	for _, i := range ins {
-		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.location)
+		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.schema, i.location)
 		if dsErr != nil {
 			t.Error(dsErr)
 		}
