@@ -183,7 +183,6 @@ func TestGetForOwner(t *testing.T) {
 }
 
 func TestCreateDupeSubdomain(t *testing.T) {
-
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -205,5 +204,53 @@ func TestCreateDupeSubdomain(t *testing.T) {
 		t.Error("There should have been an error for duplicate subdomain")
 	} else if dsErr.Code() != dserror.DomainNotUnique {
 		t.Error("Wrong error", dsErr)
+	}
+}
+
+func TestGetForApp(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &AppspaceModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	ins := []struct {
+		userID   domain.UserID
+		appID    domain.AppID
+		version  domain.Version
+		location string
+	}{
+		{7, 4, "0.0.1", "foo-location"},
+		{7, 5, "0.0.2", "2foo-location"},
+		{7, 6, "0.0.3", "3foo-location"},
+		{11, 6, "0.0.1", "bar-location"},
+	}
+
+	for _, i := range ins {
+		_, dsErr := model.Create(i.userID, i.appID, i.version, i.location)
+		if dsErr != nil {
+			t.Error(dsErr)
+		}
+	}
+
+	appSpaces, dsErr := model.GetForApp(6)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if len(appSpaces) != 2 {
+		t.Error("expected 2 appspaces")
+	}
+
+	appSpaces, dsErr = model.GetForApp(1)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if len(appSpaces) != 0 {
+		t.Error("expected ZERO appspaces")
 	}
 }

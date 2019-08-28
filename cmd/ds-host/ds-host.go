@@ -182,6 +182,7 @@ func main() {
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppFilesModel: appFilesModel,
 		AppModel: appModel,
+		AppspaceModel: appspaceModel,
 		Logger: logger }
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{

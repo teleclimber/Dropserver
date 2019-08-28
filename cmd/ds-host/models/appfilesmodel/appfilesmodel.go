@@ -130,6 +130,22 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 	return meta, nil
 }
 
+// Delete removes the files from the system
+func (a *AppFilesModel) Delete(locationKey string) domain.Error {
+	if !a.locationKeyExists(locationKey) {
+		return nil //is that an error or do we consider this OK?
+	}
+
+	appsPath := a.getAppsPath()
+
+	err := os.RemoveAll(filepath.Join(appsPath, locationKey))
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	return nil
+}
+
 func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, domain.Error) {
 	var meta domain.AppFilesMetadata
 	dec := json.NewDecoder(r)

@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -16,6 +17,7 @@ import (
 type ApplicationRoutes struct {
 	AppFilesModel domain.AppFilesModel
 	AppModel      domain.AppModel
+	AppspaceModel domain.AppspaceModel
 	Logger        domain.LogCLientI
 }
 
@@ -31,73 +33,51 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 	}
 
-	appIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
+	app, dsErr := a.getAppFromPath(routeData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+	}
 	method := req.Method
 
-	if appIDStr == "" {
+	if app == nil {
 		switch method {
 		case http.MethodGet:
 			a.getAllApplications(res, req, routeData)
 		case http.MethodPost:
-			// Posting to applictaion implies creating an application. Response will include app-id
 			a.postNewApplication(res, req, routeData)
 		default:
 			http.Error(res, "bad method for /application", http.StatusBadRequest)
 		}
 	} else {
-		// get app from appid + user, error if not found.
-		appIDInt, err := strconv.Atoi(appIDStr)
-		if err != nil {
-			http.Error(res, "bad app id", http.StatusBadRequest)
-			return
-		}
-		appID := domain.AppID(appIDInt)
+		head, tail := shiftpath.ShiftPath(routeData.URLTail)
+		routeData.URLTail = tail
 
-		app, dsErr := a.AppModel.GetFromID(appID)
-		if dsErr != nil {
-			dsErr.HTTPError(res)
-			return
-		}
-
-		version, _ := shiftpath.ShiftPath(tail)
-
-		if version == "" {
-			switch method {
-			case http.MethodGet:
-				// return metadata for app, and maybe versionsetc... check query strings
-				// wait are we really going to use this?
-				// Not for a long time I think.
-				http.Error(res, "get /application/<app-id>", http.StatusNotImplemented)
-			case http.MethodPatch:
-				// update application data, like its name, etc...
-				// You can not change anything about individual versions here.
-				http.Error(res, "PATCH /application/<app-id>", http.StatusNotImplemented)
-			case http.MethodPost:
-				// create a new version. Might involve uploaded files
-				// subsequent changes to data associated with version takes place with patch.
-				// Here if there is an upload, you have to create key of some sort
-				// ..and pass that on to ds-trusted, that will store it in folder <key>.
-				// ds-trusted unwraps the files, validates, reads metadata (version)
-				// ..then it returns that data so taht ds-host can put it in the DB.
-				//http.Error(res, "POST /application/<app-id>", http.StatusNotImplemented)
-				a.postNewVersion(app, res, req, routeData)
-			default:
-				http.Error(res, "bad method for /application/<app-id>", http.StatusBadRequest)
+		switch head {
+		case "version": // application/<app-id>/version/*
+			// get a version from path
+			version, dsErr := a.getVersionFromPath(routeData, app.AppID)
+			if dsErr != nil {
+				dsErr.HTTPError(res)
+				return
 			}
 
-		} else {
-			// Operate on version of App.
-			// first verify version is in DB
-			switch method {
-			case http.MethodGet:
-				// return metadata about that version, may include stuff about code, um uses, ...
-				http.Error(res, "get /application/<app-id>/<version>", http.StatusNotImplemented)
-
-				// do we allow patch?
-
-			default:
-				http.Error(res, "bad method for /application/<app-id>/<version>", http.StatusBadRequest)
+			if version == nil {
+				switch req.Method {
+				case http.MethodPost:
+					a.postNewVersion(app, res, req, routeData)
+				default:
+					http.Error(res, "bad method for version", http.StatusBadRequest)
+				}
+			} else {
+				switch req.Method {
+				case http.MethodDelete:
+					a.deleteVersion(res, version)
+				default:
+					http.Error(res, "bad method for version", http.StatusBadRequest)
+				}
 			}
+		default:
+			res.WriteHeader(http.StatusNotFound)
 		}
 	}
 }
@@ -297,4 +277,78 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 	}
 
 	return &fileData
+}
+
+func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *domain.AppVersion) {
+	appspaces, dsErr := a.AppspaceModel.GetForApp(version.AppID)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	found := false
+	for _, as := range appspaces {
+		if as.AppVersion == version.Version {
+			found = true
+			break
+		}
+	}
+	if found {
+		http.Error(res, "appspaces use this version of app", http.StatusConflict)
+		return
+	}
+
+	dsErr = a.AppModel.DeleteVersion(version.AppID, version.Version)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	dsErr = a.AppFilesModel.Delete(version.LocationKey)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+	}
+}
+
+func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) (*domain.App, domain.Error) {
+	appIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
+
+	if appIDStr == "" {
+		return nil, nil
+	}
+
+	appIDInt, err := strconv.Atoi(appIDStr)
+	if err != nil {
+		return nil, dserror.New(dserror.BadRequest)
+	}
+	appID := domain.AppID(appIDInt)
+
+	app, dsErr := a.AppModel.GetFromID(appID)
+	if dsErr != nil {
+		return nil, dsErr
+	}
+	if app.OwnerID != routeData.Cookie.UserID {
+		return nil, dserror.New(dserror.Unauthorized)
+	}
+
+	return app, nil
+}
+
+func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteData, appID domain.AppID) (*domain.AppVersion, domain.Error) {
+	versionStr, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
+
+	if versionStr == "" {
+		return nil, nil
+	}
+
+	// minimally check version string for size
+
+	version, dsErr := a.AppModel.GetVersion(appID, domain.Version(versionStr))
+	if dsErr != nil {
+		return nil, dsErr
+	}
+
+	return version, nil
 }

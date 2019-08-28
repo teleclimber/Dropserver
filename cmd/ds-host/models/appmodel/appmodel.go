@@ -24,6 +24,7 @@ type AppModel struct {
 		selectVersion    *sqlx.Stmt
 		selectAppVerions *sqlx.Stmt
 		insertVersion    *sqlx.Stmt
+		deleteVersion    *sqlx.Stmt
 	}
 }
 
@@ -73,6 +74,12 @@ func (m *AppModel) PrepareStatements() {
 		("app_id", "version", "schema", "location_key", created) VALUES (?, ?, ?, ?, datetime("now"))`)
 	if err != nil {
 		m.Logger.Log(domain.ERROR, nil, "Error preparing statement insertVersion"+err.Error())
+		panic(err)
+	}
+
+	m.stmt.deleteVersion, err = m.DB.Handle.Preparex(`DELETE FROM app_versions WHERE app_id = ? AND version = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement deleteVersion "+err.Error())
 		panic(err)
 	}
 }
@@ -146,6 +153,9 @@ func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*doma
 
 	err := m.stmt.selectVersion.QueryRowx(appID, version).StructScan(&appVersion)
 	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return nil, dserror.New(dserror.NoRowsInResultSet)
+		}
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -183,4 +193,13 @@ func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, sch
 	}
 
 	return appVersion, nil
+}
+
+// DeleteVersion removes a version from the DB
+func (m *AppModel) DeleteVersion(appID domain.AppID, version domain.Version) domain.Error {
+	_, err := m.stmt.deleteVersion.Exec(appID, version)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+	return nil
 }

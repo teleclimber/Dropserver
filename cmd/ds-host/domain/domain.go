@@ -288,6 +288,7 @@ type UserModel interface {
 type AppFilesModel interface {
 	Save(*map[string][]byte) (string, Error)
 	ReadMeta(string) (*AppFilesMetadata, Error)
+	Delete(string) Error
 }
 
 // App represents the data structure for an App.
@@ -315,6 +316,7 @@ type AppModel interface {
 	GetVersion(AppID, Version) (*AppVersion, Error)
 	GetVersionsForApp(AppID) ([]*AppVersion, Error)
 	CreateVersion(AppID, Version, int, string) (*AppVersion, Error)
+	DeleteVersion(AppID, Version) Error
 }
 
 // Appspace represents the data structure for App spaces.
@@ -336,6 +338,7 @@ type AppspaceModel interface {
 	GetFromID(AppspaceID) (*Appspace, Error)
 	GetFromSubdomain(string) (*Appspace, Error)
 	GetForOwner(UserID) ([]*Appspace, Error)
+	GetForApp(AppID) ([]*Appspace, Error)
 	Create(UserID, AppID, Version, string) (*Appspace, Error)
 }
 

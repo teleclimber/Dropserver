@@ -220,3 +220,54 @@ func TestGetMigrationDirs(t *testing.T) {
 	}
 
 }
+
+// test removal please
+func TestDelete(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// create temp dir and put that in runtime config.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.DataDir = dir
+
+	logger := domain.NewMockLogCLientI(mockCtrl)
+	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
+
+	m := AppFilesModel{
+		Config: cfg,
+		Logger: logger}
+
+	files := map[string][]byte{
+		"file1":             []byte("hello world"),
+		"bar/baz/file2.txt": []byte("oink oink oink"),
+	}
+
+	locKey, dsErr := m.Save(&files)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+
+	appsPath := m.getAppsPath()
+
+	_, err = ioutil.ReadFile(filepath.Join(appsPath, locKey, "file1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dsErr = m.Delete(locKey)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+
+	_, err = os.Stat(filepath.Join(appsPath, locKey))
+	if err == nil || !os.IsNotExist(err){
+		t.Fatal("expected not exist error", err)
+	}
+}
+

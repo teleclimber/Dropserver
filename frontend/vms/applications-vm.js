@@ -114,7 +114,7 @@ function closeManageApplication() {
 function uploadNewVersion( app_id, form_data ) {
 	application_vm.manage_status.state = 'uploading';
 
-	ds_axios.post( '/api/application/'+encodeURIComponent(app_id), form_data, {	
+	ds_axios.post( '/api/application/'+encodeURIComponent(app_id)+'/version/', form_data, {	
 		headers: {
 			'Content-Type': 'multipart/form-data'
 		},
@@ -137,7 +137,7 @@ function uploadNewVersion( app_id, form_data ) {
 
 
 			if( resp.data.confirm ) {
-				application_vm.create_status.state = 'enter-meta';
+				application_vm.create_status.state = 'enter-meta';	// after uploading a version??? wha??
 			
 				application_vm.create_status.app_meta = resp.data.app_meta;
 				application_vm.create_status.temp_key = resp.data.temp_key;
@@ -148,11 +148,19 @@ function uploadNewVersion( app_id, form_data ) {
 				// Though probably need to reload that application's versions first
 				// Not sure how this even works. Have to insert version in application.versions.
 				// -> then sort them.
-				loadApplications().then( () => {	// oh fack it literally reloads everything from the server. ALL APPS. :/
-					application_vm.manage_status.state = null;
-					application_vm.manage_status.error_message = '';
-					application_vm.manage_status.temp_key = null;
-				});
+				// loadApplications().then( () => {	// oh fack it literally reloads everything from the server. ALL APPS. :/
+				// 	application_vm.manage_status.state = null;
+				// 	application_vm.manage_status.error_message = '';
+				// 	application_vm.manage_status.temp_key = null;
+				// });
+
+				const application = application_vm.applications.find( a => a.app_id === application_vm.manage_status.app_id );
+				application.versions.push(resp.data.version_meta);
+				sortVersions(application.versions);
+
+				application_vm.manage_status.state = null;
+				application_vm.manage_status.error_message = '';
+				application_vm.manage_status.temp_key = null;
 			}
 		}
 	})
@@ -161,12 +169,12 @@ function uploadNewVersion( app_id, form_data ) {
 	});
 }
 
-function deleteVersion( app_name, ver_name ) {
+function deleteVersion( app_id, ver_name ) {
 	return new Promise( (resolve, reject) => {
-		ds_axios.delete( '/api/logged-in-user/application/'
-			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
+		ds_axios.delete( '/api/application/'
+			+encodeURIComponent(app_id)+'/version/'+encodeURIComponent(ver_name) )
 		.then( () => {
-			const application = application_vm.applications.find( a => a.name === app_name );
+			const application = application_vm.applications.find( a => a.app_id === app_id );
 			const versions = application.versions;
 			const i = versions.findIndex( v => v.name === ver_name );
 			versions.splice( i, 1 );
@@ -174,32 +182,31 @@ function deleteVersion( app_name, ver_name ) {
 		})
 	});
 }
-function deleteApplication( app_name ) {
+function deleteApplication( app_id ) {
 	return new Promise( (resolve, reject) => {
-		ds_axios.delete( '/api/logged-in-user/application/'
-			+encodeURIComponent(app_name) )
+		ds_axios.delete( '/api/application/'+encodeURIComponent(app_id) )
 		.then( () => {
 			application_vm.manage_status = {};
-			const index = application_vm.applications.findIndex( a => a.name === app_name );
+			const index = application_vm.applications.findIndex( a => a.app_id === app_id );
 			application_vm.applications.splice( index, 1 );
 			resolve();
 		})
 	});
 }
 
-function getVersionMeta( app_id, version ) {
-	const app = application_vm.applications.find( a => a.app_id === app_id );
-	if( !app ) return;
-	const ver_data = app.versions.find( v => v.version === version );
-	if( !ver_data ) return;
-	if( !ver_data.meta ) {
-		ds_axios.get( '/api/logged-in-user/application/'
-			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
-		.then( resp => {
-			Vue.set( ver_data, 'meta', resp.data );	// I think this is stuff like migration level
-		});
-	}
-}
+// function getVersionMeta( app_id, version ) {
+// 	const app = application_vm.applications.find( a => a.app_id === app_id );
+// 	if( !app ) return;
+// 	const ver_data = app.versions.find( v => v.version === version );
+// 	if( !ver_data ) return;
+// 	if( !ver_data.meta ) {
+// 		ds_axios.get( '/api/logged-in-user/application/'
+// 			+encodeURIComponent(app_name)+'/'+encodeURIComponent(ver_name) )
+// 		.then( resp => {
+// 			Vue.set( ver_data, 'meta', resp.data );	// I think this is stuff like migration level
+// 		});
+// 	}
+// }
 
 function sortVersions( versions ) {
 	versions.sort( (a, b) => {
@@ -229,7 +236,7 @@ const application_vm = {
 	deleteVersion,
 	deleteApplication,
 
-	getVersionMeta
+	// getVersionMeta
 };
 
 loadApplications();

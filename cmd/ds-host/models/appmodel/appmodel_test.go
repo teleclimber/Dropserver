@@ -5,6 +5,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -165,6 +166,12 @@ func TestVersion(t *testing.T) {
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
 	}
+
+	// test to make sure we get right error if no rows
+	_, dsErr = appModel.GetVersion(1, "0.0.13")
+	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
+		t.Fatal("should have been no rows error", dsErr)
+	}
 }
 
 func TestGetVersionForApp(t *testing.T) {
@@ -213,6 +220,37 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 	if len(vers) != 0 {
 		t.Error("Got wrong number of results: should be 0")
+	}
+}
+
+func TestDeleteVersion(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	appID := domain.AppID(7)
+	version := domain.Version("0.0.2")
+
+	_, dsErr := appModel.CreateVersion(appID, version, 4, "foobar")
+		if dsErr != nil {
+			t.Fatal(dsErr)
+		}
+
+	dsErr = appModel.DeleteVersion(appID, version)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+
+	_, dsErr = appModel.GetVersion(appID, version)
+	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
+		t.Fatal("should have been no rows error", dsErr)
 	}
 }
 

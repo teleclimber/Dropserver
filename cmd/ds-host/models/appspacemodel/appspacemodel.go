@@ -14,6 +14,7 @@ type AppspaceModel struct {
 	stmt struct {
 		selectID     	*sqlx.Stmt
 		selectOwner 	*sqlx.Stmt
+		selectApp 		*sqlx.Stmt
 		selectSubdomain *sqlx.Stmt
 		insert			*sqlx.Stmt
 	}
@@ -42,11 +43,19 @@ func (m *AppspaceModel) PrepareStatements() {
 	// get all for an owner
 	m.stmt.selectOwner, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE owner_id = ?`)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectOwner"+err.Error())
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectOwner "+err.Error())
 		panic(err)
 	}
 
-	// insert app:
+	// Do we have a db select for app / app_version, or do we just look everything up for owner?
+	// -> advantage of app_id is that we might one day have non-owner apps
+	m.stmt.selectApp, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE app_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectApp "+err.Error())
+		panic(err)
+	}
+
+	// insert appspace:
 	m.stmt.insert, err = m.DB.Handle.Preparex(`INSERT INTO appspaces
 		("owner_id", "app_id", "app_version", subdomain, created) VALUES (?, ?, ?, ?, datetime("now"))`)
 	if err != nil {
@@ -88,6 +97,18 @@ func (m *AppspaceModel) GetForOwner(userID domain.UserID) ([]*domain.Appspace, d
 	ret := []*domain.Appspace{}
 
 	err := m.stmt.selectOwner.Select(&ret, userID)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
+}
+
+// GetForApp gets all appspaces for a given app_id.
+func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domain.Error) {
+	ret := []*domain.Appspace{}
+
+	err := m.stmt.selectApp.Select(&ret, appID)
 	if err != nil {
 		return nil, dserror.FromStandard(err)
 	}

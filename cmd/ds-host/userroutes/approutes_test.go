@@ -5,9 +5,125 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+func TestGetAppFromPath(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	uid := domain.UserID(7)
+	routeData := &domain.AppspaceRouteData{
+		URLTail: "/123",
+		Cookie: &domain.Cookie{
+			UserID: uid}}
+
+	m := domain.NewMockAppModel(mockCtrl)
+	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: uid}, nil)
+
+	a := ApplicationRoutes{
+		AppModel: m,
+	}
+
+	app, dsErr := a.getAppFromPath(routeData)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if app == nil {
+		t.Fatal("app should not be nil")
+	}
+}
+func TestGetAppFromPathNil(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	routeData := &domain.AppspaceRouteData{
+		URLTail: "/"}
+
+	a := ApplicationRoutes{}
+
+	app, dsErr := a.getAppFromPath(routeData)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if app != nil {
+		t.Fatal("app should be nil")
+	}
+}
+func TestGetAppFromPathUnauthorized(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	uid := domain.UserID(7)
+	routeData := &domain.AppspaceRouteData{
+		URLTail: "/123",
+		Cookie: &domain.Cookie{
+			UserID: uid}}
+
+	m := domain.NewMockAppModel(mockCtrl)
+	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: domain.UserID(13)}, nil)
+
+	a := ApplicationRoutes{
+		AppModel: m,
+	}
+
+	app, dsErr := a.getAppFromPath(routeData)
+	if dsErr == nil {
+		t.Fatal("should have gotten error")
+	}
+	if app != nil {
+		t.Fatal("app should be nil")
+	}
+}
+
+func TestGetVersionFromPath(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	routeData := &domain.AppspaceRouteData{
+		URLTail: "/0.1.2"}
+
+	appID := domain.AppID(7)
+
+	m := domain.NewMockAppModel(mockCtrl)
+	m.EXPECT().GetVersion(appID, domain.Version("0.1.2")).Return(&domain.AppVersion{}, nil)
+
+	a := ApplicationRoutes{
+		AppModel: m,
+	}
+
+	version, dsErr := a.getVersionFromPath(routeData, appID)
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if version == nil {
+		t.Fatal("version should not be nil")
+	}
+}
+
+func TestGetVersionFromPathNil(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	routeData := &domain.AppspaceRouteData{
+		URLTail: "/"}
+
+	a := ApplicationRoutes{}
+
+	version, dsErr := a.getVersionFromPath(routeData, domain.AppID(7))
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if version != nil {
+		t.Fatal("version should be nil")
+	}
+}
+
+/////////////
 func TestExtractFiles(t *testing.T) {
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -162,4 +278,67 @@ func (f *fakeFile) matches(b []byte) bool {
 		}
 	}
 	return true
+}
+
+////////
+func TestDeleteVersion(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appID := domain.AppID(7)
+	v := domain.Version("0.1.2")
+
+	appspace := domain.Appspace{
+		AppID:      appID,
+		AppVersion: domain.Version("0.0.1")}
+
+	asModel := domain.NewMockAppspaceModel(mockCtrl)
+	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
+
+	appModel := domain.NewMockAppModel(mockCtrl)
+	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
+
+	afModel := domain.NewMockAppFilesModel(mockCtrl)
+	afModel.EXPECT().Delete("foobar").Return(nil)
+
+	a := ApplicationRoutes{
+		AppModel:      appModel,
+		AppFilesModel: afModel,
+		AppspaceModel: asModel,
+	}
+
+	rr := httptest.NewRecorder()
+
+	a.deleteVersion(rr, &domain.AppVersion{AppID: appID, Version: v, LocationKey: "foobar"})
+
+	if rr.Code != http.StatusOK {
+		t.Error("http not OK")
+	}
+}
+
+func TestDeleteVersionInUse(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appID := domain.AppID(7)
+	v := domain.Version("0.1.2")
+
+	appspace := domain.Appspace{
+		AppID:      appID,
+		AppVersion: v}
+
+	asModel := domain.NewMockAppspaceModel(mockCtrl)
+	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
+
+	a := ApplicationRoutes{
+		AppspaceModel: asModel,
+	}
+
+	rr := httptest.NewRecorder()
+
+	a.deleteVersion(rr, &domain.AppVersion{AppID: appID, Version: v, LocationKey: "foobar"})
+
+	if rr.Code != http.StatusConflict {
+		t.Error("http should be Conflict")
+	}
 }
