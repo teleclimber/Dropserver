@@ -23,6 +23,7 @@ func TestUserData(t *testing.T) {
 	um.EXPECT().GetFromID(uid).Return(&domain.User{
 		UserID: uid,
 		Email:  "abc@def"}, nil)
+	um.EXPECT().IsAdmin(uid).Return(false)
 
 	u := UserRoutes{
 		UserModel: um}

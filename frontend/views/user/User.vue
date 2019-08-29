@@ -19,6 +19,7 @@
 		<div class="top-bar">
 			<h1>Hello.</h1>
 			<div class="user-actions">
+				<a v-if="user.is_admin" :href="admin_url">[admin]</a>
 				<a href="#" @click.prevent="showChangePassword" class="user-email">{{user.email}}</a>
 				<a :href="logout_url">logout</a>
 			</div>
@@ -77,7 +78,8 @@ export default {
 		user: function() { return this.$root.user; },
 		app_spaces: function() { return this.$root.app_spaces_vm.app_spaces; },
 		applications_vm: function() { return this.$root.applications_vm; },
-		logout_url: function() { return window.ds_user_routes_base_url + "/logout" }
+		logout_url: function() { return window.ds_user_routes_base_url + "/logout" },
+		admin_url: function() { return window.ds_user_routes_base_url + "/admin" }
 	},
 	components: {
 		'app-space': AppSpace,

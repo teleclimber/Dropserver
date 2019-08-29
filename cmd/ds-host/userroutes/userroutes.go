@@ -15,6 +15,7 @@ type UserRoutes struct {
 	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
 	AppspaceRoutes    domain.RouteHandler
+	AdminRoutes       domain.RouteHandler
 	UserModel         domain.UserModel
 	Views             domain.Views
 	Validator         domain.Validator
@@ -34,11 +35,12 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	} else {
 		// Must be logged in to go past this point.
 		dsErr := u.Authenticator.AccountAuthorized(res, req, routeData)
-		if dsErr == nil {
-			u.serveLoggedInRoutes(res, req, routeData)
-		} else {
+		if dsErr != nil {
 			http.Redirect(res, req, "/login", http.StatusFound)
+			return
 		}
+
+		u.serveLoggedInRoutes(res, req, routeData)
 	}
 }
 
@@ -59,6 +61,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		head, tail = shiftpath.ShiftPath(tail)
 		routeData.URLTail = tail
 		switch head {
+		case "admin":
+			u.AdminRoutes.ServeHTTP(res, req, routeData)
 		case "user":
 			switch req.Method {
 			case http.MethodGet:
@@ -75,10 +79,12 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
 		}
-		//case "....":
-		// There will be other pages.
-		// I suspect "manage applications" will be its own page
-		// It's possible "/" page is more summary, and /appspaces will be its own page.
+	//case "....":
+	// There will be other pages.
+	// I suspect "manage applications" will be its own page
+	// It's possible "/" page is more summary, and /appspaces will be its own page.
+	default:
+		res.WriteHeader(http.StatusNotFound)
 	}
 }
 
@@ -91,8 +97,12 @@ func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, rou
 		return
 	}
 
+	isAdmin := u.UserModel.IsAdmin(user.UserID)
+
 	userData := userResp{
-		Email: user.Email}
+		UserID:  int(user.UserID),
+		Email:   user.Email,
+		IsAdmin: isAdmin}
 
 	userJSON, err := json.Marshal(userData)
 	if err != nil {

@@ -279,7 +279,9 @@ type UserModel interface {
 	GetFromID(UserID) (*User, Error)
 	GetFromEmail(string) (*User, Error)
 	GetFromEmailPassword(string, string) (*User, Error)
+	GetAll() ([]*User, Error)
 	IsAdmin(UserID) bool
+	GetAllAdmins() ([]UserID, Error)
 	MakeAdmin(UserID) Error
 	DeleteAdmin(UserID) Error
 }

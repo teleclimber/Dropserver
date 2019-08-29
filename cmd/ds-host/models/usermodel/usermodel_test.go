@@ -40,6 +40,69 @@ func TestGetFromIDError(t *testing.T) {
 	}
 }
 
+// test get all.
+func TestGetAll(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	userModel := &UserModel{
+		DB: db}
+
+	userModel.PrepareStatements()
+
+	users := []struct{
+		email string
+		pw string
+		admin bool
+	} {
+		{"abc@def", "gobblegobble", false},
+		{"admin@bar", "bibblebibble", true},
+		{"baz@bar", "fifflefiffle", false},
+	}
+
+	for _, u := range users {
+		dbu, dsErr := userModel.Create(u.email, u.pw)
+		if dsErr != nil {
+			t.Fatal(dsErr)
+		}
+
+		if u.admin {
+			dsErr = userModel.MakeAdmin(dbu.UserID)
+			if dsErr != nil {
+				t.Fatal(dsErr)
+			}
+		}
+	}
+
+	all, dsErr := userModel.GetAll()
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if len(all) != 3 {
+		t.Error("should have 3 users")
+	}
+
+	admins, dsErr := userModel.GetAllAdmins()
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if len(admins) != 1 {
+		t.Error("should only be one admin")
+	}
+
+	adminID := admins[0]
+
+	for _, a := range all {
+		if a.Email == "admin@bar" && a.UserID != adminID {
+			t.Error("expected adminID to conincide with admin@bar")
+		}
+	}
+}
+
 func TestCreate(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()

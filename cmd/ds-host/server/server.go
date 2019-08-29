@@ -102,9 +102,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			Subdomains: &subdomains}
 
 		s.UserRoutes.ServeHTTP(res, req, routeData)
-
-	case "admin":
-		http.Error(res, "admin not implemented", http.StatusNotImplemented)
 	default:
 		// first filter through blacklist of subdomains
 		// ..though probably do that in appspace routes handler, not here.

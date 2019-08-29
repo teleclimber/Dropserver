@@ -575,6 +575,36 @@ func (mr *MockUserModelMockRecorder) DeleteAdmin(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAdmin", reflect.TypeOf((*MockUserModel)(nil).DeleteAdmin), arg0)
 }
 
+// GetAll mocks base method
+func (m *MockUserModel) GetAll() ([]*User, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAll")
+	ret0, _ := ret[0].([]*User)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetAll indicates an expected call of GetAll
+func (mr *MockUserModelMockRecorder) GetAll() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockUserModel)(nil).GetAll))
+}
+
+// GetAllAdmins mocks base method
+func (m *MockUserModel) GetAllAdmins() ([]UserID, Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllAdmins")
+	ret0, _ := ret[0].([]UserID)
+	ret1, _ := ret[1].(Error)
+	return ret0, ret1
+}
+
+// GetAllAdmins indicates an expected call of GetAllAdmins
+func (mr *MockUserModelMockRecorder) GetAllAdmins() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllAdmins", reflect.TypeOf((*MockUserModel)(nil).GetAllAdmins))
+}
+
 // GetFromEmail mocks base method
 func (m *MockUserModel) GetFromEmail(arg0 string) (*User, Error) {
 	m.ctrl.T.Helper()

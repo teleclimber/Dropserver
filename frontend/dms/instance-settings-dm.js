@@ -8,8 +8,11 @@ class InstanceSettingsDM {
 	}
 
 	async fetchData() {
-		const resp = await ds_axios.get( '/api/admin/settings' );
-		runInAction( () => { this.data = resp.data;	} );
+		ds_axios.get( '/api/admin/settings' ).then( resp => {
+			runInAction( () => { this.data = resp.data;	} );
+		}).catch( e => {
+			console.error(e);
+		});
 	}
 
 	async commitData( data ) {

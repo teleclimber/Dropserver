@@ -20,10 +20,12 @@ type UserModel struct {
 	stmt struct {
 		selectID	*sqlx.Stmt
 		selectEmail *sqlx.Stmt
+		selectAll	*sqlx.Stmt
 		insertUser	*sqlx.Stmt
 		updatePassword *sqlx.Stmt
 		getPassword *sqlx.Stmt
 		selectAdmin	*sqlx.Stmt
+		selectAllAdmins *sqlx.Stmt
 		insertAdmin	*sqlx.Stmt
 		deleteAdmin	*sqlx.Stmt
 	}
@@ -56,6 +58,8 @@ func (m *UserModel) PrepareStatements() {
 
 	m.stmt.selectEmail = p.exec(`SELECT user_id, email FROM users WHERE email = ?`)
 
+	m.stmt.selectAll = p.exec(`SELECT user_id, email FROM users`)
+
 	m.stmt.insertUser = p.exec(`INSERT INTO users 
 		("email", "password") VALUES (?, ?)`)
 
@@ -64,6 +68,7 @@ func (m *UserModel) PrepareStatements() {
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
 
 	m.stmt.selectAdmin = p.exec(`SELECT EXISTS(SELECT 1 FROM admin_users WHERE user_id = ?)`)
+	m.stmt.selectAllAdmins = p.exec(`SELECT * FROM admin_users`)
 	m.stmt.insertAdmin = p.exec(`INSERT INTO admin_users (user_id) VALUES (?)`)
 	m.stmt.deleteAdmin = p.exec(`DELETE FROM admin_users WHERE user_id = ?`)
 
@@ -215,6 +220,19 @@ func (m *UserModel) GetFromEmailPassword(email, password string) (*domain.User, 
 	return user, nil
 }
 
+// GetAll returns all users.
+func (m *UserModel) GetAll() ([]*domain.User, domain.Error) {
+	ret := []*domain.User{}
+
+	err := m.stmt.selectAll.Select(&ret)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetAll: "+err.Error())
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
+}
+
 // IsAdmin tells you if the user is an admin on DropServer
 func (m *UserModel) IsAdmin(userID domain.UserID) bool {
 	var exists int
@@ -228,6 +246,19 @@ func (m *UserModel) IsAdmin(userID domain.UserID) bool {
 		return true
 	}
 	return false
+}
+
+// GetAllAdmins returns the list of user ids that are admins
+func (m *UserModel) GetAllAdmins() ([]domain.UserID, domain.Error) {
+	ret := []domain.UserID{}
+
+	err := m.stmt.selectAllAdmins.Select(&ret)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetAllAdmins: "+err.Error())
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil
 }
 
 // MakeAdmin adds the user_id to the table of DropServer admin users

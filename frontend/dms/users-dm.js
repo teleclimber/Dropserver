@@ -5,8 +5,6 @@ import { action, computed, observable, decorate, configure, runInAction, flow } 
 class UsersDM {
 	constructor() {
 		this.users = [];
-
-		this.fetchUsers();
 	}
 
 	addUser() {
@@ -23,20 +21,15 @@ class UsersDM {
 		this.users[index].email = this.users[index].email+' DING';
 	}
     
-    async fetchUsers() {
-		const resp = await ds_axios.get( '/api/admin/user' );
-		runInAction( () => {	// required because using mobx in strict mode
-			this.users = resp.data;		//resp.data.map( u => new User( this, u ) );
+    fetchUsers() {
+		ds_axios.get( '/api/admin/user' ).then(resp => {
+			runInAction( () => {	// required because using mobx in strict mode
+				this.users = resp.data.users;		//resp.data.map( u => new User( this, u ) );
+			});
+		}).catch( e => {
+			console.error(e);
 		});
-	}
-	// fetchUsers() {
-	// 	const self = this;
-	// 	(flow( function * () {
-	// 		const resp = yield ds_axios.get( '/api/admin/user' );
-	// 		self.users = resp.data.map( u => new User( self, u ) );
-	// 	}))();
-	// }
-	
+	}	
 }
 decorate( UsersDM, {
 	users: observable,

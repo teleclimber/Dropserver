@@ -11,8 +11,15 @@ import (
 
 // user
 
+// single user
 type userResp struct {
-	Email string `json:"email"`
+	Email   string `json:"email"`
+	UserID  int    `json:"user_id"`
+	IsAdmin bool   `json:"is_admin"`
+}
+
+type adminGetUsersResp struct {
+	Users []userResp `json:"users"`
 }
 
 type changePwData struct {

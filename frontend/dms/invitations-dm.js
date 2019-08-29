@@ -5,8 +5,6 @@ import { action, computed, observable, decorate, configure, runInAction, flow } 
 class InvitationsDM {
 	constructor() {
 		this.invitations = [];
-
-		this.fetchAll();
 	}
 
 	async add( data ) {
@@ -26,10 +24,14 @@ class InvitationsDM {
 	}
 
     async fetchAll() {
-		const resp = await ds_axios.get( '/api/admin/invitation' );
-		runInAction( () => {
-			this.invitations = resp.data;
+		ds_axios.get( '/api/admin/invitation' ).then(resp => {
+			runInAction( () => {
+				this.invitations = resp.data;
+			});
+		}).catch( e => {
+			console.error(e);
 		});
+		
 	}
 
 	exists( email ) {

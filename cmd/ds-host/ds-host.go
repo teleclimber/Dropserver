@@ -179,6 +179,10 @@ func main() {
 		Authenticator: authenticator,
 		Validator: validator}
 
+	adminRoutes := &userroutes.AdminRoutes{
+		UserModel: userModel,
+		Logger: logger}
+
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppFilesModel: appFilesModel,
 		AppModel: appModel,
@@ -193,6 +197,7 @@ func main() {
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator: authenticator,
 		AuthRoutes: authRoutes,
+		AdminRoutes: adminRoutes,
 		ApplicationRoutes: applicationRoutes,
 		AppspaceRoutes: appspaceUserRoutes,
 		UserModel: userModel,
