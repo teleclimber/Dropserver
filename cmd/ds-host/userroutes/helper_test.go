@@ -50,3 +50,26 @@ func TestWriteJSON(t *testing.T) {
 		t.Fatal("body not as expected" + bodyStr)
 	}
 }
+
+func TestWriteEmptyArray(t *testing.T) {
+	rr := httptest.NewRecorder()
+
+	d := struct {
+		Arr []testData `json:"arr"`
+	}{}
+
+	writeJSON(rr, d)
+
+	if rr.Code != http.StatusOK {
+		t.Fatal("got bad status code")
+	}
+
+	bodyStr := rr.Body.String()
+
+	if !strings.Contains(bodyStr, `"arr":null`) {
+		t.Fatal("body not as expected" + bodyStr)
+	}
+
+	// empty arrays end up being null in Golang's Marshal, sorry.
+	// https://github.com/golang/go/issues/27589
+}

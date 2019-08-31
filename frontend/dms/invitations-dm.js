@@ -8,25 +8,31 @@ class InvitationsDM {
 	}
 
 	async add( data ) {
-		//this.users.push( new User( this, { email: Math.random()+'' } ) );
-		const resp = await ds_axios.post( '/api/admin/invitation', data );
-		runInAction( () => {
-			if( resp.data ) this.invitations.push( resp.data );
+		let req = {
+			user_invitation: {
+				email: data.email
+			}
+		};
+		ds_axios.post( '/api/admin/invitation', req ).then( resp => {
+			this.fetchAll();
+		}).catch( e => {
+			console.error(e);
 		});
+		
 	}
 	async del( invitation ) {
-		const resp = await ds_axios.delete( '/api/admin/invitation/'
-			+encodeURIComponent(invitation.email) );
-		runInAction( () => {
-			const index = this.invitations.findIndex( i => i.email === invitation.email );
-			this.invitations.splice( index, 1 );
+		ds_axios.delete( '/api/admin/invitation/'+encodeURIComponent(invitation.email) ).then( () => {
+			runInAction( () => {
+				const index = this.invitations.findIndex( i => i.email === invitation.email );
+				this.invitations.splice( index, 1 );	// can we splice in mobx? yes, apparently we can.
+			});
 		});
 	}
 
     async fetchAll() {
 		ds_axios.get( '/api/admin/invitation' ).then(resp => {
 			runInAction( () => {
-				this.invitations = resp.data;
+				this.invitations = resp.data.user_invitations || [];
 			});
 		}).catch( e => {
 			console.error(e);
@@ -39,9 +45,7 @@ class InvitationsDM {
 	}
 }
 decorate( InvitationsDM, {
-	invitations: observable,
-	add: action.bound,
-	//del: action.bound,
+	invitations: observable
 });
 
 export default InvitationsDM;

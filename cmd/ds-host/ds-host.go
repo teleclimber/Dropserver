@@ -26,6 +26,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -91,6 +92,11 @@ func main() {
 		DB: db,
 		Logger: logger }
 	settingsModel.PrepareStatements()
+
+	userInvitationModel := &userinvitationmodel.UserInvitationModel{
+		DB: db,
+		Logger: logger }
+	userInvitationModel.PrepareStatements()
 
 	userModel := &usermodel.UserModel{
 		DB: db,
@@ -189,6 +195,8 @@ func main() {
 	adminRoutes := &userroutes.AdminRoutes{
 		UserModel: userModel,
 		SettingsModel: settingsModel,
+		UserInvitationModel: userInvitationModel,
+		Validator: validator,
 		Logger: logger}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{

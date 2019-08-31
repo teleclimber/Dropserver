@@ -4,14 +4,17 @@ import (
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // AdminRoutes handles routes for applications uploading, creating, deleting.
 type AdminRoutes struct {
-	UserModel     domain.UserModel
-	SettingsModel domain.SettingsModel
-	Logger        domain.LogCLientI
+	UserModel           domain.UserModel
+	SettingsModel       domain.SettingsModel
+	UserInvitationModel domain.UserInvitationModel
+	Validator           domain.Validator
+	Logger              domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the admin routes
@@ -21,14 +24,15 @@ func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, rout
 		return
 	}
 
-	head, _ := shiftpath.ShiftPath(routeData.URLTail)
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
 	switch head {
 	case "user":
 		switch req.Method {
 		case http.MethodGet:
 			a.getUsers(res, req, routeData)
 		default:
-			http.Error(res, "method not implemented for user", http.StatusBadRequest)
+			http.Error(res, "method not implemented", http.StatusBadRequest)
 		}
 	case "settings":
 		switch req.Method {
@@ -37,7 +41,37 @@ func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, rout
 		case http.MethodPatch:
 			a.patchSettings(res, req, routeData)
 		default:
-			http.Error(res, "method not implemented for user", http.StatusBadRequest)
+			http.Error(res, "method not implemented", http.StatusBadRequest)
+		}
+	case "invitation":
+		// here gotta read email from path, as that is how delete works
+		// ..and any other methods we attach to that invitation (like re-send email, ...)
+		invite, dsErr := a.getInvitationFromPath(routeData)
+		if dsErr != nil {
+			if dsErr.Code() == dserror.NoRowsInResultSet {
+				res.WriteHeader(http.StatusNotFound)
+				return
+			}
+			dsErr.HTTPError(res)
+			return
+		}
+
+		if invite != nil {
+			switch req.Method {
+			case http.MethodDelete:
+				a.deleteInvitation(res, invite)
+			default:
+				http.Error(res, "method not implemented", http.StatusBadRequest)
+			}
+		} else {
+			switch req.Method {
+			case http.MethodGet:
+				a.getInvitations(res, req, routeData)
+			case http.MethodPost:
+				a.postInvitation(res, req, routeData)
+			default:
+				http.Error(res, "method not implemented", http.StatusBadRequest)
+			}
 		}
 	default:
 		res.WriteHeader(http.StatusNotFound)
@@ -109,3 +143,62 @@ func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, 
 	res.WriteHeader(http.StatusOK)
 }
 
+// invitations
+func (a *AdminRoutes) getInvitationFromPath(routeData *domain.AppspaceRouteData) (*domain.UserInvitation, domain.Error) {
+	email, tail := shiftpath.ShiftPath(routeData.URLTail)
+	routeData.URLTail = tail
+
+	if email == "" {
+		return nil, nil
+	}
+
+	invite, dsErr := a.UserInvitationModel.Get(email)
+	if dsErr != nil {
+		return nil, dsErr
+	}
+
+	return invite, nil
+}
+func (a *AdminRoutes) getInvitations(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	invites, dsErr := a.UserInvitationModel.GetAll()
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	writeJSON(res, getUserInvitationsResp{
+		UserInvitations: invites})
+}
+
+func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	reqData := &postUserInvitationReq{}
+	dsErr := readJSON(req, reqData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	dsErr = a.Validator.Email(reqData.UserInvitation.Email)
+	if dsErr != nil {
+		http.Error(res, "email validation error: "+dsErr.PublicString(), http.StatusBadRequest)
+		return
+	}
+
+	dsErr = a.UserInvitationModel.Create(reqData.UserInvitation.Email)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+}
+
+func (a *AdminRoutes) deleteInvitation(res http.ResponseWriter, invite *domain.UserInvitation) {
+	dsErr := a.UserInvitationModel.Delete(invite.Email)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+}

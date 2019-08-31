@@ -22,6 +22,13 @@ type adminGetUsersResp struct {
 	Users []userResp `json:"users"`
 }
 
+type getUserInvitationsResp struct {
+	UserInvitations []*domain.UserInvitation `json:"user_invitations"`
+}
+type postUserInvitationReq struct {
+	UserInvitation domain.UserInvitation `json:"user_invitation"`
+}
+
 type changePwData struct {
 	Old string
 	New string

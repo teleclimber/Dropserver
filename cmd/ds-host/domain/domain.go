@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -297,6 +297,20 @@ type UserModel interface {
 	GetAllAdmins() ([]UserID, Error)
 	MakeAdmin(UserID) Error
 	DeleteAdmin(UserID) Error
+}
+
+// UserInvitation represents an invitation for a user to join the DropServer instance
+type UserInvitation struct {
+	Email string `db:"email" json:"email"`
+}
+
+// UserInvitationModel is the interface to the UserInvitation model
+type UserInvitationModel interface {
+	PrepareStatements()
+	GetAll() ([]*UserInvitation, Error)
+	Get(email string) (*UserInvitation, Error)
+	Create(email string) Error
+	Delete(email string) Error
 }
 
 // AppFilesModel represents the application's files saved to disk

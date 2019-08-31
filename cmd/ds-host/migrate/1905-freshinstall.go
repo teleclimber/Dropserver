@@ -37,6 +37,11 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX admin_user_ids ON admin_users (user_id)`)
 
+	args.dbExec(`CREATE TABLE "user_invitations" (
+		"email"	TEXT UNIQUE ON CONFLICT IGNORE
+	)`)
+	args.dbExec(`CREATE INDEX emails ON user_invitations ( email )`)
+
 	args.dbExec(`CREATE TABLE cookies (
 		"cookie_id" TEXT,
 		"user_id" INTEGER,
