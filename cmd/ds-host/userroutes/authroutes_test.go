@@ -161,9 +161,13 @@ func TestSignupPostBadEmail(t *testing.T) {
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views,
+		Validator:     validator}
 
 	rr := httptest.NewRecorder()
 
@@ -172,7 +176,7 @@ func TestSignupPostBadEmail(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 
 }
 
@@ -190,9 +194,13 @@ func TestSignupPostBadPassword(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views,
+		Validator:     validator}
 
 	rr := httptest.NewRecorder()
 
@@ -202,7 +210,7 @@ func TestSignupPostBadPassword(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostPasswordMismatch(t *testing.T) {
@@ -219,9 +227,13 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views,
+		Validator:     validator}
 
 	rr := httptest.NewRecorder()
 
@@ -232,7 +244,7 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostEmailExists(t *testing.T) {
@@ -249,13 +261,17 @@ func TestSignupPostEmailExists(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	userModel := domain.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().Create(email, password).Return(nil, dserror.New(dserror.EmailExists))
 
 	a := &AuthRoutes{
-		Views:     views,
-		UserModel: userModel,
-		Validator: validator}
+		Views:         views,
+		SettingsModel: sm,
+		UserModel:     userModel,
+		Validator:     validator}
 
 	rr := httptest.NewRecorder()
 
@@ -266,7 +282,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPost(t *testing.T) {
@@ -281,6 +297,9 @@ func TestSignupPost(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	userModel := domain.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().Create(email, password).Return(&domain.User{
 		UserID: userID,
@@ -290,6 +309,7 @@ func TestSignupPost(t *testing.T) {
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{
+		SettingsModel: sm,
 		UserModel:     userModel,
 		Authenticator: authenticator,
 		Validator:     validator}
@@ -303,7 +323,7 @@ func TestSignupPost(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 // reg closed email in
@@ -334,8 +354,12 @@ func TestGetSignupRoute(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+
 	a := &AuthRoutes{
-		Views: views}
+		SettingsModel: sm,
+		Views:         views}
 
 	req := httptest.NewRequest("GET", "/signup", nil)
 

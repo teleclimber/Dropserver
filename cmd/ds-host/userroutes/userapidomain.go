@@ -27,6 +27,15 @@ type changePwData struct {
 	New string
 }
 
+// settings:
+type getSettingsResp struct {
+	Settings domain.Settings `json:"settings"`
+}
+
+type postSettingsReq struct {
+	Settings domain.Settings `json:"settings"`
+}
+
 // application routes:
 
 type appMeta struct {

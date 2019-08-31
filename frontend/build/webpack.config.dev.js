@@ -62,6 +62,11 @@ module.exports = {
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
+			"/signup": {
+				target: "http://user.dropserver.develop:3000",
+				changeOrigin: true,
+				cookieDomainRewrite: ".localhost"
+			},
 			"/api": {
 				target: "http://user.dropserver.develop:3000",
 				changeOrigin: true,

@@ -50,9 +50,8 @@ class AdminVM {
 	// instance settings: 
 	get registration() {
 		if( !this.instance_settings_dm.data ) return '...';
-		const reg = this.instance_settings_dm.data.registration;
-		if( reg === 'closed' ) return 'User registration is invitation only';
-		else return 'Registration is open to the public';
+		if( this.instance_settings_dm.data.registration_open === 'open' ) return 'Registration is open to the public';
+		else return 'User registration is invitation only';
 	}
 
 	get num_invitations() {

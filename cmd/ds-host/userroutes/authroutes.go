@@ -14,6 +14,7 @@ import (
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
 	Views         domain.Views
+	SettingsModel domain.SettingsModel
 	UserModel     domain.UserModel
 	Authenticator domain.Authenticator
 	Validator     domain.Validator
@@ -37,9 +38,9 @@ func (a *AuthRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 func (a *AuthRoutes) handleSignup(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	switch req.Method {
 	case http.MethodGet:
-		a.Views.Signup(res, domain.SignupViewData{})
+		a.getSignup(res, req, routeData)
 	case http.MethodPost:
-		a.signupPost(res, req, routeData)
+		a.postSignup(res, req, routeData)
 	default:
 		http.Error(res, "Bad method", http.StatusBadRequest)
 	}
@@ -106,20 +107,35 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 	}
 }
 
-func (a *AuthRoutes) signupPost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (a *AuthRoutes) getSignup(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	settings, dsErr := a.SettingsModel.Get()
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	viewData := domain.SignupViewData{
+		RegistrationOpen: settings.RegistrationOpen}
+
+	a.Views.Signup(res, viewData)
+}
+
+func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	// TODO: CSRF!!
 
 	req.ParseForm()
 
-	// Have to get from DB whether registration is open or not.
-	// So you can check email, and so you can put that in the invalid signup data.
+	settings, dsErr := a.SettingsModel.Get()
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
 
 	invalidData := domain.SignupViewData{
-		RegistrationClosed: false, // TODO: get this info as needed
-		Message:            "Login incorrect"}
+		RegistrationOpen: settings.RegistrationOpen}
 
 	email := strings.ToLower(req.Form.Get("email"))
-	dsErr := a.Validator.Email(email)
+	dsErr = a.Validator.Email(email)
 	if dsErr != nil {
 		invalidData.Message = "Please use a valid email"
 		a.Views.Signup(res, invalidData)
@@ -141,6 +157,8 @@ func (a *AuthRoutes) signupPost(res http.ResponseWriter, req *http.Request, rout
 		a.Views.Signup(res, invalidData)
 		return
 	}
+
+	// TODO: if Rgistration is not open, check email against invitations
 
 	user, dsErr := a.UserModel.Create(email, password)
 	if dsErr != nil {

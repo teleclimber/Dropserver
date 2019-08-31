@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -23,6 +23,7 @@ import (
 // RuntimeConfig represents the variables that can be set at runtime
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
+// This is for server-side use only.
 type RuntimeConfig struct {
 	DataDir string `json:"data-dir"`
 	Server  struct {
@@ -183,7 +184,7 @@ type LoginViewData struct {
 
 // SignupViewData is used to pass messages and parameters to the login page
 type SignupViewData struct {
-	RegistrationClosed bool
+	RegistrationOpen bool
 	// username?
 	Message string
 	Email   string
@@ -229,6 +230,11 @@ type Validator interface {
 ///////////////////////////////////
 // Data Models:
 
+// Settings represents admin-settable parameters
+type Settings struct {
+	RegistrationOpen bool `json:"registration_open" db:"registration_open"` //may not need json here?
+}
+
 // UserID represents the user ID
 type UserID uint32
 
@@ -269,6 +275,13 @@ type Cookie struct {
 	// Appspace is the identifier of the appspace that this cookie gives acess to
 	// It's mutually exclusive with UserHome.
 	AppspaceID AppspaceID `db:"appspace_id"`
+}
+
+// SettingsModel is used to get and set settings
+type SettingsModel interface {
+	Get() (*Settings, Error)
+	Set(*Settings) Error
+	SetRegistrationOpen(bool) Error
 }
 
 // UserModel is the interface for user model

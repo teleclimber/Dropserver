@@ -11,7 +11,7 @@ class AdminSettingsVM {	// UI / VM !!
 		return 'AdminSettings';
 	}
 	get orig_data() {
-		return this.dm.data;
+		return this.dm.data;	// should we not deep-copy??
 	}
 
 	inputChanged( input_data ) {

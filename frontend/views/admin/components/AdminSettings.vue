@@ -17,7 +17,7 @@
 			<p>
 				Registration: 
 				<select ref="registration_input" 
-						:value="vm.orig_data.registration"
+						:value="vm.orig_data.registration_open"
 						@input="changed"
 				>
 					<option value="open">open to the public</option>
@@ -47,7 +47,7 @@ export default observer({
 	methods: {
 		collectData: function() {
 			return {
-				registration: this.$refs.registration_input.value
+				registration_open: this.$refs.registration_input.value
 			}
 		},
 		changed: function() {

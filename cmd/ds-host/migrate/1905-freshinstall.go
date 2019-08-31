@@ -17,7 +17,13 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	args.dbExec(`CREATE TABLE "params" ( "name" TEXT, "value" TEXT )`)
 	args.dbExec(`INSERT INTO "params" (name, value) VALUES("db_schema", "")`)
 
-	//... skipping a bunch of tables for the moment
+	args.dbExec(`CREATE TABLE "settings" (
+		"id" INTEGER PRIMARY KEY CHECK (id = 1),
+		"registration_open" INTEGER
+	)`)
+
+	// here we're forced to create a row with some values. This is some sort of ad-hoc defaults. But OK.
+	args.dbExec(`INSERT INTO "settings" (id, registration_open) VALUES (1, 0)`)
 
 	args.dbExec(`CREATE TABLE "users" (
 		"user_id" INTEGER PRIMARY KEY AUTOINCREMENT,

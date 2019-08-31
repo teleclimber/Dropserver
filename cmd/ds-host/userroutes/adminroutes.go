@@ -9,8 +9,9 @@ import (
 
 // AdminRoutes handles routes for applications uploading, creating, deleting.
 type AdminRoutes struct {
-	UserModel domain.UserModel
-	Logger    domain.LogCLientI
+	UserModel     domain.UserModel
+	SettingsModel domain.SettingsModel
+	Logger        domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the admin routes
@@ -26,6 +27,15 @@ func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, rout
 		switch req.Method {
 		case http.MethodGet:
 			a.getUsers(res, req, routeData)
+		default:
+			http.Error(res, "method not implemented for user", http.StatusBadRequest)
+		}
+	case "settings":
+		switch req.Method {
+		case http.MethodGet:
+			a.getSettings(res, req, routeData)
+		case http.MethodPatch:
+			a.patchSettings(res, req, routeData)
 		default:
 			http.Error(res, "method not implemented for user", http.StatusBadRequest)
 		}
@@ -67,3 +77,35 @@ func (a *AdminRoutes) getUsers(res http.ResponseWriter, req *http.Request, route
 
 	writeJSON(res, adminGetUsersResp{Users: usersResp})
 }
+
+func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	settings, dsErr := a.SettingsModel.Get()
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	respData := getSettingsResp{
+		Settings: *settings}
+
+	writeJSON(res, respData)
+}
+
+func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	reqData := &postSettingsReq{}
+	dsErr := readJSON(req, reqData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	// gotta validate the fields that aren't bool.
+
+	dsErr = a.SettingsModel.Set(&reqData.Settings)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+	}
+
+	res.WriteHeader(http.StatusOK)
+}
+
