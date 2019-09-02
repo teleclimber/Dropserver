@@ -13,6 +13,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
@@ -28,6 +29,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
+	"github.com/teleclimber/DropServer/internal/stdinput"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -37,7 +39,11 @@ var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
 var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
 
+var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
+
 func main() {
+	startServer := true
+
 	flag.Parse()
 
 	runtimeConfig := runtimeconfig.Load(*configFlag)
@@ -58,6 +64,7 @@ func main() {
 		DBManager: dbManager }
 
 	if *migrateFlag {
+		startServer = false
 		
 		dsErr := migrator.Migrate("")
 		if dsErr != nil {
@@ -67,8 +74,6 @@ func main() {
 
 		sc := dbManager.GetSchema()
 		fmt.Println("schema after migration:", sc)
-
-		os.Exit(0)
 	}
 
 	// now check schema?
@@ -80,12 +85,12 @@ func main() {
 	record.Init(runtimeConfig)	// ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	logger := record.NewLogClient(runtimeConfig)
-
-	logger.Log(domain.INFO, nil, "ds-host is starting")
+	logger := record.NewLogClient(runtimeConfig)	// we should start logger before migration step, and log migrations
 
 	validator := &validator.Validator{}
 	validator.Init()
+
+	stdInput := &stdinput.StdInput{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -102,6 +107,37 @@ func main() {
 		DB: db,
 		Logger: logger }
 	userModel.PrepareStatements()
+
+	cliHandlers := clihandlers.CliHandlers{
+		UserModel: userModel,
+		Validator: validator,
+		StdInput: stdInput }
+
+	// Check we have admins before going further.
+	admins, dsErr := userModel.GetAllAdmins()
+	if dsErr != nil {
+		fmt.Println(dsErr)
+		os.Exit(1)
+	}
+	if len(admins) == 0 {
+		fmt.Println("There are currently no admin users, please create one.")
+	}
+
+	if *addAdminFlag || len(admins) == 0 {
+		startServer = false
+		_, dsErr := cliHandlers.AddAdmin()
+		if dsErr != nil {
+			fmt.Println(dsErr)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	if *addAdminFlag {
+		os.Exit(0)
+	}
+
+	logger.Log(domain.INFO, nil, "ds-host is starting")
 
 	cookieModel := &cookiemodel.CookieModel{
 		DB: db,

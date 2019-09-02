@@ -130,6 +130,7 @@ const (
 	BadRequest domain.ErrorCode = 1001
 
 	InputValidationError domain.ErrorCode = 1201
+	PasswordsDoNotMatch domain.ErrorCode = 1202
 
 	Unauthorized domain.ErrorCode = 2001
 	AuthenticationIncorrect domain.ErrorCode = 2002
