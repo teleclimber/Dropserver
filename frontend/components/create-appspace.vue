@@ -58,70 +58,72 @@
 	</DsModal>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref, Watch } from "vue-property-decorator";
+
 import DsModal from './ds-modal.vue';
 import DsButton from './ds-button.vue';
 
-export default {
-	name: 'CreateAppSpace',
-	data: function() {
-		return {
-			inputs_valid: false
-		};
-	},
-	computed: {
-		app_spaces_vm: function() { return this.$root.app_spaces_vm; },
-		applications: function() { return this.$root.applications_vm.applications; },
-		app_versions: function() {
-			if( !this.app_spaces_vm.create_data.app_id ) return [];
-			else {
-				const app = this.applications.find( (a) => a.app_id === this.app_spaces_vm.create_data.app_id );
-				return app.versions.map( v => v.version );
-			}
-		}
-	},
+@Component({
 	components: {
 		DsModal,
 		DsButton
-	},
-	watch: {
-		'app_spaces_vm.create_data.app_id': function() {
-			this.$nextTick().then( this.inputsValid );
-		}
-	},
-	methods: {
-		doClose: function() {
-			this.$root.cancelCreateAppSpace();
-		},
-		// appChanged: function() {
-		// 	//this.cur_app_name = this.$refs.app_select.value;
-		// 	this.$nextTick().then( this.inputsValid );
-		// },
-		versionChanged: function() {
-			
-		},
-		inputsValid: function() {
-			this.inputs_valid = false;
-			console.log( 'checking inputs valid' );
-			const app_id = Number(this.app_spaces_vm.create_data.app_id);
-			const app = this.applications.find( (a) => a.app_id === app_id );	// string versus num?
-			if( !app ) return false;
-			const version = this.$refs.version_select.value;
-			if( !version ) return false;
-			if( !app.versions.find(v => v.version === version) ) return false;
-			
-			console.log( 'inputs ARE valid' );
-			this.inputs_valid = true;
+	}
+})
+export default class CreateAppSpace extends Vue {
+	@Inject() readonly user_vm!: any;
+	@Inject() readonly applications_vm!: any;
+	@Inject() readonly app_spaces_vm!: any;
 
-			return {
-				app_id,
-				version
-			};
-		},
-		createAppSpace: function() {
-			const inputs = this.inputsValid();
-			if( inputs ) this.$root.app_spaces_vm.createAppSpace( inputs );
-		},
+	inputs_valid: boolean = false;
+
+	@Ref('version_select') readonly version_select!: HTMLInputElement;
+
+	get applications() {
+		return this.applications_vm.applications;
+	}
+	get app_versions() {
+		if( !this.app_spaces_vm.create_data.app_id ) return [];
+		else {
+			const app = this.applications.find( (a: any) => a.app_id === this.app_spaces_vm.create_data.app_id );
+			return app.versions.map( (v: any) => v.version );
+		}
+	}
+	
+	@Watch('app_spaces_vm.create_data.app_id')
+	onAppIdChange() {
+		this.$nextTick().then( this.inputsValid );
+	}
+	
+
+	doClose() {
+		this.user_vm.cancelCreateAppSpace();
+	}
+
+	versionChanged() {
+		
+	}
+	inputsValid(): any {
+		this.inputs_valid = false;
+		console.log( 'checking inputs valid' );
+		const app_id = Number(this.app_spaces_vm.create_data.app_id);
+		const app = this.applications.find( (a: any) => a.app_id === app_id );	// string versus num?
+		if( !app ) return false;
+		const version = this.version_select.value;
+		if( !version ) return false;
+		if( !app.versions.find((v:any) => v.version === version) ) return false;
+		
+		console.log( 'inputs ARE valid' );
+		this.inputs_valid = true;
+
+		return {
+			app_id,
+			version
+		};
+	}
+	createAppSpace() {
+		const inputs = this.inputsValid();
+		if( inputs ) this.app_spaces_vm.createAppSpace( inputs );
 	}
 }
 </script>

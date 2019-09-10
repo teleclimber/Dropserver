@@ -29,16 +29,19 @@
 	</div>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
 import DsButton from '../../../components/ds-button.vue';
 
-export default observer({
-	name: 'AdminUpdateInvitation',
-	props: ['vm'],
+@Observer
+@Component({
 	components: {
 		DsButton
 	}
-});
+})
+export default class AdminUpdateInvitation extends Vue {
+	@Prop() readonly vm!: any;	//todo: inject
+}
 </script>

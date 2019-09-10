@@ -112,58 +112,62 @@
 	</DsModal>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+
 import DsModal from './ds-modal.vue';
 import DsButton from './ds-button.vue';
 import UploadSelect from './upload-select.vue';
 
-export default {
-	name: 'ManageApplication',
+@Component({
 	components: {
 		DsModal,
 		DsButton,
 		UploadSelect
-	},
-	data: function() {
-		return {
-			cur_ver: null,
-			allow_delete: false,
-			upload_data: null
-		};
-	},
-	computed: {
-		application: function() { 
-			return this.$root.applications_vm.applications.find( a => a.app_id === this.manage_status.app_id )
-		},
-		manage_status: function() { return this.$root.applications_vm.manage_status; }
-	},
-	methods: {
-		doClose: function() {
-			if( this.cur_ver ) this.cur_ver = null;
-			else this.$root.applications_vm.closeManageApplication();
-		},
-		uploadSelectInput: function( upload_data ) {
-			this.upload_data = upload_data;
-		},
-		showUpload: function() {
-			this.$root.applications_vm.showVersionUpload();
-		},
-		doUpload: function() {
-			this.$root.applications_vm.uploadNewVersion( this.application.app_id, this.upload_data );
-		},
-		deleteVersion: function ( ver ) {
-			this.$root.applications_vm.deleteVersion( this.application.app_id, ver )
-			.then( () => {
-				this.cur_ver = null;
-			});
-		},
-		delCheckInput: function() {
-			this.allow_delete = this.$refs.del_check.value.toLowerCase() === this.application.app_name.toLowerCase();
-			return this.allow_delete;
-		},
-		doDeleteApplication: function() {
-			if( this.delCheckInput() ) this.$root.applications_vm.deleteApplication( this.application.app_id );
-		}
+	}
+})
+export default class ManageApplication extends Vue {
+	@Inject() readonly user_vm!: any;
+	@Inject() readonly applications_vm!: any;
+
+	cur_ver: any = null;
+	allow_delete: boolean = false;
+	upload_data: any = null;
+
+	@Ref('del_check') del_check!: HTMLInputElement;
+
+	get application() { 
+		return this.applications_vm.applications.find( (a: any) => a.app_id === this.manage_status.app_id )
+	}
+	get manage_status() { 
+		return this.applications_vm.manage_status;
+	}
+
+	doClose() {
+		if( this.cur_ver ) this.cur_ver = null;
+		else this.applications_vm.closeManageApplication();
+	}
+	uploadSelectInput( upload_data: any ) {
+		this.upload_data = upload_data;
+	}
+	showUpload() {
+		this.applications_vm.showVersionUpload();
+	}
+	doUpload() {
+		this.applications_vm.uploadNewVersion( this.application.app_id, this.upload_data );
+	}
+	deleteVersion( ver: string ) {
+		this.applications_vm.deleteVersion( this.application.app_id, ver )
+		.then( () => {
+			this.cur_ver = null;
+		});
+	}
+	delCheckInput() {
+		this.allow_delete = this.del_check.value.toLowerCase() === this.application.app_name.toLowerCase();
+		return this.allow_delete;
+	}
+	doDeleteApplication() {
+		if( this.delCheckInput() ) this.applications_vm.deleteApplication( this.application.app_id );
 	}
 }
 </script>

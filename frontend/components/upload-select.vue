@@ -13,52 +13,62 @@
 
 </template>
 
-<script>
-export default {
-	name: 'UploadSelect',
-	methods: {
-		dirInput: function() {
-			// In future we have to track whether user selected/dropped a directory
-			// or a single file or entered a url
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 
-			// check that *something* was selected for upload / whatever
+interface WebkitFile extends File {
+	webkitRelativePath: string;
+}
 
-			const form_data = new FormData();
-			const files = this.$refs.app_dir.files;
+@Component
+export default class  UploadSelect extends Vue {
+	@Ref('app_dir') readonly app_dir!: HTMLInputElement;
 
-			// path root inconsistent across browsers/OS:
-			// - chrome-mac: includes selected folder
-			// - chrome-win: does not
-			// - ff-win: includes selected folder
-			// - ff-mac: includes
-			// - safari-mac: includes
-			// test: http://jsfiddle.net/o46vgasx/2/
-			let prefix = false;
-			for( let i=0; i<files.length; ++i ) {
-				let wrp = files[i].webkitRelativePath;
-				const index = wrp.indexOf('/');
-				let p;
-				if( index ) p = wrp.substring( 0, index );
-				else p = '';
+	dirInput() {
+		// In future we have to track whether user selected/dropped a directory
+		// or a single file or entered a url
 
-				if( prefix === false ) prefix = p;
-				else if( prefix !== p ) prefix = '';
-			}
+		// check that *something* was selected for upload / whatever
 
-			console.log( 'upload path prefix: '+prefix );
+		const form_data = new FormData();
+		const files = this.app_dir.files;
 
-			const chop_length = prefix ? prefix.length +1 : 0;
+		if( files === null ) return;	// required to keep TS from complaining about null files
 
-			for( let i=0; i<files.length; ++i ) {
-				// us this as an opportunity to zap .git, etc...
+		// path root inconsistent across browsers/OS:
+		// - chrome-mac: includes selected folder
+		// - chrome-win: does not
+		// - ff-win: includes selected folder
+		// - ff-mac: includes
+		// - safari-mac: includes
+		// test: http://jsfiddle.net/o46vgasx/2/
+		// TODO: this really needs a proper test, but not clear how to set it up.
+		let prefix = '';
+		for( let i=0; i<files.length; ++i ) {
+			const f = <WebkitFile>files[i];
+			let wrp = f.webkitRelativePath;
+			const index = wrp.indexOf('/');
+			let p;
+			if( index ) p = wrp.substring( 0, index );
+			else p = '';
 
-				const rel_path = files[i].webkitRelativePath.substring( chop_length );
-				form_data.append( 'app_dir', files[i], rel_path );
-			}
+			if( i == 0 ) prefix = p;
+			else if( prefix !== p ) prefix = '';
+		}
 
-			//this.vm.createDoNext( form_data );
-			this.$emit( 'input', form_data );
-		},
+		console.log( 'upload path prefix: '+prefix );
+
+		const chop_length = prefix ? prefix.length +1 : 0;
+
+		for( let i=0; i<files.length; ++i ) {
+			// us this as an opportunity to zap .git, etc...
+			const f = <WebkitFile>files[i];
+
+			const rel_path = f.webkitRelativePath.substring( chop_length );
+			form_data.append( 'app_dir', files[i], rel_path );
+		}
+
+		this.$emit( 'input', form_data );
 	}
 
 };

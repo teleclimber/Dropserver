@@ -7,8 +7,8 @@ const path = require( 'path' );
 module.exports = {
 	mode: 'production',
 	entry: { 
-		admin: './views/admin/admin.js' ,
-		user: './views/user/user.js'
+		admin: './views/admin/admin.ts' ,
+		user: './views/user/user.ts'
 	},
 	output: {
 		filename: '[name].js',
@@ -19,10 +19,23 @@ module.exports = {
 		rules: [{
 			test: /\.vue$/,
 			use: 'vue-loader'
-		}, {
+		},{
+			test: /\.tsx?$/,
+			loader: 'ts-loader',
+			exclude: /node_modules/,
+			options: {
+				appendTsSuffixTo: [/\.vue$/],
+			}
+		},{
 			test: /\.css$/,
 			use: [ 'vue-style-loader', 'css-loader' ]
 		}]
+	},
+	resolve: {
+		extensions: ['.ts', '.js', '.vue', '.json'],
+		alias: {
+			'vue$': 'vue/dist/vue.esm.js'
+		}
 	},
 	plugins:[
 

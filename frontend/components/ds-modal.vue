@@ -32,13 +32,13 @@
 
 </template>
 
-<script>
-export default {
-	name: 'DsModal',
-	methods: {
-		close: function() {
-			this.$emit( 'close' );
-		}
+<script lang="ts">
+import { Vue, Component, Prop, Inject } from "vue-property-decorator";
+
+@Component
+export default class DsModal extends Vue {
+	close(): void {
+		this.$emit( 'close' );
 	}
 }
 </script>

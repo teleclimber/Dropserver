@@ -15,11 +15,13 @@
 	</div>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
-export default observer({
-	name: 'User',
-	props: ['user']
-});
+@Observer
+@Component
+export default class User extends Vue {
+	@Prop() user!: any;	// TODO: turn that into proper User type
+};
 </script>

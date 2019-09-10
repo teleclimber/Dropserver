@@ -33,29 +33,34 @@
 	</div>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
 import DsButton from '../../../components/ds-button.vue';
 
-export default observer({
-	name: 'AdminSettings',
-	props: ['vm'],
-	components: {
+@Observer
+@Component({
+components: {
 		DsButton
-	},
-	methods: {
-		collectData: function() {
-			return {
-				registration_open: this.$refs.registration_input.value
-			}
-		},
-		changed: function() {
-			this.vm.inputChanged( this.collectData() );
-		},
-		save: function() {
-			this.vm.doSave( this.collectData() );
+	}
+})
+export default class AdminSettings extends Vue {
+	@Prop() readonly vm!: any;
+	//@Inject('vm') readonly vm!: any;	// TODO
+
+	@Ref('registration_input') readonly registration_input!: HTMLInputElement;
+	
+	collectData() {
+		return {
+			registration_open: this.registration_input.value
 		}
 	}
-});
+	changed() {
+		this.vm.inputChanged( this.collectData() );
+	}
+	save() {
+		this.vm.doSave( this.collectData() );
+	}
+};
 </script>

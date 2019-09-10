@@ -7,9 +7,10 @@ const path = require( 'path' );
 module.exports = {
 	mode: 'development',
 	entry: { 
-		user:	['./views/user/user.js', 'webpack-hot-middleware/client'],
-		admin:	['./views/admin/admin.js', 'webpack-hot-middleware/client'],
+		user:	['./views/user/user.ts', 'webpack-hot-middleware/client'],
+		admin:	['./views/admin/admin.ts', 'webpack-hot-middleware/client'],
 	},
+	devtool: 'inline-source-map',
 	output: {
 		filename: '[name].js',
 		path: path.join( process.cwd(), 'dist/views' ),
@@ -19,10 +20,23 @@ module.exports = {
 		rules: [{
 			test: /\.vue$/,
 			use: 'vue-loader'
-		}, {
+		},{
+			test: /\.tsx?$/,
+			loader: 'ts-loader',
+			exclude: /node_modules/,
+			options: {
+				appendTsSuffixTo: [/\.vue$/],
+			}
+		},{
 			test: /\.css$/,
 			use: [ 'vue-style-loader', 'css-loader' ]
 		}]
+	},
+	resolve: {
+		extensions: [ '.tsx', '.ts', '.js', '.vue'],
+		alias: {
+			'vue$': 'vue/dist/vue.esm.js'
+		}
 	},
 	plugins:[
 

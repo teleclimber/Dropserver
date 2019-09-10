@@ -47,30 +47,35 @@
 	</DsModal>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+
 import DsModal from './ds-modal.vue';
 import DsButton from './ds-button.vue';
 
-export default {
-	name: 'ManageApplications',
+@Component({
 	components: {
 		DsModal,
 		DsButton
-	},
-	computed: {
-		applications: function() { return this.$root.applications_vm.applications; }
-	},
-	methods: {
-		doClose: function() {
-			this.$root.closeManageApplications();
-		},
-		showCreateApplication: function() {
-			this.$root.showCreateApplication();
-		},
-		showManageApplication: function( app_id ) {
-			console.log( 'manage'+app_id );
-			this.$root.applications_vm.showManageApplication( app_id );
-		}
 	}
-}
+})
+export default class ManageApplications extends Vue {
+	@Inject() readonly user_vm!: any;
+	@Inject() readonly applications_vm!: any;
+
+	get applications() {
+		return this.applications_vm.applications;
+	}
+
+	doClose() {
+		this.user_vm.closeManageApplications();
+	}
+	showCreateApplication() {
+		this.user_vm.showCreateApplication();
+	}
+	showManageApplication( app_id: any ) {
+		console.log( 'manage'+app_id );
+		this.applications_vm.showManageApplication( app_id );
+	}
+};
 </script>

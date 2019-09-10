@@ -9,23 +9,24 @@
 	></component>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
 import AdminInvitationsList from './AdminInvitationsList.vue';
 import AdminInviteNew from './AdminInviteNew.vue';
 import AdminUpdateInvitation from './AdminUpdateInvitation.vue';
 
-export default observer({
-	name: 'AdminInvitations',
-	props: ['vm'],
-	components: {
+@Observer
+@Component({
+	components:{
 		AdminInvitationsList,
 		AdminInviteNew,
 		AdminUpdateInvitation
-	},
-	methods: {
-		
 	}
-});
+})
+export default class AdminInvitations extends Vue {
+	@Prop() readonly vm!: any;
+	// todo: make that injected
+};
 </script>

@@ -27,24 +27,27 @@
 	</div>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import AdminVM from "./vms/admin-root-vm";
 
 import User from "./components/User.vue";
 import DsModal from '../../components/ds-modal.vue';
 import AdminSettings from './components/AdminSettings.vue';
 import AdminInvitations from './components/AdminInvitations.vue';
 
-export default observer({
-	name: 'Admin',
+@Observer
+@Component({
 	components: {
 		User,
 		DsModal,
 		AdminSettings,
 		AdminInvitations,
-	},
-	computed: {
-		vm: function() { return this.$root.vm; }
 	}
-});
+})
+export default class Admin extends Vue {
+	@Inject() readonly vm!: AdminVM;
+};
 </script>

@@ -50,23 +50,24 @@ button:hover {
 	</button>
 </template>
 
-<script>
-export default {
-	name: 'DsButton',
-	props: ['type','disabled'],
-	computed: {
-		classes: function() {
-			return {
-				cancel: this.type === 'cancel',
-				close: this.type === 'close',
-				disabled: this.disabled
-			}
+<script lang="ts">
+import { Vue, Component, Prop, Inject } from "vue-property-decorator";
+
+@Component
+export default class DsButton extends Vue {
+	@Prop(String) readonly type!: String;
+	@Prop(String) readonly disabled!: String;	// todo: both these could be bttter types
+
+	get classes() {
+		return {
+			cancel: this.type === 'cancel',
+			close: this.type === 'close',
+			disabled: this.disabled
 		}
-	},
-	methods: {
-		clicked: function( event ) {
-			if( !this.disabled ) this.$emit( 'click' );
-		}
+	}
+
+	clicked() {
+		if( !this.disabled ) this.$emit( 'click' );
 	}
 }
 </script>

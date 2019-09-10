@@ -6,7 +6,11 @@ import '../style.css';
 
 new Vue({
 	el: '#app',
-	data: function() { return vue_model; },
+	provide: {
+		user_vm: vue_model,
+		applications_vm: vue_model.applications_vm,
+		app_spaces_vm: vue_model.app_spaces_vm
+	},
 	render: h => h(User)
 });
 

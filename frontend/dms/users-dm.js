@@ -2,7 +2,14 @@ import ds_axios from '../ds-axios-helper.js'
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
+// type User = {
+// 	id: Number,
+// 	email: String
+// }
+
 class UsersDM {
+	//@observable users: User[];
+
 	constructor() {
 		this.users = [];
 	}

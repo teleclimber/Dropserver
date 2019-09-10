@@ -40,57 +40,58 @@
 	</DsModal>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 
 import DsModal from './ds-modal.vue';
 import DsButton from './ds-button.vue';
 import UploadSelect from './upload-select.vue';
 
-export default {
-	name: 'CreateApplication',
+@Component({
 	components: {
 		DsModal,
 		DsButton,
 		UploadSelect
-	},
-	data: function() {
-		return {
-			vm: this.$root.applications_vm,	// application_vm
-			upload_selected: null
-		};
-	},
-	computed: {
-		state: function() { 
-			return this.vm.create_status.state;
-		},
-		show_upload_btn: function() { 
-			return !this.state || this.state === 'uploading' || this.state === 'processing';
-		},
-		disable_upload_btn: function() {
-			return !this.upload_selected || this.state === 'uploading' || this.state === 'processing';
-		}
-	},
-	methods: {
-		doClose: function() {
-			// close if that's allowable.
-			this.$root.cancelCreateApplication();
-		},
-		uploadSelectInput: function( form_data ) {
-			this.upload_selected = form_data;
-		},
-		doUpload: function() {
-			this.vm.createUpload( this.upload_selected );
-		},
-		doStartOver: function() {
-			this.vm.createNew();
-		},
-		appNameChange: function() {
-			const app_name = this.$refs.app_name_input.value;
-			this.vm.appNameChanged( app_name );
-		},
-		openCreateAppSpace: function() {
-			this.vm.openCreateAppSpace( this.vm.create_status.app_meta.app_name );
-		}
 	}
+})
+export default class CreateApplication extends Vue {
+	@Inject() readonly user_vm!: any;
+	@Inject() readonly applications_vm!: any;
+
+	upload_selected: any = null;
+
+	@Ref('app_name_input') readonly app_name_input!: HTMLInputElement;
+
+	get	state() { 
+		return this.applications_vm.create_status.state;
+	}
+	get	show_upload_btn() { 
+		return !this.state || this.state === 'uploading' || this.state === 'processing';
+	}
+	get	disable_upload_btn() {
+		return !this.upload_selected || this.state === 'uploading' || this.state === 'processing';
+	}
+	
+	doClose() {
+		// close if that's allowable.
+		this.user_vm.cancelCreateApplication();
+	}
+	uploadSelectInput( form_data: any ) {
+		this.upload_selected = form_data;
+	}
+	doUpload() {
+		this.applications_vm.createUpload( this.upload_selected );
+	}
+	doStartOver() {
+		this.applications_vm.createNew();
+	}
+	appNameChange() {
+		const app_name = this.app_name_input.value;
+		this.applications_vm.appNameChanged( app_name );
+	}
+	openCreateAppSpace() {
+		this.applications_vm.openCreateAppSpace( this.applications_vm.create_status.app_meta.app_name );
+	}
+
 }
 </script>

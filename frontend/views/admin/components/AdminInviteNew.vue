@@ -29,30 +29,34 @@
 	</div>
 </template>
 
-<script>
-import { observer } from "mobx-vue";
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
 import DsButton from '../../../components/ds-button.vue';
 
-export default observer({
-	name: 'AdminInvitateNew',
-	props: ['vm'],
+@Observer
+@Component({
 	components: {
 		DsButton
-	},
-	methods: {
-		collectData: function() {
-			return {
-				email: this.$refs.email_input.value
-			};
-		},
-		changed: function() {
-			this.vm.inputChanged( this.collectData() );
-		},
-		save: function() {
-			//collect data and send it over.
-			this.vm.save( this.collectData() );
-		}
 	}
-});
+})
+export default class AdminInvitateNew extends Vue {
+	@Prop() readonly vm!: any;	//todo: inject
+
+	@Ref('email_input') readonly email_input!: HTMLInputElement;
+
+	collectData() {
+		return {
+			email: this.email_input.value
+		};
+	}
+	changed() {
+		this.vm.inputChanged( this.collectData() );
+	}
+	save() {
+		//collect data and send it over.
+		this.vm.save( this.collectData() );
+	}
+};
 </script>
