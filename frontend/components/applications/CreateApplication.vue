@@ -43,9 +43,9 @@
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 
-import DsModal from './ds-modal.vue';
-import DsButton from './ds-button.vue';
-import UploadSelect from './upload-select.vue';
+import DsModal from '../ui/DsModal.vue';
+import DsButton from '../ui/DsButton.vue';
+import UploadSelect from '../ui/UploadSelect.vue';
 
 @Component({
 	components: {

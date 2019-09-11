@@ -10,9 +10,9 @@ import {
 
 configure( {enforceActions: 'always'} );
 
-import UsersDM from '../../../dms/users-dm.js';
-import InstanceSettingsDM from '../../../dms/instance-settings-dm.js';
-import InvitationsDM from '../../../dms/invitations-dm.js';
+import UsersDM from '../../dms/users-dm.js';
+import InstanceSettingsDM from '../../dms/instance-settings-dm.js';
+import InvitationsDM from '../../dms/invitations-dm.js';
 
 import AdminSettingsVM from './admin-settings-vm.js';
 import AdminInvitationsVM from './admin-invitations-vm.js';

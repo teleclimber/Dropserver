@@ -1,7 +1,7 @@
 import Vue from "vue";
-import Admin from "./Admin.vue";
+import Admin from "../../components/admin-page/AdminPage.vue";
 
-import AdminVM from "./vms/admin-root-vm";
+import AdminVM from "../../vms/admin-page/admin-root-vm";
 
 import { runInAction } from 'mobx';
 

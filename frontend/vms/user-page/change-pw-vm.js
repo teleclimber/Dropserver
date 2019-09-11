@@ -1,6 +1,6 @@
-import ds_axios from '../ds-axios-helper.js'
+import ds_axios from '../../ds-axios-helper.js'
 
-import user_vm from '../views/user/user-vm.js';
+import user_vm from './user-vm.js';
 
 function validateData( data ) {
 	let v = { valid: true };

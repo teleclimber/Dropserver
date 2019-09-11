@@ -1,9 +1,9 @@
 import Vue from 'vue';
 import debounce from 'debounce';
-import ds_axios from '../ds-axios-helper.js'
+import ds_axios from '../../ds-axios-helper.js'
 import semver from 'semver'
 
-import user_vm from '../views/user/user-vm.js';
+import user_vm from './user-vm.js';
 
 function loadApplications() {
 	return new Promise( (resolve, reject) => {

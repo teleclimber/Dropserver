@@ -21,7 +21,7 @@ import { Observer } from "mobx-vue";
 
 @Observer
 @Component
-export default class User extends Vue {
+export default class UserListItem extends Vue {
 	@Prop() user!: any;	// TODO: turn that into proper User type
 };
 </script>

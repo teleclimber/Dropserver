@@ -105,8 +105,10 @@
 </template>
 
 <script>
-import DsButton from './ds-button.vue';
-import DsModal from './ds-modal.vue';
+//TODO: ts
+
+import DsButton from '../ui/DsButton.vue';
+import DsModal from '../ui/DsModal.vue';
 
 export default {
 	name: 'ManageAppSpace',

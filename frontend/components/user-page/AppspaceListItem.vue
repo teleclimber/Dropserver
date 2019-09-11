@@ -55,10 +55,12 @@
 
 <script>
 
-import DsButton from '../../components/ds-button.vue';
+// TODO ts
+
+import DsButton from '../ui/DsButton.vue';
 
 export default {
-	name: 'AppSpace',
+	name: 'Appspace',
 	props: ['app_space'],
 	computed: {
 		open_url: function() {

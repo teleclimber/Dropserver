@@ -33,7 +33,7 @@
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
-import DsButton from '../../../components/ds-button.vue';
+import DsButton from '../ui/DsButton.vue';
 
 @Observer
 @Component({

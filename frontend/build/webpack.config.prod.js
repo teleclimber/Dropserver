@@ -7,8 +7,8 @@ const path = require( 'path' );
 module.exports = {
 	mode: 'production',
 	entry: { 
-		admin: './views/admin/admin.ts' ,
-		user: './views/user/user.ts'
+		admin: './pages/admin/admin.ts' ,
+		user: './pages/user/user.ts'
 	},
 	output: {
 		filename: '[name].js',
@@ -44,13 +44,13 @@ module.exports = {
 		// html:
 		new HtmlWebpackPlugin({
 			filename: '../resources/admin.html',
-			template: 'views/admin/admin.html',
+			template: 'pages/admin/admin.html',
 			chunks: ['admin'],
 			inject: true
 		}),
 		new HtmlWebpackPlugin({
 			filename: '../resources/user.html',
-			template: 'views/user/user.html',
+			template: 'pages/user/user.html',
 			chunks: ['user'],
 			inject: true
 		}),

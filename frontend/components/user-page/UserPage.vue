@@ -32,16 +32,16 @@
 				<DsButton @click="showCreateAppSpace">New App Space</DsButton>
 			</span>
 		</div>
-		<app-space v-for="app_space in app_spaces_vm.app_spaces" :app_space="app_space" :key="app_space.id"></app-space>
+		<AppspaceListItem v-for="app_space in app_spaces_vm.app_spaces" :app_space="app_space" :key="app_space.id"></AppspaceListItem>
 
-		<CreateAppSpace 
+		<CreateAppspace 
 			v-if="user_vm.ui.show_create_appspace">
 
-		</CreateAppSpace>
+		</CreateAppspace>
 
-		<ManageAppSpace
+		<ManageAppspace
 			v-if="user_vm.ui.show_manage_appspace">
-		</ManageAppSpace>
+		</ManageAppspace>
 
 		<ManageApplications
 			v-if="user_vm.ui.show_manage_applications">
@@ -64,14 +64,17 @@
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 
-import AppSpace from './AppSpace.vue';
-import ManageAppSpace from '../../components/manage-appspace.vue';
-import ManageApplications from '../../components/manage-applications.vue';
-import ManageApplication from '../../components/manage-application.vue';
-import CreateAppSpace from '../../components/create-appspace.vue';
-import CreateApplication from '../../components/create-application.vue';
+import AppspaceListItem from './AppspaceListItem.vue';
+
+import ManageApplications from '../applications/ManageApplications.vue';
+import CreateApplication from '../applications/CreateApplication.vue';
+import ManageApplication from '../applications/ManageApplication.vue';
+
+import CreateAppspace from '../appspaces/CreateAppspace.vue';
+import ManageAppspace from '../appspaces/ManageAppspace.vue';
+
 import ChangePassword from './ChangePassword.vue';
-import DsButton from '../../components/ds-button.vue';
+import DsButton from '../ui/DsButton.vue';
 
 declare global {
     interface Window { ds_user_routes_base_url: string; }
@@ -79,9 +82,9 @@ declare global {
 
 @Component({
 	components: {
-		'app-space': AppSpace,
-		ManageAppSpace,
-		CreateAppSpace,
+		AppspaceListItem,
+		ManageAppspace,
+		CreateAppspace,
 		ManageApplications,
 		ManageApplication,
 		CreateApplication,
@@ -89,7 +92,7 @@ declare global {
 		DsButton
 	}
 })
-export default class User extends Vue {
+export default class UserPage extends Vue {
 	@Inject() readonly user_vm!: any;
 	@Inject() readonly applications_vm!: any;
 	@Inject() readonly app_spaces_vm!: any;

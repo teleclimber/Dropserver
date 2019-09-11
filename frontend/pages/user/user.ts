@@ -1,6 +1,6 @@
 import Vue from 'vue';
-import User from './User.vue';
-import vue_model from './user-vm.js';
+import UserPage from '../../components/user-page/UserPage.vue';
+import vue_model from '../../vms/user-page/user-vm.js';
 
 import '../style.css';
 
@@ -11,6 +11,6 @@ new Vue({
 		applications_vm: vue_model.applications_vm,
 		app_spaces_vm: vue_model.app_spaces_vm
 	},
-	render: h => h(User)
+	render: h => h(UserPage)
 });
 

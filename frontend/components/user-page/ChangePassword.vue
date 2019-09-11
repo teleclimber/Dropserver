@@ -58,8 +58,11 @@
 </template>
 
 <script>
-import DsModal from '../../components/ds-modal.vue';
-import DsButton from '../../components/ds-button.vue';
+
+//TODO: ts
+
+import DsModal from '../ui/DsModal.vue';
+import DsButton from '../ui/DsButton.vue';
 
 export default {
 	name: 'ChangePassword',

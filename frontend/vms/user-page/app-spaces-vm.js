@@ -1,5 +1,5 @@
-import ds_axios from '../ds-axios-helper.js'
-import user_vm from '../views/user/user-vm.js';
+import ds_axios from '../../ds-axios-helper.js'
+import user_vm from './user-vm.js';
 import application_vm from './applications-vm.js';
 import Vue from 'vue';
 

@@ -35,9 +35,7 @@ button.disabled {
 	color: #ddd;
 	cursor: not-allowed;
 }
-button:hover {
 
-}
 </style>
 
 <template>

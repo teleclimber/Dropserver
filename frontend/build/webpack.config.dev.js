@@ -7,13 +7,13 @@ const path = require( 'path' );
 module.exports = {
 	mode: 'development',
 	entry: { 
-		user:	['./views/user/user.ts', 'webpack-hot-middleware/client'],
-		admin:	['./views/admin/admin.ts', 'webpack-hot-middleware/client'],
+		user:	['./pages/user/user.ts', 'webpack-hot-middleware/client'],
+		admin:	['./pages/admin/admin.ts', 'webpack-hot-middleware/client'],
 	},
 	devtool: 'inline-source-map',
 	output: {
 		filename: '[name].js',
-		path: path.join( process.cwd(), 'dist/views' ),
+		path: path.join( process.cwd(), 'dist/pages' ),
 		publicPath: '/'
 	},
 	module: {
@@ -50,13 +50,13 @@ module.exports = {
 		
 		new HtmlWebpackPlugin({
 			filename: 'admin.html',
-			template: 'views/admin/admin.html',
+			template: 'pages/admin/admin.html',
 			chunks: ['admin'],
 			inject: true
 		}),
 		new HtmlWebpackPlugin({
 			filename: 'user.html',
-			template: 'views/user/user.html',
+			template: 'pages/user/user.html',
 			chunks: ['user'],
 			inject: true
 		}),
