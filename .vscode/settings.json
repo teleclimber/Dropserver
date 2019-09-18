@@ -22,6 +22,14 @@
     "go.languageServerExperimentalFeatures": {
         "format": true,
         "autoComplete": true
-    }
+    },
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#4e2d20",
+        "activityBar.foreground": "#e7e7e7",
+        "activityBar.inactiveForeground": "#e7e7e799",
+        "activityBarBadge.background": "#2e7141",
+        "activityBarBadge.foreground": "#e7e7e7"
+    },
+    "peacock.color": "#2a1811"
 
 }
