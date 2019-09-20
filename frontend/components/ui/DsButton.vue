@@ -53,8 +53,8 @@ import { Vue, Component, Prop, Inject } from "vue-property-decorator";
 
 @Component
 export default class DsButton extends Vue {
-	@Prop(String) readonly type!: String;
-	@Prop(String) readonly disabled!: String;	// todo: both these could be bttter types
+	@Prop(String) readonly type!: String;	// TODO: could be better types
+	@Prop(Boolean) readonly disabled!: boolean;
 
 	get classes() {
 		return {
@@ -63,7 +63,6 @@ export default class DsButton extends Vue {
 			disabled: this.disabled
 		}
 	}
-
 	clicked() {
 		if( !this.disabled ) this.$emit( 'click' );
 	}

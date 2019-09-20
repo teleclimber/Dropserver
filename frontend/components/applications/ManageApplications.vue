@@ -24,58 +24,48 @@
 <template>
 	<DsModal>
 		<h2>Manage Applications</h2>
-		<!-- new app or manage existing -->
 		<div class="header">
-			<p>Click an application to manage:</p>
-			<DsButton @click="showCreateApplication">Add Application</DsButton>
+			<p>Click an application to manage ({{applications_dm.applications.length}}):</p>
+			<DsButton @click="applications_vm.createNew()">Add Application</DsButton>
 		</div>
 		<div class="apps-container">
 			<div 
 					class="application"
-					v-for="application in applications"
-					:key="application.name"
-					@click="showManageApplication(application.app_id)">
+					v-for="application in applications_dm.applications"
+					:key="application.app_id"
+					@click="applications_vm.showManageApplication(application.app_id)">
 				<span class="app-name">{{application.app_name}}</span>
-				<span class="num-use">nv: {{ application.versions.length }}</span>
+				<span class="num-use">versions: {{ application.versions.length }}</span>
 				<!-- could show latest version(?), number of app-spaces -->
 			</div>
 		</div>
 
 		<div class="submit">
-			<DsButton @click="doClose" type="close">close</DsButton>
+			<DsButton @click="applications_vm.listCloseClicked()" type="close">close</DsButton>
 		</div>
 	</DsModal>
 </template>
 
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import ApplicationsDM from '../../dms/applications-dm';
+
+import ApplicationsVM from '../../vms/user-page/applications-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 
+@Observer
 @Component({
 	components: {
 		DsModal,
 		DsButton
 	}
 })
-export default class ManageApplications extends Vue {
-	@Inject() readonly user_vm!: any;
-	@Inject() readonly applications_vm!: any;
-
-	get applications() {
-		return this.applications_vm.applications;
-	}
-
-	doClose() {
-		this.user_vm.closeManageApplications();
-	}
-	showCreateApplication() {
-		this.user_vm.showCreateApplication();
-	}
-	showManageApplication( app_id: any ) {
-		console.log( 'manage'+app_id );
-		this.applications_vm.showManageApplication( app_id );
-	}
+export default class ManageApplications extends Vue {	// This should really be called ListApplications
+	@Inject(ApplicationsDM.injectKey) readonly applications_dm!: ApplicationsDM;
+	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
 };
 </script>

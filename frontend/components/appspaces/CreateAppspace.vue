@@ -17,34 +17,34 @@
 	<DsModal>
 		<h2>Create Appspace</h2>
 
-		<div class="action-pending" v-if="app_spaces_vm.action_pending">
-			{{app_spaces_vm.action_pending}}
+		<div class="action-pending" v-if="create_vm.action_pending">
+			{{create_vm.action_pending}} Make this dpendant on state and create multiple as needed.
 		</div>
-		<template v-else-if="app_spaces_vm.state === 'created'">
+		<template v-else-if="create_vm.state === 'created'">
 			<p>Created.</p>
 			<p>
-				<a :href="app_spaces_vm.getOpenUrl(app_spaces_vm.managed_app_space)">
-					{{ app_spaces_vm.getDisplayUrl(app_spaces_vm.managed_app_space) }}
+				<a :href="create_vm.created_appspace.open_url">
+					{{ create_vm.created_appspace.display_url }}
 				</a>
 			</p>
 			<div class="submit">
-				<DsButton @click="doClose" type="close">Close</DsButton>
+				<DsButton @click="create_vm.close()" type="close">Close</DsButton>
 			</div>
 		</template>
 		<template v-else>
 			Application: 
-			<select ref="app_select" v-model="app_spaces_vm.create_data.app_id">
-				<option value=""> </option>
-				<option v-for="app in applications" :key="app.app_id" :value="app.app_id">{{app.app_name}}</option>
+			<select v-model="create_vm.app_id">
+				<option v-for="app in applications_dm.applications" :key="app.app_id" :value="app.app_id">{{app.app_name}}</option>
 			</select>
-			<select ref="version_select" @input="versionChanged">
-				<option v-for="version in app_versions" :key="version" :value="version">{{version}}</option>
+			<select v-model="create_vm.version">
+				<option v-for="v in create_vm.app_versions" :key="v.version" :value="v.version">{{v.version}}</option>
 			</select>
+			<p>{{create_vm.app_id}} {{create_vm.version}}</p>
 			<!-- pick version OR specify auto-update/latest -->
 
 			<div class="submit">
-				<DsButton @click="doClose" type="cancel">cancel</DsButton>
-				<DsButton @click="createAppSpace" :disabled="!inputs_valid">Create App Space</DsButton>
+				<DsButton @click="create_vm.close()" type="cancel">cancel</DsButton>
+				<DsButton @click="create_vm.create()" :disabled="!create_vm.inputs_valid">Create Appspace</DsButton>
 			</div>
 		</template>
 
@@ -60,70 +60,25 @@
 
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref, Watch } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import ApplicationsDM from '../../dms/applications-dm';
+
+import { CreateAppspaceVM } from '../../vms/user-page/appspaces-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 
+@Observer
 @Component({
 	components: {
 		DsModal,
 		DsButton
 	}
 })
-export default class CreateAppSpace extends Vue {
-	@Inject() readonly user_vm!: any;
-	@Inject() readonly applications_vm!: any;
-	@Inject() readonly app_spaces_vm!: any;
+export default class CreateAppspace extends Vue {
+	@Inject(ApplicationsDM.injectKey) readonly applications_dm!: ApplicationsDM;
 
-	inputs_valid: boolean = false;
-
-	@Ref('version_select') readonly version_select!: HTMLInputElement;
-
-	get applications() {
-		return this.applications_vm.applications;
-	}
-	get app_versions() {
-		if( !this.app_spaces_vm.create_data.app_id ) return [];
-		else {
-			const app = this.applications.find( (a: any) => a.app_id === this.app_spaces_vm.create_data.app_id );
-			return app.versions.map( (v: any) => v.version );
-		}
-	}
-	
-	@Watch('app_spaces_vm.create_data.app_id')
-	onAppIdChange() {
-		this.$nextTick().then( this.inputsValid );
-	}
-	
-
-	doClose() {
-		this.user_vm.cancelCreateAppSpace();
-	}
-
-	versionChanged() {
-		
-	}
-	inputsValid(): any {
-		this.inputs_valid = false;
-		console.log( 'checking inputs valid' );
-		const app_id = Number(this.app_spaces_vm.create_data.app_id);
-		const app = this.applications.find( (a: any) => a.app_id === app_id );	// string versus num?
-		if( !app ) return false;
-		const version = this.version_select.value;
-		if( !version ) return false;
-		if( !app.versions.find((v:any) => v.version === version) ) return false;
-		
-		console.log( 'inputs ARE valid' );
-		this.inputs_valid = true;
-
-		return {
-			app_id,
-			version
-		};
-	}
-	createAppSpace() {
-		const inputs = this.inputsValid();
-		if( inputs ) this.app_spaces_vm.createAppSpace( inputs );
-	}
+	@Prop({required: true, type: CreateAppspaceVM}) readonly create_vm!: CreateAppspaceVM;
 }
 </script>

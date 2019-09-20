@@ -15,11 +15,13 @@
 
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
 interface WebkitFile extends File {
 	webkitRelativePath: string;
 }
 
+@Observer
 @Component
 export default class  UploadSelect extends Vue {
 	@Ref('app_dir') readonly app_dir!: HTMLInputElement;

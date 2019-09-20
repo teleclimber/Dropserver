@@ -44,13 +44,13 @@
 	<DsModal>
 		<h2>Manage Application</h2>
 
-		<p>Name: {{application.app_name}}</p>
+		<p>Name: {{manage_vm.application.app_name}}</p>
 
-		<div class="error" v-if="manage_status.state === 'error'">
-			{{manage_status.error_message}}
+		<div class="error" v-if="manage_vm.state === EditState.error">
+			{{manage_vm.error_message}}
 		</div>
-		<template v-else-if="cur_ver">
-			<h4>Version {{cur_ver.version}}</h4>
+		<template v-else-if="manage_vm.show_version">
+			<h4>Version {{manage_vm.show_version.version}}</h4>
 
 			<p>[num??] app spaces</p>
 			<p> List the appspaces</p>
@@ -59,41 +59,42 @@
 			<!-- show stats. if no app-spaces using it, offer a delete button -->
 			<!-- stats? resource usage, and logs and errors? -->
 
-			<DsButton @click="deleteVersion(cur_ver.version)" :disabled="cur_ver.num_use !== 0">delete version</DsButton>
+			<DsButton @click="manage_vm.deleteVersion(manage_vm.show_version.version)"
+				>delete version</DsButton>
+				<!-- :disabled="manage_vm.show_version.num_use !== 0" -->
 		</template>
-		<template v-else-if="manage_status.state === 'upload'">
+		<template v-else-if="manage_vm.state === EditState.upload">
 			<p>Upload new version:</p>
-			<UploadSelect @input="uploadSelectInput"></UploadSelect>
+			<UploadSelect v-model="manage_vm.upload_data"></UploadSelect>
 		</template>
-		<template v-else-if="manage_status.state === 'uploading'">
+		<template v-else-if="manage_vm.state === EditState.uploading">
 			<p>Uploading...</p>
 		</template>
 
-		
 		<template v-else>
 			<div class="header">
-				<p>{{application.versions.length}} versions</p>
-				<DsButton @click="showUpload">Upload New Version</DsButton>
+				<p>{{manage_vm.application.versions.length}} versions</p>
+				<DsButton @click="manage_vm.showVersionUpload()">Upload New Version</DsButton>
 			</div>
 			<div class="versions-container">
 				<div 
 						class="version"
-						v-for="version in application.versions"
+						v-for="version in manage_vm.application.versions"
 						:key="version.version"
-						@click="cur_ver = version">
+						@click="manage_vm.showVersion(version)">
 					<span class="ver-name">{{version.version}}</span>
 					<span class="num-use">?? app-spaces</span>
 					<!-- could show latest version(?), number of app-spaces -->
 				</div>
-				<div v-if="application.versions.length == 0 " class="zero-versions">
+				<div v-if="manage_vm.application.versions.length == 0 " class="zero-versions">
 					There are zero versions of this application :/
 				</div>
 			</div>
 
 			<div class="delete">
 				<p>Enter Name to delete:
-				<input type="text" ref="del_check" class="del-check" @input="delCheckInput">
-				<DsButton @click="doDeleteApplication" :disabled="!allow_delete">Delete</DsButton></p>
+				<input type="text" class="del-check" v-model="manage_vm.delete_check">
+				<DsButton @click="manage_vm.deleteApplication()" :disabled="!manage_vm.allow_delete">Delete</DsButton></p>
 			</div>
 
 		</template>
@@ -106,19 +107,26 @@
 		-->
 
 		<div class="submit">
-			<DsButton @click="doClose" type="close">close</DsButton>
-			<DsButton @click="doUpload" v-if="manage_status.state === 'upload'" :disabled="!upload_data">upload</DsButton>
+			<DsButton @click="manage_vm.closeClicked()" type="close">close</DsButton>
+			<DsButton @click="manage_vm.uploadNewVersion()" v-if="manage_vm.state === EditState.upload" :disabled="!manage_vm.upload_data">upload</DsButton>
 		</div>
 	</DsModal>
 </template>
 
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import ApplicationsDM from '../../dms/applications-dm';
+
+import ApplicationsVM from '../../vms/user-page/applications-vm';
+import { EditState, ManageApplicationVM } from '../../vms/user-page/applications-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 import UploadSelect from '../ui/UploadSelect.vue';
 
+@Observer
 @Component({
 	components: {
 		DsModal,
@@ -127,47 +135,9 @@ import UploadSelect from '../ui/UploadSelect.vue';
 	}
 })
 export default class ManageApplication extends Vue {
-	@Inject() readonly user_vm!: any;
-	@Inject() readonly applications_vm!: any;
+	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
+	EditState = EditState;	// have to attach EditState to "this" so it can be used in template.
 
-	cur_ver: any = null;
-	allow_delete: boolean = false;
-	upload_data: any = null;
-
-	@Ref('del_check') del_check!: HTMLInputElement;
-
-	get application() { 
-		return this.applications_vm.applications.find( (a: any) => a.app_id === this.manage_status.app_id )
-	}
-	get manage_status() { 
-		return this.applications_vm.manage_status;
-	}
-
-	doClose() {
-		if( this.cur_ver ) this.cur_ver = null;
-		else this.applications_vm.closeManageApplication();
-	}
-	uploadSelectInput( upload_data: any ) {
-		this.upload_data = upload_data;
-	}
-	showUpload() {
-		this.applications_vm.showVersionUpload();
-	}
-	doUpload() {
-		this.applications_vm.uploadNewVersion( this.application.app_id, this.upload_data );
-	}
-	deleteVersion( ver: string ) {
-		this.applications_vm.deleteVersion( this.application.app_id, ver )
-		.then( () => {
-			this.cur_ver = null;
-		});
-	}
-	delCheckInput() {
-		this.allow_delete = this.del_check.value.toLowerCase() === this.application.app_name.toLowerCase();
-		return this.allow_delete;
-	}
-	doDeleteApplication() {
-		if( this.delCheckInput() ) this.applications_vm.deleteApplication( this.application.app_id );
-	}
+	@Prop({required: true, type: ManageApplicationVM}) readonly manage_vm!: ManageApplicationVM;
 }
 </script>

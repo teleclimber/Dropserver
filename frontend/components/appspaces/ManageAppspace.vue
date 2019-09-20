@@ -38,58 +38,60 @@
 
 <template>
 	<DsModal>
-		<h2>Manage App Space</h2>
-		<div class="action-pending" v-if="app_spaces_vm.action_pending">
-			{{app_spaces_vm.action_pending}}
+		<h2>Manage Appspace</h2>
+		<div class="action-pending" v-if="manage_vm.action_pending">
+			{{manage_vm.action_pending}}
 		</div>
 		<template v-else>
-			<template v-if="app_spaces_vm.state === 'pick-version'">
-				<p>{{application.app_name}}, {{app_space.subdomain}}.</p>
+			<template v-if="manage_vm.state === ManageState.pick_version">
+				<p>{{manage_vm.appspace_vm.application.app_name}}, {{manage_vm.appspace_vm.subdomain}}.</p>
 				<p>Pick version:</p>
 				<div class="versions-container">
 					<div 
 							class="version"
-							:class="{ current: version.version === app_space.app_version }"
-							v-for="(version,i) in app_versions"
+							:class="{ current: version.version === manage_vm.appspace_vm.app_version }"
+							v-for="(version,i) in manage_vm.appspace_vm.application.versions"
 							:key="version.version"
-							@click="pickVersion(version.version)">
+							@click="manage_vm.pickVersion(version.version)">
 						<span class="ver-name">{{version.version}}</span>
 						<span class="latest" v-if="i===0">latest</span>
-						<span class="current" v-if="version.version === app_space.app_version">current</span>
+						<span class="current" v-if="version.version === manage_vm.appspace_vm.app_version">current</span>
 						<!-- could show latest version(?), number of app-spaces -->
 					</div>
 				</div>
 			</template>
-			<template v-else-if="app_spaces_vm.state === 'show-upgrade'">
-				<p>{{application.app_name}}, {{app_space.subdomain}}</p>
-				<p>{{up_down}} from {{cur_app_version.version}} to {{app_spaces_vm.upgrade_version}}</p>
-				<p v-if="cur_app_version.schema !== migrate_ver_data.schema">
+			<template v-else-if="manage_vm.state === ManageState.show_upgrade">
+				<p>{{manage_vm.appspace_vm.application.app_name}}, {{manage_vm.appspace_vm.subdomain}}</p>
+				<p>{{manage_vm.up_down}} from {{manage_vm.appspace_vm.version.version}} to {{manage_vm.upgrade_version.version}}</p>
+				<p v-if="manage_vm.appspace_vm.version.schema !== manage_vm.upgrade_version.schema">
 					Data migration necessary:
-					from {{cur_app_version ? cur_app_version.schema : '...' }} to
-					{{migrate_ver_data ? migrate_ver_data.schema : '...' }}
+					from {{manage_vm.appspace_vm.version.schema}} to
+					{{manage_vm.upgrade_version ? manage_vm.upgrade_version.schema : '...' }}
 				</p>
 				<p v-else>
 					No Data migration necessary.
 				</p>
 			</template>
 			<template v-else>
-				<p v-if="app_space.paused">
-					App space is paused
-					<DsButton @click="pause(false)">Unpause</DsButton>
+				<p v-if="manage_vm.appspace_vm.paused">
+					Appspace is paused
+					<DsButton @click="manage_vm.pause(false)">Unpause</DsButton>
 				</p>
 				<p v-else>
-					Pause App Space
-					<DsButton @click="pause(true)">pause</DsButton>
+					Pause Appspace
+					<DsButton @click="manage_vm.pause(true)">pause</DsButton>
 				</p>
-				<p>Address: {{app_space.id}} [change?]</p>
-				<p>Application: {{application.app_name}}, v{{cur_app_version.version}}, data schema {{cur_app_version.schema}}
-					<DsButton @click="$root.app_spaces_vm.showPickVersion">Change version</DsButton>
+				<p>Subdomain: {{manage_vm.appspace_vm.subdomain}} [change?]</p>
+				<p>Application: {{manage_vm.appspace_vm.application.app_name}}
+					{{manage_vm.appspace_vm.version.version}}
+					(data schema {{manage_vm.appspace_vm.version.schema}})
+					<DsButton @click="manage_vm.showPickVersion()">Change version</DsButton>
 				</p>
 				
 				<div class="delete">
 					<p>Enter Address to delete:
-					<input type="text" ref="del_check" class="del-check" @input="delCheckInput">
-					<DsButton @click="doDelete" :disabled="!allow_delete">Delete</DsButton></p>
+					<input type="text" ref="del_check" class="del-check" v-model="manage_vm.delete_check">
+					<DsButton @click="manage_vm.doDelete()" :disabled="!manage_vm.allow_delete">Delete</DsButton></p>
 				</div>
 			</template>
 
@@ -97,88 +99,31 @@
 
 
 			<div class="submit">
-				<DsButton @click="doClose" type="close">Close</DsButton>
-				<DsButton @click="doUpgrade" v-if="app_spaces_vm.state === 'show-upgrade'">{{up_down}}</DsButton>
+				<DsButton @click="manage_vm.close()" type="close">Close</DsButton>
+				<DsButton @click="manage_vm.doUpgrade()" v-if="manage_vm.state === ManageState.show_upgrade">{{manage_vm.up_down}}</DsButton>
 			</div>
 		</template>
 	</DsModal>
 </template>
 
-<script>
-//TODO: ts
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref, Watch } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import { ManageAppspaceVM, ManageState } from '../../vms/user-page/appspaces-vm';
 
 import DsButton from '../ui/DsButton.vue';
 import DsModal from '../ui/DsModal.vue';
 
-export default {
-	name: 'ManageAppSpace',
-	data: function() {
-		return {
-			allow_delete: false
-		};
-	},
+@Observer
+@Component({
 	components: {
 		DsModal,
 		DsButton
-	},
-	computed: {
-		app_space: function() {
-			return this.$root.app_spaces_vm.managed_app_space;
-		},
-		app_spaces_vm: function() {
-			return this.$root.app_spaces_vm;
-		},
-		application: function() {
-			let a = this.$root.applications_vm.applications.find( a => a.app_id === this.app_space.app_id );
-			if( a ) {
-				return a
-			}
-			return {
-				versions:[]
-			}
-		},
-		app_versions: function() {
-			if( this.application ) {
-				return this.application.versions;
-			}
-			else return [];
-		},
-		cur_app_version: function() {
-			return this.app_versions.find( v => v.version === this.app_space.app_version )
-		},
-		migrate_ver_data: function() {
-			return this.app_versions.find( v => v.version === this.app_spaces_vm.upgrade_version );
-		},
-		up_down: function() {
-			if( !this.app_spaces_vm.upgrade_version ) return;
-			const cur_i = this.app_versions.findIndex( v => v.version === this.app_space.app_version );
-			const mig_i = this.app_versions.findIndex( v => v.version === this.app_spaces_vm.upgrade_version );
-			return cur_i > mig_i ? 'Upgrade' : 'Downgrade';	//version array is sorted backwards
-		}
-	},
-	methods: {
-		delCheckInput: function() {
-			this.allow_delete = this.$refs.del_check.value.toLowerCase() === this.app_space.id.toLowerCase();
-			return this.allow_delete;
-		},
-		doClose: function() {
-			// close if that's allowable.
-			if( this.app_spaces_vm.state === 'show-upgrade' ) this.app_spaces_vm.closeUpgradeVersion();
-			else if( this.app_spaces_vm.state === 'pick-version' ) this.app_spaces_vm.closePickVersion();
-			else this.$root.closeManageAppSpace();
-		},
-		doDelete: function() {
-			if( this.delCheckInput() ) this.$root.app_spaces_vm.deleteAppSpace( this.app_space );
-		},
-		pause: function( pause_on ) {
-			this.$root.app_spaces_vm.pauseAppSpace( this.app_space, pause_on );
-		},
-		pickVersion: function( version ) {
-			if( version !== this.app_space.app_version ) this.$root.app_spaces_vm.showUpgradeVersion( version );
-		},
-		doUpgrade: function() {
-			this.$root.app_spaces_vm.doUpgradeVersion();
-		}
 	}
+})
+export default class ManageAppspace extends Vue {
+	@Prop({required: true, type: ManageAppspaceVM}) readonly manage_vm!: ManageAppspaceVM;
+	ManageState = ManageState;
 }
 </script>

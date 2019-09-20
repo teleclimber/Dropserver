@@ -9,44 +9,57 @@
 <template>
 	<DsModal>
 		<h2>New Application</h2>
-		<!-- upload or pick from catalog or add as link -->
 
-		<template v-if="!state">
-			<UploadSelect @input="uploadSelectInput"></UploadSelect>
+		<template v-if="create_vm.state === EditState.start">
+			<UploadSelect v-model="create_vm.upload_data"></UploadSelect>
+
+			<div class="submit">
+				<DsButton @click="create_vm.doClose()" type="cancel">Cancel</DsButton>
+				<span>
+					<DsButton @click="create_vm.doUpload()" :disabled="!create_vm.upload_data">Upload</DsButton>
+				</span>
+			</div>
 		</template>
 
-		<div class="error" v-if="state === 'error'">
-			{{vm.create_status.error_message}}
+		<div class="error" v-if="create_vm.state === EditState.error">
+			{{create_vm.error_message}}
+
+			<div class="submit">
+				<DsButton @click="create_vm.doClose()" type="cancel">Cancel</DsButton>
+				<span>
+					<DsButton @click="create_vm.doStartOver()" >Start Over</DsButton>
+				</span>
+			</div>
 		</div>
 
-		<template v-if="state === 'finished'">
+		<template v-if="create_vm.state === EditState.finished">
 			<p>Application created</p>
-			<p>{{vm.create_status.app_meta.app_name}} @ {{vm.create_status.version_meta.version}}</p>
+			<p>{{create_vm.app_meta.app_name}} @ {{create_vm.version_meta.version}}</p>
 			<p>Customize application name, etc... [button]</p>
-			<p>
-				Create a new appspace for this application:
-				<DsButton @click="openCreateAppSpace">Create Appspace</DsButton>
-			</p>
-		</template>
+			<p>Create a new appspace for this application:</p>
 
-		<div class="submit">
-			<DsButton @click="doClose" type="cancel">Cancel</DsButton>
-			<span>
-				<span class="state" v-if="state === 'uploading'">Uploading</span>
-				<DsButton v-if="show_upload_btn" @click="doUpload" :disabled="disable_upload_btn">Upload</DsButton>
-				<DsButton v-if="state == 'error'" @click="doStartOver" >Start Over</DsButton>
-			</span>
-		</div>
+			<div class="submit">
+				<DsButton @click="create_vm.doClose()" type="cancel">Close</DsButton>
+				<span>
+					<DsButton @click="create_vm.createAppspaceClicked()">Create Appspace</DsButton>
+				</span>
+			</div>
+		</template>
 	</DsModal>
 </template>
 
 <script lang="ts">
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
+
+import ApplicationsVM from '../../vms/user-page/applications-vm';
+import { EditState, CreateApplicationVM } from '../../vms/user-page/applications-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 import UploadSelect from '../ui/UploadSelect.vue';
 
+@Observer
 @Component({
 	components: {
 		DsModal,
@@ -55,43 +68,9 @@ import UploadSelect from '../ui/UploadSelect.vue';
 	}
 })
 export default class CreateApplication extends Vue {
-	@Inject() readonly user_vm!: any;
-	@Inject() readonly applications_vm!: any;
+	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
+	EditState = EditState;	// have to attach EditState to "this" so it can be used in template.
 
-	upload_selected: any = null;
-
-	@Ref('app_name_input') readonly app_name_input!: HTMLInputElement;
-
-	get	state() { 
-		return this.applications_vm.create_status.state;
-	}
-	get	show_upload_btn() { 
-		return !this.state || this.state === 'uploading' || this.state === 'processing';
-	}
-	get	disable_upload_btn() {
-		return !this.upload_selected || this.state === 'uploading' || this.state === 'processing';
-	}
-	
-	doClose() {
-		// close if that's allowable.
-		this.user_vm.cancelCreateApplication();
-	}
-	uploadSelectInput( form_data: any ) {
-		this.upload_selected = form_data;
-	}
-	doUpload() {
-		this.applications_vm.createUpload( this.upload_selected );
-	}
-	doStartOver() {
-		this.applications_vm.createNew();
-	}
-	appNameChange() {
-		const app_name = this.app_name_input.value;
-		this.applications_vm.appNameChanged( app_name );
-	}
-	openCreateAppSpace() {
-		this.applications_vm.openCreateAppSpace( this.applications_vm.create_status.app_meta.app_name );
-	}
-
+	@Prop({required: true, type: CreateApplicationVM}) readonly create_vm!: CreateApplicationVM;
 }
 </script>

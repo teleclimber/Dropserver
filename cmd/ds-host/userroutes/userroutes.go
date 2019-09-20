@@ -139,7 +139,7 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 
 	dsErr := u.Validator.Password(data.Old)
 	if dsErr != nil {
-		res.WriteHeader(http.StatusBadRequest)
+		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 

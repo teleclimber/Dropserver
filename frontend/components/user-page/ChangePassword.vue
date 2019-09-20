@@ -38,61 +38,44 @@
 		<h2>Change Password</h2>
 		<section class="input-grid">
 			<label>Old password:</label>
-			<input id="old_pw" ref="old_pw" type="password" @input="inputChanged" />
+			<input id="old_pw" type="password" v-model="change_pw_vm.old_pw"/>
 			<span class="error-msg" v-if="change_pw_vm.validations.old_pw">{{change_pw_vm.validations.old_pw}}</span>
 
 			<label>New password:</label>
-			<input id="new_pw" ref="new_pw" type="password" @input="inputChanged" />
+			<input id="new_pw" type="password" v-model="change_pw_vm.new_pw" />
 			<span class="error-msg" v-if="change_pw_vm.validations.new_pw">{{change_pw_vm.validations.new_pw}}</span>
 
 			<label>New one again:</label>
-			<input id="repeat_pw" ref="repeat_pw" type="password" @input="inputChanged" />
+			<input id="repeat_pw" type="password" v-model="change_pw_vm.repeat_pw" />
 			<span class="error-msg" v-if="change_pw_vm.validations.repeat_pw">{{change_pw_vm.validations.repeat_pw}}</span>
 		</section>
 
 		<div class="submit">
-			<DsButton @click="vm.closeChangePassword" type="cancel">Cancel</DsButton>
-			<DsButton @click="doSave" :disabled="!change_pw_vm.validations.valid">Save</DsButton>
+			<DsButton @click="change_pw_vm.cancel()" type="cancel">Cancel</DsButton>
+			<DsButton @click="change_pw_vm.doSave()" :disabled="!change_pw_vm.validations.valid">Save</DsButton>
 		</div>
 	</DsModal>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
-//TODO: ts
+import ChangePwVM from '../../vms/user-page/change-pw-vm';
+import { DataValidations } from '../../vms/user-page/change-pw-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 
-export default {
-	name: 'ChangePassword',
+@Observer
+@Component({
 	components: {
 		DsModal,
 		DsButton
-	},
-	computed: {
-		vm: function() {
-			return this.$root;
-		},
-		change_pw_vm: function() {
-			return this.vm.change_pw_vm;
-		}
-	},
-	methods: {
-		collectData: function() {
-			return {
-				old_pw: this.$refs.old_pw.value,
-				new_pw: this.$refs.new_pw.value,
-				repeat_pw: this.$refs.repeat_pw.value
-			};
-		},
-		inputChanged: function() {
-			this.change_pw_vm.inputChanged( this.collectData() );
-		},
-		doSave: function() {
-			this.change_pw_vm.doSave( this.collectData() );
-		}
 	}
+})
+export default class ChangePassword extends Vue {
+	@Prop({required: true, type: ChangePwVM}) readonly change_pw_vm!: ChangePwVM;
 }
 
 </script>

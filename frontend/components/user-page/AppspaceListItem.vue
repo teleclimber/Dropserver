@@ -23,9 +23,6 @@
 		display: block;
 		margin: 1em 0;
 	}
-	.app-url .app-id {
-		__color: black;
-	}
 	.app-url:hover {
 		color: blue;
 		text-decoration: underline;
@@ -35,69 +32,39 @@
 <template>
 	<section>
 		<h3>
-			{{application.app_name}}
-			<span class="version">{{app_space.app_version}}</span>
-			<span class="paused" v-if="app_space.paused">paused</span>
+			{{appspace_vm.application.app_name}}
+			<span class="version">{{appspace_vm.appspace.app_version}}</span>
+			<span class="paused" v-if="appspace_vm.appspace.paused">paused</span>
 		</h3>
-		<a :href="open_url" class="app-url">
-			{{display_url}}
+		<a :href="appspace_vm.open_url" class="app-url">
+			{{appspace_vm.display_url}}
 		</a>
 
-		<span class="upgrade" v-if="upgrade">
-			Upgrade available: {{upgrade}}
-			<DsButton @click="doUpgrade">upgrade</DsButton>
+		<span class="upgrade" v-if="appspace_vm.upgrade">
+			Upgrade available: {{appspace_vm.upgrade}}
+			<DsButton @click="appspace_vm.doUpgrade()">upgrade</DsButton>
 		</span>
 
-		<DsButton @click="manage">manage</DsButton>
+		<DsButton @click="appspace_vm.manage()">manage</DsButton>
 		
 	</section>
 </template>
 
-<script>
+<script lang="ts">
+import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
+import { Observer } from "mobx-vue";
 
-// TODO ts
+import AppspaceVM from '../../vms/user-page/appspace-vm';
 
 import DsButton from '../ui/DsButton.vue';
 
-export default {
-	name: 'Appspace',
-	props: ['app_space'],
-	computed: {
-		open_url: function() {
-			return this.$root.app_spaces_vm.getOpenUrl( this.app_space );
-		},
-		display_url: function() {
-			return this.$root.app_spaces_vm.getDisplayUrl( this.app_space );
-		},
-		application: function() {
-			let a = this.$root.applications_vm.applications.find( a => a.app_id === this.app_space.app_id );
-			if( a ) {
-				return a
-			}
-			return {
-				versions:[]
-			}
-		},
-		upgrade: function() {
-			if( this.application && this.application.versions.length != 0 ) {
-				const latest_version = this.application.versions[0];
-				if( latest_version.name !== this.app_space.app_version ) {
-					return latest_version.name;
-				}
-			}
-		}
-	},
+@Observer
+@Component({
 	components: {
 		DsButton
-	},
-	methods: {
-		manage: function() {
-			this.$root.showManageAppSpace( this.app_space );
-		},
-		doUpgrade: function() {
-			this.$root.showManageAppSpace( this.app_space, { page:'upgrade', version: this.upgrade } );
-			// probably some sub-part of manage app space?
-		}
 	}
+})
+export default class AppspaceListItem extends Vue {
+	@Prop({required: true, type: AppspaceVM}) readonly appspace_vm!: AppspaceVM;
 }
 </script>
