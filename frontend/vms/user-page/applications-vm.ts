@@ -1,6 +1,7 @@
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
 import ApplicationsDM from '../../dms/applications-dm';
+import SelectFilesVM from '../ui/select-app-files-vm';
 
 export enum EditState { start, upload, uploading, processing, error, enter_meta, finishing, finished };
 
@@ -86,28 +87,85 @@ type CreateApplicationVMCbs = {
 	createAppspaceClicked(app_id: number, version: string): void,
 }
 
+export type VersionComparison = {
+	upload: VersionMeta,
+	previous?: VersionMeta,
+	next?: VersionMeta,
+	fatal: boolean,
+	errors: {
+		version: string,
+		schema: string,
+	}
+}
+
 export class CreateApplicationVM {
 	@observable state: EditState = EditState.start;
-	@observable error_message: string = '';
-	@observable upload_data: any;
 	@observable app_meta?: ApplicationMeta;
 	@observable version_meta?: VersionMeta;
 
+	@observable select_files_vm: SelectFilesVM | undefined;
+
 	constructor(private cbs: CreateApplicationVMCbs, private deps: CreateApplicationVMDeps) {
+		this.select_files_vm = new SelectFilesVM;
 	}
 
 	@action
 	doStartOver() {
 		this.state = EditState.start;
+		this.select_files_vm = new SelectFilesVM;
 		// actually it should delete itself and recreate.
 		// need to call back to parent for that. may not bother.
 	}
 
+	@computed get app_files_error(): string {	// ooff we already have an "error message"
+		if( !this.select_files_vm ) {
+			return '';
+		}
+		if( this.select_files_vm.error ) {
+			return this.select_files_vm.error;
+		}
+
+		if( !this.select_files_vm.app_files || !this.select_files_vm.metadata ) {
+			return '';
+		}
+
+		return '';
+	}
+
+	@computed get version_comparison(): VersionComparison | undefined {	// temporary
+		if( !this.select_files_vm || !this.select_files_vm.app_files || !this.select_files_vm.metadata || this.app_files_error ) {
+			return undefined;
+		}
+
+		const ret:VersionComparison = {
+			upload: this.select_files_vm.metadata,
+			previous: undefined,
+			next: undefined,
+			fatal: false,
+			errors: {
+				schema: '',
+				version: ''
+			}
+		};
+
+		return ret;
+	}
+
+	@computed get enable_upload() {
+		return this.select_files_vm 
+			&& this.select_files_vm.app_files 
+			&& this.select_files_vm.metadata
+			&& !this.select_files_vm.error;
+	}
+
 	@action
 	async doUpload() {
+		if( !this.enable_upload )return;
+		if( !this.select_files_vm  || !this.select_files_vm.app_files ) return;	//friggin typescript
+
 		this.state = EditState.uploading;
 	
-		const upRet = await this.deps.applications_dm.uploadNewApplication(this.upload_data);
+		const upRet = await this.deps.applications_dm.uploadNewApplication(this.select_files_vm.app_files);
 		runInAction( () => {	//because of await
 			if( upRet.error || upRet.app_meta == undefined ) {
 				// I don't know what to do exactly.
@@ -143,10 +201,10 @@ export class ManageApplicationVM {
 	application: ApplicationMeta;
 	@observable show_version: VersionMeta | undefined;
 	@observable state: EditState = EditState.start;
-	@observable error_message: string = '';
 
-	@observable upload_data: any = null;
 	@observable delete_check: string = '';
+
+	@observable select_files_vm: SelectFilesVM | undefined;
 
 	constructor(private cbs: ManageApplicationVMCbs, private deps: ManageApplicationVMDeps, app_id: number) {
 		this.app_id = app_id;
@@ -170,13 +228,76 @@ export class ManageApplicationVM {
 
 	@action
 	showVersionUpload() {
+		this.select_files_vm = new SelectFilesVM;
 		this.state = EditState.upload;
 	}
 
+	@computed get app_files_error(): string {
+		if( !this.select_files_vm ) {
+			return '';
+		}
+		if( this.select_files_vm.error ) {
+			return this.select_files_vm.error;
+		}
+
+		if( !this.select_files_vm.app_files || !this.select_files_vm.metadata ) {
+			return '';
+		}
+
+		const upload_version = this.select_files_vm.metadata.version;
+		if( this.deps.applications_dm.versionExists(this.app_id, upload_version) ) {
+			return 'Version '+upload_version+' already exists';
+		}
+
+		return '';
+	}
+
+	@computed get version_comparison(): VersionComparison | undefined {
+		if( !this.select_files_vm || !this.select_files_vm.app_files || !this.select_files_vm.metadata || this.app_files_error ) {
+			return undefined;
+		}
+
+		const upload_version = this.select_files_vm.metadata.version;
+
+		const ret:VersionComparison = {
+			upload: this.select_files_vm.metadata,
+			previous: this.deps.applications_dm.getPrevVersion(this.app_id, upload_version),
+			next: this.deps.applications_dm.getNextVersion(this.app_id, upload_version),
+			fatal: false,
+			errors: {
+				schema: '',
+				version: ''
+			}
+		};
+
+		if( (ret.previous && ret.previous.schema > ret.upload.schema)
+			|| (ret.next && ret.next.schema < ret.upload.schema) ) {
+			ret.fatal = true;
+			ret.errors.schema = 'Schema is out of whack';
+			return ret;
+		}
+
+		return ret;
+	}
+
+	@computed get enable_upload() {
+		return this.select_files_vm 
+		&& this.select_files_vm.app_files
+		&& this.select_files_vm.metadata
+		&& !this.select_files_vm.error
+		&& this.version_comparison
+		&& !this.version_comparison.fatal;
+	}
+
 	async uploadNewVersion() {
+		if( !this.enable_upload ) return;
+		if( !this.select_files_vm || !this.select_files_vm.app_files ) {	// ugh typescript
+			return;
+		}
+
 		this.state = EditState.uploading;
 
-		const upRet = await this.deps.applications_dm.uploadNewVersion(this.app_id, this.upload_data);
+		const upRet = await this.deps.applications_dm.uploadNewVersion(this.app_id, this.select_files_vm.app_files);
 
 		if( upRet.error || upRet.version_meta == undefined ) {
 			// I don't know what to do exactly.
@@ -185,6 +306,8 @@ export class ManageApplicationVM {
 		else {
 			// check upRet structure
 			this.state = EditState.finished;
+
+			// TODO: still somewhat unresolved what happens here
 			//this.manage_status.app_meta = upRet.app_meta;
 			//this.manage_status.version_meta = upRet.app_meta.versions[0];
 

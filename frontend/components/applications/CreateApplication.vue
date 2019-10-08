@@ -11,18 +11,21 @@
 		<h2>New Application</h2>
 
 		<template v-if="create_vm.state === EditState.start">
-			<UploadSelect v-model="create_vm.upload_data"></UploadSelect>
+			<UploadSelect :select_vm="create_vm.select_files_vm"></UploadSelect>
+			<p v-if="create_vm.app_files_error">{{create_vm.app_files_error}}</p>
+			<VersionComparison v-if="create_vm.version_comparison" :cmp="create_vm.version_comparison">
+			</VersionComparison>
 
 			<div class="submit">
 				<DsButton @click="create_vm.doClose()" type="cancel">Cancel</DsButton>
 				<span>
-					<DsButton @click="create_vm.doUpload()" :disabled="!create_vm.upload_data">Upload</DsButton>
+					<DsButton @click="create_vm.doUpload()" :disabled="!create_vm.enable_upload">Upload</DsButton>
 				</span>
 			</div>
 		</template>
 
 		<div class="error" v-if="create_vm.state === EditState.error">
-			{{create_vm.error_message}}
+			[ was create_vm.error_message ]
 
 			<div class="submit">
 				<DsButton @click="create_vm.doClose()" type="cancel">Cancel</DsButton>
@@ -55,6 +58,7 @@ import { Observer } from "mobx-vue";
 import ApplicationsVM from '../../vms/user-page/applications-vm';
 import { EditState, CreateApplicationVM } from '../../vms/user-page/applications-vm';
 
+import VersionComparison from './VersionComparison.vue';
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 import UploadSelect from '../ui/UploadSelect.vue';
@@ -62,6 +66,7 @@ import UploadSelect from '../ui/UploadSelect.vue';
 @Observer
 @Component({
 	components: {
+		VersionComparison,
 		DsModal,
 		DsButton,
 		UploadSelect

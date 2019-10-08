@@ -1,5 +1,5 @@
 import ds_axios from '../ds-axios-helper.js'
-import { compare as semverCompare } from 'semver';
+import { compare as semverCompare, gt as semverGt } from 'semver';
 
 import { action, computed, observable, decorate, configure, runInAction, flow, observe } from "mobx";
 import { AxiosResponse } from 'axios';
@@ -37,28 +37,23 @@ export default class ApplicationsDM {
 		if(!v) throw new Error('version not found');
 		return v
 	}
-	// async getApplicationP(app_id: number): Promise<ApplicationMeta> {
-	// 	return new Promise( (resolve) => {
-	// 		const disposer = observe( this, 'fetched', change => {
-	// 			if( change.newValue ) {
-	// 				console.log('applications fetched!');
-	// 				const a = this.applications.find( (a:ApplicationMeta) => a.app_id === app_id );
-	// 				if( !a ) throw new Error('application not found');//reject?
-	// 				disposer();
-	// 				resolve(a);
-	// 			}
-	// 		});
-	// 	});
-	// }
-	// ^^ OK problem here is that we are sometimes trying to get this before data has loaded.
-	// How to deal?
-	// - block everything until some data is loaded (lousy)
-	// - return a promise or async (does that work in constructors?)
-	// - return dummy data (perhaps with a "_loading:true" prop), and set actual data when it gets set?
-	// I like the last one as it is the most reactive-friendly, but worried it might trigger other errors?
-	// Because the code expects the actual data to match expectations.
-	// ..like it'll throw if it tries to fetch a version and can't find it for example.
-
+	versionExists(app_id: number, version: string): boolean {
+		const a = this.getApplication(app_id);
+		const v = a.versions.find( (v:VersionMeta) => v.version === version );
+		return !!v;
+	}
+	getPrevVersion(app_id: number, version:string): VersionMeta | undefined {
+		const versions = this.getApplication(app_id).versions;
+		if( versions.length === 0 ) return;
+		if( versions.length === 1 && semverGt(version, versions[0].version) ) return versions[0];
+		const i = versions.findIndex( (v:VersionMeta) => semverGt(v.version, version) );
+		if( i > 0 ) return versions[i-1];
+		return undefined;
+	}
+	getNextVersion(app_id: number, version:string): VersionMeta | undefined {
+		const versions = this.getApplication(app_id).versions;
+		return versions.find( (v:VersionMeta) => semverGt(v.version, version));
+	}
 
 	async fetch() {
 		let resp;
@@ -73,7 +68,7 @@ export default class ApplicationsDM {
 		if( !resp || !resp.data || !resp.data.apps ) return;	// return what?
 
 		let apps = <ApplicationMeta[]>resp.data.apps;
-		apps.forEach( (a: ApplicationMeta) => sortVersions(a.versions) );
+		apps.forEach( (a: ApplicationMeta) => a.versions = sortVersions(a.versions) );
 
 		runInAction( () => {
 			this.applications = apps;
@@ -82,9 +77,14 @@ export default class ApplicationsDM {
 	}
 
 	// we could probably have a single upload function 
-	async uploadNewApplication(form_data: any): Promise<UploadApplicationResp> {
+	async uploadNewApplication(selected_files: SelectedFile[]): Promise<UploadApplicationResp> {
 		let ret: UploadApplicationResp = {error: false};
 		let resp: AxiosResponse<any>;
+
+		const form_data = new FormData();
+		selected_files.forEach((sf)=> {
+			form_data.append( 'app_dir', sf.file, sf.rel_path );
+		});
 
 		try {
 			resp = await ds_axios.post( '/api/application/', form_data, {	
@@ -115,9 +115,16 @@ export default class ApplicationsDM {
 		return ret;
 	}
 
-	async uploadNewVersion(app_id: number, form_data: any): Promise<UploadVersionResp> {
+	async uploadNewVersion(app_id: number, selected_files: SelectedFile[]): Promise<UploadVersionResp> {
 		let ret: UploadVersionResp= {error: false};
 		let resp: AxiosResponse<any>;
+
+		const application = this.getApplication(app_id);
+
+		const form_data = new FormData();
+		selected_files.forEach((sf)=> {
+			form_data.append( 'app_dir', sf.file, sf.rel_path );
+		});
 
 		try {
 			resp = await ds_axios.post( '/api/application/'+encodeURIComponent(app_id)+'/version/', form_data, {	
@@ -139,20 +146,13 @@ export default class ApplicationsDM {
 		else {
 			ret.error = false;
 
-			const new_version_meta = resp.data.app_meta;
-
-			const application = this.applications.find( (a:ApplicationMeta) => a.app_id === app_id );
-			if( application == undefined ) {
-				// that's an error;
-				ret.error = true;
-				return ret;
-			}
+			const new_version_meta = resp.data.version_meta;
 			
 			runInAction( () => {
 				application.versions.push(new_version_meta);
+				application.versions = sortVersions(application.versions);
 			});
-			sortVersions(application.versions);
-
+			
 			ret.version_meta = new_version_meta;
 		}
 
@@ -192,8 +192,10 @@ export default class ApplicationsDM {
 	}
 }
 
-function sortVersions( versions: VersionMeta[] ) {
-	versions.sort( (a, b) => {
+function sortVersions( versions: VersionMeta[] ) :VersionMeta[] {
+	const v = versions.slice();
+	v.sort( (a, b) => {
 		return semverCompare(b.version, a.version);	// reverse order
 	});
+	return v;
 }

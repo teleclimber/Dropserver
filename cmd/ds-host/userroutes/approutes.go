@@ -52,6 +52,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		head, tail := shiftpath.ShiftPath(routeData.URLTail)
 		routeData.URLTail = tail
 
+		// delete application??
+
 		switch head {
 		case "version": // application/<app-id>/version/*
 			// get a version from path
@@ -208,20 +210,14 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 			return
 		}
 
-		// TODO: Check that the version does not exist already in DB for this app.
-		// .. if it does thn it's a bad request, but should have a user-friendly message.
-
 		// TODO: here we should check that this version is coherent with previously uploaded versions
-		// .. like app name, author, version is greater than last greatest
-		// though it's not clear we should not proceed.
-		// This could be purely frontend...?: compare new version wi
-		// -> although this implies sending "application data" that is actually "version data."
-		// Maybe that' workable.
-		// -> though remember that some appspaces auto-update,
-		// ..so when is it OK to migrate data, etc...?
-		// Other options is to make this deliberately 2-step?
-
-		// -> another option is to read the dropapp manifest at frontend side prior to upload?
+		// The frontend performs the checks, but we should repeat them at the backend and fail with bad request if violation is found?
+		// actual violations:
+		// - version exists
+		// - schema and versions don't add up
+		//.. that's it. Everything else is user's choice to break.
+		// "version exists" is enforced at DB level with an index.
+		// so just check versions and schemas.
 
 		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, locationKey)
 		if dsErr != nil {

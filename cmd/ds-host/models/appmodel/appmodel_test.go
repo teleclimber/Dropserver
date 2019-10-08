@@ -172,6 +172,13 @@ func TestVersion(t *testing.T) {
 	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
 		t.Fatal("should have been no rows error", dsErr)
 	}
+
+	// then test inserting a duplicate version
+	_, dsErr = appModel.CreateVersion(1, "0.0.1", 7, "bar-location")
+	if dsErr == nil {
+		t.Error("expected error on inserting duplicate")
+	}
+
 }
 
 func TestGetVersionForApp(t *testing.T) {

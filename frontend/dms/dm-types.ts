@@ -13,6 +13,7 @@ type ApplicationMeta = {
 }
 
 type VersionMeta = {
+	app_name: string,
 	version: string,
 	schema: number,
 	created_dt: Date,
@@ -25,4 +26,9 @@ type AppspaceMeta = {
 	subdomain: string,
 	paused: boolean,
 	created_dt: Date,
+}
+
+type SelectedFile = {
+	file: File,
+	rel_path: string
 }

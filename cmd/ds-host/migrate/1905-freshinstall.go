@@ -68,6 +68,7 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"location_key" TEXT,
 		"created" DATETIME
 	)`)
+	args.dbExec(`CREATE UNIQUE INDEX app_id_versions ON app_versions (app_id, version)`)
 
 	// appspaces:
 	args.dbExec(`CREATE TABLE "appspaces" (

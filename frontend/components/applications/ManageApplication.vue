@@ -47,7 +47,7 @@
 		<p>Name: {{manage_vm.application.app_name}}</p>
 
 		<div class="error" v-if="manage_vm.state === EditState.error">
-			{{manage_vm.error_message}}
+			[ was manage_vm.error_message ]
 		</div>
 		<template v-else-if="manage_vm.show_version">
 			<h4>Version {{manage_vm.show_version.version}}</h4>
@@ -65,7 +65,10 @@
 		</template>
 		<template v-else-if="manage_vm.state === EditState.upload">
 			<p>Upload new version:</p>
-			<UploadSelect v-model="manage_vm.upload_data"></UploadSelect>
+			<UploadSelect :select_vm="manage_vm.select_files_vm"></UploadSelect>
+			<p v-if="manage_vm.app_files_error">{{manage_vm.app_files_error}}</p>
+			<VersionComparison v-if="manage_vm.version_comparison" :cmp="manage_vm.version_comparison">
+			</VersionComparison>
 		</template>
 		<template v-else-if="manage_vm.state === EditState.uploading">
 			<p>Uploading...</p>
@@ -108,7 +111,7 @@
 
 		<div class="submit">
 			<DsButton @click="manage_vm.closeClicked()" type="close">close</DsButton>
-			<DsButton @click="manage_vm.uploadNewVersion()" v-if="manage_vm.state === EditState.upload" :disabled="!manage_vm.upload_data">upload</DsButton>
+			<DsButton @click="manage_vm.uploadNewVersion()" v-if="manage_vm.state === EditState.upload" :disabled="!manage_vm.enable_upload">upload</DsButton>
 		</div>
 	</DsModal>
 </template>
@@ -122,6 +125,7 @@ import ApplicationsDM from '../../dms/applications-dm';
 import ApplicationsVM from '../../vms/user-page/applications-vm';
 import { EditState, ManageApplicationVM } from '../../vms/user-page/applications-vm';
 
+import VersionComparison from './VersionComparison.vue';
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
 import UploadSelect from '../ui/UploadSelect.vue';
@@ -129,6 +133,7 @@ import UploadSelect from '../ui/UploadSelect.vue';
 @Observer
 @Component({
 	components: {
+		VersionComparison,
 		DsModal,
 		DsButton,
 		UploadSelect
