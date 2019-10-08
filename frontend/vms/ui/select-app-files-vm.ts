@@ -5,26 +5,24 @@ interface WebkitFile extends File {
 }
 
 export default class SelectAppFilesVM {
-	@observable file_list: FileList | undefined;
+	@observable _file_list: { file_list: undefined | FileList };
 	@observable metadata: VersionMeta | undefined;
 	@observable app_json_error: string = '';
 
 	constructor() {
+		this._file_list = { file_list: undefined };
 		observe(this, 'app_json_file', () => {
-			console.log('observe app_list');
 			this.readAppJson();
 		});
 	}
 
 	@computed get app_json_file(): SelectedFile | undefined {
-		console.log('get app.json');
 		if( !this.app_files ) return undefined;
 		return this.app_files.find( (s:SelectedFile) => s.rel_path === 'application.json');
 	}
 
 	//@action
 	readAppJson() {
-		console.log('get readAppJson');
 		if( !this.app_json_file ) {
 			this.metadata = undefined;	// not sure this will set correctly
 			return;
@@ -33,7 +31,6 @@ export default class SelectAppFilesVM {
 		const reader = new FileReader();
 		reader.readAsText(this.app_json_file.file, "UTF-8");
 		reader.onerror = (event) => {
-			console.log(event);
 			runInAction( () => {
 				this.metadata = undefined;
 				this.app_json_error = 'Failed to read application.json';
@@ -52,11 +49,9 @@ export default class SelectAppFilesVM {
 			}
 
 			if( app_data ) {
-				console.log('app data', app_data);
 				// should probably verify data is at least believable
 				// version is properly interpreted as semver for ex
 				// schema is a number.
-				//
 				const ret: VersionMeta = {
 					app_name: app_data.name,
 					version: app_data.version,
@@ -73,14 +68,15 @@ export default class SelectAppFilesVM {
 
 	@action
 	setFileList(files:FileList) {
-		console.log('file_list set');
-	
-		this.file_list = undefined;	// workaround because browser sends same object ref
-		this.file_list = files;
+		this._file_list = { file_list: files };
+	}
+
+	//@computed //precisely not computed!
+	get file_list() : FileList | undefined {
+		return this._file_list.file_list;
 	}
 
 	@computed get app_files(): SelectedFile[] | undefined {
-		console.log('get app_files');
 		if( !this.file_list ) return;
 		// should potentially reset error and metadata and files...
 
