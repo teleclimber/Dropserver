@@ -1,5 +1,5 @@
-import ds_axios from '../ds-axios-helper.js'
-import { compare as semverCompare, gt as semverGt } from 'semver';
+import ds_axios from '../ds-axios-helper-ts';
+import { compare as semverCompare, gt as semverGt, lt as semverLt } from 'semver';
 
 import { action, computed, observable, decorate, configure, runInAction, flow, observe } from "mobx";
 import { AxiosResponse } from 'axios';
@@ -22,9 +22,7 @@ export default class ApplicationsDM {
 
 	@observable fetched = false;
 
-	constructor() {
-		this.fetch();
-	}
+	constructor() {}
 
 	getApplication(app_id: number) : ApplicationMeta {
 		const a = this.applications.find( (a:ApplicationMeta) => a.app_id === app_id );
@@ -43,19 +41,16 @@ export default class ApplicationsDM {
 		return !!v;
 	}
 	getPrevVersion(app_id: number, version:string): VersionMeta | undefined {
+		// it's the first one that is less than passed version
 		const versions = this.getApplication(app_id).versions;
-		if( versions.length === 0 ) return;
-		if( versions.length === 1 && semverGt(version, versions[0].version) ) return versions[0];
-		const i = versions.findIndex( (v:VersionMeta) => semverGt(v.version, version) );
-		if( i > 0 ) return versions[i-1];
-		return undefined;
+		return versions.find( (v:VersionMeta) => semverLt(v.version, version));
 	}
 	getNextVersion(app_id: number, version:string): VersionMeta | undefined {
 		const versions = this.getApplication(app_id).versions;
-		return versions.find( (v:VersionMeta) => semverGt(v.version, version));
+		return versions.slice().reverse().find( (v:VersionMeta) => semverGt(v.version, version));
 	}
 
-	async fetch() {
+	async fetchAll() {
 		let resp;
 		try {
 			resp = await ds_axios.get( '/api/application' );
@@ -192,6 +187,8 @@ export default class ApplicationsDM {
 	}
 }
 
+// Versions are sorted in reverse order. 
+// -> the latest version is at versions[0]
 function sortVersions( versions: VersionMeta[] ) :VersionMeta[] {
 	const v = versions.slice();
 	v.sort( (a, b) => {

@@ -1,4 +1,4 @@
-import ds_axios from '../ds-axios-helper.js'
+import ds_axios from '../ds-axios-helper-ts';
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 

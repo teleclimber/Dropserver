@@ -23,6 +23,9 @@
         "format": true,
         "autoComplete": true
     },
+
+    "jest.rootPath": "frontend/",
+    
     "workbench.colorCustomizations": {
         "activityBar.background": "#4e2d20",
         "activityBar.foreground": "#e7e7e7",

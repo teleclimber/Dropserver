@@ -26,7 +26,10 @@ import AppspacesVM from '../../vms/user-page/appspaces-vm';
 
 
 const current_user_dm = new CurrentUserDM;
+
 const applications_dm = new ApplicationsDM;
+applications_dm.fetchAll();
+
 const appspaces_dm = new AppspacesDM;
 
 
