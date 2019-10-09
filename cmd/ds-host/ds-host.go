@@ -42,7 +42,7 @@ var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as
 var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
 func main() {
-	startServer := true
+	//startServer := true	// currnetly actually not used.
 
 	flag.Parse()
 
@@ -64,7 +64,7 @@ func main() {
 		DBManager: dbManager }
 
 	if *migrateFlag {
-		startServer = false
+		//startServer = false
 		
 		dsErr := migrator.Migrate("")
 		if dsErr != nil {
@@ -124,7 +124,7 @@ func main() {
 	}
 
 	if *addAdminFlag || len(admins) == 0 {
-		startServer = false
+		//startServer = false
 		_, dsErr := cliHandlers.AddAdmin()
 		if dsErr != nil {
 			fmt.Println(dsErr)
