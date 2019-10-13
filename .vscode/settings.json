@@ -11,18 +11,18 @@
 	"go.testFlags": [],
 
 	"go.useLanguageServer": true,
-    "go.alternateTools": {
-        "go-langserver": "bingo"
-    },
-    "go.languageServerFlags": [
-        "-enhance-signature-help",
-        "-trace",
-        "-format-style=goimports",
-    ],
-    "go.languageServerExperimentalFeatures": {
-        "format": true,
-        "autoComplete": true
-    },
+    // "go.alternateTools": {
+    //     "go-langserver": "bingo"
+    // },
+    // "go.languageServerFlags": [
+    //     "-enhance-signature-help",
+    //     "-trace",
+    //     "-format-style=goimports",
+    // ],
+    // "go.languageServerExperimentalFeatures": {
+    //     "format": true,
+    //     "autoComplete": true
+    // },
 
     "jest.rootPath": "frontend/",
     
