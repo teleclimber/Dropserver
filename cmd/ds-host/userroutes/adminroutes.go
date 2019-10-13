@@ -93,9 +93,9 @@ func (a *AdminRoutes) getUsers(res http.ResponseWriter, req *http.Request, route
 		return
 	}
 
-	usersResp := []userResp{}
+	usersResp := []UserData{}
 	for _, u := range users {
-		ur := userResp{
+		ur := UserData{
 			UserID:  int(u.UserID),
 			Email:   u.Email,
 			IsAdmin: false}
@@ -109,7 +109,7 @@ func (a *AdminRoutes) getUsers(res http.ResponseWriter, req *http.Request, route
 		usersResp = append(usersResp, ur)
 	}
 
-	writeJSON(res, adminGetUsersResp{Users: usersResp})
+	writeJSON(res, AdminGetUsersResp{Users: usersResp})
 }
 
 func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -119,14 +119,14 @@ func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, ro
 		return
 	}
 
-	respData := getSettingsResp{
+	respData := GetSettingsResp{
 		Settings: *settings}
 
 	writeJSON(res, respData)
 }
 
 func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	reqData := &postSettingsReq{}
+	reqData := &PostSettingsReq{}
 	dsErr := readJSON(req, reqData)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -166,12 +166,12 @@ func (a *AdminRoutes) getInvitations(res http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	writeJSON(res, getUserInvitationsResp{
+	writeJSON(res, AdminGetUserInvitationsResp{
 		UserInvitations: invites})
 }
 
 func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	reqData := &postUserInvitationReq{}
+	reqData := &AdminPostUserInvitationReq{}
 	dsErr := readJSON(req, reqData)
 	if dsErr != nil {
 		dsErr.HTTPError(res)

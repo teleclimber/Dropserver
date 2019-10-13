@@ -1,5 +1,7 @@
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
+import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+
 import ApplicationsDM from '../../dms/applications-dm';
 import SelectFilesVM from '../ui/select-app-files-vm';
 

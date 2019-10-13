@@ -4,6 +4,8 @@ import { compare as semverCompare, gt as semverGt, lt as semverLt } from 'semver
 import { action, computed, observable, decorate, configure, runInAction, flow, observe } from "mobx";
 import { AxiosResponse } from 'axios';
 
+import { GetAppsResp, PostAppResp, PostVersionResp, ApplicationMeta, VersionMeta } from '../generated-types/userroutes-classes';
+
 type UploadApplicationResp = {
 	error: boolean,
 	error_message?: string,
@@ -62,11 +64,11 @@ export default class ApplicationsDM {
 
 		if( !resp || !resp.data || !resp.data.apps ) return;	// return what?
 
-		let apps = <ApplicationMeta[]>resp.data.apps;
-		apps.forEach( (a: ApplicationMeta) => a.versions = sortVersions(a.versions) );
+		let apps_resp = new GetAppsResp(resp.data);
+		apps_resp.apps.forEach( (a: ApplicationMeta) => a.versions = sortVersions(a.versions) );
 
 		runInAction( () => {
-			this.applications = apps;
+			this.applications = apps_resp.apps;
 			this.fetched = true;
 		});
 	}
@@ -101,7 +103,9 @@ export default class ApplicationsDM {
 		}
 		else {
 			ret.error = false;
-			ret.app_meta = resp.data.app_meta;
+			const resp_inst = new PostAppResp(resp.data);
+			ret.app_meta = resp_inst.app_meta;
+			// TODO: need to sort versions, (but anyhoo better to have app as separate dm that handles taht auto.)
 			runInAction( () => {
 				this.applications.push(resp.data.app_meta);
 			});
@@ -141,14 +145,14 @@ export default class ApplicationsDM {
 		else {
 			ret.error = false;
 
-			const new_version_meta = resp.data.version_meta;
-			
+			const resp_inst = new PostVersionResp(resp.data);
+
 			runInAction( () => {
-				application.versions.push(new_version_meta);
+				application.versions.push(resp_inst.version_meta);
 				application.versions = sortVersions(application.versions);
 			});
 			
-			ret.version_meta = new_version_meta;
+			ret.version_meta = resp_inst.version_meta;
 		}
 
 		return ret;
@@ -164,8 +168,8 @@ export default class ApplicationsDM {
 			return;
 		}
 
-		const application = this.applications.find( (a:ApplicationMeta) => a.app_id === app_id );
-		if( !application ) return;	//error
+		const application = this.getApplication(app_id);
+		if( !application ) return;	//error	// will throw before we get here anywyas.
 
 		const i = application.versions.findIndex( (v: VersionMeta) => v.version === version );
 		runInAction( () => {

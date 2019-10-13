@@ -22,3 +22,4 @@ dist
 #frontend
 node_modules
 frontend/dist
+frontend/generated-types

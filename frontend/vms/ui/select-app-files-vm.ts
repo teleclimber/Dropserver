@@ -1,5 +1,7 @@
 import { action, computed, observable, decorate, observe, runInAction, autorun } from "mobx";
 
+import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+
 interface WebkitFile extends File {
 	webkitRelativePath: string;
 }

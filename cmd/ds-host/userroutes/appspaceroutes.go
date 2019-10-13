@@ -1,22 +1,21 @@
 package userroutes
 
 import (
-	"net/http"
 	"math/rand"
-	"time"
+	"net/http"
 	"strconv"
-  
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // AppspaceRoutes handles routes for applications uploading, creating, deleting.
 type AppspaceRoutes struct {
 	AppspaceModel domain.AppspaceModel
 	AppModel      domain.AppModel
-	Logger domain.LogCLientI
+	Logger        domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the appspace routes
@@ -64,14 +63,14 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	respData := getAppspacesResp{
-		Appspaces: make([]appspaceMeta, 0)}
+	respData := GetAppspacesResp{
+		Appspaces: make([]AppspaceMeta, 0)}
 
 	for _, appspace := range appspaces {
-		respData.Appspaces = append(respData.Appspaces, appspaceMeta{
-			AppID:     int(appspace.AppID),
-			AppVersion:   string(appspace.AppVersion),
-			Subdomain: appspace.Subdomain}) // yeah, subdomain versus name. Gonna need to do some work here.
+		respData.Appspaces = append(respData.Appspaces, AppspaceMeta{
+			AppID:      int(appspace.AppID),
+			AppVersion: string(appspace.AppVersion),
+			Subdomain:  appspace.Subdomain}) // yeah, subdomain versus name. Gonna need to do some work here.
 	}
 
 	writeJSON(res, respData)
@@ -104,11 +103,12 @@ func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData
 
 // temporary ubdomain gneration stuff
 const charset = "abcdefghijklmnopqrstuvwxyz"
+
 var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
-  
+
 func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	reqData := &postAppspaceReq{}
+	reqData := &PostAppspaceReq{}
 	dsErr := readJSON(req, reqData)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -116,7 +116,6 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	}
 
 	// TODO: validate version before using it with DB. At least for size.
-
 
 	app, dsErr := a.AppModel.GetFromID(reqData.AppID)
 	if dsErr != nil {
@@ -137,7 +136,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		http.Error(res, "", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// OK, so currently we are supposed to generate a subdomain.
 	// This is very temporary because I want to move to user-chosen subdomains.
 	// But let's get things working first.
@@ -149,14 +148,14 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	}
 
 	// return appspace Meta
-	resp := postAppspaceResp{
-		AppspaceMeta: appspaceMeta{
-			AppID: int(appspace.AppID),
+	resp := PostAppspaceResp{
+		AppspaceMeta: AppspaceMeta{
+			AppID:      int(appspace.AppID),
 			AppVersion: string(appspace.AppVersion),
-			Subdomain: appspace.Subdomain,
-			Paused: appspace.Paused,
-			Created: appspace.Created}}
-	
+			Subdomain:  appspace.Subdomain,
+			Paused:     appspace.Paused,
+			Created:    appspace.Created}}
+
 	writeJSON(res, resp)
 }
 
@@ -166,7 +165,7 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 		return
 	}
 
-	reqData := changeVersionReq{}
+	reqData := PostAppspaceVersionReq{}
 	dsErr := readJSON(req, &reqData)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -175,7 +174,8 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 
 	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
 
-	/*targetVersion*/ _, dsErr = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
+	/*targetVersion*/
+	_, dsErr = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
@@ -185,7 +185,7 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 	// dsErr = a.AppspaceCtl.ChangeVersion(appspace, targetVersion)
 
 	// Lots to do there.
-	// - record pause status 
+	// - record pause status
 	// - do pause (not just through model, this need some sort of controller)
 	// - get old version and new version datas
 	// - check if migration needed
@@ -200,9 +200,8 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 
 }
 
-
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
-	for i := 0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		sub = randomSubomainString()
 		_, dsErr := a.AppspaceModel.GetFromSubdomain(sub)
 		if dsErr == nil {
@@ -212,12 +211,10 @@ func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 	return
 }
 
-
 func randomSubomainString() string {
 	b := make([]byte, 8)
 	for i := range b {
-	  b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[seededRand.Intn(len(charset))]
 	}
 	return string(b)
 }
-  

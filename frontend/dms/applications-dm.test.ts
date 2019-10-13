@@ -1,6 +1,8 @@
 import ApplicationsDM from './applications-dm';
 import ds_axios from '../ds-axios-helper-ts';
 
+import { ApplicationMeta } from '../generated-types/userroutes-classes';
+
 jest.mock('../ds-axios-helper-ts');
 const mockAxios = ds_axios as jest.Mocked<typeof ds_axios>;
 

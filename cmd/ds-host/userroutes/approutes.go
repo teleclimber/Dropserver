@@ -91,8 +91,8 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 		return
 	}
 
-	respData := getAppsResp{
-		Apps: make([]appMeta, 0)}
+	respData := GetAppsResp{
+		Apps: make([]ApplicationMeta, 0)}
 
 	fail := false
 	for _, app := range apps {
@@ -102,14 +102,14 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 			break
 		}
 
-		verResp := make([]versionMeta, 0)
+		verResp := make([]VersionMeta, 0)
 		for _, appVersion := range appVersions {
-			verResp = append(verResp, versionMeta{
+			verResp = append(verResp, VersionMeta{
 				Version: string(appVersion.Version),
 				Created: appVersion.Created})
 		}
 
-		respData.Apps = append(respData.Apps, appMeta{
+		respData.Apps = append(respData.Apps, ApplicationMeta{
 			AppID:    int(app.AppID),
 			AppName:  app.Name,
 			Created:  app.Created,
@@ -169,12 +169,12 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 		}
 
 		// Send back exact same thing we would send if doing a GET on applications.
-		respData := createAppResp{
-			AppMeta: appMeta{
+		respData := PostAppResp{
+			AppMeta: ApplicationMeta{
 				AppID:   int(app.AppID),
 				AppName: app.Name,
 				Created: app.Created,
-				Versions: []versionMeta{{
+				Versions: []VersionMeta{{
 					Version: string(version.Version),
 					Schema:  version.Schema,
 					Created: version.Created}}}}
@@ -226,8 +226,8 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 			return
 		}
 
-		respData := createVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
-			VersionMeta: versionMeta{
+		respData := PostVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
+			VersionMeta: VersionMeta{
 				Version: string(version.Version),
 				Schema:  version.Schema,
 				Created: version.Created}}

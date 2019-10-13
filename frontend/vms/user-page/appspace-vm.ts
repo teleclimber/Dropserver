@@ -5,6 +5,8 @@
 
 import { action, computed, observable, decorate, configure, runInAction } from "mobx";
 
+import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+
 import ApplicationsDM from '../../dms/applications-dm';
 
 type AppspaceVMCbs = {

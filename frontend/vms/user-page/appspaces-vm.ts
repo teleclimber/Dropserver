@@ -1,5 +1,7 @@
 import { action, computed, observable, decorate, configure, runInAction, intercept, observe } from "mobx";
 
+import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+
 import AppspacesDM from '../../dms/appspaces-dm';
 import ApplicationsDM from '../../dms/applications-dm';
 

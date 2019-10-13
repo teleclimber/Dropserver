@@ -99,7 +99,7 @@ func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, rou
 
 	isAdmin := u.UserModel.IsAdmin(user.UserID)
 
-	userData := userResp{
+	userData := UserData{
 		UserID:  int(user.UserID),
 		Email:   user.Email,
 		IsAdmin: isAdmin}
@@ -130,7 +130,7 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	var data changePwData
+	var data PatchPasswordReq
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		res.WriteHeader(http.StatusBadRequest)
