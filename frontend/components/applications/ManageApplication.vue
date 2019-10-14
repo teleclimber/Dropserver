@@ -82,7 +82,7 @@
 			<div class="versions-container">
 				<div 
 						class="version"
-						v-for="version in manage_vm.application.versions"
+						v-for="version in manage_vm.application.sorted_versions"
 						:key="version.version"
 						@click="manage_vm.showVersion(version)">
 					<span class="ver-name">{{version.version}}</span>

@@ -1,8 +1,10 @@
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
-import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+import { VersionMeta } from '../../generated-types/userroutes-classes';
 
 import ApplicationsDM from '../../dms/applications-dm';
+import ApplicationDM from '../../dms/application-dm';
+
 import SelectFilesVM from '../ui/select-app-files-vm';
 
 export enum EditState { start, upload, uploading, processing, error, enter_meta, finishing, finished };
@@ -102,7 +104,7 @@ export type VersionComparison = {
 
 export class CreateApplicationVM {
 	@observable state: EditState = EditState.start;
-	@observable app_meta?: ApplicationMeta;
+	@observable application?: ApplicationDM;
 	@observable version_meta?: VersionMeta;
 
 	@observable select_files_vm: SelectFilesVM | undefined;
@@ -169,22 +171,22 @@ export class CreateApplicationVM {
 	
 		const upRet = await this.deps.applications_dm.uploadNewApplication(this.select_files_vm.app_files);
 		runInAction( () => {	//because of await
-			if( upRet.error || upRet.app_meta == undefined ) {
+			if( upRet.error || upRet.application == undefined ) {
 				// I don't know what to do exactly.
 				this.state = EditState.error;
 			}
 			else {
 				// check upRet structure
 				this.state = EditState.finished;
-				this.app_meta = upRet.app_meta;
-				this.version_meta = upRet.app_meta.versions[0];
+				this.application = upRet.application;
+				this.version_meta = upRet.application.sorted_versions[0];
 			}
 		});
 	}
 
 	createAppspaceClicked() {
-		if( !this.app_meta || !this.version_meta ) return;
-		this.cbs.createAppspaceClicked(this.app_meta.app_id, this.version_meta.version);
+		if( !this.application || !this.version_meta ) return;
+		this.cbs.createAppspaceClicked(this.application.app_id, this.version_meta.version);
 	}
 
 	doClose() {
@@ -200,7 +202,7 @@ type ManageApplicationVMCbs = {
 }
 export class ManageApplicationVM {
 	app_id: number;
-	application: ApplicationMeta;
+	application: ApplicationDM;
 	@observable show_version: VersionMeta | undefined;
 	@observable state: EditState = EditState.start;
 
@@ -209,12 +211,8 @@ export class ManageApplicationVM {
 	@observable select_files_vm: SelectFilesVM | undefined;
 
 	constructor(private cbs: ManageApplicationVMCbs, private deps: ManageApplicationVMDeps, app_id: number) {
-		this.app_id = app_id;
-		const a = this.deps.applications_dm.applications.find( (a:ApplicationMeta) => a.app_id === app_id );
-		if( !a ) {
-			throw new Error("application not found for app_id "+app_id);
-		}
-		this.application = a;	//should this not be a deep copy, or something?
+		this.app_id = app_id;	// why do we also need app_id on this?
+		this.application = this.deps.applications_dm.getApplication(app_id);
 	}
 
 	@action
@@ -247,7 +245,7 @@ export class ManageApplicationVM {
 		}
 
 		const upload_version = this.select_files_vm.metadata.version;
-		if( this.deps.applications_dm.versionExists(this.app_id, upload_version) ) {
+		if( this.application.versionExists(upload_version) ) {
 			return 'Version '+upload_version+' already exists';
 		}
 
@@ -263,8 +261,8 @@ export class ManageApplicationVM {
 
 		const ret:VersionComparison = {
 			upload: this.select_files_vm.metadata,
-			previous: this.deps.applications_dm.getPrevVersion(this.app_id, upload_version),
-			next: this.deps.applications_dm.getNextVersion(this.app_id, upload_version),
+			previous: this.application.getPrevVersion(upload_version),
+			next: this.application.getNextVersion(upload_version),
 			fatal: false,
 			errors: {
 				schema: '',
@@ -299,7 +297,7 @@ export class ManageApplicationVM {
 
 		this.state = EditState.uploading;
 
-		const upRet = await this.deps.applications_dm.uploadNewVersion(this.app_id, this.select_files_vm.app_files);
+		const upRet = await this.application.uploadNewVersion(this.select_files_vm.app_files);
 
 		if( upRet.error || upRet.version_meta == undefined ) {
 			// I don't know what to do exactly.

@@ -181,7 +181,7 @@ export class ManageAppspaceVM {
 
 	@action
 	pickVersion(version: string) {
-		this.upgrade_version = this.deps.applications_dm.getVersion(this.appspace_vm.app_id, version);
+		this.upgrade_version = this.appspace_vm.application.getVersion(version);
 		this.state = ManageState.show_upgrade;
 	}
 	@computed get up_down(): string {
