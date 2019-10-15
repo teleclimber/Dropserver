@@ -25,15 +25,19 @@
 			"program": "${fileDirname}}"
 		},
 		{
-			"name": "Remote",
+			"name": "ds-host remote",
 			"type": "go",
-			"request": "launch",
+			"request": "attach",
 			"mode": "remote",
 			"host": "10.211.55.9",
 			"port": 2345,
-			"program": "${fileDirname}",
-			"env": {},
-			"args": []
+			//"program": "${workspaceFolder}/cmd/ds-host",
+			"remotePath": "/home/developer/go/src/github.com/teleclimber/DropServer",
+			//"env": {},
+			//"args": ["-config=/home/developer/ds-config.json"]
+			// "showLog": true,
+			// "trace": "log",
+			// "logOutput": "rpc"
 		}
 	]
 }
