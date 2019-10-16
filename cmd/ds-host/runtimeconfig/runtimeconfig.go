@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"

@@ -8,27 +8,27 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
-	"github.com/teleclimber/DropServer/cmd/ds-host/database"
-	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
-	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
-	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
-	"github.com/teleclimber/DropServer/cmd/ds-host/views"
-	"github.com/teleclimber/DropServer/cmd/ds-host/server"
-	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
-	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
+	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
+	"github.com/teleclimber/DropServer/cmd/ds-host/database"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/server"
+	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
+	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/internal/stdinput"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -49,7 +49,7 @@ func main() {
 	runtimeConfig := runtimeconfig.Load(*configFlag)
 
 	dbManager := &database.Manager{
-		Config: runtimeConfig }
+		Config: runtimeConfig}
 
 	db, err := dbManager.Open()
 	if err != nil {
@@ -59,13 +59,13 @@ func main() {
 
 	migrator := &migrate.Migrator{
 		OrderedSteps: migrate.OrderedSteps,
-		StringSteps: migrate.StringSteps,
-		Config: runtimeConfig,
-		DBManager: dbManager }
+		StringSteps:  migrate.StringSteps,
+		Config:       runtimeConfig,
+		DBManager:    dbManager}
 
 	if *migrateFlag {
 		//startServer = false
-		
+
 		dsErr := migrator.Migrate("")
 		if dsErr != nil {
 			fmt.Println("Error Migrating", dsErr.PublicString(), dsErr.ExtraMessage())
@@ -82,10 +82,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	record.Init(runtimeConfig)	// ok, but that's not how we should do it.
+	record.Init(runtimeConfig) // ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	logger := record.NewLogClient(runtimeConfig)	// we should start logger before migration step, and log migrations
+	logger := record.NewLogClient(runtimeConfig) // we should start logger before migration step, and log migrations
 
 	validator := &validator.Validator{}
 	validator.Init()
@@ -94,24 +94,24 @@ func main() {
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	settingsModel.PrepareStatements()
 
 	userInvitationModel := &userinvitationmodel.UserInvitationModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	userInvitationModel.PrepareStatements()
 
 	userModel := &usermodel.UserModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	userModel.PrepareStatements()
 
 	cliHandlers := clihandlers.CliHandlers{
 		UserModel: userModel,
 		Validator: validator,
-		StdInput: stdInput }
+		StdInput:  stdInput}
 
 	// Check we have admins before going further.
 	admins, dsErr := userModel.GetAllAdmins()
@@ -140,8 +140,8 @@ func main() {
 	logger.Log(domain.INFO, nil, "ds-host is starting")
 
 	cookieModel := &cookiemodel.CookieModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	cookieModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
@@ -149,23 +149,23 @@ func main() {
 		Logger: logger}
 
 	appModel := &appmodel.AppModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	appModel.PrepareStatements()
 
 	appspaceModel := &appspacemodel.AppspaceModel{
-		DB: db,
-		Logger: logger }
+		DB:     db,
+		Logger: logger}
 	appspaceModel.PrepareStatements()
 
 	// appspaceroutesmodel is questionable because it loads the routes from the files, yet we have a model that reads from there?
 	asRoutesModel := &asroutesmodel.ASRoutesModel{
-		AppFilesModel: appFilesModel,	// temporary!
-		Logger: logger }
+		AppFilesModel: appFilesModel, // temporary!
+		Logger:        logger}
 
 	sM := sandbox.Manager{
 		Config: runtimeConfig,
-		Logger: logger }
+		Logger: logger}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -200,79 +200,78 @@ func main() {
 		//defer pprof.StopCPUProfile()
 	}
 
-
 	m := record.Metrics{}
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
-		Logger: logger,
-		Metrics: &m	}
+		Logger:         logger,
+		Metrics:        &m}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
 		CookieModel: cookieModel,
-		Config: runtimeConfig }
+		Config:      runtimeConfig}
 
-	// Views 
+	// Views
 	views := &views.Views{
 		Logger: logger,
-		Config: runtimeConfig }
+		Config: runtimeConfig}
 	views.PrepareTemplates()
 
 	// Create routes
 	authRoutes := &userroutes.AuthRoutes{
-		Views: views,
+		Views:         views,
 		SettingsModel: settingsModel,
-		UserModel: userModel,
+		UserModel:     userModel,
 		Authenticator: authenticator,
-		Validator: validator}
+		Validator:     validator}
 
 	adminRoutes := &userroutes.AdminRoutes{
-		UserModel: userModel,
-		SettingsModel: settingsModel,
+		UserModel:           userModel,
+		SettingsModel:       settingsModel,
 		UserInvitationModel: userInvitationModel,
-		Validator: validator,
-		Logger: logger}
+		Validator:           validator,
+		Logger:              logger}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppFilesModel: appFilesModel,
-		AppModel: appModel,
+		AppModel:      appModel,
 		AppspaceModel: appspaceModel,
-		Logger: logger }
+		Logger:        logger}
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
 		AppspaceModel: appspaceModel,
-		AppModel: appModel,
-		Logger: logger }
-		
+		AppModel:      appModel,
+		Logger:        logger}
+
 	userRoutes := &userroutes.UserRoutes{
-		Authenticator: authenticator,
-		AuthRoutes: authRoutes,
-		AdminRoutes: adminRoutes,
+		Authenticator:     authenticator,
+		AuthRoutes:        authRoutes,
+		AdminRoutes:       adminRoutes,
 		ApplicationRoutes: applicationRoutes,
-		AppspaceRoutes: appspaceUserRoutes,
-		UserModel: userModel,
-		Views: views,
-		Validator: validator,
-		Logger: logger }
+		AppspaceRoutes:    appspaceUserRoutes,
+		UserModel:         userModel,
+		Views:             views,
+		Validator:         validator,
+		Logger:            logger}
 
 	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
-		AppModel:	appModel,
-		AppspaceModel: appspaceModel,
-		ASRoutesModel: asRoutesModel,
+		AppModel:         appModel,
+		AppspaceModel:    appspaceModel,
+		ASRoutesModel:    asRoutesModel,
 		DropserverRoutes: dropserverASRoutes,
-		SandboxProxy: sandboxProxy,
-		Logger: logger }
+		SandboxProxy:     sandboxProxy,
+		Logger:           logger}
 
 	// Create server.
 	server := &server.Server{
-		Config: runtimeConfig,
-		UserRoutes: userRoutes,
+		Config:         runtimeConfig,
+		UserRoutes:     userRoutes,
 		AppspaceRoutes: appspaceRoutes,
-		Metrics: &m,
-		Logger: logger }
+		Metrics:        &m,
+		Logger:         logger}
 
 	fmt.Println("starting server")
 
@@ -292,4 +291,3 @@ func main() {
 // 		//asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
 // 	}
 // }
-
