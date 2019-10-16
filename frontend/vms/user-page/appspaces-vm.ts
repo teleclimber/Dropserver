@@ -3,6 +3,7 @@ import { action, computed, observable, decorate, configure, runInAction, interce
 import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
 
 import AppspacesDM from '../../dms/appspaces-dm';
+import AppspaceDM from '../../dms/appspace-dm';
 import ApplicationsDM from '../../dms/applications-dm';
 
 import AppspaceVM from './appspace-vm';
@@ -20,7 +21,7 @@ export default class AppspacesVM {
 
 	constructor(private deps: AppspacesVMDeps){	}
 
-	getAugmentedAppspace(appspace:AppspaceMeta):AppspaceVM {
+	getAugmentedAppspace(appspace:AppspaceDM):AppspaceVM {
 		return new AppspaceVM(this, {applications_dm: this.deps.applications_dm}, appspace);
 	}
 
@@ -202,6 +203,7 @@ export class ManageAppspaceVM {
 	//pause 
 	pause(pause:boolean) {
 		// send that to dm
+		this.appspace_vm.appspace.doPause(pause);
 	}
 
 	// delete

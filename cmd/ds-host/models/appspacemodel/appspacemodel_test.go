@@ -254,3 +254,36 @@ func TestGetForApp(t *testing.T) {
 		t.Error("expected ZERO appspaces")
 	}
 }
+
+func TestPause(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &AppspaceModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	appspace, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	dsErr = model.Pause(appspace.AppspaceID, true)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	appspace, dsErr = model.GetFromID(appspace.AppspaceID)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	if !appspace.Paused {
+		t.Error("appspace should be paused")
+	}
+
+}

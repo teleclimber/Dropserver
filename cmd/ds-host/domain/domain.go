@@ -369,6 +369,7 @@ type AppspaceModel interface {
 	GetForOwner(UserID) ([]*Appspace, Error)
 	GetForApp(AppID) ([]*Appspace, Error)
 	Create(UserID, AppID, Version, string) (*Appspace, Error)
+	Pause(AppspaceID, bool) Error
 }
 
 // ASRoutesModel is the appspaces routes model interface

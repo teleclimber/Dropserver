@@ -8,15 +8,16 @@ import (
 
 // AppspaceModel represents the model for app spaces
 type AppspaceModel struct {
-	DB *domain.DB
+	DB     *domain.DB
 	Logger domain.LogCLientI
 
 	stmt struct {
-		selectID     	*sqlx.Stmt
-		selectOwner 	*sqlx.Stmt
-		selectApp 		*sqlx.Stmt
+		selectID        *sqlx.Stmt
+		selectOwner     *sqlx.Stmt
+		selectApp       *sqlx.Stmt
 		selectSubdomain *sqlx.Stmt
-		insert			*sqlx.Stmt
+		insert          *sqlx.Stmt
+		pause           *sqlx.Stmt
 	}
 }
 
@@ -62,6 +63,14 @@ func (m *AppspaceModel) PrepareStatements() {
 		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO appspaces..."+err.Error())
 		panic(err)
 	}
+
+	// pause
+	m.stmt.pause, err = m.DB.Handle.Preparex(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement UPDATE appspaces SET paused = ?... "+err.Error())
+		panic(err)
+	}
+
 }
 
 // GetFromID gets an AppSpace by its ID
@@ -138,9 +147,18 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 
 	appspace, dsErr := m.GetFromID(appspaceID)
 	if dsErr != nil {
-		return nil, dsErr	// this indicates a severe internal problem, not "oh we coudln't find it"
+		return nil, dsErr // this indicates a severe internal problem, not "oh we coudln't find it"
 	}
 
-	return appspace, nil	
+	return appspace, nil
 }
 
+// Pause changes the paused status of the appspace
+func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.Error {
+	_, err := m.stmt.pause.Exec(pause, appspaceID)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	return nil
+}

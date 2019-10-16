@@ -1,6 +1,6 @@
 package userroutes
 
-//go:generate struct2ts -T -o ../../../frontend/generated-types/userroutes-classes.ts userroutes.AdminGetUsersResp userroutes.AdminGetUserInvitationsResp userroutes.GetAppsResp userroutes.PostAppResp userroutes.PostVersionResp
+//go:generate struct2ts -T -o ../../../frontend/generated-types/userroutes-classes.ts userroutes.AdminGetUsersResp userroutes.AdminGetUserInvitationsResp userroutes.GetAppsResp userroutes.PostAppResp userroutes.PostVersionResp userroutes.AppspaceMeta
 
 import (
 	"time"

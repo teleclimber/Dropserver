@@ -48,6 +48,8 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		routeData.URLTail = tail
 
 		switch head {
+		case "pause":
+			a.changeAppspacePause(res, req, routeData, appspace)
 		case "version":
 			a.changeAppspaceVersion(res, req, routeData, appspace)
 		default:
@@ -68,9 +70,12 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 
 	for _, appspace := range appspaces {
 		respData.Appspaces = append(respData.Appspaces, AppspaceMeta{
+			AppspaceID: int(appspace.AppspaceID),
 			AppID:      int(appspace.AppID),
 			AppVersion: string(appspace.AppVersion),
-			Subdomain:  appspace.Subdomain}) // yeah, subdomain versus name. Gonna need to do some work here.
+			Subdomain:  appspace.Subdomain, // yeah, subdomain versus name. Gonna need to do some work here.
+			Paused:     appspace.Paused,
+			Created:    appspace.Created})
 	}
 
 	writeJSON(res, respData)
@@ -150,6 +155,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// return appspace Meta
 	resp := PostAppspaceResp{
 		AppspaceMeta: AppspaceMeta{
+			AppspaceID: int(appspace.AppspaceID),
 			AppID:      int(appspace.AppID),
 			AppVersion: string(appspace.AppVersion),
 			Subdomain:  appspace.Subdomain,
@@ -157,6 +163,28 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 			Created:    appspace.Created}}
 
 	writeJSON(res, resp)
+}
+
+func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "expected POST", http.StatusBadRequest)
+		return
+	}
+
+	reqData := PostAppspacePauseReq{}
+	dsErr := readJSON(req, &reqData)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	dsErr = a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
 }
 
 func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {

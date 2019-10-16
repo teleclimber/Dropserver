@@ -31,6 +31,7 @@ const applications_dm = new ApplicationsDM;
 applications_dm.fetchAll();
 
 const appspaces_dm = new AppspacesDM;
+appspaces_dm.fetch();
 
 
 const applications_vm = new ApplicationsVM({

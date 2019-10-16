@@ -50,7 +50,7 @@
 					<div 
 							class="version"
 							:class="{ current: version.version === manage_vm.appspace_vm.app_version }"
-							v-for="(version,i) in manage_vm.appspace_vm.application.versions"
+							v-for="(version,i) in manage_vm.appspace_vm.application.sorted_versions"
 							:key="version.version"
 							@click="manage_vm.pickVersion(version.version)">
 						<span class="ver-name">{{version.version}}</span>

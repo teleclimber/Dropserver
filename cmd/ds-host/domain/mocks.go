@@ -1155,6 +1155,20 @@ func (mr *MockAppspaceModelMockRecorder) GetFromSubdomain(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromSubdomain", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromSubdomain), arg0)
 }
 
+// Pause mocks base method
+func (m *MockAppspaceModel) Pause(arg0 AppspaceID, arg1 bool) Error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pause", arg0, arg1)
+	ret0, _ := ret[0].(Error)
+	return ret0
+}
+
+// Pause indicates an expected call of Pause
+func (mr *MockAppspaceModelMockRecorder) Pause(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockAppspaceModel)(nil).Pause), arg0, arg1)
+}
+
 // MockASRoutesModel is a mock of ASRoutesModel interface
 type MockASRoutesModel struct {
 	ctrl     *gomock.Controller

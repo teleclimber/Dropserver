@@ -9,6 +9,7 @@ import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-c
 
 import ApplicationsDM from '../../dms/applications-dm';
 import ApplicationDM from '../../dms/application-dm';
+import AppspaceDM from '../../dms/appspace-dm';
 
 type AppspaceVMCbs = {
 	showManage(appspace_id: number): void
@@ -17,7 +18,7 @@ type AppspaceVMDeps = {
 	applications_dm: ApplicationsDM,
 }
 export default class AppspaceVM {
-	constructor(private cbs: AppspaceVMCbs, private deps: AppspaceVMDeps, public appspace: AppspaceMeta) {
+	constructor(private cbs: AppspaceVMCbs, private deps: AppspaceVMDeps, public appspace: AppspaceDM) {
 	}
 
 	@computed
