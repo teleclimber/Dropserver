@@ -320,6 +320,11 @@ type AppFilesModel interface {
 	Delete(string) Error
 }
 
+// AppspaceFilesModel manipulates data directories for appspaces
+type AppspaceFilesModel interface {
+	CreateLocation() (string, Error)
+}
+
 // App represents the data structure for an App.
 type App struct {
 	OwnerID UserID `db:"owner_id"` // just int, or can we wrap that in a type?
@@ -350,16 +355,16 @@ type AppModel interface {
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
-	OwnerID    UserID     `db:"owner_id"`
-	AppspaceID AppspaceID `db:"appspace_id"`
-	AppID      AppID      `db:"app_id"`
-	AppVersion Version    `db:"app_version"`
-	Subdomain  string
-	Created    time.Time
-	Paused     bool
+	OwnerID     UserID     `db:"owner_id"`
+	AppspaceID  AppspaceID `db:"appspace_id"`
+	AppID       AppID      `db:"app_id"`
+	AppVersion  Version    `db:"app_version"`
+	Subdomain   string
+	Created     time.Time
+	Paused      bool
+	LocationKey string `db:"location_key"`
 
 	// Config AppspaceConfig ..this one is harder
-	// Location key? Or just use the ID?
 }
 
 // AppspaceModel is the interface for the appspace model
@@ -368,7 +373,7 @@ type AppspaceModel interface {
 	GetFromSubdomain(string) (*Appspace, Error)
 	GetForOwner(UserID) ([]*Appspace, Error)
 	GetForApp(AppID) ([]*Appspace, Error)
-	Create(UserID, AppID, Version, string) (*Appspace, Error)
+	Create(UserID, AppID, Version, string, string) (*Appspace, Error)
 	Pause(AppspaceID, bool) Error
 }
 

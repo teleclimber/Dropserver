@@ -5,10 +5,11 @@
 package domain
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	http "net/http"
 	reflect "reflect"
 	time "time"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockDBManagerI is a mock of DBManagerI interface
@@ -1081,18 +1082,18 @@ func (m *MockAppspaceModel) EXPECT() *MockAppspaceModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppspaceModel) Create(arg0 UserID, arg1 AppID, arg2 Version, arg3 string) (*Appspace, Error) {
+func (m *MockAppspaceModel) Create(arg0 UserID, arg1 AppID, arg2 Version, arg3, arg4 string) (*Appspace, Error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*Appspace)
 	ret1, _ := ret[1].(Error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create
-func (mr *MockAppspaceModelMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockAppspaceModelMockRecorder) Create(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0, arg1, arg2, arg3, arg4)
 }
 
 // GetForApp mocks base method

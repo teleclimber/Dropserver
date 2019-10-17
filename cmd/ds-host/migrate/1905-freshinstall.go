@@ -78,10 +78,12 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"app_version" TEXT,
 		"subdomain" TEXT,
 		"paused" INTEGER DEFAULT 0,
+		"location_key" TEXT,
 		"created" DATETIME
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX appspace_subdomain ON appspaces (subdomain)`)
 	// probably index owner_id. and maybe app_id?
+	// should put a unique key constraint on location key?
 
 	if args.dbErr != nil {
 		return dserror.FromStandard(args.dbErr)

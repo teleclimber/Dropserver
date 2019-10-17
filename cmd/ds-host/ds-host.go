@@ -16,6 +16,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
@@ -153,6 +154,10 @@ func main() {
 		Logger: logger}
 	appModel.PrepareStatements()
 
+	appspacefilesmodel := &appspacefilesmodel.AppspaceFilesModel{
+		Config: runtimeConfig,
+		Logger: logger}
+
 	appspaceModel := &appspacemodel.AppspaceModel{
 		DB:     db,
 		Logger: logger}
@@ -241,9 +246,10 @@ func main() {
 		Logger:        logger}
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
-		AppspaceModel: appspaceModel,
-		AppModel:      appModel,
-		Logger:        logger}
+		AppspaceFilesModel: appspacefilesmodel,
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		Logger:             logger}
 
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator:     authenticator,

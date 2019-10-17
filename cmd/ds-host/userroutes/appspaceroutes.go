@@ -13,9 +13,10 @@ import (
 
 // AppspaceRoutes handles routes for applications uploading, creating, deleting.
 type AppspaceRoutes struct {
-	AppspaceModel domain.AppspaceModel
-	AppModel      domain.AppModel
-	Logger        domain.LogCLientI
+	AppspaceFilesModel domain.AppspaceFilesModel
+	AppspaceModel      domain.AppspaceModel
+	AppModel           domain.AppModel
+	Logger             domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the appspace routes
@@ -147,10 +148,20 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// But let's get things working first.
 	sub := a.getNewSubdomain()
 
-	appspace, dsErr := a.AppspaceModel.Create(routeData.Cookie.UserID, app.AppID, version.Version, sub)
+	locationKey, dsErr := a.AppspaceFilesModel.CreateLocation()
 	if dsErr != nil {
 		http.Error(res, "", http.StatusInternalServerError)
+		return
 	}
+
+	appspace, dsErr := a.AppspaceModel.Create(routeData.Cookie.UserID, app.AppID, version.Version, sub, locationKey)
+	if dsErr != nil {
+		http.Error(res, "", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: migrate to whatever version was selected!
+	// .. which btw should block appspace from being used until it's done
 
 	// return appspace Meta
 	resp := PostAppspaceResp{

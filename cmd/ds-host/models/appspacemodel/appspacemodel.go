@@ -58,7 +58,7 @@ func (m *AppspaceModel) PrepareStatements() {
 
 	// insert appspace:
 	m.stmt.insert, err = m.DB.Handle.Preparex(`INSERT INTO appspaces
-		("owner_id", "app_id", "app_version", subdomain, created) VALUES (?, ?, ?, ?, datetime("now"))`)
+		("owner_id", "app_id", "app_version", subdomain, created, location_key) VALUES (?, ?, ?, ?, datetime("now"), ?)`)
 	if err != nil {
 		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO appspaces..."+err.Error())
 		panic(err)
@@ -126,8 +126,8 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 }
 
 // Create adds an appspace to the database
-func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string) (*domain.Appspace, domain.Error) {
-	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain)
+func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, domain.Error) {
+	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain, locationKey)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: appspaces.subdomain" {
 			return nil, dserror.New(dserror.DomainNotUnique)
