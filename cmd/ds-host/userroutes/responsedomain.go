@@ -84,12 +84,6 @@ type PostAppspaceResp struct {
 	AppspaceMeta AppspaceMeta `json:"appspace"`
 }
 
-// PostAppspaceVersionReq is
-// TODO: this one should be an interface only
-type PostAppspaceVersionReq struct {
-	Version domain.Version `json:"version"`
-}
-
 ////// Auth Routes:
 
 ////// User Routes:
@@ -119,18 +113,18 @@ type ApplicationMeta struct {
 
 // VersionMeta is for listing versions of application code
 type VersionMeta struct {
-	AppName string    `json:"app_name"`
-	Version string    `json:"version"`
-	Schema  int       `json:"schema"`
-	Created time.Time `json:"created_dt"`
+	AppName string         `json:"app_name"`
+	Version domain.Version `json:"version"`
+	Schema  int            `json:"schema"`
+	Created time.Time      `json:"created_dt"`
 }
 
 //AppspaceMeta is
 type AppspaceMeta struct {
-	AppspaceID int       `json:"appspace_id"`
-	AppID      int       `json:"app_id"`
-	AppVersion string    `json:"app_version"`
-	Subdomain  string    `json:"subdomain"`
-	Created    time.Time `json:"created_dt"`
-	Paused     bool      `json:"paused"`
+	AppspaceID int            `json:"appspace_id"`
+	AppID      int            `json:"app_id"`
+	AppVersion domain.Version `json:"app_version"`
+	Subdomain  string         `json:"subdomain"`
+	Created    time.Time      `json:"created_dt"`
+	Paused     bool           `json:"paused"`
 }

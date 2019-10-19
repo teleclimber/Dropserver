@@ -73,7 +73,7 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		respData.Appspaces = append(respData.Appspaces, AppspaceMeta{
 			AppspaceID: int(appspace.AppspaceID),
 			AppID:      int(appspace.AppID),
-			AppVersion: string(appspace.AppVersion),
+			AppVersion: appspace.AppVersion,
 			Subdomain:  appspace.Subdomain, // yeah, subdomain versus name. Gonna need to do some work here.
 			Paused:     appspace.Paused,
 			Created:    appspace.Created})
@@ -168,7 +168,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		AppspaceMeta: AppspaceMeta{
 			AppspaceID: int(appspace.AppspaceID),
 			AppID:      int(appspace.AppID),
-			AppVersion: string(appspace.AppVersion),
+			AppVersion: appspace.AppVersion,
 			Subdomain:  appspace.Subdomain,
 			Paused:     appspace.Paused,
 			Created:    appspace.Created}}

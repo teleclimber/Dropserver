@@ -105,7 +105,7 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 		verResp := make([]VersionMeta, 0)
 		for _, appVersion := range appVersions {
 			verResp = append(verResp, VersionMeta{
-				Version: string(appVersion.Version),
+				Version: appVersion.Version,
 				Created: appVersion.Created})
 		}
 
@@ -175,7 +175,7 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 				AppName: app.Name,
 				Created: app.Created,
 				Versions: []VersionMeta{{
-					Version: string(version.Version),
+					Version: version.Version,
 					Schema:  version.Schema,
 					Created: version.Created}}}}
 
@@ -228,7 +228,7 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 
 		respData := PostVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
 			VersionMeta: VersionMeta{
-				Version: string(version.Version),
+				Version: version.Version,
 				Schema:  version.Schema,
 				Created: version.Created}}
 

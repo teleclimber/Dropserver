@@ -1,10 +1,10 @@
 package userroutes
 
-//go:generate struct2ts -i -o ../../../frontend/generated-types/userroutes-interfaces.ts userroutes.PatchPasswordReq userroutes.PostAppspacePauseReq
+//go:generate struct2ts -i -o ../../../frontend/generated-types/userroutes-interfaces.ts userroutes.PatchPasswordReq userroutes.PostAppspacePauseReq userroutes.PostAppspaceVersionReq
 
-//"time"
-
-//"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+import (
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+)
 
 ////// User Routes:
 
@@ -19,4 +19,9 @@ type PatchPasswordReq struct {
 // PostAppspacePauseReq is
 type PostAppspacePauseReq struct {
 	Pause bool `json:"pause"`
+}
+
+// PostAppspaceVersionReq is
+type PostAppspaceVersionReq struct {
+	Version domain.Version `json:"version"` // could include app_id to future proof and to verify apples-apples
 }
