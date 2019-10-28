@@ -8,21 +8,9 @@
 	"go.buildOnSave": "workspace",
 	"go.installDependenciesWhenBuilding": false,
 
-	"go.testFlags": [],
+	"go.testFlags": ["-race"],
 
-	"go.useLanguageServer": true,
-    // "go.alternateTools": {
-    //     "go-langserver": "bingo"
-    // },
-    // "go.languageServerFlags": [
-    //     "-enhance-signature-help",
-    //     "-trace",
-    //     "-format-style=goimports",
-    // ],
-    // "go.languageServerExperimentalFeatures": {
-    //     "format": true,
-    //     "autoComplete": true
-    // },
+    "go.useLanguageServer": true,
 
     "jest.rootPath": "frontend/",
     
