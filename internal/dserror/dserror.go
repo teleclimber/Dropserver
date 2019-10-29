@@ -72,7 +72,7 @@ func New(code domain.ErrorCode, extraMessages ...string) Error {
 	}
 	return Error{
 		code:         code,
-		extraMessage: extra }
+		extraMessage: extra}
 }
 
 // FromStandard takes a regular error type and turns it into ds error
@@ -125,68 +125,68 @@ func Encoded(err error) bool {
 
 const (
 	// InternalError is a special error code that will not print its extra messages
-	InternalError        domain.ErrorCode = 1
+	InternalError domain.ErrorCode = 1
 
 	BadRequest domain.ErrorCode = 1001
 
 	InputValidationError domain.ErrorCode = 1201
-	PasswordsDoNotMatch domain.ErrorCode = 1202
+	PasswordsDoNotMatch  domain.ErrorCode = 1202
 
-	Unauthorized domain.ErrorCode = 2001
+	Unauthorized            domain.ErrorCode = 2001
 	AuthenticationIncorrect domain.ErrorCode = 2002
-	EmailExists domain.ErrorCode = 2003
+	EmailExists             domain.ErrorCode = 2003
 
-	AppConfigNotFound    domain.ErrorCode = 3201
-	AppConfigParseFailed domain.ErrorCode = 3202
-	AppConfigProblem 	 domain.ErrorCode = 3203
-	AppRouteConfigProblem		domain.ErrorCode = 3204
+	AppConfigNotFound     domain.ErrorCode = 3201
+	AppConfigParseFailed  domain.ErrorCode = 3202
+	AppConfigProblem      domain.ErrorCode = 3203
+	AppRouteConfigProblem domain.ErrorCode = 3204
 
 	AppspaceRouteNotFound domain.ErrorCode = 6001
 
-	SandboxReverseBadData domain.ErrorCode = 7001
+	SandboxReverseBadData    domain.ErrorCode = 7001
 	SandboxFailedToTerminate domain.ErrorCode = 7009
 
-	MigrateDownNotSupported	domain.ErrorCode = 9201
-	MigrationNameNotFound domain.ErrorCode = 9202
-	MigrationNotPossible domain.ErrorCode = 9203
+	MigrateDownNotSupported domain.ErrorCode = 9201
+	MigrationNameNotFound   domain.ErrorCode = 9202
+	MigrationNotPossible    domain.ErrorCode = 9203
 
-	OutOFBounds domain.ErrorCode = 9401
+	OutOFBounds       domain.ErrorCode = 9401
 	NoRowsInResultSet domain.ErrorCode = 9402
-	DomainNotUnique domain.ErrorCode = 9410
+	NoRowsAffected    domain.ErrorCode = 9403
+	DomainNotUnique   domain.ErrorCode = 9410
 )
 
 var errorMesage = map[domain.ErrorCode]string{
-	InternalError:        "Internal Error",
+	InternalError: "Internal Error",
 
 	InputValidationError: "Input validation error",
 
-	Unauthorized: "Unauthorized",
+	Unauthorized:            "Unauthorized",
 	AuthenticationIncorrect: "Authentication incorrect",
-	EmailExists: "Email is already in the users DB",
+	EmailExists:             "Email is already in the users DB",
 
-	AppConfigNotFound:    "Could not find application.json",
-	AppConfigParseFailed: "Failed to parse application.json",
-	AppConfigProblem:     "Problem in application.json",
+	AppConfigNotFound:     "Could not find application.json",
+	AppConfigParseFailed:  "Failed to parse application.json",
+	AppConfigProblem:      "Problem in application.json",
 	AppRouteConfigProblem: "Problem creating or configuring a route",
 
 	AppspaceRouteNotFound: "No route handler found for path given",
 
 	MigrateDownNotSupported: "Migrate down not supported",
-	MigrationNameNotFound: "Migration string not found",
-	MigrationNotPossible: "Migration is not possible",
+	MigrationNameNotFound:   "Migration string not found",
+	MigrationNotPossible:    "Migration is not possible",
 
-	OutOFBounds: "Value can not be stored or read as it is too big",
+	OutOFBounds:       "Value can not be stored or read as it is too big",
 	NoRowsInResultSet: "No rows in result set",
+	NoRowsAffected:    "No rows affected by statement",
 
 	DomainNotUnique: "The subdomain or address is not unique",
-
 }
 
 var httpCode = map[domain.ErrorCode]int{
-	InternalError: http.StatusInternalServerError,
-	BadRequest: http.StatusBadRequest,
-	Unauthorized: http.StatusUnauthorized,
-	InputValidationError: http.StatusBadRequest,
+	InternalError:         http.StatusInternalServerError,
+	BadRequest:            http.StatusBadRequest,
+	Unauthorized:          http.StatusUnauthorized,
+	InputValidationError:  http.StatusBadRequest,
 	AppspaceRouteNotFound: http.StatusNotFound,
 }
-
