@@ -18,6 +18,7 @@ type AppspaceModel struct {
 		selectSubdomain *sqlx.Stmt
 		insert          *sqlx.Stmt
 		pause           *sqlx.Stmt
+		setVersion      *sqlx.Stmt
 	}
 }
 
@@ -71,6 +72,11 @@ func (m *AppspaceModel) PrepareStatements() {
 		panic(err)
 	}
 
+	m.stmt.setVersion, err = m.DB.Handle.Preparex(`UPDATE appspaces SET app_version = ? WHERE appspace_id = ?`)
+	if err != nil {
+		m.Logger.Log(domain.ERROR, nil, "Error preparing statement setVersion "+err.Error())
+		panic(err)
+	}
 }
 
 // GetFromID gets an AppSpace by its ID
@@ -156,6 +162,16 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 // Pause changes the paused status of the appspace
 func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.Error {
 	_, err := m.stmt.pause.Exec(pause, appspaceID)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	return nil
+}
+
+// SetVersion changes the active version of the application for tha tappspace
+func (m *AppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) domain.Error {
+	_, err := m.stmt.setVersion.Exec(version, appspaceID)
 	if err != nil {
 		return dserror.FromStandard(err)
 	}

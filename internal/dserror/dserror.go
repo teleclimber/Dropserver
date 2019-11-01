@@ -144,6 +144,8 @@ const (
 	AppspaceRouteNotFound domain.ErrorCode = 6001
 
 	SandboxReverseBadData    domain.ErrorCode = 7001
+	SandboxFailedStart       domain.ErrorCode = 7002
+	SandboxReturnedError     domain.ErrorCode = 7003
 	SandboxFailedToTerminate domain.ErrorCode = 7009
 
 	MigrateDownNotSupported domain.ErrorCode = 9201
@@ -171,6 +173,9 @@ var errorMesage = map[domain.ErrorCode]string{
 	AppRouteConfigProblem: "Problem creating or configuring a route",
 
 	AppspaceRouteNotFound: "No route handler found for path given",
+
+	SandboxFailedStart:   "Sandbox failed to start",
+	SandboxReturnedError: "Sandbox finished running with an error",
 
 	MigrateDownNotSupported: "Migrate down not supported",
 	MigrationNameNotFound:   "Migration string not found",

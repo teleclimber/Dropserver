@@ -14,12 +14,14 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
@@ -154,7 +156,7 @@ func main() {
 		Logger: logger}
 	appModel.PrepareStatements()
 
-	appspacefilesmodel := &appspacefilesmodel.AppspaceFilesModel{
+	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
 		Config: runtimeConfig,
 		Logger: logger}
 
@@ -167,6 +169,16 @@ func main() {
 	asRoutesModel := &asroutesmodel.ASRoutesModel{
 		AppFilesModel: appFilesModel, // temporary!
 		Logger:        logger}
+
+	migrationJobModel := &migrationjobmodel.MigrationJobModel{
+		DB:     db,
+		Logger: logger}
+	migrationJobModel.PrepareStatements()
+
+	migrationJobCtl := &migrateappspace.JobController{
+		MigrationJobModel: migrationJobModel,
+		Config:            runtimeConfig,
+		Logger:            logger}
 
 	sM := sandbox.Manager{
 		Config: runtimeConfig,
@@ -181,6 +193,8 @@ func main() {
 
 		sM.StopAll()
 		fmt.Println("All sandbox stopped")
+
+		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
 		os.Exit(0)
 	}()
@@ -206,6 +220,8 @@ func main() {
 	}
 
 	m := record.Metrics{}
+
+	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
@@ -246,7 +262,7 @@ func main() {
 		Logger:        logger}
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
-		AppspaceFilesModel: appspacefilesmodel,
+		AppspaceFilesModel: appspaceFilesModel,
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		Logger:             logger}

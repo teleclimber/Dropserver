@@ -85,6 +85,22 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	// probably index owner_id. and maybe app_id?
 	// should put a unique key constraint on location key?
 
+	args.dbExec(`CREATE TABLE "migrationjobs" (
+		"job_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+		"owner_id" INTEGER NOT NULL,
+		"appspace_id" INTEGER NOT NULL,
+		"to_version" TEXT NOT NULL,
+		"priority" INTEGER NOT NULL,
+		"created" DATETIME NOT NULL,
+		"started" DATETIME,
+		"finished" DATETIME,
+		"error" TEXT
+	)`)
+	// args.dbExec(`CREATE UNIQUE INDEX migrate_appspace ON migrationjobs (appspace_id)`)
+	// ^^ enforce pending job uniqueness some other way.
+	// Probably still need an index that helps select pending jobs
+	// Also, need job key or some unique identifier? could use rowid??
+
 	if args.dbErr != nil {
 		return dserror.FromStandard(args.dbErr)
 	}

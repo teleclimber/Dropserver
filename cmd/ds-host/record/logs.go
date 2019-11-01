@@ -16,6 +16,7 @@ type DsLogClient struct {
 }
 
 // LogDataHash are transcribed as json in the log message
+// currently unused
 type LogDataHash struct {
 	AppSpace  string
 	App       string

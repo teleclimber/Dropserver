@@ -26,6 +26,10 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	fmt.Println("in request handler", appspaceName, appName)
 
+	// Not clear where responsibility lies for not starting a sandbox for a paused appsapce?
+	// for literally paused, it's in appspaceroutes
+	// for waiting on a ongoing migration, I'd guess it's in sandbox manager?
+
 	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 

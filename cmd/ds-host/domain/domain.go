@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views,StdInput,MigrationJobModel
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
 // don't import anything
@@ -51,6 +52,7 @@ type RuntimeConfig struct {
 		PublicStaticAddress string
 		UserRoutesAddress   string
 		JSRunnerPath        string
+		MigratorScriptPath  string
 	}
 }
 
@@ -108,6 +110,7 @@ type MetricsI interface {
 // SandboxManagerI is an interface that describes sm
 type SandboxManagerI interface {
 	GetForAppSpace(appVersion *AppVersion, appspace *Appspace) chan SandboxI
+	StopAppspace(AppspaceID)
 }
 
 // SandboxStatus represents the Status of a Sandbox
@@ -327,7 +330,7 @@ type AppspaceFilesModel interface {
 
 // App represents the data structure for an App.
 type App struct {
-	OwnerID UserID `db:"owner_id"` // just int, or can we wrap that in a type?
+	OwnerID UserID `db:"owner_id"`
 	AppID   AppID  `db:"app_id"`
 	Name    string
 	Created time.Time
@@ -375,6 +378,7 @@ type AppspaceModel interface {
 	GetForApp(AppID) ([]*Appspace, Error)
 	Create(UserID, AppID, Version, string, string) (*Appspace, Error)
 	Pause(AppspaceID, bool) Error
+	SetVersion(AppspaceID, Version) Error
 }
 
 // ASRoutesModel is the appspaces routes model interface
@@ -391,6 +395,51 @@ type AppFilesMetadata struct {
 	Routes        []JSONRoute `json:"routes"`
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
+}
+
+// MigrationJobStatus represents the Status of an appspace's migration to a different version
+// including possibly a different schema
+type MigrationJobStatus int
+
+const ( //maybe at MigrationWaiting at some point
+	// MigrationStarted means the job has started
+	MigrationStarted MigrationJobStatus = iota + 1
+	// MigrationRunning means the migration sandbox is running and migrating schemas
+	MigrationRunning
+	// MigrationFinished means the migration is complete or ended with an error
+	MigrationFinished
+)
+
+// MigrationStatusData reflects the current status of the migrationJob referenced
+type MigrationStatusData struct {
+	MigrationJob *MigrationJob
+	Status       MigrationJobStatus //for now
+	ErrString    nulltypes.NullString
+	CurSchema    int
+}
+
+// MigrationJob describes a pending or ongoing appspace migration job
+type MigrationJob struct {
+	JobID      int                  `db:"job_id"`
+	OwnerID    UserID               `db:"owner_id"`
+	AppspaceID AppspaceID           `db:"appspace_id"`
+	ToVersion  Version              `db:"to_version"`
+	Created    time.Time            `db:"created"`
+	Started    nulltypes.NullTime   `db:"started"`  // needs to be nullable
+	Finished   nulltypes.NullTime   `db:"finished"` // needs to be nullable
+	Priority   bool                 `db:"priority"`
+	Error      nulltypes.NullString `db:"error"`
+}
+
+// MigrationJobModel handles writing jobs to the db
+type MigrationJobModel interface {
+	Create(UserID, AppspaceID, Version, bool) (*MigrationJob, Error)
+	GetJob(int) (*MigrationJob, Error)
+	GetPending() ([]*MigrationJob, Error)
+	SetStarted(int) (bool, Error)
+	SetFinished(int, nulltypes.NullString) Error
+	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
+	// Delete(AppspaceID) Error
 }
 
 // JSONRoute represents the json-formatted Routes from application.json

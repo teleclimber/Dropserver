@@ -65,7 +65,8 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.GoTemplatesDir = path.Join(binDir, "../resources/go-templates")
 	rtc.Exec.WebpackTemplatesDir = path.Join(binDir, "../resources/webpack-html")
 	rtc.Exec.StaticAssetsDir = path.Join(binDir, "../static")
-	rtc.Exec.JSRunnerPath = path.Join(binDir, "../resources/ds-runner.js")
+	rtc.Exec.JSRunnerPath = path.Join(binDir, "../resources/ds-sandbox-runner.js") //todo: rename because it won't be JS one day
+	rtc.Exec.MigratorScriptPath = path.Join(binDir, "../resources/ds-appspace-migrator.js")
 
 	//  subdomain sorting out:
 	host := rtc.Server.Host

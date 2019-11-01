@@ -128,6 +128,20 @@ func (sM *Manager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domai
 	return ch
 }
 
+// StopAppspace is used to stop an appspace sandbox from running if there is one
+// it returns if/when no sanboxes are running for that appspace
+func (sM *Manager) StopAppspace(appspaceID domain.AppspaceID) {
+	s, ok := sM.sandboxes[appspaceID]
+	if !ok {
+		return
+	}
+
+	s.Stop() // this should work but sandbox manager may not be updated because bugg
+}
+
+// TODO: have a graceful stop for appspaces?
+// TODO: lots of likely problems with sandbox manager due to lack of tests?
+
 type killable struct {
 	appspaceID domain.AppspaceID
 	score      float64

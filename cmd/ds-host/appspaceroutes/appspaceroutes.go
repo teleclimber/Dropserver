@@ -75,6 +75,12 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			return
 		}
 
+		// TODO: check if appspace is paused
+		// .. no need to go further if paused bit is set, I think.
+
+		// Do we also check if there is a job started? Like migration?
+		// Why go any further if there is? (in future maybe we can wait for migration to end and pass request then)
+
 		// TODO: auth.
 		// r.Authenticator.ForAppspace(appspaceID)
 		// Consider that there are a number of possible results here:

@@ -294,3 +294,34 @@ func TestPause(t *testing.T) {
 	}
 
 }
+
+func TestSetVersion(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &AppspaceModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	appspace, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	dsErr = model.SetVersion(appspace.AppspaceID, domain.Version("0.0.2"))
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	appspace, dsErr = model.GetFromID(appspace.AppspaceID)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+	if appspace.AppVersion != domain.Version("0.0.2") {
+		t.Error("appspace version incorrect")
+	}
+}
