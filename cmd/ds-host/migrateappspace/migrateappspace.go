@@ -19,23 +19,30 @@ type JobController struct {
 	Config              *domain.RuntimeConfig
 	Logger              domain.LogCLientI
 
-	runningJobs map[domain.AppspaceID]*runningJob
+	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
 	ticker      *time.Ticker
 	stop        bool
 	allStopped  chan struct{}
 
-	fanIn chan domain.MigrationStatusData
-	// event subscribers by appspace, by owner, and probably for all (for admin)
+	fanIn     chan runningJobStatus
+	ownerSubs map[domain.UserID]map[string]chan<- domain.MigrationStatusData
 }
 
 // Start allows jobs to run and can start the first job
 // with a delay (in the future)
 func (c *JobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
-	c.runningJobs = make(map[domain.AppspaceID]*runningJob)
-	c.fanIn = make(chan domain.MigrationStatusData)
+	c.MigrationSandboxMgr = &MigrationSandboxMgr{
+		Config: c.Config,
+		Logger: c.Logger}
+
+	c.runningJobs = make(map[domain.JobID]*runningJob)
+	c.fanIn = make(chan runningJobStatus)
+	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
+
 	c.stop = false
 	c.allStopped = make(chan struct{})
+
 	go c.eventManifold()
 
 	c.ticker = time.NewTicker(time.Minute)
@@ -72,38 +79,48 @@ func (c *JobController) Stop() {
 	close(c.fanIn)
 }
 
-// GetForAppspace returns a running job for that appspace ID if there is one
-// I think this should be GetStatusForApspace? At least in functionality
-func (c *JobController) GetForAppspace(appspaceID domain.AppspaceID) *domain.MigrationJob {
-	job, ok := c.runningJobs[appspaceID]
-	if ok {
-		return job.migrationJob
-	}
-	return nil
-}
+// SubscribeOwner returns current jobs for owner
+// and pipes all updates to the provided channel.
+// Is this currently running jobs? OR pending jobs too?
+// -> I think it has to be running jobs, otherwise this is just a proxy to jobs model
+func (c *JobController) SubscribeOwner(ownerID domain.UserID, subID string) (<-chan domain.MigrationStatusData, []domain.MigrationStatusData) {
+	// lock running jobs so we can guarantee the updates are relative to the current jobs we return.
+	c.runningMux.Lock()
+	defer c.runningMux.Unlock()
 
-// GetStatusForOwner collects all running migration jobs of appspaces that belong to ownerID
-func (c *JobController) GetStatusForOwner(ownerID domain.UserID) []*domain.MigrationJob { // not sure what to return? maybe a struct with job and a few status things?
-	ret := []*domain.MigrationJob{}
-	for _, job := range c.runningJobs {
-		if job.migrationJob.OwnerID == ownerID {
-			ret = append(ret, job.migrationJob) // for now just provide migration jobs.
+	updateChan := make(chan domain.MigrationStatusData)
+	if c.ownerSubs[ownerID] == nil {
+		c.ownerSubs[ownerID] = make(map[string]chan<- domain.MigrationStatusData)
+	}
+	c.ownerSubs[ownerID][subID] = updateChan
+
+	curStatus := []domain.MigrationStatusData{}
+	for _, rj := range c.runningJobs {
+		if rj.migrationJob.OwnerID == ownerID {
+			curStatus = append(curStatus, makeMigrationStatusData(rj.getCurStatusData()))
 		}
 	}
-	return ret
+	return updateChan, curStatus
 }
 
-// SubscribeAppspace returns a channel through which any updates
-// about jobs being performed on an appspace will be fed.
-func (c *JobController) SubscribeAppspace(appspaceID domain.AppspaceID) { // pass a channel too?
-	// I presume we have a c.appspaceSub = map[appspaceID]*chan[appspaceStatus]
-	// ..or something like that.
-
+// UnsubscribeOwner deletes owner/cookie from subscribers.
+// It closes the channel too
+func (c *JobController) UnsubscribeOwner(ownerID domain.UserID, subID string) {
+	c.runningMux.Lock()
+	defer c.runningMux.Unlock()
+	subs, ok := c.ownerSubs[ownerID]
+	if !ok {
+		return
+	}
+	updateChan, ok := subs[subID]
+	if !ok {
+		return
+	}
+	close(updateChan)
+	delete(c.ownerSubs[ownerID], subID)
 }
 
-// then we need SubscribeToAppspace and SubscribeToOwner
-
-var statString = map[domain.MigrationJobStatus]string{
+var statString = map[domain.MigrationJobStatus]string{ // TODO: this is duplicated, particularly with json response
 	domain.MigrationStarted:  "started",
 	domain.MigrationRunning:  "running",
 	domain.MigrationFinished: "finished"}
@@ -112,21 +129,22 @@ var statString = map[domain.MigrationJobStatus]string{
 // It shuts down when c.fanIn is closed
 func (c *JobController) eventManifold() { // eventBus?
 	for d := range c.fanIn {
-		if d.ErrString.Valid {
+		if d.errString.Valid {
 			// TODO: put migration job id, appspace id, ...
-			c.Logger.Log(domain.ERROR, nil, "Run migration job: finished with error: "+d.ErrString.String)
+			c.Logger.Log(domain.ERROR, nil, "Run migration job: finished with error: "+d.errString.String)
 		} else {
-			c.Logger.Log(domain.INFO, nil, "Run migration job "+statString[d.Status]+": "+strconv.Itoa(d.MigrationJob.JobID)+" ")
+			c.Logger.Log(domain.INFO, nil, "Run migration job "+statString[d.status]+": "+strconv.Itoa(int(d.origJob.JobID))+" ")
 		}
 
 		// Clean up:
-		if d.Status == domain.MigrationFinished {
-			dsErr := c.MigrationJobModel.SetFinished(d.MigrationJob.JobID, d.ErrString)
+		if d.status == domain.MigrationFinished {
+			dsErr := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
 			if dsErr != nil {
 				c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
 			}
+
 			c.runningMux.Lock()
-			delete(c.runningJobs, d.MigrationJob.AppspaceID)
+			delete(c.runningJobs, d.origJob.JobID)
 
 			if c.stop && len(c.runningJobs) == 0 && c.allStopped != nil {
 				close(c.allStopped)
@@ -136,13 +154,26 @@ func (c *JobController) eventManifold() { // eventBus?
 			go c.startNext()
 		}
 
-		// Send out events:
-		// ... to subscribers
-
-		// Also consider sending a startNext
-		// or if stopped and there are no running jobs then close the stopped channel?
+		// Subscribers
+		subs, ok := c.ownerSubs[d.origJob.OwnerID]
+		if ok {
+			for _, updateChan := range subs {
+				updateChan <- makeMigrationStatusData(d)
+				// worried this may block or panic if we don't have all our ducks in a row
+			}
+		}
 	}
+}
 
+func makeMigrationStatusData(s runningJobStatus) domain.MigrationStatusData {
+	return domain.MigrationStatusData{
+		JobID:     s.origJob.JobID,
+		Status:    s.status,
+		Started:   s.origJob.Started,
+		Finished:  s.origJob.Finished,
+		ErrString: s.errString,
+		CurSchema: s.curSchema,
+	}
 }
 
 // WakeUp tells the job controller to immediately look for a job to process
@@ -180,8 +211,15 @@ func (c *JobController) startNext() {
 		}
 		if ok {
 			// check if a job is already running on that appspace
-			_, alreadyRunning := c.runningJobs[j.AppspaceID]
-			if !alreadyRunning {
+			// TODO: wouldn't you check that before calling setStarted??
+			appspaceJobExists := false
+			for _, rj := range c.runningJobs {
+				if rj.migrationJob.AppspaceID == j.AppspaceID {
+					appspaceJobExists = true
+					break
+				}
+			}
+			if !appspaceJobExists {
 				runJob = j
 				break
 			}
@@ -192,7 +230,7 @@ func (c *JobController) startNext() {
 		rj := c.createRunningJob(runJob)
 		rj.subscribeStatus(c.fanIn)
 		rj.setStatus(domain.MigrationStarted)
-		c.runningJobs[runJob.AppspaceID] = rj
+		c.runningJobs[runJob.JobID] = rj
 		go c.runJob(rj)
 	}
 }
@@ -205,7 +243,7 @@ func (c *JobController) createRunningJob(job *domain.MigrationJob) *runningJob {
 	return &runningJob{
 		migrationJob: job,
 		sandboxMgr:   c.MigrationSandboxMgr,
-		statusSubs:   make([]chan<- domain.MigrationStatusData, 0)}
+		statusSubs:   make([]chan<- runningJobStatus, 0)}
 }
 func (c *JobController) runJob(job *runningJob) {
 	defer job.setStatus(domain.MigrationFinished)
@@ -296,8 +334,16 @@ type runningJob struct {
 	status       domain.MigrationJobStatus
 	errStr       nulltypes.NullString
 	curSchema    int
-	statusSubs   []chan<- domain.MigrationStatusData
-	statusMux    sync.Mutex
+	statusSubs   []chan<- runningJobStatus
+	//curStatusData domain.MigrationStatusData
+	statusMux sync.Mutex
+}
+
+type runningJobStatus struct {
+	origJob   *domain.MigrationJob
+	status    domain.MigrationJobStatus
+	errString nulltypes.NullString
+	curSchema int
 }
 
 func (r *runningJob) runMigration() {
@@ -314,7 +360,7 @@ func (r *runningJob) runMigration() {
 	}
 }
 
-func (r *runningJob) subscribeStatus(sub chan<- domain.MigrationStatusData) {
+func (r *runningJob) subscribeStatus(sub chan<- runningJobStatus) {
 	r.statusMux.Lock()
 	defer r.statusMux.Unlock()
 
@@ -326,15 +372,25 @@ func (r *runningJob) setStatus(status domain.MigrationJobStatus) {
 	defer r.statusMux.Unlock()
 
 	r.status = status
-
-	statusData := domain.MigrationStatusData{
-		MigrationJob: r.migrationJob,
-		Status:       status,
-		ErrString:    r.errStr,
-		CurSchema:    r.curSchema,
+	switch status {
+	case domain.MigrationStarted:
+		r.migrationJob.Started = nulltypes.NewTime(time.Now(), true)
+	case domain.MigrationFinished:
+		r.migrationJob.Finished = nulltypes.NewTime(time.Now(), true)
 	}
+	
+	statusData := r.getCurStatusData()
 
 	for _, sub := range r.statusSubs {
 		sub <- statusData
 	}
+}
+
+func (r *runningJob) getCurStatusData() runningJobStatus {
+	// do we need to lock ?
+	return runningJobStatus{
+		origJob:   r.migrationJob,
+		status:    r.status,
+		errString: r.errStr,
+		curSchema: r.curSchema}
 }

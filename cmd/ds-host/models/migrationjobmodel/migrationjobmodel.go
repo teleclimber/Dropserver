@@ -125,12 +125,12 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 
 	tx.Commit()
 
-	return m.GetJob(int(jobID))
+	return m.GetJob(domain.JobID(jobID))
 }
 
 // GetJob returns job from its job id.
 // Errors if job not found.
-func (m *MigrationJobModel) GetJob(jobID int) (*domain.MigrationJob, domain.Error) {
+func (m *MigrationJobModel) GetJob(jobID domain.JobID) (*domain.MigrationJob, domain.Error) {
 	var ret domain.MigrationJob
 	err := m.stmt.getJob.QueryRowx(jobID).StructScan(&ret)
 	if err != nil {
@@ -174,7 +174,7 @@ func (m *MigrationJobModel) GetPending() ([]*domain.MigrationJob, domain.Error) 
 
 // SetStarted attempts to set the started date to now,
 // but returns ok=false if no rows were changed (in the case of deleted job)
-func (m *MigrationJobModel) SetStarted(jobID int) (bool, domain.Error) {
+func (m *MigrationJobModel) SetStarted(jobID domain.JobID) (bool, domain.Error) {
 	// Just set started, though we have to ensure the job is still there too.
 	// maybe we can check result to see if we've effectively changed one line
 	// and craft the update so that it only works if started is null
@@ -194,7 +194,7 @@ func (m *MigrationJobModel) SetStarted(jobID int) (bool, domain.Error) {
 }
 
 // SetFinished puts the current time in finished column, and an error string if there is one
-func (m *MigrationJobModel) SetFinished(jobID int, errStr nulltypes.NullString) domain.Error {
+func (m *MigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.NullString) domain.Error {
 	r, err := m.stmt.setFinished.Exec(errStr, jobID)
 	if err != nil {
 		return dserror.FromStandard(err)

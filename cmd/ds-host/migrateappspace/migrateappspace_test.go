@@ -10,6 +10,80 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
+func TestSubscribe(t *testing.T) {
+	c := &JobController{}
+
+	c.runningJobs = make(map[domain.JobID]*runningJob)
+	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
+
+	ownerID := domain.UserID(7)
+	sessionID := "abc"
+	c.SubscribeOwner(ownerID, sessionID)
+	if len(c.ownerSubs[ownerID]) != 1 {
+		t.Error("expected one subscriber in there")
+	}
+	c.UnsubscribeOwner(ownerID, sessionID)
+	if len(c.ownerSubs[ownerID]) != 0 {
+		t.Error("expected no subscribers in there")
+	}
+}
+
+func TestSubscribeDouble(t *testing.T) {
+	c := &JobController{}
+
+	c.runningJobs = make(map[domain.JobID]*runningJob)
+	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
+
+	ownerID := domain.UserID(7)
+	sessionID1 := "abc"
+	sessionID2 := "def"
+	c.SubscribeOwner(ownerID, sessionID1)
+	if len(c.ownerSubs[ownerID]) != 1 {
+		t.Error("expected one subscriber in there")
+	}
+	c.SubscribeOwner(ownerID, sessionID2)
+	if len(c.ownerSubs[ownerID]) != 2 {
+		t.Error("expected two subscribers in there")
+	}
+	c.UnsubscribeOwner(ownerID, sessionID1)
+	if len(c.ownerSubs[ownerID]) != 1 {
+		t.Error("expected 1 subscribers in there")
+	}
+}
+
+func TestSubscribeWithRunningJob(t *testing.T) {
+	c := &JobController{}
+
+	c.runningJobs = make(map[domain.JobID]*runningJob)
+	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
+
+	ownerID := domain.UserID(7)
+	sessionID := "abc"
+	jobID := domain.JobID(11)
+	c.runningJobs[jobID] = &runningJob{
+		migrationJob: &domain.MigrationJob{
+			JobID:   jobID,
+			OwnerID: ownerID,
+		},
+		status: domain.MigrationRunning,
+	}
+
+	_, stats := c.SubscribeOwner(ownerID, sessionID)
+	if len(c.ownerSubs[ownerID]) != 1 {
+		t.Error("expected one subscriber in there")
+	}
+	if len(stats) != 1 {
+		t.Error("expected one current status")
+	}
+	if stats[0].Status != domain.MigrationRunning {
+		t.Error("expected status of job to be migration running")
+	}
+	c.UnsubscribeOwner(ownerID, sessionID)
+	if len(c.ownerSubs[ownerID]) != 0 {
+		t.Error("expected no subscribers in there")
+	}
+}
+
 func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -18,7 +92,7 @@ func TestRunningJobStatus(t *testing.T) {
 	job := &domain.MigrationJob{}
 	rj := controller.createRunningJob(job)
 
-	fanIn := make(chan domain.MigrationStatusData)
+	fanIn := make(chan runningJobStatus)
 	rj.subscribeStatus(fanIn)
 
 	var wg sync.WaitGroup
@@ -26,7 +100,7 @@ func TestRunningJobStatus(t *testing.T) {
 
 	go func() {
 		statusData := <-fanIn
-		if statusData.Status != domain.MigrationStarted {
+		if statusData.status != domain.MigrationStarted {
 			t.Error("expected status to be started")
 		}
 		wg.Done()
@@ -133,7 +207,7 @@ func TestStartNextOneJob(t *testing.T) {
 
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{j}, nil)
-	migrationJobModel.EXPECT().SetStarted(1).Return(true, nil)
+	migrationJobModel.EXPECT().SetStarted(j.JobID).Return(true, nil)
 
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, dserror.New(dserror.NoRowsInResultSet))
@@ -141,25 +215,25 @@ func TestStartNextOneJob(t *testing.T) {
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
 		AppspaceModel:     appspaceModel,
-		runningJobs:       make(map[domain.AppspaceID]*runningJob),
-		fanIn:             make(chan domain.MigrationStatusData, 10),
+		runningJobs:       make(map[domain.JobID]*runningJob),
+		fanIn:             make(chan runningJobStatus, 10),
 	}
 
 	c.startNext()
 
-	rj := c.runningJobs[appspaceID]
+	rj := c.runningJobs[j.JobID]
 
-	sub := make(chan domain.MigrationStatusData)
+	sub := make(chan runningJobStatus)
 	rj.subscribeStatus(sub)
 
-	var s domain.MigrationStatusData
+	var s runningJobStatus
 	for s = range sub {
-		if s.Status == domain.MigrationFinished {
+		if s.status == domain.MigrationFinished {
 			break
 		}
 	}
 
-	if !s.ErrString.Valid {
+	if !s.errString.Valid {
 		t.Error("expected an error because we returned and error in get appspace")
 	}
 }
@@ -176,9 +250,16 @@ func TestEventManifold(t *testing.T) {
 
 	c := &JobController{
 		Logger:      log,
-		runningJobs: make(map[domain.AppspaceID]*runningJob),
-		fanIn:       make(chan domain.MigrationStatusData, 10),
-	}
+		runningJobs: make(map[domain.JobID]*runningJob),
+		fanIn:       make(chan runningJobStatus, 10),
+		ownerSubs:   make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)}
+
+	j := &domain.MigrationJob{
+		JobID:   11,
+		OwnerID: domain.UserID(7)}
+
+	c.runningJobs[j.JobID] = &runningJob{
+		migrationJob: j}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -187,9 +268,9 @@ func TestEventManifold(t *testing.T) {
 		wg.Done()
 	}()
 
-	c.fanIn <- domain.MigrationStatusData{
-		ErrString: nulltypes.NewString("boo!", true),
-	}
+	c.fanIn <- runningJobStatus{
+		origJob:   j,
+		errString: nulltypes.NewString("boo!", true)}
 
 	close(c.fanIn)
 
@@ -201,7 +282,7 @@ func TestEventManifoldFinished(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
-	migrationJobModel.EXPECT().SetFinished(1, gomock.Any())
+	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
 	log := domain.NewMockLogCLientI(mockCtrl)
 	log.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
@@ -209,8 +290,8 @@ func TestEventManifoldFinished(t *testing.T) {
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
 		Logger:            log,
-		runningJobs:       make(map[domain.AppspaceID]*runningJob),
-		fanIn:             make(chan domain.MigrationStatusData, 10),
+		runningJobs:       make(map[domain.JobID]*runningJob),
+		fanIn:             make(chan runningJobStatus, 10),
 		stop:              true, // prevents startNext from running again
 	}
 
@@ -221,7 +302,7 @@ func TestEventManifoldFinished(t *testing.T) {
 		AppspaceID: appspaceID,
 	})
 
-	c.runningJobs[appspaceID] = rj
+	c.runningJobs[rj.migrationJob.JobID] = rj
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -230,10 +311,10 @@ func TestEventManifoldFinished(t *testing.T) {
 		wg.Done()
 	}()
 
-	c.fanIn <- domain.MigrationStatusData{
-		MigrationJob: rj.migrationJob,
-		Status:       domain.MigrationFinished,
-		ErrString:    nulltypes.NewString("boo!", true),
+	c.fanIn <- runningJobStatus{
+		origJob:   rj.migrationJob,
+		status:    domain.MigrationFinished,
+		errString: nulltypes.NewString("boo!", true),
 	}
 
 	close(c.fanIn)
@@ -264,7 +345,7 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
-	migrationJobModel.EXPECT().SetFinished(1, gomock.Any())
+	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
 	log := domain.NewMockLogCLientI(mockCtrl)
 	log.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
@@ -282,13 +363,13 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	c.Start()
 
-	c.runningJobs[appspaceID] = rj
+	c.runningJobs[rj.migrationJob.JobID] = rj
 
 	go func() {
-		c.fanIn <- domain.MigrationStatusData{
-			MigrationJob: rj.migrationJob,
-			Status:       domain.MigrationFinished,
-			ErrString:    nulltypes.NewString("", false),
+		c.fanIn <- runningJobStatus{
+			origJob:   rj.migrationJob,
+			status:    domain.MigrationFinished,
+			errString: nulltypes.NewString("", false),
 		}
 	}()
 

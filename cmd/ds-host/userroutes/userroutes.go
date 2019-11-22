@@ -16,6 +16,7 @@ type UserRoutes struct {
 	ApplicationRoutes domain.RouteHandler
 	AppspaceRoutes    domain.RouteHandler
 	AdminRoutes       domain.RouteHandler
+	LiveDataRoutes    domain.RouteHandler
 	UserModel         domain.UserModel
 	Views             domain.Views
 	Validator         domain.Validator
@@ -29,9 +30,12 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// Would like to make that abundantly clear in code structure.
 	// There should be a single point where we check auth, and if no good, bail.
 
-	head, _ := shiftpath.ShiftPath(routeData.URLTail)
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	if head == "signup" || head == "login" || head == "logout" { // also resetpw
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
+	} else if head == "live" {
+		routeData.URLTail = tail
+		u.LiveDataRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		// Must be logged in to go past this point.
 		dsErr := u.Authenticator.AccountAuthorized(res, req, routeData)

@@ -85,6 +85,23 @@ module.exports = {
 				target: "http://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
+			},
+			"/live/**": {
+				target: "ws://user.dropserver.develop:3000",
+				changeOrigin: true,
+				cookieDomainRewrite: ".localhost",
+				ws: true,
+				onProxyReqWs: (proxyReq, req, res) => {
+					console.log("proxy WS req for ws: changing origin con la mano");
+					proxyReq.setHeader('Origin', "ws://user.dropserver.develop:3000");
+					// Have to set Origin for websocket's check origin 
+					// Note that "changeOrigin" acutally sets the Host field, not the "Origin".
+				}
+			},
+			"/live": {
+				target: "http://user.dropserver.develop:3000",
+				changeOrigin: true,
+				cookieDomainRewrite: ".localhost",
 			}
 		}
 	}

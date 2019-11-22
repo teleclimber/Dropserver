@@ -38,7 +38,7 @@ export default class AppspacesDM {
 		return a;
 	}
 
-	async create( app_id: number, version: string ): Promise<AppspaceDM> {
+	async create( app_id: number, version: string ): Promise<{appspace:AppspaceDM, job_id: number}> {
 
 		let resp: AxiosResponse<any>;
 
@@ -56,7 +56,9 @@ export default class AppspacesDM {
 			this.appspaces.push(appspace);
 		});
 
-		return appspace;
+		const job_id = Number(resp.data.job_id);
+
+		return {appspace, job_id};
 	}
 
 }

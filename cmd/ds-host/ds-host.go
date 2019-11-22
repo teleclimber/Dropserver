@@ -175,14 +175,29 @@ func main() {
 		Logger: logger}
 	migrationJobModel.PrepareStatements()
 
+	sandboxManager := &sandbox.Manager{
+		Config: runtimeConfig,
+		Logger: logger}
+
 	migrationJobCtl := &migrateappspace.JobController{
+		AppspaceModel:     appspaceModel,
+		AppModel:          appModel,
+		SandboxManager:    sandboxManager,
 		MigrationJobModel: migrationJobModel,
 		Config:            runtimeConfig,
 		Logger:            logger}
 
-	sM := sandbox.Manager{
-		Config: runtimeConfig,
-		Logger: logger}
+	// auth
+	authenticator := &authenticator.Authenticator{
+		CookieModel: cookieModel,
+		Config:      runtimeConfig}
+
+	liveDataRoutes := &userroutes.LiveDataRoutes{
+		JobController:     migrationJobCtl,
+		MigrationJobModel: migrationJobModel,
+		Authenticator:     authenticator,
+		Logger:            logger}
+	liveDataRoutes.Init()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -191,15 +206,17 @@ func main() {
 		fmt.Println("Caught signal, quitting.", sig)
 		pprof.StopCPUProfile()
 
-		sM.StopAll()
+		sandboxManager.StopAll()
 		fmt.Println("All sandbox stopped")
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
+		liveDataRoutes.Stop()
+
 		os.Exit(0)
 	}()
 
-	sM.Init()
+	sandboxManager.Init()
 
 	fmt.Println("Main after sandbox manager start")
 
@@ -225,14 +242,9 @@ func main() {
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
-		SandboxManager: &sM,
+		SandboxManager: sandboxManager,
 		Logger:         logger,
 		Metrics:        &m}
-
-	// auth
-	authenticator := &authenticator.Authenticator{
-		CookieModel: cookieModel,
-		Config:      runtimeConfig}
 
 	// Views
 	views := &views.Views{
@@ -262,10 +274,12 @@ func main() {
 		Logger:        logger}
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
-		AppspaceFilesModel: appspaceFilesModel,
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		Logger:             logger}
+		AppspaceFilesModel:     appspaceFilesModel,
+		AppspaceModel:          appspaceModel,
+		MigrationJobModel:      migrationJobModel,
+		MigrationJobController: migrationJobCtl,
+		AppModel:               appModel,
+		Logger:                 logger}
 
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator:     authenticator,
@@ -273,6 +287,7 @@ func main() {
 		AdminRoutes:       adminRoutes,
 		ApplicationRoutes: applicationRoutes,
 		AppspaceRoutes:    appspaceUserRoutes,
+		LiveDataRoutes:    liveDataRoutes,
 		UserModel:         userModel,
 		Views:             views,
 		Validator:         validator,

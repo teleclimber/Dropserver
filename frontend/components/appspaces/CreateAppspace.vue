@@ -17,10 +17,12 @@
 	<DsModal>
 		<h2>Create Appspace</h2>
 
-		<div class="action-pending" v-if="create_vm.action_pending">
-			{{create_vm.action_pending}} Make this dpendant on state and create multiple as needed.
+		<div class="migrating" v-if="create_vm.state === CreateState.migrating">
+			Migrating...
+			<div v-if="!create_vm.migration_job">Waiting for job to start</div>
+			<div v-else>{{create_vm.migration_job.status}}</div>
 		</div>
-		<template v-else-if="create_vm.state === 'created'">
+		<template v-else-if="create_vm.state === CreateState.done">
 			<p>Created.</p>
 			<p>
 				<a :href="create_vm.created_appspace.open_url">
@@ -64,7 +66,7 @@ import { Observer } from "mobx-vue";
 
 import ApplicationsDM from '../../dms/applications-dm';
 
-import { CreateAppspaceVM } from '../../vms/user-page/appspaces-vm';
+import { CreateAppspaceVM, CreateState } from '../../vms/user-page/appspaces-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
@@ -80,5 +82,7 @@ export default class CreateAppspace extends Vue {
 	@Inject(ApplicationsDM.injectKey) readonly applications_dm!: ApplicationsDM;
 
 	@Prop({required: true, type: CreateAppspaceVM}) readonly create_vm!: CreateAppspaceVM;
+
+	CreateState = CreateState
 }
 </script>

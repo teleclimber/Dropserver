@@ -1,11 +1,12 @@
 package userroutes
 
-//go:generate struct2ts -T -o ../../../frontend/generated-types/userroutes-classes.ts userroutes.AdminGetUsersResp userroutes.AdminGetUserInvitationsResp userroutes.GetAppsResp userroutes.PostAppResp userroutes.PostVersionResp userroutes.AppspaceMeta
+//go:generate struct2ts -T -o ../../../frontend/generated-types/userroutes-classes.ts userroutes.AdminGetUsersResp userroutes.AdminGetUserInvitationsResp userroutes.GetAppsResp userroutes.PostAppResp userroutes.PostVersionResp userroutes.AppspaceMeta userroutes.GetStartLiveDataResp userroutes.MigrationJobResp userroutes.MigrationStatusResp
 
 import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
 // attempt to create a set of types that define the API surface
@@ -81,6 +82,7 @@ type PostAppspaceReq struct {
 
 // PostAppspaceResp is
 type PostAppspaceResp struct {
+	JobID        domain.JobID `json:"job_id"`
 	AppspaceMeta AppspaceMeta `json:"appspace"`
 }
 
@@ -93,6 +95,37 @@ type PostAppspaceResp struct {
 // 	Old string `json:"old"`
 // 	New string `json:"new"`
 //}
+
+// Live data routes
+
+// GetStartLiveDataResp holds the token necessary to start a websocket upgraded conn
+type GetStartLiveDataResp struct {
+	Token string `json:"token"`
+}
+
+// MigrationJobResp describes a pending or ongoing appspace migration job
+type MigrationJobResp struct {
+	JobID      domain.JobID         `json:"job_id"`
+	OwnerID    domain.UserID        `json:"owner_id"`
+	AppspaceID domain.AppspaceID    `json:"appspace_id"`
+	ToVersion  domain.Version       `json:"to_version"`
+	Created    time.Time            `json:"created"`
+	Started    nulltypes.NullTime   `json:"started"`
+	Finished   nulltypes.NullTime   `json:"finished"`
+	Priority   bool                 `json:"priority"`
+	Error      nulltypes.NullString `json:"error"`
+}
+
+// MigrationStatusResp reflects the current status of the migrationJob referenced
+type MigrationStatusResp struct {
+	JobID        domain.JobID         `json:"job_id"`
+	MigrationJob *MigrationJobResp    `json:"migration_job,omitempty"`
+	Status       string               `json:"status"`
+	Started      nulltypes.NullTime   `json:"started"`
+	Finished     nulltypes.NullTime   `json:"finished"`
+	Error        nulltypes.NullString `json:"error"`
+	CurSchema    int                  `json:"cur_schema"`
+}
 
 ////// Common stuff.....
 

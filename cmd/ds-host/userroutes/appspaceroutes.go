@@ -13,10 +13,12 @@ import (
 
 // AppspaceRoutes handles routes for applications uploading, creating, deleting.
 type AppspaceRoutes struct {
-	AppspaceFilesModel domain.AppspaceFilesModel
-	AppspaceModel      domain.AppspaceModel
-	AppModel           domain.AppModel
-	Logger             domain.LogCLientI
+	AppspaceFilesModel     domain.AppspaceFilesModel
+	AppspaceModel          domain.AppspaceModel
+	MigrationJobModel      domain.MigrationJobModel
+	MigrationJobController domain.MigrationJobController
+	AppModel               domain.AppModel
+	Logger                 domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the appspace routes
@@ -160,11 +162,20 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	// TODO: migrate to whatever version was selected!
-	// .. which btw should block appspace from being used until it's done
+	// migrate to whatever version was selected
+	// TODO: Must block appspace from being used until migration is done
+
+	job, dsErr := a.MigrationJobModel.Create(routeData.Cookie.UserID, appspace.AppspaceID, version.Version, true)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
+
+	a.MigrationJobController.WakeUp()
 
 	// return appspace Meta
 	resp := PostAppspaceResp{
+		JobID: job.JobID,
 		AppspaceMeta: AppspaceMeta{
 			AppspaceID: int(appspace.AppspaceID),
 			AppID:      int(appspace.AppID),
@@ -213,30 +224,21 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 
 	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
 
-	/*targetVersion*/
 	_, dsErr = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
 	}
 
-	// Send the whole thing to a controller:
-	// dsErr = a.AppspaceCtl.ChangeVersion(appspace, targetVersion)
+	_, dsErr = a.MigrationJobModel.Create(routeData.Cookie.UserID, appspace.AppspaceID, reqData.Version, true)
+	if dsErr != nil {
+		dsErr.HTTPError(res)
+		return
+	}
 
-	// Lots to do there.
-	// - record pause status
-	// - do pause (not just through model, this need some sort of controller)
-	// - get old version and new version datas
-	// - check if migration needed
-	// - do migration
-	// - write changes
-	// - unpause if necessary
+	a.MigrationJobController.WakeUp()
 
-	/// --- this is quite involved. Need a controller for appspaces.
-	// furthemore this should probably be a stateless "job"? -> maybe later.
-
-	res.WriteHeader(http.StatusNotImplemented)
-
+	res.WriteHeader(http.StatusOK)
 }
 
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {

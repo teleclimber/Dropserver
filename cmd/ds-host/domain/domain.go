@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views,StdInput,MigrationJobModel
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views,StdInput,MigrationJobModel,MigrationJobController
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -397,6 +397,15 @@ type AppFilesMetadata struct {
 	// currently we have it in app.json what the routes are.
 }
 
+// MigrationJobController controls and tracks appspace migration jobs
+type MigrationJobController interface {
+	Start()
+	Stop()
+	WakeUp()
+	SubscribeOwner(UserID, string) (<-chan MigrationStatusData, []MigrationStatusData)
+	UnsubscribeOwner(UserID, string)
+}
+
 // MigrationJobStatus represents the Status of an appspace's migration to a different version
 // including possibly a different schema
 type MigrationJobStatus int
@@ -408,25 +417,31 @@ const ( //maybe at MigrationWaiting at some point
 	MigrationRunning
 	// MigrationFinished means the migration is complete or ended with an error
 	MigrationFinished
+	// When changing cases make sure to also change in response types and in frontend code!
 )
 
 // MigrationStatusData reflects the current status of the migrationJob referenced
 type MigrationStatusData struct {
-	MigrationJob *MigrationJob
-	Status       MigrationJobStatus //for now
-	ErrString    nulltypes.NullString
-	CurSchema    int
+	JobID     JobID
+	Status    MigrationJobStatus
+	Started   nulltypes.NullTime
+	Finished  nulltypes.NullTime
+	ErrString nulltypes.NullString
+	CurSchema int
 }
+
+// JobID is the id of appspace migration job
+type JobID int
 
 // MigrationJob describes a pending or ongoing appspace migration job
 type MigrationJob struct {
-	JobID      int                  `db:"job_id"`
+	JobID      JobID                `db:"job_id"`
 	OwnerID    UserID               `db:"owner_id"`
 	AppspaceID AppspaceID           `db:"appspace_id"`
 	ToVersion  Version              `db:"to_version"`
 	Created    time.Time            `db:"created"`
-	Started    nulltypes.NullTime   `db:"started"`  // needs to be nullable
-	Finished   nulltypes.NullTime   `db:"finished"` // needs to be nullable
+	Started    nulltypes.NullTime   `db:"started"`
+	Finished   nulltypes.NullTime   `db:"finished"`
 	Priority   bool                 `db:"priority"`
 	Error      nulltypes.NullString `db:"error"`
 }
@@ -434,10 +449,10 @@ type MigrationJob struct {
 // MigrationJobModel handles writing jobs to the db
 type MigrationJobModel interface {
 	Create(UserID, AppspaceID, Version, bool) (*MigrationJob, Error)
-	GetJob(int) (*MigrationJob, Error)
+	GetJob(JobID) (*MigrationJob, Error)
 	GetPending() ([]*MigrationJob, Error)
-	SetStarted(int) (bool, Error)
-	SetFinished(int, nulltypes.NullString) Error
+	SetStarted(JobID) (bool, Error)
+	SetFinished(JobID, nulltypes.NullString) Error
 	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
 	// Delete(AppspaceID) Error
 }

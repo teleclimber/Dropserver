@@ -6,6 +6,7 @@ package migrateappspace
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	domain "github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	reflect "reflect"
 )
 
@@ -70,9 +71,11 @@ func (m *MockMigrationSandboxI) EXPECT() *MockMigrationSandboxIMockRecorder {
 }
 
 // Start mocks base method
-func (m *MockMigrationSandboxI) Start(arg0, arg1 string, arg2, arg3 int) {
+func (m *MockMigrationSandboxI) Start(arg0, arg1 string, arg2, arg3 int) domain.Error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Start", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(domain.Error)
+	return ret0
 }
 
 // Start indicates an expected call of Start

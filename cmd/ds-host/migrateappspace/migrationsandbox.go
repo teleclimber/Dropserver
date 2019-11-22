@@ -36,7 +36,7 @@ type MigrationSandboxMgr struct {
 }
 
 // CreateSandbox creates a sandbox struct and returns it
-func (m *MigrationSandboxMgr) CreateSandbox() *migrationSandbox {
+func (m *MigrationSandboxMgr) CreateSandbox() MigrationSandboxI { //*migrationSandbox {
 	sandbox := migrationSandbox{
 		Config: m.Config,
 		Logger: m.Logger}
@@ -46,7 +46,7 @@ func (m *MigrationSandboxMgr) CreateSandbox() *migrationSandbox {
 
 // MigrationSandboxI is an interface for the migration sandbox.
 type MigrationSandboxI interface {
-	Start(string, string, int, int) // TODO: return an error, presumably?
+	Start(string, string, int, int) domain.Error
 	Stop()
 }
 

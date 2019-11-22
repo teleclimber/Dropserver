@@ -6,10 +6,12 @@ declare global {
 	}
 }
 
-const url = (window as Window).ds_user_routes_base_url
+export const url = (window as Window).ds_user_routes_base_url
 
 const ds_axios = axios.create({
 	baseURL: url
 });
 
-export default ds_axios
+export default ds_axios;
+
+//export url;

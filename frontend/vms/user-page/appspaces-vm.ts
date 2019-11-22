@@ -1,16 +1,18 @@
 import { action, computed, observable, decorate, configure, runInAction, intercept, observe } from "mobx";
 
-import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
+import { ApplicationMeta, VersionMeta, MigrationStatusResp } from '../../generated-types/userroutes-classes';
 
 import AppspacesDM from '../../dms/appspaces-dm';
 import AppspaceDM from '../../dms/appspace-dm';
 import ApplicationsDM from '../../dms/applications-dm';
+import LiveDataDM, {MigrationStatus, LiveMigrationJob} from '../../dms/live-data-dm';
 
 import AppspaceVM from './appspace-vm';
 
 type AppspacesVMDeps = {
 	appspaces_dm: AppspacesDM,
 	applications_dm: ApplicationsDM,
+	live_data_dm: LiveDataDM
 }
 // no parent on this one?
 export default class AppspacesVM {
@@ -22,16 +24,18 @@ export default class AppspacesVM {
 	constructor(private deps: AppspacesVMDeps){	}
 
 	getAugmentedAppspace(appspace:AppspaceDM):AppspaceVM {
-		return new AppspaceVM(this, {applications_dm: this.deps.applications_dm}, appspace);
+		return new AppspaceVM(this, {applications_dm: this.deps.applications_dm, live_data_dm: this.deps.live_data_dm}, appspace);
 	}
 
 	@action
 	showCreate(app_id?: number, version?: string) {
 		this.create_appspace_vm = new CreateAppspaceVM({
+			getAugmentedAppspace: (appspace:AppspaceDM) => this.getAugmentedAppspace(appspace),
 			closeClicked: () => this.create_appspace_vm = undefined
 		}, {
 			appspaces_dm: this.deps.appspaces_dm,
-			applications_dm: this.deps.applications_dm
+			applications_dm: this.deps.applications_dm,
+			live_data_dm: this.deps.live_data_dm
 		}, app_id, version);
 	}
 	@action
@@ -46,7 +50,8 @@ export default class AppspacesVM {
 			closeClicked: () => this.manage_appspace_vm = undefined
 		}, {
 			applications_dm: this.deps.applications_dm,
-			appspaces_dm: this.deps.appspaces_dm
+			appspaces_dm: this.deps.appspaces_dm,
+			live_data_dm: this.deps.live_data_dm
 		}, appspace_id );
 	}
 	@action
@@ -71,19 +76,23 @@ export default class AppspacesVM {
 type CreateAppspaceVMDeps = {
 	appspaces_dm: AppspacesDM,
 	applications_dm: ApplicationsDM,
+	live_data_dm: LiveDataDM
 }
 type CreateAppspaceVMCbs = {
+	getAugmentedAppspace(appspace:AppspaceDM): AppspaceVM
 	closeClicked(): void
 }
-export class CreateAppspaceVM {
-	@observable state: string = "";	// TODO: make this like EditState
 
-	@observable action_pending: string | undefined;
+export enum CreateState { start, creating, migrating, done };
+
+export class CreateAppspaceVM {
+	@observable state: CreateState = CreateState.start;
 
 	@observable app_id: number | undefined;
 	@observable version: string | undefined;
 
 	@observable created_appspace: AppspaceVM | undefined;
+	@observable _job: LiveMigrationJob | undefined;
 
 	constructor(private cbs: CreateAppspaceVMCbs, private deps: CreateAppspaceVMDeps, app_id?: number, version?: string) {
 		// ensure app_id is either a number or undefined.
@@ -131,18 +140,69 @@ export class CreateAppspaceVM {
 		if( !this.inputs_valid ) return;
 		if( !this.app_id || !this.version ) return;	// appease the TS gods.
 		
-		this.action_pending = 'Creating...';	// make that na edit state.
+		this.state = CreateState.creating
 
-		await this.deps.appspaces_dm.create(this.app_id, this.version);
+		const created_resp = await this.deps.appspaces_dm.create(this.app_id, this.version);
 
-		this.action_pending = undefined;
-		//app_spaces_vm.state = 'created';
-		// not sure . Maybe show a readout of metadata and a button to open the appspace?
+		const job_id = created_resp.job_id;
+		console.log("created appspace, job id", job_id);
+
+		runInAction( () => {
+			this.created_appspace = this.cbs.getAugmentedAppspace(created_resp.appspace);
+
+			this.state = CreateState.migrating;
+			this._job = this.deps.live_data_dm.getJob(job_id+'');
+			if( this._job.status !== MigrationStatus.finished ) {
+				this.state = CreateState.done;
+			}
+			else {
+				const disposer = observe(this._job, "status", change => {
+					console.log("status changed", change.newValue);
+					if( change.newValue === MigrationStatus.finished ) {
+						this.state = CreateState.done;
+						disposer();
+					}
+				});
+			}
+		});
+
 		
+
+		
+
+		// I want to straight up get the job from live data, even if it hasn't started yet
+		//this._job = this.deps.live_data_dm.getJob(job_id+'');
+
+		// const as_id = created_resp.appspace.appspace_id;
+		// if( this.deps.live_data_dm.running[as_id] ) {
+		// 	const job = this.deps.live_data_dm.running[as_id];
+		// 	if( job.status != MigrationStatus.finished ) {
+		// 		runInAction( () => this.state = CreateState.migrating );
+		// 	}
+		// }
+
+		// // maybe an autorun or watch thing?
+		// const disposer = observe(this.deps.live_data_dm, 'running', change => {
+		// 	console.log("observing appspace live data", change.newValue);
+		// 	if( change.newValue && change.newValue[as_id] && this.state === CreateState.creating ) {
+		// 		console.log('state to migrating');
+		// 		runInAction( () => this.state = CreateState.migrating );
+		// 	} else if( this.state === CreateState.migrating ) {
+		// 		// was migrating, no longer, so done
+		// 		console.log('state to done');
+		// 		runInAction( () => this.state = CreateState.done );
+		// 		disposer();
+		// 	}
+		// });
 	}
 
 	close() {
 		this.cbs.closeClicked();
+	}
+
+	@computed get migration_job() :LiveMigrationJob|undefined {
+		if( this._job && !this._job._is_dummy ) return this._job;
+		return undefined;
 	}
 }
 
@@ -150,7 +210,7 @@ export class CreateAppspaceVM {
 type ManageAppspaceVMDeps = {
 	appspaces_dm: AppspacesDM,
 	applications_dm: ApplicationsDM,
-
+	live_data_dm: LiveDataDM
 }
 type ManageAppspaceVMCbs = {
 	closeClicked(): void
@@ -170,7 +230,8 @@ export class ManageAppspaceVM {
 	constructor(private cbs: ManageAppspaceVMCbs, private deps: ManageAppspaceVMDeps, private appspace_id: number) {
 		const appspace = this.deps.appspaces_dm.getAppspace(appspace_id);
 		this.appspace_vm = new AppspaceVM({showManage: function(){}}, {
-			applications_dm: this.deps.applications_dm
+			applications_dm: this.deps.applications_dm,
+			live_data_dm: this.deps.live_data_dm
 		}, appspace );
 	}
 

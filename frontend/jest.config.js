@@ -1,6 +1,11 @@
 module.exports = {
 	preset: 'ts-jest',
 	testEnvironment: 'jsdom',
+	collectCoverage: true,
+	collectCoverageFrom: [
+		"**/*.{js,ts}",
+		"!**/node_modules/**"
+	],
 	
 	moduleFileExtensions: [
 	  "js",

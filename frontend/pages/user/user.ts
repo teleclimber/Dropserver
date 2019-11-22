@@ -4,6 +4,7 @@ import UserPage from '../../components/user-page/UserPage.vue';
 import CurrentUserDM from '../../dms/current-user-dm';
 import ApplicationsDM from '../../dms/applications-dm';
 import AppspacesDM from '../../dms/appspaces-dm';
+import LiveDataDM from '../../dms/live-data-dm';
 
 import UserPageVM from '../../vms/user-page/user-page-vm';
 import ApplicationsVM from '../../vms/user-page/applications-vm';
@@ -33,6 +34,8 @@ applications_dm.fetchAll();
 const appspaces_dm = new AppspacesDM;
 appspaces_dm.fetch();
 
+const live_data_dm = new LiveDataDM;
+
 
 const applications_vm = new ApplicationsVM({
 	applications_dm
@@ -41,6 +44,7 @@ const applications_vm = new ApplicationsVM({
 const appspaces_vm = new AppspacesVM({
 	applications_dm: applications_dm,
 	appspaces_dm: appspaces_dm,
+	live_data_dm: live_data_dm
 });
 
 const user_page_vm = new UserPageVM({
