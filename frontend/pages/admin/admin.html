@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <!-- link href="/static/style.css" rel="stylesheet" -->
     <title>DropServer Admin</title>
+    <base href="{{.BaseData.PublicStaticPrefix}}">
+    <script>
+      window.ds_user_routes_base_url = {{.BaseData.JSAPIURLVar}} ;
+    </script>
   </head>
   <body>
     <div id="app"></div>

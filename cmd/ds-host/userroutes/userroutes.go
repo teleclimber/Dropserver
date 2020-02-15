@@ -60,6 +60,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 	switch head {
 	case "":
 		u.Views.UserHome(res)
+	case "admin":
+		u.Views.Admin(res)
 	case "api":
 		// All the async routes essentially?
 		head, tail = shiftpath.ShiftPath(tail)

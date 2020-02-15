@@ -18,6 +18,7 @@ type Views struct {
 	loginTemplate    *template.Template
 	signupTemplate   *template.Template
 	userHomeTemplate *template.Template
+	adminTemplate    *template.Template
 }
 
 // BaseData is the basic data that the page needs to render
@@ -44,6 +45,8 @@ func (v *Views) PrepareTemplates() {
 	templatePath = path.Join(v.Config.Exec.WebpackTemplatesDir, "user.html")
 	v.userHomeTemplate = template.Must(template.ParseFiles(templatePath))
 
+	templatePath = path.Join(v.Config.Exec.WebpackTemplatesDir, "admin.html")
+	v.adminTemplate = template.Must(template.ParseFiles(templatePath))
 }
 
 type loginData struct {
@@ -89,12 +92,30 @@ type userHomeData struct {
 	//LoginViewData domain.LoginViewData
 }
 
-// UserHome executes the login template and sends it down as a response?
+// UserHome executes the user home template and sends it down as a response
 func (v *Views) UserHome(res http.ResponseWriter) {
 	d := userHomeData{
 		BaseData: v.base}
 
 	err := v.userHomeTemplate.Execute(res, d)
+	if err != nil {
+		v.Logger.Log(domain.ERROR, nil, err.Error())
+		// Too late to send error status. Hopefully the logger is enough.
+	}
+}
+
+// do for admin page?
+type adminData struct {
+	BaseData
+	//LoginViewData domain.LoginViewData
+}
+
+// Admin executes the admin template and sends it down as response.
+func (v *Views) Admin(res http.ResponseWriter) {
+	d := adminData{
+		BaseData: v.base}
+
+	err := v.adminTemplate.Execute(res, d)
 	if err != nil {
 		v.Logger.Log(domain.ERROR, nil, err.Error())
 		// Too late to send error status. Hopefully the logger is enough.

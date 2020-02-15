@@ -177,6 +177,7 @@ type Views interface {
 	Login(http.ResponseWriter, LoginViewData)
 	Signup(http.ResponseWriter, SignupViewData)
 	UserHome(http.ResponseWriter)
+	Admin(http.ResponseWriter)
 }
 
 // LoginViewData is used to pass messages and parameters to the login page

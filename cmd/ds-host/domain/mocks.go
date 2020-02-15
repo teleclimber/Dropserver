@@ -1383,6 +1383,18 @@ func (m *MockViews) EXPECT() *MockViewsMockRecorder {
 	return m.recorder
 }
 
+// Admin mocks base method
+func (m *MockViews) Admin(arg0 http.ResponseWriter) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Admin", arg0)
+}
+
+// Admin indicates an expected call of Admin
+func (mr *MockViewsMockRecorder) Admin(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Admin", reflect.TypeOf((*MockViews)(nil).Admin), arg0)
+}
+
 // Login mocks base method
 func (m *MockViews) Login(arg0 http.ResponseWriter, arg1 LoginViewData) {
 	m.ctrl.T.Helper()
