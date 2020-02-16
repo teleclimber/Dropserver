@@ -254,11 +254,12 @@ func main() {
 
 	// Create routes
 	authRoutes := &userroutes.AuthRoutes{
-		Views:         views,
-		SettingsModel: settingsModel,
-		UserModel:     userModel,
-		Authenticator: authenticator,
-		Validator:     validator}
+		Views:               views,
+		SettingsModel:       settingsModel,
+		UserModel:           userModel,
+		UserInvitationModel: userInvitationModel,
+		Authenticator:       authenticator,
+		Validator:           validator}
 
 	adminRoutes := &userroutes.AdminRoutes{
 		UserModel:           userModel,

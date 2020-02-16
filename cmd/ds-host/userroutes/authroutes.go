@@ -13,11 +13,12 @@ import (
 
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
-	Views         domain.Views
-	SettingsModel domain.SettingsModel
-	UserModel     domain.UserModel
-	Authenticator domain.Authenticator
-	Validator     domain.Validator
+	Views               domain.Views
+	SettingsModel       domain.SettingsModel
+	UserModel           domain.UserModel
+	UserInvitationModel domain.UserInvitationModel
+	Authenticator       domain.Authenticator
+	Validator           domain.Validator
 }
 
 // ServeHTTP handles all /login routes
@@ -143,6 +144,19 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 	}
 	invalidData.Email = email
 
+	if !settings.RegistrationOpen {
+		_, dsErr := a.UserInvitationModel.Get(email)
+		if dsErr != nil {
+			if dsErr.Code() == dserror.NoRowsInResultSet {
+				invalidData.Message = "Sorry, this email is not on the invitation list"
+				a.Views.Signup(res, invalidData)
+				return
+			}
+			dsErr.HTTPError(res)
+			return
+		}
+	}
+
 	password := req.Form.Get("password")
 	dsErr = a.Validator.Password(password)
 	if dsErr != nil {
@@ -157,8 +171,6 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 		a.Views.Signup(res, invalidData)
 		return
 	}
-
-	// TODO: if Rgistration is not open, check email against invitations
 
 	user, dsErr := a.UserModel.Create(email, password)
 	if dsErr != nil {

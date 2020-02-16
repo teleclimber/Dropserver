@@ -177,7 +177,40 @@ func TestSignupPostBadEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+}
 
+func TestSignupPostNotInvited(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	email := "oy@foo.bar"
+
+	views := domain.NewMockViews(mockCtrl)
+	views.EXPECT().Signup(gomock.Any(), gomock.Any())
+
+	validator := domain.NewMockValidator(mockCtrl)
+	validator.EXPECT().Email(email).Return(nil)
+
+	sm := domain.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: false}, nil)
+
+	im := domain.NewMockUserInvitationModel(mockCtrl)
+	im.EXPECT().Get(email).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+
+	a := &AuthRoutes{
+		SettingsModel:       sm,
+		UserInvitationModel: im,
+		Views:               views,
+		Validator:           validator}
+
+	rr := httptest.NewRecorder()
+
+	form := url.Values{}
+	form.Add("email", email)
+	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostBadPassword(t *testing.T) {
