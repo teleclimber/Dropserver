@@ -137,7 +137,7 @@ func getJSRuntimePath() string {
 		log.Fatal(err)
 	}
 
-	jsRuntime := path.Join(dir, "../../../install/files/ds-sandbox-runner.js")
+	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.js")
 
 	return jsRuntime
 }

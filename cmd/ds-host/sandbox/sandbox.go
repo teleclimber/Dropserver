@@ -40,16 +40,16 @@ type Task struct {
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id       int			// getter only (const), unexported
-	status          domain.SandboxStatus	// getter/setter, so make it unexported.
-	port            int			// getter only	
+	id              int                  // getter only (const), unexported
+	status          domain.SandboxStatus // getter/setter, so make it unexported.
+	port            int                  // getter only
 	cmd             *exec.Cmd
 	reverseListener *reverseListener
 	statusMux       sync.Mutex
 	statusSub       map[domain.SandboxStatus][]chan domain.SandboxStatus
 	transport       http.RoundTripper
-	appSpaceSession appSpaceSession		// put a getter for that?
-	killScore       float64 // this should not be here.
+	appSpaceSession appSpaceSession // put a getter for that?
+	killScore       float64         // this should not be here.
 	Config          *domain.RuntimeConfig
 	LogClient       domain.LogCLientI
 }
@@ -61,7 +61,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	// Here start should take necessary data about appspace
 	// ..in order to pass in the right permissions to deno.
-	
+
 	var dsErr domain.Error
 	s.reverseListener, dsErr = newReverseListener(s.Config, s.id)
 	if dsErr != nil {
@@ -74,8 +74,8 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		"node",
 		s.Config.Exec.JSRunnerPath,
 		s.reverseListener.socketPath,
-		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey))	// TODO: This could lead to errors. Make apps dir a runtime config exec field?
-		// TODO: use filepath instead of path
+		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey)) // TODO: This could lead to errors. Make apps dir a runtime config exec field?
+	// TODO: use filepath instead of path
 	s.cmd = cmd
 	// -> for Deno will have to pass permission flags for that sandbox.
 	// The appspace is known at this point and should probably be passed to the runner.
@@ -107,7 +107,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	s.port = <-s.reverseListener.portChan
 
-	s.transport = http.DefaultTransport	// really not sure what this means or what it's for anymore....
+	s.transport = http.DefaultTransport // really not sure what this means or what it's for anymore....
 
 	s.SetStatus(domain.SandboxReady)
 }
@@ -123,7 +123,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 				s.LogClient.Log(domain.WARN, nil, "Shutting sandbox down because of error on reverse listener")
 				s.Stop()
 			} else {
-				break	// errorChan was closed, so exit loop
+				break // errorChan was closed, so exit loop
 			}
 		}
 	}()
@@ -145,7 +145,8 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	err := s.cmd.Wait()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		// This is where we want to log things for the benefit of the dropapp user.
 	}
 
 	s.SetStatus(domain.SandboxDead)
@@ -200,7 +201,7 @@ func (s *Sandbox) Stop() {
 	}
 	/////.....
 
-	s.reverseListener.close()	// maybe wait until "dead"?
+	s.reverseListener.close() // maybe wait until "dead"?
 
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
@@ -358,5 +359,3 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 
 	<-statusMet
 }
-
-
