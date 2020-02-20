@@ -74,6 +74,7 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			dsErr.HTTPError(res)
 			return
 		}
+		routeData.RouteConfig = routeConfig
 
 		// TODO: check if appspace is paused
 		// .. no need to go further if paused bit is set, I think.

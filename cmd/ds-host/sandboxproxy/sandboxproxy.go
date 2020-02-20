@@ -43,7 +43,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	header := cloneHeader(oReq.Header)
 	//header["ds-user-id"] = []string{"teleclimber"}
-	header["app-space-script"] = []string{routeData.RouteConfig.File}
+	header["app-space-script"] = []string{routeData.RouteConfig.File} // verify routeData has a route config, otherwise this fails hard.
 	header["app-space-fn"] = []string{routeData.RouteConfig.Function}
 
 	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)

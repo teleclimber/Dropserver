@@ -37,7 +37,7 @@
 
 		<template v-if="create_vm.state === EditState.finished">
 			<p>Application created</p>
-			<p>{{create_vm.app_meta.app_name}} @ {{create_vm.version_meta.version}}</p>
+			<p>{{create_vm.application.app_name}} @ {{create_vm.version_meta.version}}</p>
 			<p>Customize application name, etc... [button]</p>
 			<p>Create a new appspace for this application:</p>
 
