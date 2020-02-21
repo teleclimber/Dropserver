@@ -60,6 +60,10 @@
 					</div>
 				</div>
 			</template>
+			<template v-else-if="manage_vm.state === ManageState.show_upgrade && manage_vm.up_down === ''">
+				<p>{{manage_vm.appspace_vm.application.app_name}}, {{manage_vm.appspace_vm.subdomain}}</p>
+				<p>At version {{manage_vm.appspace_vm.version.version}}</p>
+			</template>
 			<template v-else-if="manage_vm.state === ManageState.show_upgrade">
 				<p>{{manage_vm.appspace_vm.application.app_name}}, {{manage_vm.appspace_vm.subdomain}}</p>
 				<p>{{manage_vm.up_down}} from {{manage_vm.appspace_vm.version.version}} to {{manage_vm.upgrade_version.version}}</p>
@@ -100,7 +104,7 @@
 
 			<div class="submit">
 				<DsButton @click="manage_vm.close()" type="close">Close</DsButton>
-				<DsButton @click="manage_vm.doUpgrade()" v-if="manage_vm.state === ManageState.show_upgrade">{{manage_vm.up_down}}</DsButton>
+				<DsButton @click="manage_vm.doUpgrade()" v-if="manage_vm.show_upgrade_btn">{{manage_vm.up_down}}</DsButton>
 			</div>
 		</template>
 	</DsModal>

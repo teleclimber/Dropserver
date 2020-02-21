@@ -55,6 +55,18 @@ export default class AppspacesVM {
 		}, appspace_id );
 	}
 	@action
+	showUpgrade(appspace_id: number) {
+		this.showManage(appspace_id);
+
+		const upgrade_ver = this.manage_appspace_vm?.appspace_vm.upgrade;
+		if( upgrade_ver ) {
+			this.manage_appspace_vm?.pickVersion(upgrade_ver);
+		}
+		else {
+			this.manage_appspace_vm?.showPickVersion();
+		}
+	}
+	@action
 	closeManageClicked() {
 
 	}
@@ -206,6 +218,7 @@ export class CreateAppspaceVM {
 	}
 }
 
+// break this out into its own file please.
 // ManageAppspaceVM
 type ManageAppspaceVMDeps = {
 	appspaces_dm: AppspacesDM,
@@ -229,7 +242,10 @@ export class ManageAppspaceVM {
 
 	constructor(private cbs: ManageAppspaceVMCbs, private deps: ManageAppspaceVMDeps, private appspace_id: number) {
 		const appspace = this.deps.appspaces_dm.getAppspace(appspace_id);
-		this.appspace_vm = new AppspaceVM({showManage: function(){}}, {
+		this.appspace_vm = new AppspaceVM({
+			showManage: function(){},	// TODO: why are these functions neutered? -> because appspace vm has them for an API when it really shouldn't.
+			showUpgrade: function(){}
+		}, {
 			applications_dm: this.deps.applications_dm,
 			live_data_dm: this.deps.live_data_dm
 		}, appspace );
@@ -247,18 +263,29 @@ export class ManageAppspaceVM {
 		this.state = ManageState.show_upgrade;
 	}
 	@computed get up_down(): string {
-		if( !this.upgrade_version ) return '...';
-		const cur_version = this.appspace_vm.version;
-		const versions = this.appspace_vm.application.versions;
-		const cur_i = versions.findIndex( v => v === cur_version );
-		const mig_i = versions.findIndex( v => v === this.upgrade_version );
-		return cur_i > mig_i ? 'Upgrade' : 'Downgrade';	//version array is sorted backwards
+		if( this.upgrade_version === undefined ) return '...';
+		const up_ver = this.upgrade_version.version;
+		const cur_ver = this.appspace_vm.version.version;
+		if( up_ver === cur_ver ) return '';
+
+		const versions = this.appspace_vm.application.sorted_versions;
+		const cur_i = versions.findIndex( v => v.version === cur_ver );
+		const mig_i = versions.findIndex( v => v.version === up_ver );
+
+		return cur_i > mig_i ? 'Upgrade' : 'Downgrade';
+	}
+	@computed get show_upgrade_btn() {
+		return this.up_down !== '' && this.state === ManageState.show_upgrade;
 	}
 
 	doUpgrade() {
 		// this goes to DM
-		// backend isn't written for that yet so let's not worry about it for now.
+		// This is what's next .... (I think backend is written now?) -> yes
 
+		if( this.upgrade_version ) {
+			// show a spinner or something while waiting?
+			this.appspace_vm.appspace.changeVersion(this.upgrade_version);
+		}
 	}
 
 	//pause 

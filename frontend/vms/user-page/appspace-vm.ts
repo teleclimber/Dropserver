@@ -13,7 +13,8 @@ import AppspaceDM from '../../dms/appspace-dm';
 import LiveDataDM from '../../dms/live-data-dm';
 
 type AppspaceVMCbs = {
-	showManage(appspace_id: number): void
+	showManage(appspace_id: number): void,
+	showUpgrade(appspace_id: number): void
 }
 type AppspaceVMDeps = {
 	applications_dm: ApplicationsDM,
@@ -80,8 +81,9 @@ export default class AppspaceVM {
 		}
 	}
 
-	doUpgrade() {
-		//this.cbs.
+	// I think these might be misplaced?
+	showUpgrade() {
+		this.cbs.showUpgrade(this.appspace.appspace_id);
 	}
 	manage() {
 		this.cbs.showManage(this.appspace.appspace_id);

@@ -41,7 +41,8 @@ export default class AppspaceDM extends AppspaceMeta {	// maybe extend generated
 		}
 	}
 
-	async changeVersion(req_data: PostAppspaceVersionReq) {
+	async changeVersion(ver: VersionMeta) {
+		let req_data: PostAppspaceVersionReq = { version: ver.version };
 		let resp: AxiosResponse<any>;
 		
 		try {
@@ -55,7 +56,6 @@ export default class AppspaceDM extends AppspaceMeta {	// maybe extend generated
 
 		if( resp.status == 200 ) {	// will we really get a 200?
 			runInAction( () => {
-				//this.appspace.paused = pause;
 				this.app_version = req_data.version;
 			});
 		}

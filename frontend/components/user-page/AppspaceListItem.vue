@@ -42,7 +42,7 @@
 
 		<span class="upgrade" v-if="appspace_vm.upgrade">
 			Upgrade available: {{appspace_vm.upgrade}}
-			<DsButton @click="appspace_vm.doUpgrade()">upgrade</DsButton>
+			<DsButton @click="appspace_vm.showUpgrade()">upgrade</DsButton>
 		</span>
 
 		<DsButton @click="appspace_vm.manage()">manage</DsButton>
