@@ -55,8 +55,7 @@
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
-import ApplicationsVM from '../../vms/user-page/applications-vm';
-import { EditState, CreateApplicationVM } from '../../vms/user-page/applications-vm';
+import CreateApplicationVM, { EditState } from '../../vms/user-page/create-application-vm';
 
 import VersionComparison from './VersionComparison.vue';
 import DsModal from '../ui/DsModal.vue';
@@ -73,7 +72,6 @@ import UploadSelect from '../ui/UploadSelect.vue';
 	}
 })
 export default class CreateApplication extends Vue {
-	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
 	EditState = EditState;	// have to attach EditState to "this" so it can be used in template.
 
 	@Prop({required: true, type: CreateApplicationVM}) readonly create_vm!: CreateApplicationVM;

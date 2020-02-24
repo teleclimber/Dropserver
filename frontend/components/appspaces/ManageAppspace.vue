@@ -114,7 +114,7 @@
 import { Vue, Component, Prop, Inject, Ref, Watch } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
-import { ManageAppspaceVM, ManageState } from '../../vms/user-page/appspaces-vm';
+import ManageAppspaceVM, { ManageState } from '../../vms/user-page/manage-appspace-vm';
 
 import DsButton from '../ui/DsButton.vue';
 import DsModal from '../ui/DsModal.vue';

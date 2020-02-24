@@ -66,7 +66,7 @@ import { Observer } from "mobx-vue";
 
 import ApplicationsDM from '../../dms/applications-dm';
 
-import { CreateAppspaceVM, CreateState } from '../../vms/user-page/appspaces-vm';
+import CreateAppspaceVM, { CreateState } from '../../vms/user-page/create-appspace-vm';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';

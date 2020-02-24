@@ -25,6 +25,15 @@
 		padding: 0.8rem 10px;
 		background-color: #ddd;
 	}
+
+	.appspaces-container {
+		margin-bottom: 1em;
+	}
+	.appspace {
+		padding: 0.4rem 10px;
+		border-bottom: 1px solid #ddd;
+		background-color: white;
+	}
 	
 	input.del-check {
 		height: 2rem;
@@ -52,16 +61,22 @@
 		<template v-else-if="manage_vm.show_version">
 			<h4>Version {{manage_vm.show_version.version}}</h4>
 
-			<p>[num??] app spaces</p>
-			<p> List the appspaces</p>
-			<!-- wonder fif we could list these? -->
-
-			<!-- show stats. if no app-spaces using it, offer a delete button -->
-			<!-- stats? resource usage, and logs and errors? -->
+			<div class="header">
+				<p>{{ manage_vm.app_uses.version_num_appspace[manage_vm.show_version.version] || "No" }} appspaces</p>
+				<!-- Create Appspace button? or too confusing? -->
+			</div>
+			<div class="appspaces-container">
+				<div v-for="appspace in appspaces_dm.app_version_appspaces[manage_vm.application.app_id][manage_vm.show_version.version]" 
+				:key="appspace.appspace_id"
+				class="appspace">
+					{{ appspace.subdomain }}
+				</div>
+				<!-- would rather get an appspace-vm, and maybe pass rendering off to a component for reusability -->
+			</div>
 
 			<DsButton @click="manage_vm.deleteVersion(manage_vm.show_version.version)"
+				:disabled="!!manage_vm.app_uses.version_num_appspace[manage_vm.show_version.version]"
 				>delete version</DsButton>
-				<!-- :disabled="manage_vm.show_version.num_use !== 0" -->
 		</template>
 		<template v-else-if="manage_vm.state === EditState.upload">
 			<p>Upload new version:</p>
@@ -76,7 +91,9 @@
 
 		<template v-else>
 			<div class="header">
-				<p>{{manage_vm.application.versions.length}} versions</p>
+				<p>{{manage_vm.application.versions.length}} versions
+					({{manage_vm.app_uses.num_appspace}} appspaces)
+				</p>
 				<DsButton @click="manage_vm.showVersionUpload()">Upload New Version</DsButton>
 			</div>
 			<div class="versions-container">
@@ -86,7 +103,8 @@
 						:key="version.version"
 						@click="manage_vm.showVersion(version)">
 					<span class="ver-name">{{version.version}}</span>
-					<span class="num-use">?? app-spaces</span>
+					<span class="num-use">
+						{{ manage_vm.app_uses.version_num_appspace[version.version] || "No" }} appspaces</span>
 					<!-- could show latest version(?), number of app-spaces -->
 				</div>
 				<div v-if="manage_vm.application.versions.length == 0 " class="zero-versions">
@@ -121,9 +139,9 @@ import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
 import ApplicationsDM from '../../dms/applications-dm';
+import AppspacesDM from '../../dms/appspaces-dm';
 
-import ApplicationsVM from '../../vms/user-page/applications-vm';
-import { EditState, ManageApplicationVM } from '../../vms/user-page/applications-vm';
+import ManageApplicationVM, { EditState } from '../../vms/user-page/manage-application-vm';
 
 import VersionComparison from './VersionComparison.vue';
 import DsModal from '../ui/DsModal.vue';
@@ -140,7 +158,8 @@ import UploadSelect from '../ui/UploadSelect.vue';
 	}
 })
 export default class ManageApplication extends Vue {
-	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
+	@Inject(AppspacesDM.injectKey) readonly appspaces_dm!: AppspacesDM;
+
 	EditState = EditState;	// have to attach EditState to "this" so it can be used in template.
 
 	@Prop({required: true, type: ManageApplicationVM}) readonly manage_vm!: ManageApplicationVM;

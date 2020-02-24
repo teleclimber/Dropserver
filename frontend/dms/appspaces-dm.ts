@@ -61,4 +61,16 @@ export default class AppspacesDM {
 		return {appspace, job_id};
 	}
 
+	// Need help to support queries involving applications and app versions
+	@computed get app_version_appspaces() : { [app_id: string]: { [app_version: string]:AppspaceDM[] }} {
+		let ret : { [app_id: string]: { [app_version: string]:AppspaceDM[] }} = {};
+		this.appspaces.forEach( as => {
+			if( !ret[as.app_id] ) ret[as.app_id] = {};
+			if( !ret[as.app_id][as.app_version] ) ret[as.app_id][as.app_version] = [];
+			ret[as.app_id][as.app_version].push(as);
+		});
+
+		return ret;
+	}
+
 }

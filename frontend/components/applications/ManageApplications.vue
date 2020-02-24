@@ -25,23 +25,27 @@
 	<DsModal>
 		<h2>Manage Applications</h2>
 		<div class="header">
-			<p>Click an application to manage ({{applications_dm.applications.length}}):</p>
-			<DsButton @click="applications_vm.createNew()">Add Application</DsButton>
+			<p>Click an application to manage ({{list_apps_vm.sorted_apps.length}}):</p>
+			<DsButton @click="applications_ui.createNew()">Add Application</DsButton>
 		</div>
 		<div class="apps-container">
 			<div 
 					class="application"
-					v-for="application in applications_dm.applications"
+					v-for="application in list_apps_vm.sorted_apps"
 					:key="application.app_id"
-					@click="applications_vm.showManageApplication(application.app_id)">
+					@click="applications_ui.showManageApplication(application.app_id)">
 				<span class="app-name">{{application.app_name}}</span>
-				<span class="num-use">versions: {{ application.versions.length }}</span>
+				<span class="num-use">
+					{{ application.versions.length }} versions
+					{{ list_apps_vm.app_uses[application.app_id].num_appspace }} appspaces
+				</span>
+				
 				<!-- could show latest version(?), number of app-spaces -->
 			</div>
 		</div>
 
 		<div class="submit">
-			<DsButton @click="applications_vm.listCloseClicked()" type="close">close</DsButton>
+			<DsButton @click="applications_ui.listCloseClicked()" type="close">close</DsButton>
 		</div>
 	</DsModal>
 </template>
@@ -50,9 +54,8 @@
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
-import ApplicationsDM from '../../dms/applications-dm';
-
-import ApplicationsVM from '../../vms/user-page/applications-vm';
+import ListApplicationsVM from '../../vms/user-page/list-applications-vm';
+import ApplicationsUI from '../../vms/user-page/applications-ui';
 
 import DsModal from '../ui/DsModal.vue';
 import DsButton from '../ui/DsButton.vue';
@@ -65,7 +68,7 @@ import DsButton from '../ui/DsButton.vue';
 	}
 })
 export default class ManageApplications extends Vue {	// This should really be called ListApplications
-	@Inject(ApplicationsDM.injectKey) readonly applications_dm!: ApplicationsDM;
-	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
+	@Inject(ListApplicationsVM.injectKey) readonly list_apps_vm!: ListApplicationsVM;
+	@Inject(ApplicationsUI.injectKey) readonly applications_ui!: ApplicationsUI;
 };
 </script>

@@ -12,16 +12,12 @@ import ApplicationDM from '../../dms/application-dm';
 import AppspaceDM from '../../dms/appspace-dm';
 import LiveDataDM from '../../dms/live-data-dm';
 
-type AppspaceVMCbs = {
-	showManage(appspace_id: number): void,
-	showUpgrade(appspace_id: number): void
-}
 type AppspaceVMDeps = {
 	applications_dm: ApplicationsDM,
 	live_data_dm:LiveDataDM
 }
 export default class AppspaceVM {
-	constructor(private cbs: AppspaceVMCbs, private deps: AppspaceVMDeps, public appspace: AppspaceDM) {
+	constructor(private deps: AppspaceVMDeps, public appspace: AppspaceDM) {
 	}
 
 	@computed
@@ -79,14 +75,6 @@ export default class AppspaceVM {
 				return latest_version.version;
 			}
 		}
-	}
-
-	// I think these might be misplaced?
-	showUpgrade() {
-		this.cbs.showUpgrade(this.appspace.appspace_id);
-	}
-	manage() {
-		this.cbs.showManage(this.appspace.appspace_id);
 	}
 }
 

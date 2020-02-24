@@ -59,7 +59,7 @@
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
-import { VersionComparison as Cmp } from '../../vms/user-page/applications-vm';
+import { VersionComparison as Cmp } from '../../vms/user-page/application-vm';
 
 
 @Observer

@@ -26,10 +26,10 @@
 		</div>
 
 		<div class="app-space-header">
-			<h2>App Spaces: ({{appspaces_dm.appspaces.length}})</h2>
+			<h2>Appspaces: ({{appspaces_dm.appspaces.length}})</h2>
 			<span>
 				<DsButton @click="user_page_vm.showApplicationsList()">Manage Applications</DsButton>
-				<DsButton @click="user_page_vm.showCreateAppspace()">New App Space</DsButton>
+				<DsButton @click="user_page_vm.showCreateAppspace()">New Appspace</DsButton>
 			</span>
 		</div>
 		<AppspaceListItem 
@@ -48,17 +48,17 @@
 		</ManageAppspace>
 
 		<ManageApplications
-			v-if="applications_vm.show_list">
+			v-if="applications_ui.show_list">
 		</ManageApplications>
 
 		<CreateApplication
-			v-if="applications_vm.create_vm"
-			:create_vm="applications_vm.create_vm">
+			v-if="applications_ui.create_vm"
+			:create_vm="applications_ui.create_vm">
 		</CreateApplication>
 
 		<ManageApplication
-			v-if="applications_vm.manage_vm"
-			:manage_vm="applications_vm.manage_vm">
+			v-if="applications_ui.manage_vm"
+			:manage_vm="applications_ui.manage_vm">
 		</ManageApplication>
 
 		<ChangePassword
@@ -75,9 +75,9 @@ import { Observer } from "mobx-vue";
 import CurrentUserDM from '../../dms/current-user-dm';
 import AppspacesDM from '../../dms/appspaces-dm';
 
-import UserPageVM from "../../vms/user-page/user-page-vm";
-import AppspacesVM from '../../vms/user-page/appspaces-vm';
-import ApplicationsVM from "../../vms/user-page/applications-vm";
+import UserPageUI from "../../vms/user-page/user-page-ui";
+import AppspacesUI from '../../vms/user-page/appspaces-ui';
+import ApplicationsUI from "../../vms/user-page/applications-ui";
 
 import AppspaceListItem from './AppspaceListItem.vue';
 
@@ -112,9 +112,9 @@ export default class UserPage extends Vue {
 	@Inject(CurrentUserDM.injectKey) readonly current_user_dm!: CurrentUserDM;
 	@Inject(AppspacesDM.injectKey) readonly appspaces_dm!: AppspacesDM;
 
-	@Inject(UserPageVM.injectKey) readonly user_page_vm!: UserPageVM;
-	@Inject(AppspacesVM.injectKey) readonly appspaces_vm!: AppspacesVM;
-	@Inject(ApplicationsVM.injectKey) readonly applications_vm!: ApplicationsVM;
+	@Inject(UserPageUI.injectKey) readonly user_page_vm!: UserPageUI;
+	@Inject(AppspacesUI.injectKey) readonly appspaces_vm!: AppspacesUI;
+	@Inject(ApplicationsUI.injectKey) readonly applications_ui!: ApplicationsUI;
 	
 	get logout_url() { return window.ds_user_routes_base_url + "/logout" }
 	get admin_url() { return window.ds_user_routes_base_url + "/admin" }

@@ -6,25 +6,12 @@ import ApplicationsDM from '../../dms/applications-dm';
 import AppspacesDM from '../../dms/appspaces-dm';
 import LiveDataDM from '../../dms/live-data-dm';
 
-import UserPageVM from '../../vms/user-page/user-page-vm';
-import ApplicationsVM from '../../vms/user-page/applications-vm';
+import UserPageUI from '../../vms/user-page/user-page-ui';
+import ApplicationsUI from '../../vms/user-page/applications-ui';
 
 import '../style.css';
-import AppspacesVM from '../../vms/user-page/appspaces-vm';
-
-// OK, let's rethink this.
-// there is probably at least one vm: user-page-vm.ts
-// Then we need applications-dm, appspaces-dm, ...?
-// It's possible that we also need applications-vm.ts, and appspaces-vm.ts
-// .. which would handle the ui of the management of these.
-
-// the dms and vms are almost certainly "provided"
-// Not clear where the distinction is between the different vms though.
-
-// Each vm and dm must be a mobx store
-// .. and each must be initialized here
-// .. and passed down either through injection or because it is created from a parent.
-
+import AppspacesUI from '../../vms/user-page/appspaces-ui';
+import ListApplicationsVM from '../../vms/user-page/list-applications-vm';
 
 const current_user_dm = new CurrentUserDM;
 
@@ -36,23 +23,29 @@ appspaces_dm.fetch();
 
 const live_data_dm = new LiveDataDM;
 
-
-const applications_vm = new ApplicationsVM({
-	applications_dm
+const list_apps_vm = new ListApplicationsVM({
+	applications_dm,
+	appspaces_dm
 });
 
-const appspaces_vm = new AppspacesVM({
+
+const applications_ui = new ApplicationsUI({
+	applications_dm,
+	appspaces_dm
+});
+
+const appspaces_ui = new AppspacesUI({
 	applications_dm: applications_dm,
 	appspaces_dm: appspaces_dm,
 	live_data_dm: live_data_dm
 });
 
-const user_page_vm = new UserPageVM({
+const user_page_vm = new UserPageUI({
 	current_user_dm,	
 	applications_dm,
 
-	applications_vm,
-	appspaces_vm,
+	applications_ui,
+	appspaces_ui,
 });
 
 // The other option here is to have a single vm, 
@@ -67,9 +60,10 @@ new Vue({
 		[ApplicationsDM.injectKey]: applications_dm,
 		[AppspacesDM.injectKey]: appspaces_dm,
 		// vms:
-		[UserPageVM.injectKey]: user_page_vm,
-		[ApplicationsVM.injectKey]: applications_vm,
-		[AppspacesVM.injectKey]: appspaces_vm,
+		[UserPageUI.injectKey]: user_page_vm,
+		[ListApplicationsVM.injectKey]: list_apps_vm,
+		[ApplicationsUI.injectKey]: applications_ui,
+		[AppspacesUI.injectKey]: appspaces_ui,
 
 	},
 	render: h => h(UserPage)

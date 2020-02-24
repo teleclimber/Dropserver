@@ -17,7 +17,7 @@ type UploadVersionResp = {
 
 export default class ApplicationDM extends ApplicationMeta {
 
-	constructor(data:any) {
+	constructor(data:ApplicationMeta) {
 		super(data);
 	}
 

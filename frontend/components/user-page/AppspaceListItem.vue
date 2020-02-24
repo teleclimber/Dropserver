@@ -42,10 +42,10 @@
 
 		<span class="upgrade" v-if="appspace_vm.upgrade">
 			Upgrade available: {{appspace_vm.upgrade}}
-			<DsButton @click="appspace_vm.showUpgrade()">upgrade</DsButton>
+			<DsButton @click="user_page_vm.showUpgradeAppspace(appspace_vm.appspace.appspace_id)">upgrade</DsButton>
 		</span>
 
-		<DsButton @click="appspace_vm.manage()">manage</DsButton>
+		<DsButton @click="user_page_vm.showManageAppspace(appspace_vm.appspace.appspace_id)">manage</DsButton>
 		
 	</section>
 </template>
@@ -54,6 +54,7 @@
 import { Vue, Component, Prop, Inject, Ref } from "vue-property-decorator";
 import { Observer } from "mobx-vue";
 
+import UserPageUI from "../../vms/user-page/user-page-ui";
 import AppspaceVM from '../../vms/user-page/appspace-vm';
 
 import DsButton from '../ui/DsButton.vue';
@@ -65,6 +66,7 @@ import DsButton from '../ui/DsButton.vue';
 	}
 })
 export default class AppspaceListItem extends Vue {
+	@Inject(UserPageUI.injectKey) readonly user_page_vm!: UserPageUI;
 	@Prop({required: true, type: AppspaceVM}) readonly appspace_vm!: AppspaceVM;
 }
 </script>
