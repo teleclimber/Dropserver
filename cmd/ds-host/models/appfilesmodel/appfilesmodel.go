@@ -25,7 +25,7 @@ type AppFilesModel struct {
 
 // Save puts the data passed in files in an apps directory
 func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
-	appsPath := a.getAppsPath()
+	appsPath := a.Config.Exec.AppsPath
 
 	err := os.MkdirAll(appsPath, 0766)
 	if err != nil {
@@ -84,8 +84,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 
 // ReadMeta reads metadata from the files at location key
 func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error) {
-	appsPath := a.getAppsPath()
-	jsonPath := filepath.Join(appsPath, locationKey, "application.json")
+	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "application.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
 		// here the error might be that application.json is not in app?
@@ -136,9 +135,7 @@ func (a *AppFilesModel) Delete(locationKey string) domain.Error {
 		return nil //is that an error or do we consider this OK?
 	}
 
-	appsPath := a.getAppsPath()
-
-	err := os.RemoveAll(filepath.Join(appsPath, locationKey))
+	err := os.RemoveAll(filepath.Join(a.Config.Exec.AppsPath, locationKey))
 	if err != nil {
 		return dserror.FromStandard(err)
 	}
@@ -175,8 +172,7 @@ func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
 }
 
 func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, dsErr domain.Error) {
-	appsPath := a.getAppsPath()
-	mPath := filepath.Join(appsPath, locationKey, "migrations")
+	mPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "migrations")
 
 	mDir, err := os.Open(mPath)
 	if err != nil {
@@ -216,8 +212,7 @@ func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, dsErr d
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
-	appsPath := a.getAppsPath()
-	_, err := os.Stat(filepath.Join(appsPath, locationKey))
+	_, err := os.Stat(filepath.Join(a.Config.Exec.AppsPath, locationKey))
 	if err == nil {
 		return true
 	}
@@ -226,10 +221,6 @@ func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
 	}
 	return true // OK but there could be aonther problem, like permissions out of whack?
 	// Should probably log that as warning at least.
-}
-
-func (a *AppFilesModel) getAppsPath() string {
-	return filepath.Join(a.Config.DataDir, "apps")
 }
 
 // pathInsidePath determines if A path is inside (contained within) path B

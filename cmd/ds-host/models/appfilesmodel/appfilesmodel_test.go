@@ -147,6 +147,7 @@ func TestSave(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.DataDir = dir
+	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	logger := domain.NewMockLogCLientI(mockCtrl)
 	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
@@ -167,9 +168,7 @@ func TestSave(t *testing.T) {
 		t.Error(dsErr)
 	}
 
-	appsPath := m.getAppsPath()
-
-	dat, err := ioutil.ReadFile(filepath.Join(appsPath, locKey, "file1"))
+	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "file1"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -177,7 +176,7 @@ func TestSave(t *testing.T) {
 		t.Error("didn't get the same file data", string(dat))
 	}
 
-	dat, err = ioutil.ReadFile(filepath.Join(appsPath, locKey, "bar/baz/file2.txt"))
+	dat, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "bar/baz/file2.txt"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -197,14 +196,13 @@ func TestGetMigrationDirs(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.DataDir = dir
+	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	m := AppFilesModel{
 		Config: cfg}
 
-	appsPath := m.getAppsPath()
-
 	for _, d := range []string{"boo", "0", "5", "zoink", "2b", "3"} {
-		os.MkdirAll(filepath.Join(appsPath, "abc", "migrations", d), 0766)
+		os.MkdirAll(filepath.Join(cfg.Exec.AppsPath, "abc", "migrations", d), 0766)
 	}
 
 	mInts, dsErr := m.getMigrationDirs("abc")
@@ -235,6 +233,7 @@ func TestDelete(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.DataDir = dir
+	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	logger := domain.NewMockLogCLientI(mockCtrl)
 	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
@@ -253,9 +252,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal(dsErr)
 	}
 
-	appsPath := m.getAppsPath()
-
-	_, err = ioutil.ReadFile(filepath.Join(appsPath, locKey, "file1"))
+	_, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "file1"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,9 +262,8 @@ func TestDelete(t *testing.T) {
 		t.Fatal(dsErr)
 	}
 
-	_, err = os.Stat(filepath.Join(appsPath, locKey))
-	if err == nil || !os.IsNotExist(err){
+	_, err = os.Stat(filepath.Join(cfg.Exec.AppsPath, locKey))
+	if err == nil || !os.IsNotExist(err) {
 		t.Fatal("expected not exist error", err)
 	}
 }
-

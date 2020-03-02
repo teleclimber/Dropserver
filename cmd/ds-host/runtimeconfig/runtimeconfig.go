@@ -6,7 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -62,11 +62,16 @@ func Load(configFile string) *domain.RuntimeConfig {
 
 func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up runtime paths
-	rtc.Exec.GoTemplatesDir = path.Join(binDir, "../resources/go-templates")
-	rtc.Exec.WebpackTemplatesDir = path.Join(binDir, "../resources/webpack-html")
-	rtc.Exec.StaticAssetsDir = path.Join(binDir, "../static")
-	rtc.Exec.JSRunnerPath = path.Join(binDir, "../resources/ds-sandbox-runner.js") //todo: rename because it won't be JS one day
-	rtc.Exec.MigratorScriptPath = path.Join(binDir, "../resources/ds-appspace-migrator.js")
+	rtc.Exec.GoTemplatesDir = filepath.Join(binDir, "../resources/go-templates")
+	rtc.Exec.WebpackTemplatesDir = filepath.Join(binDir, "../resources/webpack-html")
+	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static")
+	rtc.Exec.JSRunnerPath = filepath.Join(binDir, "../resources/ds-sandbox-runner.js") //todo: rename because it won't be JS one day
+	rtc.Exec.MigratorScriptPath = filepath.Join(binDir, "../resources/ds-appspace-migrator.js")
+
+	// set up user data paths:
+	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
+	rtc.Exec.AppspacesMetaPath = filepath.Join(rtc.DataDir, "appspaces-meta")
+	rtc.Exec.AppspacesFilesPath = filepath.Join(rtc.DataDir, "appspaces-files")
 
 	//  subdomain sorting out:
 	host := rtc.Server.Host

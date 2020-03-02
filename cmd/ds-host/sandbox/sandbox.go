@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -63,7 +63,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	// ..in order to pass in the right permissions to deno.
 
 	var dsErr domain.Error
-	s.reverseListener, dsErr = newReverseListener(s.Config, s.id)
+	s.reverseListener, dsErr = newReverseListener(s.Config, appspace.AppspaceID)
 	if dsErr != nil {
 		// just stop right here.
 		// TODO return that error to caller
@@ -74,8 +74,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		"node",
 		s.Config.Exec.JSRunnerPath,
 		s.reverseListener.socketPath,
-		path.Join(s.Config.DataDir, "apps", appVersion.LocationKey)) // TODO: This could lead to errors. Make apps dir a runtime config exec field?
-	// TODO: use filepath instead of path
+		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey))
 	s.cmd = cmd
 	// -> for Deno will have to pass permission flags for that sandbox.
 	// The appspace is known at this point and should probably be passed to the runner.

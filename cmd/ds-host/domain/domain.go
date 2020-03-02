@@ -53,6 +53,9 @@ type RuntimeConfig struct {
 		UserRoutesAddress   string
 		JSRunnerPath        string
 		MigratorScriptPath  string
+		AppsPath            string
+		AppspacesMetaPath   string
+		AppspacesFilesPath  string
 	}
 }
 

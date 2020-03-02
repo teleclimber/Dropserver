@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -47,6 +48,8 @@ func TestIntegration1(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir
 	cfg.DataDir = dataDir
+	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
+	cfg.Exec.AppspacesFilesPath = filepath.Join(dataDir, "appspaces-files")
 	cfg.Exec.JSRunnerPath = getJSRuntimePath()
 
 	logger := domain.NewMockLogCLientI(mockCtrl)

@@ -80,8 +80,8 @@ func (s *migrationSandbox) Start(appLocation string, appspaceLocation string, fr
 		"node",
 		s.Config.Exec.MigratorScriptPath,
 		//s.reverseListener.socketPath,
-		filepath.Join(s.Config.DataDir, "apps", appLocation), // TODO: This could lead to errors. Make apps dir a runtime config exec field?
-		filepath.Join(s.Config.DataDir, "appspaces", appspaceLocation),
+		filepath.Join(s.Config.Exec.AppsPath, appLocation), // TODO: This could lead to errors. Make apps dir a runtime config exec field?
+		filepath.Join(s.Config.Exec.AppspacesFilesPath, appspaceLocation),
 		strconv.Itoa(from),
 		strconv.Itoa(to))
 	s.cmd = cmd
