@@ -90,7 +90,7 @@ function revPost( statusPath, data ) {
 
 	req = http.request({
 		socketPath: sock_path,
-		path: '/status'+statusPath,
+		path: '/sandbox'+statusPath,
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',

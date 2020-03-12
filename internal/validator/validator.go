@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	goValidator "gopkg.in/go-playground/validator.v9"
+	//goValidator "github.com/asaskevich/govalidator"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
@@ -49,6 +50,24 @@ func (v *Validator) Password(pw string) domain.Error {
 // Email validates an email address. Assumed to be required.
 func (v *Validator) Email(email string) domain.Error {
 	err := v.v.Var(email, "required,email")
+	if err != nil {
+		validationErrors, ok := err.(goValidator.ValidationErrors)
+		if ok {
+			// we have validation errors
+			fmt.Println(validationErrors)
+			return dserror.New(dserror.InputValidationError)
+		}
+
+		return dserror.New(dserror.InternalError) // ? I suppose?
+
+	}
+
+	return nil
+}
+
+// DBName validates an appspace DB name
+func (v *Validator) DBName(pw string) domain.Error {
+	err := v.v.Var(pw, "min=1,max=30,alphanum") // super restrictive for now
 	if err != nil {
 		validationErrors, ok := err.(goValidator.ValidationErrors)
 		if ok {

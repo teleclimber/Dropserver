@@ -1320,6 +1320,20 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 	return m.recorder
 }
 
+// DBName mocks base method
+func (m *MockValidator) DBName(arg0 string) Error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DBName", arg0)
+	ret0, _ := ret[0].(Error)
+	return ret0
+}
+
+// DBName indicates an expected call of DBName
+func (mr *MockValidatorMockRecorder) DBName(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DBName", reflect.TypeOf((*MockValidator)(nil).DBName), arg0)
+}
+
 // Email mocks base method
 func (m *MockValidator) Email(arg0 string) Error {
 	m.ctrl.T.Helper()

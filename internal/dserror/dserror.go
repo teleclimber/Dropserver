@@ -143,6 +143,10 @@ const (
 
 	AppspaceRouteNotFound domain.ErrorCode = 6001
 
+	AppspaceDBFileExists domain.ErrorCode = 6401
+	AppspaceDBQueryError domain.ErrorCode = 6410
+	AppspaceDBScanError  domain.ErrorCode = 6412
+
 	SandboxReverseBadData    domain.ErrorCode = 7001
 	SandboxFailedStart       domain.ErrorCode = 7002
 	SandboxReturnedError     domain.ErrorCode = 7003
@@ -173,6 +177,10 @@ var errorMesage = map[domain.ErrorCode]string{
 	AppRouteConfigProblem: "Problem creating or configuring a route",
 
 	AppspaceRouteNotFound: "No route handler found for path given",
+
+	AppspaceDBFileExists: "DB file exists",
+	AppspaceDBQueryError: "Failed to perform db query",
+	AppspaceDBScanError:  "Failed to scan appspace db results",
 
 	SandboxFailedStart:   "Sandbox failed to start",
 	SandboxReturnedError: "Sandbox finished running with an error",

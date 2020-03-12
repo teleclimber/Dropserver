@@ -39,18 +39,27 @@ import (
 //   ..but is that even meaningful with HTTP? it doesn't expect the connection to "be there"
 
 type reverseListener struct {
-	server     *http.Server
-	socketPath string
-	errorChan  chan domain.Error
-	portChan   chan int
-	portSent   bool
+	Config            *domain.RuntimeConfig
+	AppspaceDBManager domain.AppspaceDBManager
+	appspaceID        domain.AppspaceID
+	socketPath        string
+	server            *http.Server
+	errorChan         chan domain.Error
+	portChan          chan int
+	portSent          bool // this could be a status like "up", that goes up after hi, and down whenever.
+	// .. and is proteceted by a mutex obvs.
 }
+
+// ^^ it should have a way of connecting to DBs of thei specific appspace
+// It probably needs to know the appspace id
+// ..and be given an object that allows it to pass all DB requests off?
 
 //func initializeSockets() ...?
 
-func newReverseListener(config *domain.RuntimeConfig, ID int) (*reverseListener, domain.Error) {
+func newReverseListener(config *domain.RuntimeConfig, appspaceID domain.AppspaceID) (*reverseListener, domain.Error) {
 	rl := reverseListener{
-		socketPath: path.Join(config.Sandbox.SocketsDir, fmt.Sprintf("%d.sock", ID)),
+		Config:     config,
+		appspaceID: appspaceID,
 		errorChan:  make(chan domain.Error),
 		portChan:   make(chan int),
 		portSent:   false}
@@ -59,14 +68,22 @@ func newReverseListener(config *domain.RuntimeConfig, ID int) (*reverseListener,
 	// Or we need a general initialization function that sets the directory up and removes everything
 	// ..so that we don't delay things here.
 
-	if err := os.RemoveAll(rl.socketPath); err != nil {
+	socketPath := path.Join(config.Sandbox.SocketsDir, fmt.Sprintf("as-%d", appspaceID))
+
+	if err := os.RemoveAll(socketPath); err != nil {
 		log.Print(err) //TODO: proper logger please
 		// log error then return nil, err.
+	}
+
+	if err := os.MkdirAll(socketPath, 0700); err != nil {
+		return nil, dserror.FromStandard(err)
 	}
 
 	rl.server = &http.Server{
 		Handler: &rl,
 	}
+
+	rl.socketPath = path.Join(socketPath, "reverse.sock")
 
 	unixListener, err := net.Listen("unix", rl.socketPath)
 	if err != nil {
@@ -79,24 +96,37 @@ func newReverseListener(config *domain.RuntimeConfig, ID int) (*reverseListener,
 	return &rl, nil
 }
 func (rl *reverseListener) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	head, URLTail := shiftpath.ShiftPath(req.URL.Path)
-	if head == "status" {
-		if req.Method == http.MethodPost {
-			if URLTail == "/hi" {
+	head, urlTail := shiftpath.ShiftPath(req.URL.Path)
+	switch head {
+	case "sandbox":
+		switch req.Method {
+		case http.MethodPost:
+			if urlTail == "/hi" {
 				rl.handleHi(w, req)
 			} else {
 				w.WriteHeader(404) // TODO: each error / 404 should be logged
 				// log
 			}
-		} else {
+		default:
 			w.WriteHeader(404)
 			// log
 		}
-	} else {
+	case "db":
+		// TODO: seems we should check that we got a hi, butno bye?
+		rl.AppspaceDBManager.ServeHTTP(w, req, urlTail, rl.appspaceID)
+	default:
 		w.WriteHeader(404)
 		// log
 	}
 	// else if head is appspaceAPI then swith off to appspaceapi package (separate)
+
+	// rev listener paths:
+	// /sandbox/hi -> once only before anything else
+	// /sandbox/bye -> once only, triggers shutdown and nothing more is allowed from appspace
+	// /sandbox/ {... other stuff? ...}
+	// /db/	-> POST:create, GET:list
+	// /db/{db-name}/{... db stuff ...}
+	// ... routes, contacts, etc...
 }
 func (rl *reverseListener) handleHi(w http.ResponseWriter, req *http.Request) {
 	// error handling here:
@@ -148,10 +178,10 @@ func (rl *reverseListener) handleHi(w http.ResponseWriter, req *http.Request) {
 
 	w.WriteHeader(200)
 	rl.portChan <- hiData.Port
-	rl.portSent = true
+	rl.portSent = true // TODO: shouldn't port sent be protected by mutex?
 }
 
-func (rl reverseListener) close() {
+func (rl *reverseListener) close() {
 	rl.server.Close()
 	//rl.server.Shutdown(ctx) //graceful. Use Close to kill conns. Not clear which to use
 

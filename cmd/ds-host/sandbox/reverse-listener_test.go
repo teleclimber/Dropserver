@@ -1,16 +1,16 @@
 package sandbox
 
 import (
-	"io/ioutil"
-	"os"
-	"testing"
-	"net"
-	"time"
-	"net/http"
 	"bytes"
 	"context"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 
@@ -55,12 +55,12 @@ func TestStartReverseListener(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// client:
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		var hiData struct {
-			Port int	`json:"port"`
+			Port int `json:"port"`
 		}
 		hiData.Port = 1234
 
@@ -70,7 +70,7 @@ func TestStartReverseListener(t *testing.T) {
 		}
 
 		fmt.Println("sending post")
-		resp, err := httpc.Post("http://unix/status/hi", "application/json", bytes.NewBuffer(hiJSON))
+		resp, err := httpc.Post("http://unix/sandbox/hi", "application/json", bytes.NewBuffer(hiJSON))
 		if err != nil {
 			t.Error(err)
 		}
@@ -83,5 +83,3 @@ func TestStartReverseListener(t *testing.T) {
 	port := <-rl.portChan
 	fmt.Println("Port", port)
 }
-
-

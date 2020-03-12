@@ -232,6 +232,7 @@ type Validator interface {
 	Init()
 	Email(string) Error
 	Password(string) Error
+	DBName(string) Error
 }
 
 ///////////////////////////////////
@@ -399,6 +400,11 @@ type AppFilesMetadata struct {
 	Routes        []JSONRoute `json:"routes"`
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
+}
+
+// AppspaceDBManager manages connections to appspace databases
+type AppspaceDBManager interface {
+	ServeHTTP(http.ResponseWriter, *http.Request, string, AppspaceID)
 }
 
 // MigrationJobController controls and tracks appspace migration jobs
