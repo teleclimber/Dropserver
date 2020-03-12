@@ -263,6 +263,8 @@ func (s *Sandbox) ID() int {
 
 // Status returns the status of the Sandbox
 func (s *Sandbox) Status() domain.SandboxStatus {
+	s.statusMux.Lock()
+	defer s.statusMux.Unlock()
 	return s.status
 }
 
@@ -346,7 +348,7 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	}
 	fmt.Println(s.id, "waiting for sandbox status", status)
 
-	s.statusMux.Lock()
+	s.statusMux.Lock() //hmm, lock it above to protect the read?
 
 	if _, ok := s.statusSub[status]; !ok {
 		s.statusSub[status] = []chan domain.SandboxStatus{}
