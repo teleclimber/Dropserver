@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
@@ -19,7 +20,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
@@ -165,11 +165,6 @@ func main() {
 		Logger: logger}
 	appspaceModel.PrepareStatements()
 
-	// appspaceroutesmodel is questionable because it loads the routes from the files, yet we have a model that reads from there?
-	asRoutesModel := &asroutesmodel.ASRoutesModel{
-		AppFilesModel: appFilesModel, // temporary!
-		Logger:        logger}
-
 	migrationJobModel := &migrationjobmodel.MigrationJobModel{
 		DB:     db,
 		Logger: logger}
@@ -294,14 +289,25 @@ func main() {
 		Validator:         validator,
 		Logger:            logger}
 
-	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}
+	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
+		Config:    runtimeConfig,
+		Validator: validator}
+	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb,
+		Validator:      validator}
+
+	appspaceRoutesV0 := &appspaceroutes.V0{
+		AppspaceRouteModels: appspaceRouteModels,
+		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
+		SandboxProxy:        sandboxProxy,
+		Logger:              logger}
+
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		ASRoutesModel:    asRoutesModel,
-		DropserverRoutes: dropserverASRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+		V0:            appspaceRoutesV0,
+		Logger:        logger}
 
 	// Create server.
 	server := &server.Server{

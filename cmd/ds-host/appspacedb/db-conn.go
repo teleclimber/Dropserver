@@ -42,6 +42,8 @@ func openConn(dbPath string, dbName string, create bool) (*dbConn, domain.Error)
 			return nil, dserror.New(dserror.AppspaceDBFileExists, "DB file: "+dbFile)
 		}
 		dsn += "c"
+
+		// do we not need to create the dir at some point?
 	}
 
 	handle, err := sql.Open("sqlite3", dsn)

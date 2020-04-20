@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,ASRoutesModel,Authenticator,Validator,Views,StdInput,MigrationJobModel,MigrationJobController
+//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -214,7 +214,7 @@ type AppspaceRouteData struct {
 	AppVersion  *AppVersion
 	Appspace    *Appspace
 	URLTail     string
-	RouteConfig *RouteConfig
+	RouteConfig *AppspaceRouteConfig
 	Subdomains  *[]string
 }
 
@@ -342,10 +342,11 @@ type App struct {
 }
 
 // AppVersion represents a set of app files with a version
+// we also need a DropServerAPI version, that indicates the api the ap is expecting to use to interact with the system.
 type AppVersion struct {
 	AppID       AppID `db:"app_id"`
 	Version     Version
-	Schema      int `db:"schema"`
+	Schema      int `db:"schema"` // that is the schema for the app's own data
 	Created     time.Time
 	LocationKey string `db:"location_key"`
 }
@@ -386,18 +387,12 @@ type AppspaceModel interface {
 	SetVersion(AppspaceID, Version) Error
 }
 
-// ASRoutesModel is the appspaces routes model interface
-type ASRoutesModel interface {
-	GetRouteConfig(*AppVersion, string, string) (*RouteConfig, Error)
-}
-
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName       string      `json:"name"`
-	AppVersion    Version     `json:"version"`
-	SchemaVersion int         `json:"schema_version"`
-	Routes        []JSONRoute `json:"routes"`
+	AppName       string  `json:"name"`
+	AppVersion    Version `json:"version"`
+	SchemaVersion int     `json:"schema_version"` // Now wondering what this is and where it's stored. Should it be in appspace meta db?
 	// there is a whole gaggle of stuff, at least according to earlier node version.
 	// currently we have it in app.json what the routes are.
 }
@@ -467,35 +462,48 @@ type MigrationJobModel interface {
 	// Delete(AppspaceID) Error
 }
 
-// JSONRoute represents the json-formatted Routes from application.json
-type JSONRoute struct {
-	Route     string           `json:"route"`
-	Method    string           `json:"method"`
-	Authorize string           `json:"authorize"`
-	Handler   JSONRouteHandler `json:"handler"`
+// AppspaceRouteHandler is a JSON friendly struct
+// that describes the desired handling for the route
+type AppspaceRouteHandler struct {
+	Type     string `json:"type"`           // how can we validate that "type" is entered corrently?
+	File     string `json:"file,omitempty"` // this is called "location" downstream. (but why?)
+	Function string `json:"function,omitempty"`
 }
 
-// JSONRouteHandler is the handler part of route in JSON
-type JSONRouteHandler struct {
-	Type     string `json:"type"` // how can we validate that "type" is entered corrently?
-	File     string `json:"file"` // this is called "location" downstream. (but why?)
-	Function string `json:"function"`
+// AppspaceRouteAuth is a JSON friendly struct that contains
+// description of auth paradigm for a route
+type AppspaceRouteAuth struct {
+	Type string `json:"type"`
 }
 
-// RouteConfig gives necessary data to handle a appspace route
-type RouteConfig struct {
-	Type      string // static, crud, exec, [and maybe filter, or auth to allow "middlewares"?]
-	Authorize string
-	File      string //is this path to script within app's dir? This is confusing wrt "location" as used by files model.
-	Function  string
+// AppspaceRouteConfig gives necessary data to handle an appspace route
+type AppspaceRouteConfig struct {
+	Methods []string             `json:"methods"`
+	Path    string               `json:"path"`
+	Auth    AppspaceRouteAuth    `json:"auth"`
+	Handler AppspaceRouteHandler `json:"handler"`
 }
 
-// RoutePart is a sub path of an appspace route, with possible handlers
-type RoutePart struct {
-	GET  *RouteConfig
-	POST *RouteConfig
-	// ..others
-	Parts map[string]*RoutePart
+type DbConn interface {
+	GetHandle() *sqlx.DB
+}
+type AppspaceMetaDB interface {
+	Create(AppspaceID, int) Error
+	GetConn(AppspaceID) DbConn
+}
+
+// RouteModelV0 serves route data queries at version 0
+type RouteModelV0 interface {
+	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) Error
+	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, Error)
+	GetAll()
+	Delete(methods []string, url string) Error
+	Match(method string, url string) (*AppspaceRouteConfig, Error)
+}
+
+// AppspaceRouteModels returns models of the desired version
+type AppspaceRouteModels interface {
+	GetV0(AppspaceID) RouteModelV0
 }
 
 // cli stuff

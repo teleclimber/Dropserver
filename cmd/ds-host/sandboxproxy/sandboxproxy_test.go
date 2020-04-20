@@ -108,7 +108,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		App:         &domain.App{Name: "app1"},
 		AppVersion:  &domain.AppVersion{},
 		Appspace:    &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
-		RouteConfig: &domain.RouteConfig{}}
+		RouteConfig: &domain.AppspaceRouteConfig{}}
 
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 

@@ -32,16 +32,12 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		DropserverRoutes: dropserverRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+		Logger:        logger}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
@@ -65,43 +61,6 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 	}
 }
 
-// path is dropserver, does it forward to dropserver route?
-func TestServeHTTPDropserverRoute(t *testing.T) {
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
-
-	appspaceRoutes := &AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		DropserverRoutes: dropserverRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
-
-	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/dropserver",
-		Subdomains: &[]string{"as1"},
-	}
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
-	dropserverRoutes.EXPECT().ServeHTTP(rr, req, routeData)
-
-	appspaceRoutes.ServeHTTP(rr, req, routeData)
-}
-
 // Somehow we can't find the app referred to by appspace.
 // server 500 and log error
 func TestServeHTTPBadApp(t *testing.T) {
@@ -111,16 +70,12 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		DropserverRoutes: dropserverRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+		Logger:        logger}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
@@ -145,65 +100,13 @@ func TestServeHTTPBadApp(t *testing.T) {
 	}
 }
 
-// with appspace and route assume route is proxy
-// -> calls proxy
-func TestServeHTTPProxyRoute(t *testing.T) {
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	asRoutesModel := domain.NewMockASRoutesModel(mockCtrl)
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
-
-	appspaceRoutes := &AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		ASRoutesModel:    asRoutesModel,
-		DropserverRoutes: dropserverRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
-
-	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
-	}
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
-	appModel.EXPECT().GetFromID(gomock.Any()).Return(&domain.App{Name: "app1"}, nil)
-	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{}, nil)
-	asRoutesModel.EXPECT().GetRouteConfig(gomock.Any(), "GET", "/abc").Return(&domain.RouteConfig{Type: "function"}, nil)
-	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
-
-	// ^^ here we are checking against routeData, which is a pointer
-	// so it's not testing whether the call populated routeData correctly.
-
-	appspaceRoutes.ServeHTTP(rr, req, routeData)
-
-	// TODO: check routeData was properly augmented (app, appspace)
-}
-
 func getASR(mockCtrl *gomock.Controller) *AppspaceRoutes {
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	return &AppspaceRoutes{
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		DropserverRoutes: dropserverRoutes,
-		SandboxProxy:     sandboxProxy,
-		Logger:           logger}
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+		Logger:        logger}
 }

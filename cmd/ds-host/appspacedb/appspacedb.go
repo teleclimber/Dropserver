@@ -1,5 +1,7 @@
 //go:generate mockgen -destination=mocks.go -package=appspacedb github.com/teleclimber/DropServer/cmd/ds-host/appspacedb DbConnI
 
+// The API for interacting with these DBs has to be versioned!
+
 // somehow execute and return db statements for appspace dbs
 // - there are large numbers of appspace DBs
 // - they are probably all sqlite (for now)

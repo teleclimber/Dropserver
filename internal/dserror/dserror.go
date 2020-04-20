@@ -141,7 +141,9 @@ const (
 	AppConfigProblem      domain.ErrorCode = 3203
 	AppRouteConfigProblem domain.ErrorCode = 3204
 
-	AppspaceRouteNotFound domain.ErrorCode = 6001
+	AppspaceRouteNotFound      domain.ErrorCode = 6001
+	AppspaceRouteExists        domain.ErrorCode = 6002
+	AppspaceAPIVersionNotFound domain.ErrorCode = 6005
 
 	AppspaceDBFileExists domain.ErrorCode = 6401
 	AppspaceDBQueryError domain.ErrorCode = 6410

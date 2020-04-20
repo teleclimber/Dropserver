@@ -76,10 +76,11 @@ func TestIntegration1(t *testing.T) {
 		App:        &domain.App{Name: "app1"},
 		AppVersion: &domain.AppVersion{LocationKey: "loc123"},
 		Appspace:   &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
-		RouteConfig: &domain.RouteConfig{
-			File:     "hello.js",
-			Function: "hello",
-		}}
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Handler: domain.AppspaceRouteHandler{
+				File:     "hello.js",
+				Function: "hello",
+			}}}
 
 	// So now we need to put a hello.js file at dataDir/apps/loc123/hello.js
 

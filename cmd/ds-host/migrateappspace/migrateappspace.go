@@ -324,6 +324,9 @@ func (c *JobController) runJob(job *runningJob) {
 // What to do about situation where we are waiting for both a sandbox and a job to start?
 // Does anything take priority? Or is it that the first one to start will block the other until done?
 
+// TODO: split job into parts based on the dropserver API version of the app version
+// .. you'll have to stop the sandbox and migrate appspace meta db, then start new sandbox with new version libs
+
 type runningJob struct {
 	migrationJob *domain.MigrationJob
 	appspace     *domain.Appspace
@@ -378,7 +381,7 @@ func (r *runningJob) setStatus(status domain.MigrationJobStatus) {
 	case domain.MigrationFinished:
 		r.migrationJob.Finished = nulltypes.NewTime(time.Now(), true)
 	}
-	
+
 	statusData := r.getCurStatusData()
 
 	for _, sub := range r.statusSubs {

@@ -1,7 +1,6 @@
 package appfilesmodel
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -52,36 +51,7 @@ func TestDecodeAppJsonError(t *testing.T) {
 func TestDecodeAppJSON(t *testing.T) {
 	r := strings.NewReader(`{
 		"name":"blah",
-		"version":"0.0.1",
-		"routes": [{
-			"route":	"/",
-			"method":	"get",
-			"authorize": "owner",
-			"handler": {
-				"type":		"static",
-				"file":		"index.html"
-			}
-		},{
-			"route": 	"/hit",
-			"method":	"post",
-			"authorize":"owner",
-			"handler": {
-				"type":		"function",
-				"file":		"routes.js",
-				"function":	"postHit"
-			}
-		},
-		{
-			"route": 	"/hit",
-			"method":	"get",
-			"authorize":"owner",
-			"handler": {
-				"type":		"function",
-				"file":		"routes.js",
-				"function":	"getHit"
-			}
-		}
-	]
+		"version":"0.0.1"
 	}`)
 
 	meta, err := decodeAppJSON(r)
@@ -91,25 +61,6 @@ func TestDecodeAppJSON(t *testing.T) {
 	if meta.AppName != "blah" || meta.AppVersion != "0.0.1" {
 		t.Error("got incorrect values for meta")
 	}
-	if len(meta.Routes) != 3 {
-		t.Error("expecte 3 routes", meta)
-	}
-
-	route := meta.Routes[1]
-	expectedRoute := domain.JSONRoute{
-		Route:     "/hit",
-		Method:    "post",
-		Authorize: "owner",
-		Handler: domain.JSONRouteHandler{
-			Type:     "function",
-			File:     "routes.js",
-			Function: "postHit"}}
-
-	if route != expectedRoute {
-		fmt.Println("expetced / got:", expectedRoute, route)
-		t.Error("route doesn't match expected")
-	}
-
 }
 
 func TestValidateAppMeta(t *testing.T) {
