@@ -8,7 +8,8 @@
 	"go.buildOnSave": "workspace",
 	"go.installDependenciesWhenBuilding": false,
 
-	"go.testFlags": ["-race"],
+    "go.testFlags": ["-race"],
+    "go.testTimeout": "8s",
 
     "go.useLanguageServer": true,
 
