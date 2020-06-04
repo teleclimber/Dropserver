@@ -53,6 +53,8 @@ import (
 
 // some copy-pasta from the host db manager
 
+// TODO launch this from ds-host?
+
 // Manager manages the connection for the database
 type Manager struct {
 	Config    *domain.RuntimeConfig
@@ -98,6 +100,8 @@ type QueryData struct {
 func (m *Manager) Init() {
 	m.conns = make(map[connsKey]*connsVal)
 }
+
+// TODO we need an additional handler for rev listenr commands
 
 // ServeHTTP is the entry point for all db requests
 // appspace ID is already determined

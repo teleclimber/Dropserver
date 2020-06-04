@@ -139,6 +139,8 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 // This should be brought out to a package that can be injected
 func getAppspaceMetaDbPath(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
 	return filepath.Join(cfg.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", appspaceID), "appspace-meta.db")
+	// is meta path different from actual appspace files?
+	// I thought appspaces were differentiated by their location key on the file system?
 }
 func getAppspaceMetaDbFile(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
 	return filepath.Join(getAppspaceMetaDbPath(cfg, appspaceID), "appspace-meta.db")
