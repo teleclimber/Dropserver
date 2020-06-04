@@ -1,19 +1,12 @@
 package sandbox
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"net"
-	"net/http"
-	"os"
 	"path"
+	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 // This is really appspaceAPIServer or something like that
@@ -29,6 +22,9 @@ import (
 // I just need to send a port over and I'm not sure I can do it easily.
 // Ultimately, if this is the system that accepts appsapceAPI requests,
 // ..it will need to be far more capable, and probably HTTP based?
+// -> or not HTTP. But maybe json-in-netstrings.
+// .. or even more arbitrary: <cmd><size><arbitrary data string (json, raw log data, etc...)>
+// ..where <cmd> is known finite size and always the same size (like 1 char)
 
 //Let's think about how reverse listener passes stautus updates to sandbox?
 // There will only be one recipient for status changes, right?
@@ -38,16 +34,38 @@ import (
 // - something about the connection dropping unexpectedly
 //   ..but is that even meaningful with HTTP? it doesn't expect the connection to "be there"
 
+// This could potentially be completely separated out from sandbox package
+// Particularly if sandbox struct itself is passed to reverse server.
+// ..since that way you can always call back to sandbox to pass status/errors?
+// -> but it's kind of better to have sb status close to sb, no?
+// ..and pass everything else out to a more standard looking server.
+
+type revStartStatus int
+
+const (
+	revFailStart revStartStatus = iota // TODO not be needed, just close it
+	revReady
+)
+
+const (
+	metaDbService int = 10
+	routesService int = 11
+	dbService     int = 12
+)
+
 type reverseListener struct {
 	Config            *domain.RuntimeConfig
-	AppspaceDBManager domain.AppspaceDBManager
-	appspaceID        domain.AppspaceID
+	AppspaceDBManager domain.AppspaceDBManager // This should probably be a ReverseServer (one per appspace)
+	sessionID         int
+	services          *domain.ReverseServices
+	appspace          *domain.Appspace
 	socketPath        string
-	server            *http.Server
+	twine             *twine.Twine
 	errorChan         chan domain.Error
-	portChan          chan int
-	portSent          bool // this could be a status like "up", that goes up after hi, and down whenever.
-	// .. and is proteceted by a mutex obvs.
+	startChan         chan revStartStatus
+
+	closedMux sync.Mutex
+	closed    bool
 }
 
 // ^^ it should have a way of connecting to DBs of thei specific appspace
@@ -56,136 +74,96 @@ type reverseListener struct {
 
 //func initializeSockets() ...?
 
-func newReverseListener(config *domain.RuntimeConfig, appspaceID domain.AppspaceID) (*reverseListener, domain.Error) {
+func newReverseListener(config *domain.RuntimeConfig, sessionID int, appspace *domain.Appspace, services *domain.ReverseServices) (*reverseListener, domain.Error) {
 	rl := reverseListener{
-		Config:     config,
-		appspaceID: appspaceID,
-		errorChan:  make(chan domain.Error),
-		portChan:   make(chan int),
-		portSent:   false}
+		Config:    config,
+		sessionID: sessionID,
+		services:  services,
+		appspace:  appspace,
+		errorChan: make(chan domain.Error),
+		startChan: make(chan revStartStatus),
 
-	// I thgink we shold also create the directory just in case it's not there?
-	// Or we need a general initialization function that sets the directory up and removes everything
-	// ..so that we don't delay things here.
+		closed: false}
 
-	socketPath := path.Join(config.Sandbox.SocketsDir, fmt.Sprintf("as-%d", appspaceID))
+	rl.socketPath = path.Join(getSocketsDir(config.Sandbox.SocketsDir, appspace.AppspaceID), "rev.sock")
 
-	if err := os.RemoveAll(socketPath); err != nil {
-		log.Print(err) //TODO: proper logger please
-		// log error then return nil, err.
-	}
-
-	if err := os.MkdirAll(socketPath, 0700); err != nil {
+	twine, err := twine.NewServer(rl.socketPath)
+	if err != nil {
 		return nil, dserror.FromStandard(err)
 	}
+	rl.twine = twine
 
-	rl.server = &http.Server{
-		Handler: &rl,
-	}
-
-	rl.socketPath = path.Join(socketPath, "reverse.sock")
-
-	unixListener, err := net.Listen("unix", rl.socketPath)
-	if err != nil {
-		panic(err) // TODO: proper errors please
-		// log error then return nil, err.
-	}
-
-	go rl.server.Serve(unixListener)
+	go rl.monitorReady()
+	go rl.monitorErrors()
+	go rl.monitorMessages()
 
 	return &rl, nil
 }
-func (rl *reverseListener) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	head, urlTail := shiftpath.ShiftPath(req.URL.Path)
-	switch head {
-	case "sandbox":
-		switch req.Method {
-		case http.MethodPost:
-			if urlTail == "/hi" {
-				rl.handleHi(w, req)
-			} else {
-				w.WriteHeader(404) // TODO: each error / 404 should be logged
-				// log
-			}
-		default:
-			w.WriteHeader(404)
-			// log
+
+func (rl *reverseListener) monitorReady() {
+	_, ok := <-rl.twine.ReadyChan
+	if !ok {
+		rl.startChan <- revFailStart
+	} else {
+		rl.startChan <- revReady
+	}
+}
+func (rl *reverseListener) monitorErrors() {
+	for err := range rl.twine.ErrorChan {
+		rl.errorChan <- dserror.FromStandard(err)
+	}
+}
+func (rl *reverseListener) monitorMessages() {
+
+	for message := range rl.twine.MessageChan {
+		// switch over service
+		switch message.ServiceID() {
+		case metaDbService:
+		case routesService:
+			rl.services.Routes.Command(rl.appspace, message)
+		case dbService:
 		}
-	case "db":
-		// TODO: seems we should check that we got a hi, butno bye?
-		rl.AppspaceDBManager.ServeHTTP(w, req, urlTail, rl.appspaceID)
-	default:
-		w.WriteHeader(404)
-		// log
 	}
-	// else if head is appspaceAPI then swith off to appspaceapi package (separate)
-
-	// rev listener paths:
-	// /sandbox/hi -> once only before anything else
-	// /sandbox/bye -> once only, triggers shutdown and nothing more is allowed from appspace
-	// /sandbox/ {... other stuff? ...}
-	// /db/	-> POST:create, GET:list
-	// /db/{db-name}/{... db stuff ...}
-	// ... routes, contacts, etc...
 }
-func (rl *reverseListener) handleHi(w http.ResponseWriter, req *http.Request) {
-	// error handling here:
-	// There shouldn't be errors?
-	// So if there is one prob means someone is probing system?
-	// Should sandbox continue if it triggers errors here?
-	// Why not whats the harm?
-	// just make sure these are logged on host.
-	// Actually if handle Hi has a problem, we should probably shut it down?
 
-	body, err := ioutil.ReadAll(io.LimitReader(req.Body, 1024))
-	if err != nil {
-		w.WriteHeader(422)
-		// TODO log the error
-		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Could not readall")
-		return
-	}
-	if err := req.Body.Close(); err != nil {
-		w.WriteHeader(422)
-		// TODO: log
-		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Failed to close body")
-		return
-	}
-
-	var hiData struct {
-		Port int `json:"port"`
-	}
-	if err := json.Unmarshal(body, &hiData); err != nil {
-		w.WriteHeader(422)
-		//TODO: log
-		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Could not Unmarshall JSON")
-		return
-	}
-
-	if hiData.Port < 1000 {
-		w.WriteHeader(422)
-		//panic("got port less than 1000 for sandbox")
-		//TODO: log
-		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Port less than 1000")
-		return
-	}
-
-	if rl.portSent {
-		w.WriteHeader(500)
-		// TODO: log
-		rl.errorChan <- dserror.New(dserror.SandboxReverseBadData, "Port already sent")
-		return
-	}
-
-	w.WriteHeader(200)
-	rl.portChan <- hiData.Port
-	rl.portSent = true // TODO: shouldn't port sent be protected by mutex?
-}
+// func (rl *reverseListener) send(msg string) { // return err?
+// 	_, err := (*rl.conn).Write([]byte(msg))
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		os.Exit(1)
+// 	}
+// }
+// func (rl *reverseListener) waitFor(msg string) {
+// 	done := make(chan bool)
+// 	rl.msgSub[msg] = done
+// 	<-done
+// 	delete(rl.msgSub, msg)
+// }
+// func (rl reverseListener) close() {
+// 	//conn.end() or some such
+// 	// err := os.Remove(rl.sockPath)
+// 	// if err != nil {
+// 	// 	fmt.Println(err)
+// 	// 	//os.Exit(1)	// don't exit. if file didn't exist it errs.
+// 	// }
+// }
 
 func (rl *reverseListener) close() {
-	rl.server.Close()
-	//rl.server.Shutdown(ctx) //graceful. Use Close to kill conns. Not clear which to use
+	rl.closedMux.Lock()
+	defer rl.closedMux.Unlock()
 
-	close(rl.portChan)
+	if rl.closed {
+		return
+	}
+
+	// if rl.conn != nil {
+	// 	rc := *rl.conn
+	// 	rc.Close() //might return an error
+	// }
+
 	close(rl.errorChan)
+	close(rl.startChan)
+	//close()
 
+	rl.closed = true
 }

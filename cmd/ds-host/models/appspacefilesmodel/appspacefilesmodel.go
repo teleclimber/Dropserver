@@ -71,7 +71,7 @@ func (a *AppspaceFilesModel) locationKeyExists(locationKey string) bool {
 }
 
 func (a *AppspaceFilesModel) getAppspacesPath() string {
-	return filepath.Join(a.Config.DataDir, "appspaces")
+	return filepath.Join(a.Config.DataDir, "appspaces") //TODO haven't we moved that over to Config?
 }
 
 // pathInsidePath determines if A path is inside (contained within) path B

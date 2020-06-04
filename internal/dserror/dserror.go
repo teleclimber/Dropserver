@@ -150,8 +150,9 @@ const (
 	AppspaceDBScanError  domain.ErrorCode = 6412
 
 	SandboxReverseBadData    domain.ErrorCode = 7001
-	SandboxFailedStart       domain.ErrorCode = 7002
-	SandboxReturnedError     domain.ErrorCode = 7003
+	SandboxReverseBadSend    domain.ErrorCode = 7002
+	SandboxFailedStart       domain.ErrorCode = 7003
+	SandboxReturnedError     domain.ErrorCode = 7004
 	SandboxFailedToTerminate domain.ErrorCode = 7009
 
 	MigrateDownNotSupported domain.ErrorCode = 9201

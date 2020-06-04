@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 // RouteModelV0 responds to requests about appspace routes
@@ -33,6 +34,41 @@ type routeRow struct {
 func (m *RouteModelV0) getDB() *sqlx.DB {
 	dbConn := m.AppspaceMetaDB.GetConn(m.appspaceID)
 	return dbConn.GetHandle()
+}
+
+// ReverseCommand processes a command and payload from the reverse listener
+func (m *RouteModelV0) ReverseCommand(message twine.ReceivedMessageI) {
+	switch message.CommandID() {
+	case 10: // Create
+
+	}
+
+}
+
+func (m *RouteModelV0) reverseCmdCreate(payload *[]byte) domain.Error {
+	var data struct {
+		Methods   []string
+		RoutePath string
+		Auth      domain.AppspaceRouteAuth
+		Handler   domain.AppspaceRouteHandler
+	}
+
+	err := json.Unmarshal(*payload, &data)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	dsErr := m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
+	if dsErr != nil {
+		return dsErr
+	}
+
+	// what do we really do about errors?
+	// How do we reply?
+	// Need to close the message (need to get the message for that)
+	// consider: streaming rows...
+
+	return nil
 }
 
 // Create adds a new route to the DB

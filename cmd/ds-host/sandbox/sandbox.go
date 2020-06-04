@@ -8,7 +8,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sync"
 	"syscall"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/internal/twine"
 	"golang.org/x/sys/unix"
 )
 
@@ -42,9 +45,10 @@ type Task struct {
 type Sandbox struct {
 	id              int                  // getter only (const), unexported
 	status          domain.SandboxStatus // getter/setter, so make it unexported.
-	port            int                  // getter only
+	socketsDir      string
 	cmd             *exec.Cmd
-	reverseListener *reverseListener
+	twine           *twine.Twine
+	services        *domain.ReverseServices
 	statusMux       sync.Mutex
 	statusSub       map[domain.SandboxStatus][]chan domain.SandboxStatus
 	transport       http.RoundTripper
@@ -59,27 +63,59 @@ type Sandbox struct {
 func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) { // TODO: return an error, presumably?
 	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
-	// Here start should take necessary data about appspace
-	// ..in order to pass in the right permissions to deno.
-
-	var dsErr domain.Error
-	s.reverseListener, dsErr = newReverseListener(s.Config, appspace.AppspaceID)
+	socketsDir, dsErr := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
 	if dsErr != nil {
 		// just stop right here.
 		// TODO return that error to caller
 		return
 	}
+	s.socketsDir = socketsDir
+
+	//fwdSock := path.Join(socketsDir, "fwd.sock") // forward socket is where the ds runner will create the sandbox server
+
+	// Here start should take necessary data about appspace
+	// ..in order to pass in the right permissions to deno.
+
+	twineServer, err := twine.NewServer(path.Join(socketsDir, "rev.sock"))
+	if err != nil {
+		// handle this p
+		return
+	}
+	s.twine = twineServer
+
+	// s.reverseListener, dsErr = newReverseListener(s.Config, s.id, appspace, s.services)
+	// if dsErr != nil {
+	// 	// just stop right here.
+	// 	// TODO return that error to caller
+	// 	return
+	// }
 
 	cmd := exec.Command(
-		"node",
+		"deno",          // deno
+		"--allow-read",  // TODO app dir and appspace dir, and sockets
+		"--allow-write", // TODO appspace dir, and fwd socket specifically? actually you have to be able to write to rev too!
 		s.Config.Exec.JSRunnerPath,
-		s.reverseListener.socketPath,
-		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey))
+		s.socketsDir, // this should be a sockets dir, so we can put both forward and reverse servers
+		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey),
+		filepath.Join(s.Config.Exec.AppspacesFilesPath, appspace.LocationKey),
+	)
 	s.cmd = cmd
 	// -> for Deno will have to pass permission flags for that sandbox.
 	// The appspace is known at this point and should probably be passed to the runner.
 	// the runner JS location is specified in some sort of runtime config
 	// Note that ultimately we need to stick this in a Cgroup
+
+	// deno
+	// --allow-read appPath
+	// --allow-write appspacePath
+	// --allow-read socketsDir
+	// --allow-write socketsDir/rev.sock
+	// ds-appspace-runner.ts
+	// socketsDir
+	// appPath
+	// appspacePath
+
+	// [apspaceID? not needed?] // seems like a source of problems. Can't trust anything sandbox-side.
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -104,10 +140,15 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	go s.monitor(stdout, stderr)
 
-	s.port = <-s.reverseListener.portChan
+	_, ok := <-s.twine.ReadyChan
+	if !ok {
+		// failstart
+		// handle and return.
+		s.Stop()
+		return
+	}
 
 	s.transport = http.DefaultTransport // really not sure what this means or what it's for anymore....
-
 	s.SetStatus(domain.SandboxReady)
 }
 
@@ -117,8 +158,8 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	go func() {
 		for { // you need to be in a loop to keep the channel "flowing"
-			dsErr := <-s.reverseListener.errorChan
-			if dsErr != nil {
+			err := <-s.twine.ErrorChan
+			if err != nil {
 				s.LogClient.Log(domain.WARN, nil, "Shutting sandbox down because of error on reverse listener")
 				s.Stop()
 			} else {
@@ -140,13 +181,18 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 		printLogs(stderr)
 	}()
 
-	wg.Wait()
+	//wg.Wait()
 
 	err := s.cmd.Wait()
 	if err != nil {
-		log.Println(err)
+		log.Println("cmd.Wait returned error", err)
+		s.Stop()
+		// Here we should kill off reverse listener?
 		// This is where we want to log things for the benefit of the dropapp user.
+		// Also somehow whoever started the sandbox needs to know it exited with error
 	}
+
+	wg.Wait()
 
 	s.SetStatus(domain.SandboxDead)
 	// -> it may have crashed.
@@ -188,6 +234,8 @@ func (s *Sandbox) Stop() {
 
 	s.SetStatus(domain.SandboxKilling)
 
+	// TODO send a command on sandboxService to shutdown.
+
 	err := s.kill(false)
 	if err != nil {
 		s.LogClient.Log(domain.ERROR, nil, "Unable to kill sandbox")
@@ -200,11 +248,16 @@ func (s *Sandbox) Stop() {
 	}
 	/////.....
 
-	s.reverseListener.close() // maybe wait until "dead"?
+	//s.reverseListener.close() // maybe wait until "dead"?
+	// the shutdown command sent to via twine should automatically call graceful shutdown on this side.
 
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
 	// If had to forcekill then quarantine the
+
+	// Not sure if we can do this now, or have to wait til dead...
+	cleanSocketsDir(s.socketsDir)
+	// ^^ capture error and log or somesuch.
 
 }
 
@@ -266,11 +319,6 @@ func (s *Sandbox) Status() domain.SandboxStatus {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 	return s.status
-}
-
-// GetPort gets the IP address of the sandbox
-func (s *Sandbox) GetPort() int {
-	return s.port
 }
 
 // GetTransport gets the http transport of the sandbox
@@ -343,12 +391,12 @@ func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
 
 // WaitFor blocks until status is met, or greater status is met
 func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
+	s.statusMux.Lock()
 	if s.status >= status {
+		s.statusMux.Unlock()
 		return
 	}
 	fmt.Println(s.id, "waiting for sandbox status", status)
-
-	s.statusMux.Lock() //hmm, lock it above to protect the read?
 
 	if _, ok := s.statusSub[status]; !ok {
 		s.statusSub[status] = []chan domain.SandboxStatus{}
@@ -359,4 +407,30 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	s.statusMux.Unlock()
 
 	<-statusMet
+}
+
+/////////////
+func cleanSocketsDir(sockDir string) domain.Error {
+	if err := os.RemoveAll(sockDir); err != nil {
+		return dserror.FromStandard(err)
+	}
+	return nil
+}
+func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, domain.Error) {
+	sockDir := getSocketsDir(baseDir, appspaceID)
+
+	dsErr := cleanSocketsDir(sockDir)
+	if dsErr != nil {
+		return "", dsErr
+	}
+
+	if err := os.MkdirAll(sockDir, 0700); err != nil {
+		return "", dserror.FromStandard(err)
+	}
+
+	return sockDir, nil
+}
+
+func getSocketsDir(baseDir string, appspaceID domain.AppspaceID) string {
+	return path.Join(baseDir, fmt.Sprintf("as-%d", appspaceID))
 }

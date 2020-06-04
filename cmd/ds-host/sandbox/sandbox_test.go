@@ -130,6 +130,51 @@ func TestStatusWaitMultiple(t *testing.T) {
 // 	t.Fail()
 // }
 
+func TestRunnerScriptError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	logger := domain.NewMockLogCLientI(mockCtrl)
+
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	scriptPath := path.Join(dir, "foobar.ts")
+
+	err = ioutil.WriteFile(scriptPath, []byte("setTimeout(hello.world, 100);"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.Sandbox.SocketsDir = dir
+	cfg.Exec.JSRunnerPath = scriptPath
+
+	s := &Sandbox{
+		id:        7,
+		status:    domain.SandboxStarting,
+		LogClient: logger,
+		Config:    cfg}
+
+	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes() // Could tighten that up
+
+	appVersion := &domain.AppVersion{}
+	appspace := &domain.Appspace{}
+
+	s.Start(appVersion, appspace)
+
+	s.WaitFor(domain.SandboxReady)
+
+	if s.Status() == domain.SandboxReady {
+		t.Error("sandbox status should be killing or dead")
+	}
+
+	s.Stop()
+}
+
 func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -152,14 +197,16 @@ func TestStart(t *testing.T) {
 		LogClient: logger,
 		Config:    cfg}
 
-	logger.EXPECT().Log(domain.INFO, nil, gomock.Any())
+	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	appVersion := &domain.AppVersion{}
 	appspace := &domain.Appspace{}
 
 	s.Start(appVersion, appspace)
 
-	// OK, shut it down
+	if s.Status() != domain.SandboxReady {
+		t.Error("sandbox status should be ready")
+	}
 
 	s.Stop()
 }
@@ -170,7 +217,7 @@ func getJSRuntimePath() string {
 		log.Fatal(err)
 	}
 
-	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.js")
+	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.ts")
 
 	return jsRuntime
 }

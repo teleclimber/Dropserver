@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	sqlx "github.com/jmoiron/sqlx"
 	nulltypes "github.com/teleclimber/DropServer/internal/nulltypes"
+	twine "github.com/teleclimber/DropServer/internal/twine"
 	http "net/http"
 	reflect "reflect"
 	time "time"
@@ -212,20 +213,6 @@ func (m *MockSandboxI) GetLogClient() LogCLientI {
 func (mr *MockSandboxIMockRecorder) GetLogClient() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogClient", reflect.TypeOf((*MockSandboxI)(nil).GetLogClient))
-}
-
-// GetPort mocks base method
-func (m *MockSandboxI) GetPort() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPort")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// GetPort indicates an expected call of GetPort
-func (mr *MockSandboxIMockRecorder) GetPort() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPort", reflect.TypeOf((*MockSandboxI)(nil).GetPort))
 }
 
 // GetTransport mocks base method
@@ -1599,6 +1586,18 @@ func (m *MockRouteModelV0) Match(arg0, arg1 string) (*AppspaceRouteConfig, Error
 func (mr *MockRouteModelV0MockRecorder) Match(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Match", reflect.TypeOf((*MockRouteModelV0)(nil).Match), arg0, arg1)
+}
+
+// ReverseCommand mocks base method
+func (m *MockRouteModelV0) ReverseCommand(arg0 twine.ReceivedMessageI) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReverseCommand", arg0)
+}
+
+// ReverseCommand indicates an expected call of ReverseCommand
+func (mr *MockRouteModelV0MockRecorder) ReverseCommand(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReverseCommand", reflect.TypeOf((*MockRouteModelV0)(nil).ReverseCommand), arg0)
 }
 
 // MockAppspaceRouteModels is a mock of AppspaceRouteModels interface

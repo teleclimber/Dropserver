@@ -9,6 +9,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 // don't import anything
@@ -133,13 +134,12 @@ const (
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
 	ID() int
-	Status() SandboxStatus
-	GetPort() int
 	GetTransport() http.RoundTripper
 	GetLogClient() LogCLientI
 	TiedUp() bool
 	LastActive() time.Time
 	TaskBegin() chan bool
+	Status() SandboxStatus
 	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
 	Start(appVersion *AppVersion, appspace *Appspace)
@@ -400,6 +400,7 @@ type AppFilesMetadata struct {
 // AppspaceDBManager manages connections to appspace databases
 type AppspaceDBManager interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, string, AppspaceID)
+	// TODO: add Command for rev listener
 }
 
 // MigrationJobController controls and tracks appspace migration jobs
@@ -494,6 +495,7 @@ type AppspaceMetaDB interface {
 
 // RouteModelV0 serves route data queries at version 0
 type RouteModelV0 interface {
+	ReverseCommand(message twine.ReceivedMessageI)
 	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) Error
 	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, Error)
 	GetAll()
@@ -504,6 +506,20 @@ type RouteModelV0 interface {
 // AppspaceRouteModels returns models of the desired version
 type AppspaceRouteModels interface {
 	GetV0(AppspaceID) RouteModelV0
+	//HandleRevCmd(appspace *Appspace, cmd uint8, payload *[]byte) // it might be that this needs to be a separarte interface?
+}
+
+// ReverseServices is a collection of services that an appspace
+// might communicate with while running in a sandbox.
+type ReverseServices struct {
+	Routes ReverseService
+}
+
+// ReverseService is the standard interface called by reverse protocol
+// .. to pass commands on to services.
+type ReverseService interface {
+	Command(appspace *Appspace, message twine.ReceivedMessageI) // pass message id too? Maybe a way to id the sandbox?
+	// also probably Addendum or whatever you want to call it when the message is reused
 }
 
 // cli stuff

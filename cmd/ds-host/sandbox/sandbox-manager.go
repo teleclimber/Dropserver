@@ -20,8 +20,10 @@ type Manager struct {
 	nextID    int
 	poolMux   sync.Mutex
 	sandboxes map[domain.AppspaceID]domain.SandboxI // all sandboxes are always committed
-	Config    *domain.RuntimeConfig
-	Logger    domain.LogCLientI
+
+	Services *domain.ReverseServices
+	Config   *domain.RuntimeConfig
+	Logger   domain.LogCLientI
 	// metrics, ...
 }
 
@@ -73,6 +75,7 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 
 	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
 		id:        sandboxID,
+		services:  sM.Services,
 		status:    domain.SandboxStarting,
 		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Config:    sM.Config,
@@ -180,6 +183,14 @@ func (sM *Manager) killPool() {
 
 	go sM.recordSandboxStatusMetric()
 }
+
+//
+// func (sM *Manager) SendReverse(appspaceID domain.AppspaceID, msg domain.ReverseMessage) {
+// 	sM.GetForAppSpace()	// argh, expects a appVersion.
+//  // This is a bigger deal and not terribly efficient to *reply*.
+//  // But will be OK for a call initiated from host (cron)
+//  // ..where you expect to create a sandbox if there isn't one.
+// }
 
 func (sM *Manager) recordSandboxStatusMetric() {
 	// var s = &record.SandboxStatuses{ //TODO nope do not use imported record. inject instead

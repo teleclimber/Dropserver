@@ -2,7 +2,6 @@ package sandboxproxy
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -118,7 +117,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	// dummy server to stand in for sandbox
 	ts := httptest.NewServer(http.HandlerFunc(sbHandler))
 
-	sandbox.EXPECT().GetPort().Return(ts.Listener.Addr().(*net.TCPAddr).Port)
+	//sandbox.EXPECT().GetPort().Return(ts.Listener.Addr().(*net.TCPAddr).Port)
 
 	sbLogger := domain.NewMockLogCLientI(mockCtrl)
 	sandbox.EXPECT().GetLogClient().Return(sbLogger)

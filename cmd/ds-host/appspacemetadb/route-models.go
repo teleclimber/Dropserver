@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 // AppspaceRouteModels can return a routes model for a given appspace id
@@ -37,4 +38,14 @@ func (g *AppspaceRouteModels) GetV0(appspaceID domain.AppspaceID) domain.RouteMo
 	}
 
 	return rm
+}
+
+// Command can process a command from the reverse listener
+// It determines the right version to use based on the passed appspace
+func (g *AppspaceRouteModels) Command(appspace *domain.Appspace, message twine.ReceivedMessageI) {
+	// from appspace you should get the right API version
+	// ..but for now just use V0
+	v0 := g.GetV0(appspace.AppspaceID)
+	v0.ReverseCommand(message)
+
 }

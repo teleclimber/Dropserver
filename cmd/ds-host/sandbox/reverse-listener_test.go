@@ -1,85 +1,91 @@
 package sandbox
 
-import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"testing"
-	"time"
+// import (
+// 	"io/ioutil"
+// 	"net"
+// 	"os"
+// 	"path"
+// 	"testing"
+// 	"time"
 
-	"github.com/golang/mock/gomock"
+// 	"github.com/golang/mock/gomock"
 
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-)
+// 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+// )
 
-func TestNewReverseListener(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(dir)
+// func TestNewReverseListener(t *testing.T) {
+// 	dir, err := ioutil.TempDir("", "")
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	defer os.RemoveAll(dir)
 
-	cfg := &domain.RuntimeConfig{}
-	cfg.Sandbox.SocketsDir = dir
+// 	cfg := &domain.RuntimeConfig{}
+// 	cfg.Sandbox.SocketsDir = dir
 
-	newReverseListener(cfg, 1)
-}
+// 	newReverseListener(cfg, &domain.Appspace{AppspaceID: 1})
+// }
 
-func TestStartReverseListener(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+// func TestStartReverseListener(t *testing.T) {
+// 	mockCtrl := gomock.NewController(t)
+// 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(dir)
+// 	dir, err := ioutil.TempDir("", "")
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	defer os.RemoveAll(dir)
 
-	cfg := &domain.RuntimeConfig{}
-	cfg.Sandbox.SocketsDir = dir
+// 	cfg := &domain.RuntimeConfig{}
+// 	cfg.Sandbox.SocketsDir = dir
 
-	rl, dsErr := newReverseListener(cfg, 1)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
+// 	appspaceID := domain.AppspaceID(7)
 
-	httpc := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", rl.socketPath)
-			},
-		},
-	}
+// 	sockPath, dsErr := makeSocketsDir(dir, appspaceID)
+// 	if dsErr != nil {
+// 		t.Fatal(dsErr)
+// 	}
 
-	// client:
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		var hiData struct {
-			Port int `json:"port"`
-		}
-		hiData.Port = 1234
+// 	rl, dsErr := newReverseListener(cfg, &domain.Appspace{AppspaceID: appspaceID})
+// 	if dsErr != nil {
+// 		t.Error(dsErr)
+// 	}
 
-		hiJSON, err := json.Marshal(hiData)
-		if err != nil {
-			t.Error(err)
-		}
+// 	c, err := net.Dial("unix", path.Join(sockPath, "rev.sock"))
+// 	if err != nil {
+// 		t.Fatal("Dial error", err)
+// 	}
+// 	defer c.Close()
 
-		fmt.Println("sending post")
-		resp, err := httpc.Post("http://unix/sandbox/hi", "application/json", bytes.NewBuffer(hiJSON))
-		if err != nil {
-			t.Error(err)
-		}
+// 	// client:
+// 	go func() {
+// 		time.Sleep(100 * time.Millisecond)
 
-		if resp.StatusCode != 200 {
-			t.Error(resp.Status)
-		}
-	}()
+// 		b := make([]byte, 1)
+// 		b[0] = uint8(1) // 1 is "hi"
+// 		_, err := c.Write(b)
+// 		if err != nil {
+// 			t.Error("Write error:", err)
+// 		}
 
-	port := <-rl.portChan
-	fmt.Println("Port", port)
-}
+// 		time.Sleep(100 * time.Millisecond)
+// 		b = make([]byte, 1)
+// 		b[0] = uint8(2)
+// 		_, err = c.Write(b)
+// 		if err != nil {
+// 			t.Error("Write error:", err)
+// 		}
+
+// 	}()
+
+// 	startStatus := <-rl.startChan
+// 	if startStatus != revReady {
+// 		t.Error("expected ready status")
+// 	}
+
+// 	// then expect the conn to close from the client side.
+// 	dsErr = <-rl.errorChan
+// 	if dsErr != nil {
+// 		t.Error(dsErr)
+// 	}
+// }

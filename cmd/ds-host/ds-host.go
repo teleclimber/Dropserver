@@ -309,6 +309,11 @@ func main() {
 		V0:            appspaceRoutesV0,
 		Logger:        logger}
 
+	revServices := &domain.ReverseServices{
+		Routes: appspaceRouteModels,
+	}
+	sandboxManager.Services = revServices
+
 	// Create server.
 	server := &server.Server{
 		Config:         runtimeConfig,

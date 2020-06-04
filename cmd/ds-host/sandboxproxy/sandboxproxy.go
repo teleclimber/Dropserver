@@ -34,7 +34,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	sb := <-sandboxChan
 
 	//sbName := sb.GetName()       // Get ID instead of Name, only used for logging / debugging.
-	sbAddress := fmt.Sprintf("http://127.0.0.1:%d", sb.GetPort())
+	sbAddress := fmt.Sprintf("http://127.0.0.1") // TODO: is this unix+http?
 	sbTransport := sb.GetTransport()
 
 	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
