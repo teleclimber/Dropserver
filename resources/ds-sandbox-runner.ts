@@ -1,10 +1,11 @@
 import * as path from "https://deno.land/std/path/mod.ts";
+import Twine from "./twine.ts";
 
 let sock_path = Deno.args[Deno.args.length -3];
 let app_path = Deno.args[Deno.args.length -2];
 let appspace_path = Deno.args[Deno.args.length -1];
 
-sock_path = path.join(sock_path, "rev.sock");
+const rev_sock_path = path.join(sock_path, "rev.sock");
 
 // const commandCodes = {
 // 	""
@@ -43,35 +44,35 @@ console.log("sock path: ", sock_path);
 
 
 
-class HostConn {
-	conn: Deno.Conn | undefined
+// class HostConn {
+// 	conn: Deno.Conn | undefined
 
-	constructor(private sock_path: string) {
+// 	constructor(private sock_path: string) {
 
-	}
-	async connect() {
-		this.conn = await Deno.connect({ address: this.sock_path, transport: "unix" });
+// 	}
+// 	async connect() {
+// 		this.conn = await Deno.connect({ address: this.sock_path, transport: "unix" });
 
-		await this.sendCommand(1);	// "hi"
-	}
-	async disconnect() {
-		if( !this.conn ) return;
+// 		await this.sendCommand(1);	// "hi"
+// 	}
+// 	async disconnect() {
+// 		if( !this.conn ) return;
 
-		await this.sendCommand(2);	// "bye"
-	}
-	async sendCommand(cmd: number){
-		if( !this.conn ) throw new Error("can't send: conn undefined");
-		if( cmd > 255 ) throw new Error("command invalid: greater than 255");
+// 		await this.sendCommand(2);	// "bye"
+// 	}
+// 	async sendCommand(cmd: number){
+// 		if( !this.conn ) throw new Error("can't send: conn undefined");
+// 		if( cmd > 255 ) throw new Error("command invalid: greater than 255");
 
-		let uint8 = new Uint8Array(1);
-		uint8[0] = cmd;
-		let written = await this.conn.write(uint8);
+// 		let uint8 = new Uint8Array(1);
+// 		uint8[0] = cmd;
+// 		let written = await this.conn.write(uint8);
 
-	}
-}
+// 	}
+// }
 
 async function run() {
-	const twine = new Twine(sock_path);
+	const twine = new Twine(rev_sock_path, false);
 	await twine.startClient();
 
 	//setTimeout( hostConn.disconnect, 100 );

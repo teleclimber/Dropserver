@@ -123,7 +123,9 @@ func (t *Twine) startServer() {
 
 	revConn, err := ln.Accept() // This blocks until aconn shows up
 	if err != nil {
-		t.ErrorChan <- errors.New("error accepting rev conn")
+		//t.ErrorChan <- errors.New("error accepting rev conn") // causes race condition on close
+		go t.close()
+		return
 	}
 	// ^^ here we assume that there is a single client
 
@@ -778,6 +780,11 @@ func (t *Twine) doGraceful() (err error) { // this should return a channel so it
 	return
 }
 
+// Stop kills twine without trying to be nice about it.
+func (t *Twine) Stop() {
+	t.close()
+}
+
 func (t *Twine) close() {
 	t.closingMux.Lock()
 	defer t.closingMux.Unlock()
@@ -787,6 +794,11 @@ func (t *Twine) close() {
 		if t.conn != nil {
 			rc := *t.conn
 			rc.Close() //might return an error
+		}
+
+		if t.ln != nil {
+			ln := *t.ln
+			ln.Close()
 		}
 
 		close(t.ReadyChan)

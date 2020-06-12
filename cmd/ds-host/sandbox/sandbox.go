@@ -83,39 +83,19 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	}
 	s.twine = twineServer
 
-	// s.reverseListener, dsErr = newReverseListener(s.Config, s.id, appspace, s.services)
-	// if dsErr != nil {
-	// 	// just stop right here.
-	// 	// TODO return that error to caller
-	// 	return
-	// }
-
 	cmd := exec.Command(
-		"deno",          // deno
+		"deno",
+		"run",
+		"--unstable",    // needed for unix domain sockets
 		"--allow-read",  // TODO app dir and appspace dir, and sockets
 		"--allow-write", // TODO appspace dir, and fwd socket specifically? actually you have to be able to write to rev too!
 		s.Config.Exec.JSRunnerPath,
-		s.socketsDir, // this should be a sockets dir, so we can put both forward and reverse servers
+		s.socketsDir,
 		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey),
 		filepath.Join(s.Config.Exec.AppspacesFilesPath, appspace.LocationKey),
 	)
 	s.cmd = cmd
-	// -> for Deno will have to pass permission flags for that sandbox.
-	// The appspace is known at this point and should probably be passed to the runner.
-	// the runner JS location is specified in some sort of runtime config
 	// Note that ultimately we need to stick this in a Cgroup
-
-	// deno
-	// --allow-read appPath
-	// --allow-write appspacePath
-	// --allow-read socketsDir
-	// --allow-write socketsDir/rev.sock
-	// ds-appspace-runner.ts
-	// socketsDir
-	// appPath
-	// appspacePath
-
-	// [apspaceID? not needed?] // seems like a source of problems. Can't trust anything sandbox-side.
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -246,10 +226,10 @@ func (s *Sandbox) Stop() {
 			s.LogClient.Log(domain.ERROR, nil, "Unable to FORCE kill sandbox")
 		}
 	}
-	/////.....
 
-	//s.reverseListener.close() // maybe wait until "dead"?
+	s.twine.Stop()
 	// the shutdown command sent to via twine should automatically call graceful shutdown on this side.
+	// But still ned to handle the case that the Twine server never got going because it never got "hi" because client died prior to sending it.
 
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
