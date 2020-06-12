@@ -42,6 +42,8 @@ export default class Twine {
 	// private MessageChan chan ReceivedMessageI
 	// private ErrorChan   chan error
 
+	private bytes2messages : BytesToMessages = new BytesToMessages;
+
 	private incomingQueue: MessageBuffer = new MessageBuffer;
 
 	private _graceful: boolean = false;
@@ -65,7 +67,7 @@ export default class Twine {
 		// shouldw e not first receive message HI?
 		const first_chunk = new Uint8Array(10);
 		const num = await this.conn.read(first_chunk);
-		const raw = this.decodeMessage(first_chunk);
+		const raw = this.decodeMessage(first_chunk);	// this is somewhat dangerous given we know chunks can be merged.
 		if( raw.service !== protocolService || raw.command !== protocolHi ) {
 			throw new Error("first message not hi");
 		}
@@ -91,11 +93,20 @@ export default class Twine {
 
 	// receive stuff 
 	async receive() : Promise<void> {
-		// receive loop. Maybe use Deno iterator?
-		//if( this.conn === undefined ) throw new Error("conn is undefined");
-		//for await (const chunk of Deno.iter(this.conn)) {
-		for await ( const chunk of this.readMessageBytes() ) {
-			const raw = this.decodeMessage(chunk);
+		(async() => {
+			if( this.conn === undefined ) throw new Error("conn is undefined");
+			try {
+				for await (const chunk of Deno.iter(this.conn)) {
+					this.bytes2messages.push(chunk);
+				}
+			}
+			catch(e) {
+				if (!(e instanceof Deno.errors.BadResource)) { // could be more subtle by checking if we intended to close the conn with if( this.stop ) or whtaevr
+					throw e; 
+				}
+			}
+		})();
+		for await ( const raw of this.bytes2messages ) {
 
 			if( raw.service === protocolService ) {
 				this.handleProtocolCmd(raw);
@@ -153,21 +164,7 @@ export default class Twine {
 		}
 	}
 
-	private async * readMessageBytes() {
-		if( this.conn === undefined ) throw new Error("conn is undefined");
-		try {
-			for await (const chunk of Deno.iter(this.conn)) {
-				yield chunk;
-			}
-		}
-		catch(e) {
-			if (!(e instanceof Deno.errors.BadResource)) { // could be more subtle by checking if we intended to close the conn with if( this.stop ) or whtaevr
-				throw e; 
-			}
-		}
-	}
-
-	decodeMessage(chunk: Uint8Array) : messageMeta {
+	decodeMessage(chunk: Uint8Array) : messageMeta {	// duplicates decode in BytesToMessages.
 		const view = new DataView(chunk.buffer);
 
 		const msg :messageMeta = {
@@ -199,6 +196,47 @@ export default class Twine {
 		msg.payload = chunk.slice(offset, offset+pSize);
 
 		return msg;
+	}
+	private static encodeMessageMeta(msgID: number, refMsgID: number, service: number, cmd: number, payload: Uint8Array|undefined) : Uint8Array {
+		if( service < 1 || service > 0xff ) {
+			throw new Error("service id is out of bounds");
+		}
+		if( cmd < 0 || cmd > 0xff ) {
+			throw new Error("cmd id is out of bounds");
+		}
+		if( msgID < 0 || msgID > 0xff ) { // allow zero to send Bye		
+			throw new Error("send: message id is out of bounds");
+		}
+
+		let buf = new ArrayBuffer(10);
+		let view = new DataView(buf);
+
+		view.setUint8(0, service);
+		view.setUint8(1, cmd);
+		view.setUint8(2, msgID);
+		let cur_offset = 3;
+
+		if( service === refRequestService ) {
+			if( refMsgID < 1 || refMsgID > 0xff ) {
+				throw new Error("send: reference message id is out of bounds");
+			}
+			view.setUint8(3, refMsgID);
+			++cur_offset;
+		}
+
+		let pSize = payload === undefined ? 0 : payload.length;
+		if( pSize >= 0xff ) {
+			view.setUint16(cur_offset, 0xff);
+			cur_offset += 2;
+			view.setUint32(cur_offset, pSize);
+			cur_offset += 4;
+		}
+		else {
+			view.setUint16(cur_offset, pSize);
+			cur_offset += 2;
+		}
+
+		return new Uint8Array(buf, 0, cur_offset);
 	}
 
 	// read low level functions?
@@ -339,46 +377,9 @@ export default class Twine {
 	private async _send(msgID: number, refMsgID: number, service: number, cmd: number, payload: Uint8Array|undefined){
 		if( !this.conn ) throw new Error("can't send: conn undefined");
 
-		if( service < 1 || service > 0xff ) {
-			throw new Error("service id is out of bounds");
-		}
-		if( cmd < 0 || cmd > 0xff ) {
-			throw new Error("cmd id is out of bounds");
-		}
-		if( msgID < 0 || msgID > 0xff ) { // allow zero to send Bye		
-			throw new Error("send: message id is out of bounds");
-		}
+		const meta_data = Twine.encodeMessageMeta(msgID, refMsgID, service, cmd, payload);
 
-		// let's try with buffers and data views:
-		let buf = new ArrayBuffer(10);
-		let view = new DataView(buf);
-
-		view.setUint8(0, service);
-		view.setUint8(1, cmd);
-		view.setUint8(2, msgID);
-		let cur_offset = 3;
-
-		if( service === refRequestService ) {
-			if( refMsgID < 1 || refMsgID > 0xff ) {
-				throw new Error("send: reference message id is out of bounds");
-			}
-			view.setUint8(3, refMsgID);
-			++cur_offset;
-		}
-
-		let pSize = payload === undefined ? 0 : payload.length;
-		if( pSize >= 0xff ) {
-			view.setUint16(cur_offset, 0xff);
-			cur_offset += 2;
-			view.setUint32(cur_offset, pSize);
-			cur_offset += 4;
-		}
-		else {
-			view.setUint16(cur_offset, pSize);
-			cur_offset += 2;
-		}
-
-		let written = await this.conn.write(new Uint8Array(buf, 0, cur_offset));
+		let written = await this.conn.write(meta_data);
 		// written should be cur offset obvs.
 
 		// TODO: write both meta and payload in one shot! or you'll get interleaved data?
@@ -798,103 +799,111 @@ export class MessageBuffer {
 // Do a circular buffer of chunks. This prevents a lot of copying of data
 // you just need to keep track of the current chunk_i, and byte_i
 
-class BytesToMessages {
-	private size: number
+type incomingMessage = {
+	msg: messageMeta,
+	meta_length:number,
+	payload_remaining:number
+}
+
+// exported only for testing purposes.
+export class BytesToMessages {
+	private max_size: number
 	private buf : Uint8Array[];
 	
-	private start: number = -1;	// first chunk of new data
-	private count: number = 0;	// last chunk of new data
+	private start: number = 0;	// first chunk of new data
+	private cur_size: number = 0;	// last chunk of new data
 	private byte_offset: number = 0; //position within chunk of next new data
 
+	private cur_message: incomingMessage | undefined;
+
+	private resolveMessage: ((r:{value:messageMeta, done: boolean}) => void) | undefined;
+
+	private is_stopped : boolean = false;
+
 	constructor(){
-		this.size = 100;	// 100 chunks
+		this.max_size = 100;	// 100 chunks
 		this.buf = [];
 	}
 
 	push(chunk: Uint8Array) {
-		// check if we have enough length available
-		// put this data after the last valid element.
-		// and wrap around.
-		// set new last element
-		//if( this.getAvailable() < chunk.length ) throw new Error("chunk too large for buffer");
-
 		const next_i = this.nextWriteI();
 		this.buf[next_i] = chunk;
-		++this.count;
+		++this.cur_size;
 
-		// then trigger the next action:
-		// - if we are waiting on payload chunks, append chunk to payload 
-		// - if not, trigger decode meta
+		if( this.cur_message === undefined ) {
+			this.decodeNext();
+		}
+		else {
+			this.pushChunkOnPayload();
+		}
 	}
 	private nextWriteI() {
-		if( this.count >= this.size ) throw new Error("buffer full");
-		return (this.start + this.count) % this.size;
+		if( this.cur_size >= this.max_size ) throw new Error("buffer full");
+		return (this.start + this.cur_size) % this.max_size;
 	}
 	private nextReadI() {
-		return (this.start + 1) % this.size;
+		return (this.start + 1) % this.max_size;
+	}
+	private advanceChunk() {
+		if( this.byte_offset === this.buf[this.start].byteLength ) {
+			this.start = this.nextReadI();
+			this.byte_offset = 0;
+			--this.cur_size;
+		}
 	}
 	
-
 	async next(): Promise<{value:messageMeta, done: boolean}> {
-		// if( this._stop ) {
-		// 	return { done: true };
-		// }
-		// else if( this.buf !== undefined && this.nextRead < this.buf.length ) {
-		// 	++this.nextRead;
-		// 	return { value: this.buf[this.nextRead-1], done: false };
-		// }
-		// else {
-		// 	return new Promise( (resolve, reject) => {
-		// 		if( this.resolveMessage !== undefined ) {
-		// 			throw new Error("expected resolve to be undefined?");
-		// 			// reject instead
-		// 		}
-		// 		this.resolveMessage = resolve;
-		// 	});
-		// }
-
-		// check if there is any unread data in the buffer.
-		// if so, decode message
-		// if not, return promise, adn stash resolve?
-		// -> allows you to resolve to done:true if stop called externally
-
-		const m = this.decodeMessage
+		if( this.is_stopped ) {
+			return { done: true, value:{msgID:0, refMsgID:0, command:0, service:0, payload: undefined} };
+		}
+		else if( this.cur_message !== undefined && this.cur_message.payload_remaining === 0 ) {
+			const msg = this.cur_message.msg;
+			this.cur_message = undefined;
+			setTimeout(() => this.decodeNext(), 0);
+			return { value: msg, done: false};
+		}
+		else {
+			return new Promise( (resolve, reject) => {
+				if( this.resolveMessage !== undefined ) {
+					throw new Error("expected resolve to be undefined?");
+				}
+				this.resolveMessage = resolve;
+			});
+		}	
 	}
 
 	// try to read the message meta from current chunk.
 	// in event there not enough data, merge following chunk and try to read again.
 	decodeNext() {
-		if( this.count === 0 ) return;
+		if( this.cur_size === 0 || this.cur_message !== undefined ) return;
 
-		let cur_start = this.start;	// tracks the chunk we're reading starting from this.start, in case of multi-chunk message.
-		let cur_byte_offset = this.byte_offset;
-		
 		let cur_chunk = this.buf[this.start];
 		let cur_chunk_size = cur_chunk.byteLength - this.byte_offset;
-		let view = new DataView(cur_chunk.buffer, this.byte_offset);
-		let msg_meta = this.decodeMeta(view);
-		if( msg_meta === undefined ) {
-			if( this.count <= 1 ) return;	// We didn't get enough data for a message, and there are no more chunk available
+		let msg_meta = this.decodeMeta(new DataView(cur_chunk.buffer, this.byte_offset));
+		if( msg_meta !== undefined ) {
+			this.byte_offset += msg_meta.meta_length;
+			this.advanceChunk();
+		}
+		else if( this.cur_size > 1 ) {	// We didn't get enough data for a message, and there is another chunk available
 			const next_i = this.nextReadI();
 			const next_chunk = this.buf[next_i];
 			const new_buf = new Uint8Array(cur_chunk_size + next_chunk.byteLength);
 			new_buf.set(cur_chunk.slice(this.byte_offset));
 			new_buf.set(next_chunk, cur_chunk_size);
-			view = new DataView(new_buf);
-			msg_meta = this.decodeMeta(view);
+			msg_meta = this.decodeMeta(new DataView(new_buf.buffer));
 			if( msg_meta === undefined ) throw new Error("expected two chunks to be enough for a message meta");
 
-			cur_start = next_i;
-			cur_byte_offset = msg_meta.meta_length - cur_chunk_size;
+			this.start = next_i;
+			--this.cur_size;
+			this.byte_offset = msg_meta.meta_length - cur_chunk_size;	// cur_chunk_size is the previous chunk. This only *looks* wrong.
 		}
 
-		// I think here we update all the this.start and this.byte_ffset
-		// ..and we call this.pushChnkOnPayload.
-		// We can set msg_meta to this.current_message
-		// which indicates we are waiting on payload chunks
-
+		if( msg_meta !== undefined ) {
+			this.cur_message = msg_meta;
+			this.pushChunkOnPayload();
+		}
 	}
-	private decodeMeta(view:DataView) :{msg: messageMeta|undefined, meta_length:number, payload_size:number}|undefined {
+	private decodeMeta(view:DataView) :incomingMessage|undefined {
 		if( view.byteLength < 3 ) return;
 
 		const msg :messageMeta = {
@@ -922,21 +931,39 @@ class BytesToMessages {
 			offset += 4;
 		}
 
-		return {msg, meta_length:offset, payload_size:pSize};
-
-		// if( chunk.length < offset+pSize ) {
-		// 	throw new Error("didn't get the full message with payload");
-		// }
-
-		// msg.payload = chunk.slice(offset, offset+pSize);
-
-		// return msg;
+		return {msg, meta_length:offset, payload_remaining:pSize};
 	}
 
-	pushChunkOnPayload() {
-		// I think this takes whatever portion of whatever chunk is/are available
-		// and pushes them to the payload until it's all there.
-		// when done it pushes whole message to ... a different circular buffer of messages??? or something.
+	private pushChunkOnPayload() {
+		if( this.cur_message === undefined ) throw new Error("no cur_message to push payload onto");
+		
+		if( this.cur_message.payload_remaining !== 0 ) {
+			if( this.cur_message.msg.payload === undefined ) {
+				this.cur_message.msg.payload = new Uint8Array(this.cur_message.payload_remaining);
+			}
+			const payload = this.cur_message.msg.payload;
+
+			while(this.cur_message.payload_remaining && this.cur_size) {
+				let payload_offset = payload.byteLength - this.cur_message.payload_remaining;
+
+				let cur_chunk = this.buf[this.start];
+				let read_length = Math.min(cur_chunk.byteLength - this.byte_offset, this.cur_message.payload_remaining);
+
+				payload.set( cur_chunk.slice(this.byte_offset, this.byte_offset + read_length), payload_offset );
+				this.cur_message.payload_remaining -= read_length;
+				this.byte_offset += read_length;
+				this.advanceChunk();
+			}
+		}
+		
+		if( this.cur_message.payload_remaining === 0 ) {
+			if( this.resolveMessage !== undefined) {
+				this.resolveMessage({value:this.cur_message.msg, done: false});
+				this.resolveMessage = undefined;
+				this.cur_message = undefined;
+				this.decodeNext();
+			}
+		}
 	}
 
 	[Symbol.asyncIterator]() { return this; }

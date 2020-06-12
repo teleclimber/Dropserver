@@ -4,7 +4,7 @@ import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
 
 Deno.test({
 	name: "send",
-	ignore: true,
+	//ignore: true,
 	fn: async () => {
 		const temp_dir = await Deno.makeTempDir();
 		const sock_path = path.join(temp_dir, "test.sock");
@@ -56,7 +56,7 @@ Deno.test({
 
 Deno.test({
 	name: "receive",
-	ignore: true,
+	//ignore: true,
 	fn: async () => {
 		const payload_str = "hello world";
 
@@ -107,7 +107,7 @@ Deno.test({
 // Now I want to test full cycle: hi, message, graceful.
 Deno.test({
 	name: "hi, message, graceful",
-	ignore: true,
+	//ignore: true,
 	fn: async () => {
 		const temp_dir = await Deno.makeTempDir();
 		const sock_path = path.join(temp_dir, "test.sock");
