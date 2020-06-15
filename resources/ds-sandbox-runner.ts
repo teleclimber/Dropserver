@@ -1,5 +1,5 @@
 import * as path from "https://deno.land/std/path/mod.ts";
-import Twine from "./twine.ts";
+import Twine from "./twine/twine.ts";
 
 let sock_path = Deno.args[Deno.args.length -3];
 let app_path = Deno.args[Deno.args.length -2];
