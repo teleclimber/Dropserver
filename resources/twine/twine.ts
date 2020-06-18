@@ -306,6 +306,26 @@ export default class Twine {
 		this.msgReg.unregisterMessage(msgID);
 	}
 
+	async replyErrorClose(msgID :number, err_str:string) {
+		this.msgReg.assertMsgIDRemote(msgID);
+			
+		const msgData = this.msgReg.getMessageData(msgID);
+
+		if( this.msgReg.msgIDIsLocal(msgID) ) {
+			if( !msgData.closed ) {
+				throw new Error("expected to send OK on closed message");
+			}
+		} else {
+			if( msgData.closed ) {
+				throw new Error("msg ID is closed")
+			}
+		}
+	
+		await this._send(msgID, 0, closeService, protocolError, new TextEncoder().encode(err_str)) // cmd is 0 on ok close/err?
+	
+		this.msgReg.unregisterMessage(msgID);
+	}
+
 	// RefRequest sneds a new message with a reference to an open message
 	async refRequest(refID :number, cmd :number, payload :Uint8Array|undefined) :Promise<SentMessageI> {
 		this.msgReg.assertMsgIDRange(refID);
@@ -652,8 +672,8 @@ interface MessageGetReplyI {
 }
 
 interface MessageReplyOKErrI {
-	sendOK() : void
-	// ReplyError
+	sendOK() : void,
+	sendError(err: string) : void
 }
 
 interface MessageReplierI {
@@ -700,8 +720,7 @@ export class Message {
 		await this.t.replyOKClose(this.msgID);
 	}
 	async sendError(errStr: string) {
-		throw new Error("not implemented");
-		// TODO: implement
+		await this.t.replyErrorClose(this.msgID, errStr);
 	}
 	async reply(cmd: number, payload: Uint8Array|undefined) {
 		await this.t.reply(this.msgID, cmd, payload);
