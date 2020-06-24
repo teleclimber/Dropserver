@@ -24,6 +24,7 @@ import (
 // - runner (JS)
 // ..by sending a request to proxy (server?) that should trickle all the way to app code and back.
 
+// TODO this needs fixing up after deno can serve http over unix sockets.
 func TestIntegration1(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -50,7 +51,8 @@ func TestIntegration1(t *testing.T) {
 	cfg.DataDir = dataDir
 	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
 	cfg.Exec.AppspacesFilesPath = filepath.Join(dataDir, "appspaces-files")
-	cfg.Exec.JSRunnerPath = getJSRuntimePath()
+	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
+	cfg.Exec.AppspacesMetaPath = dataDir
 
 	logger := domain.NewMockLogCLientI(mockCtrl)
 	logger.EXPECT().NewSandboxLogClient(gomock.Any()).Return(logger).AnyTimes()

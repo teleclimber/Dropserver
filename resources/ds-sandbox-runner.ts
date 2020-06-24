@@ -7,6 +7,8 @@ let appspace_path = Deno.args[Deno.args.length -1];
 
 const rev_sock_path = path.join(sock_path, "rev.sock");
 
+console.log("ds-sandbox-runner is running");
+
 async function run() {
 	await DsServices.initTwine(rev_sock_path);
 }

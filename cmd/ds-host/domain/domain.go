@@ -52,7 +52,8 @@ type RuntimeConfig struct {
 		StaticAssetsDir     string
 		PublicStaticAddress string
 		UserRoutesAddress   string
-		JSRunnerPath        string
+		SandboxCodePath     string
+		SandboxRunnerPath   string
 		MigratorScriptPath  string
 		AppsPath            string
 		AppspacesMetaPath   string
@@ -134,6 +135,7 @@ const (
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
 	ID() int
+	ExecFn(AppspaceRouteHandler) Error
 	GetTransport() http.RoundTripper
 	GetLogClient() LogCLientI
 	TiedUp() bool
@@ -142,7 +144,7 @@ type SandboxI interface {
 	Status() SandboxStatus
 	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
-	Start(appVersion *AppVersion, appspace *Appspace)
+	Start(appVersion *AppVersion, appspace *Appspace) error
 	Stop()
 }
 
@@ -497,9 +499,16 @@ type AppspaceMetaDB interface {
 type RouteModelV0 interface {
 	ReverseCommand(message twine.ReceivedMessageI)
 	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) Error
+
+	// Get returns all routes that
+	// - match one of the methods passed, and
+	// - matches the routePath exactly (no interpolation is done to match sub-paths)
 	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, Error)
 	GetAll()
 	Delete(methods []string, url string) Error
+
+	// Match finds the route that should handle the request
+	// The path will be broken into parts to find the subset path that matches.
 	Match(method string, url string) (*AppspaceRouteConfig, Error)
 }
 

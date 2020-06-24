@@ -21,6 +21,10 @@ Deno.test({
 		const calls = stubbed_sendBlock.calls;
 		assertEquals(calls.length, 1);
 
+		const payload = <Uint8Array>calls[0].args[2];
+		const data = JSON.parse(new TextDecoder().decode(payload));
+		assertEquals(data["route-path"], "/abc/def");
+
 		stubbed_sendBlock.restore();
 	}
 });

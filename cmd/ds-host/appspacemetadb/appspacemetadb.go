@@ -25,6 +25,11 @@ type AppspaceMetaDB struct {
 	conns    map[domain.AppspaceID]*DbConn
 }
 
+// Init initializes data structures as needed
+func (mdb *AppspaceMetaDB) Init() {
+	mdb.conns = make(map[domain.AppspaceID]*DbConn)
+}
+
 // Create an apspace meta DB file for an appspace.
 // Should specify schema version or DS API version, and branch accordingly.
 func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int) domain.Error {
@@ -35,7 +40,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 		liveRequests: 1,
 	}
 
-	mdb.startConn(conn, appspaceID, false)
+	mdb.startConn(conn, appspaceID, true)
 
 	_ = <-readyChan
 
@@ -93,11 +98,14 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) domain.DbConn {
 
 	return conn
 }
+
+// Need a stop conn, or some way to automatically shut things off if idle?
+
 func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) {
 	defer conn.statusMux.Unlock()
 
-	dbFile := getAppspaceMetaDbFile(mdb.Config, appspaceID)
-
+	metaPath := getAppspaceMetaPath(mdb.Config, appspaceID)
+	dbFile := filepath.Join(metaPath, "appspace-meta.db")
 	dsn := "file:" + dbFile + "?mode=rw"
 
 	if create {
@@ -107,6 +115,12 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 			conn.connError = dserror.New(dserror.AppspaceDBFileExists, "DB file: "+dbFile)
 			return
 		}
+		err = os.MkdirAll(metaPath, 0700)
+		if err != nil {
+			conn.statusMux.Lock()
+			conn.connError = dserror.FromStandard(err)
+		}
+
 		dsn += "c"
 	}
 
@@ -136,18 +150,10 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 	}
 }
 
-// This should be brought out to a package that can be injected
-func getAppspaceMetaDbPath(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
-	return filepath.Join(cfg.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", appspaceID), "appspace-meta.db")
-	// is meta path different from actual appspace files?
-	// I thought appspaces were differentiated by their location key on the file system?
+// this should be extracted and moved to a thing that can be imported by anything that needs it
+func getAppspaceMetaPath(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
+	return filepath.Join(cfg.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", appspaceID))
 }
-func getAppspaceMetaDbFile(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
-	return filepath.Join(getAppspaceMetaDbPath(cfg, appspaceID), "appspace-meta.db")
-}
-
-// need a place to create the DB itself, and add the tables
-// Q: who determines the schema? Is it the host? Has to be versioned in some way?
 
 // DbConn holds the db handle and relevant request data
 type DbConn struct {

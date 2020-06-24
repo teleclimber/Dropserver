@@ -17,6 +17,11 @@ type AppspaceRouteModels struct {
 	modelsV0  map[domain.AppspaceID]*RouteModelV0 // maybe make that an interface for testing purposes.
 }
 
+// Init the data structures as necessary
+func (g *AppspaceRouteModels) Init() {
+	g.modelsV0 = make(map[domain.AppspaceID]*RouteModelV0)
+}
+
 // GetV0 returns the route model for the appspace
 // There i a single RouteModel per appspaceID so that caching can be implemented in it.
 // There will be different route model versions!

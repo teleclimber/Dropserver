@@ -3,6 +3,7 @@ package appspacemetadb
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"path"
 	"sort"
@@ -13,6 +14,10 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/twine"
+)
+
+const (
+	createCmd = 12
 )
 
 // RouteModelV0 responds to requests about appspace routes
@@ -39,36 +44,45 @@ func (m *RouteModelV0) getDB() *sqlx.DB {
 // ReverseCommand processes a command and payload from the reverse listener
 func (m *RouteModelV0) ReverseCommand(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
-	case 10: // Create
-
+	case createCmd:
+		m.reverseCmdCreate(message)
+	default:
+		message.SendError("Command not recognized")
 	}
+	// more...
 
 }
 
-func (m *RouteModelV0) reverseCmdCreate(payload *[]byte) domain.Error {
+// Generally speaking I think errors should be logged
+// And errors returned might be generic "something bad happened, logged."
+
+func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 	var data struct {
-		Methods   []string
-		RoutePath string
-		Auth      domain.AppspaceRouteAuth
-		Handler   domain.AppspaceRouteHandler
+		Methods   []string                    `json:"methods"`
+		RoutePath string                      `json:"route-path"`
+		Auth      domain.AppspaceRouteAuth    `json:"auth"`
+		Handler   domain.AppspaceRouteHandler `json:"handler"`
 	}
+
+	payload := message.Payload()
 
 	err := json.Unmarshal(*payload, &data)
 	if err != nil {
-		return dserror.FromStandard(err)
+		// log
+		fmt.Println(err)
+		message.SendError("json unmarshall error")
+		return
 	}
 
 	dsErr := m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
 	if dsErr != nil {
-		return dsErr
+		// log
+		fmt.Println(dsErr)
+		message.SendError("db error on create")
+		return
 	}
 
-	// what do we really do about errors?
-	// How do we reply?
-	// Need to close the message (need to get the message for that)
-	// consider: streaming rows...
-
-	return nil
+	message.SendOK()
 }
 
 // Create adds a new route to the DB

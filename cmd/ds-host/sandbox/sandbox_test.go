@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,7 +14,32 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-// First test the status subscription system
+func TestImportMaps(t *testing.T) {
+	s := &Sandbox{
+		appspace: &domain.Appspace{
+			LocationKey: "as-loc-13",
+			AppspaceID:  domain.AppspaceID(13)},
+		appVersion: &domain.AppVersion{
+			LocationKey: "av-loc-77"},
+		Config: &domain.RuntimeConfig{}}
+
+	s.Config.Exec.AppspacesFilesPath = "/temp/as-path"
+	s.Config.Exec.AppsPath = "/temp/apps-path"
+	s.Config.Exec.SandboxCodePath = "/temp/sandbox-code-path"
+
+	b, err := s.makeImportMap()
+	if err != nil {
+		t.Error(err)
+	}
+
+	str := string(*b)
+	t.Log(str)
+	if !strings.Contains(str, "/av-loc-77/\"") {
+		t.Error("expected path with trailing slash")
+	}
+}
+
+// Ttest the status subscription system
 func TestStatus(t *testing.T) {
 	s := &Sandbox{
 		status:    domain.SandboxStarting,
@@ -151,11 +177,13 @@ func TestRunnerScriptError(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.JSRunnerPath = scriptPath
+	cfg.Exec.SandboxRunnerPath = scriptPath
+	cfg.Exec.AppspacesMetaPath = dir
 
 	s := &Sandbox{
 		id:        7,
 		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		LogClient: logger,
 		Config:    cfg}
 
@@ -164,7 +192,10 @@ func TestRunnerScriptError(t *testing.T) {
 	appVersion := &domain.AppVersion{}
 	appspace := &domain.Appspace{}
 
-	s.Start(appVersion, appspace)
+	err = s.Start(appVersion, appspace)
+	if err != nil {
+		t.Error(err)
+	}
 
 	s.WaitFor(domain.SandboxReady)
 
@@ -189,20 +220,31 @@ func TestStart(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.JSRunnerPath = getJSRuntimePath()
+	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
+	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppsPath = dir
+	cfg.Exec.AppspacesMetaPath = dir
+
+	appVersion := &domain.AppVersion{
+		LocationKey: "app-loc"}
+	appspace := &domain.Appspace{
+		AppspaceID:  domain.AppspaceID(13),
+		LocationKey: "appspace-loc"}
 
 	s := &Sandbox{
-		id:        7,
-		status:    domain.SandboxStarting,
-		LogClient: logger,
-		Config:    cfg}
+		id:         7,
+		appspace:   appspace,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		LogClient:  logger,
+		Config:     cfg}
 
 	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
-	appVersion := &domain.AppVersion{}
-	appspace := &domain.Appspace{}
-
-	s.Start(appVersion, appspace)
+	err = s.Start(appVersion, appspace)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if s.Status() != domain.SandboxReady {
 		t.Error("sandbox status should be ready")

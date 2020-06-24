@@ -201,6 +201,20 @@ func (m *MockSandboxI) EXPECT() *MockSandboxIMockRecorder {
 	return m.recorder
 }
 
+// ExecFn mocks base method
+func (m *MockSandboxI) ExecFn(arg0 AppspaceRouteHandler) Error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecFn", arg0)
+	ret0, _ := ret[0].(Error)
+	return ret0
+}
+
+// ExecFn indicates an expected call of ExecFn
+func (mr *MockSandboxIMockRecorder) ExecFn(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecFn", reflect.TypeOf((*MockSandboxI)(nil).ExecFn), arg0)
+}
+
 // GetLogClient mocks base method
 func (m *MockSandboxI) GetLogClient() LogCLientI {
 	m.ctrl.T.Helper()
@@ -270,9 +284,11 @@ func (mr *MockSandboxIMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
 }
 
 // Start mocks base method
-func (m *MockSandboxI) Start(arg0 *AppVersion, arg1 *Appspace) {
+func (m *MockSandboxI) Start(arg0 *AppVersion, arg1 *Appspace) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", arg0, arg1)
+	ret := m.ctrl.Call(m, "Start", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Start indicates an expected call of Start

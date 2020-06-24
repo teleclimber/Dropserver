@@ -4,14 +4,17 @@ package sandbox
 // have it just manage deno processes?
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -41,9 +44,17 @@ type Task struct {
 	Finished bool //build up with start time, elapsed and any other metadata
 }
 
+const sandboxService = 11
+const executeService = 12
+const routesService = 14
+
+const execFnCommand = 11
+
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id              int                  // getter only (const), unexported
+	id              int // getter only (const), unexported
+	appVersion      *domain.AppVersion
+	appspace        *domain.Appspace
 	status          domain.SandboxStatus // getter/setter, so make it unexported.
 	socketsDir      string
 	cmd             *exec.Cmd
@@ -60,16 +71,23 @@ type Sandbox struct {
 
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
-func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) { // TODO: return an error, presumably?
+func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) error { // TODO: return an error, presumably?
 	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
 
-	socketsDir, dsErr := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
-	if dsErr != nil {
+	s.appVersion = appVersion
+	s.appspace = appspace
+
+	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
+	if err != nil {
 		// just stop right here.
-		// TODO return that error to caller
-		return
+		return err
 	}
 	s.socketsDir = socketsDir
+
+	err = s.writeImportMap()
+	if err != nil {
+		return err
+	}
 
 	//fwdSock := path.Join(socketsDir, "fwd.sock") // forward socket is where the ds runner will create the sandbox server
 
@@ -78,20 +96,27 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	twineServer, err := twine.NewServer(path.Join(socketsDir, "rev.sock"))
 	if err != nil {
-		// handle this p
-		return
+		return err
 	}
 	s.twine = twineServer
 
+	err = os.Setenv("NO_COLOR", "true")
+	if err != nil {
+		return err
+	}
+
+	// Give deno's current sandboxing ideas,
+	// Probably need to think more about flags we pass, such as --no-remote?
 	cmd := exec.Command(
 		"deno",
 		"run",
-		"--unstable",    // needed for unix domain sockets
+		"--unstable", // needed for unix domain sockets
+		"--importmap="+s.getImportPathFile(),
 		"--allow-read",  // TODO app dir and appspace dir, and sockets
-		"--allow-write", // TODO appspace dir, and fwd socket specifically? actually you have to be able to write to rev too!
-		s.Config.Exec.JSRunnerPath,
+		"--allow-write", // TODO appspace dir, sockets
+		s.Config.Exec.SandboxRunnerPath,
 		s.socketsDir,
-		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey),
+		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
 		filepath.Join(s.Config.Exec.AppspacesFilesPath, appspace.LocationKey),
 	)
 	s.cmd = cmd
@@ -100,22 +125,19 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		//log.Fatal(err)
-		// TODO return error
-		return
+		return err
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		//log.Fatal(err)
-		// TODO return error
-		return
+		return err
 	}
 
 	err = cmd.Start() // returns right away
 	if err != nil {
 		//log.Fatal(err)
-		// TODO return Error
-		return
+		return err
 	}
 
 	go s.monitor(stdout, stderr)
@@ -125,11 +147,15 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		// failstart
 		// handle and return.
 		s.Stop()
-		return
+		return err
 	}
+
+	go s.listenMessages()
 
 	s.transport = http.DefaultTransport // really not sure what this means or what it's for anymore....
 	s.SetStatus(domain.SandboxReady)
+
+	return nil
 }
 
 // monitor waits for cmd to end or an error gets sent
@@ -194,6 +220,17 @@ func printLogs(r io.ReadCloser) {
 	}
 }
 
+func (s *Sandbox) listenMessages() {
+	for message := range s.twine.MessageChan {
+		switch message.ServiceID() {
+		case routesService:
+			s.services.Routes.Command(s.appspace, message)
+		default:
+			message.SendError("service not recognized")
+		}
+	}
+}
+
 // Stop stops the sandbox and its associated open connections
 func (s *Sandbox) Stop() {
 	// reverse listener...
@@ -243,7 +280,11 @@ func (s *Sandbox) Stop() {
 
 func (s *Sandbox) pidAlive() bool {
 	process := s.cmd.Process
-	// what does process look like before the cmd is started? Check for nil?
+
+	if process == nil {
+		return false
+	}
+
 	// what does proces look like after the underlying process has dies?
 
 	err := process.Signal(syscall.Signal(0))
@@ -257,6 +298,10 @@ func (s *Sandbox) pidAlive() bool {
 // This should get picked up internally and it should shut itself down.
 func (s *Sandbox) kill(force bool) domain.Error {
 	process := s.cmd.Process
+
+	if process == nil {
+		return nil
+	}
 
 	sig := unix.SIGTERM
 	if force {
@@ -299,6 +344,42 @@ func (s *Sandbox) Status() domain.SandboxStatus {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 	return s.status
+}
+
+// ExecFn executes a function in athesandbox, based on the params of AppspaceRouteHandler
+func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) domain.Error {
+	// check status of sandbox first?
+	taskCh := s.TaskBegin()
+	defer func() {
+		taskCh <- true
+	}()
+
+	// need to change file path so it can be resolved from inside sandbox.
+	// for now assemble an absolute path
+	//handler.File = path.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, handler.File)
+
+	payload, err := json.Marshal(handler)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	sent, err := s.twine.Send(executeService, execFnCommand, &payload)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	// maybe receive interim progress messages?
+
+	reply, err := sent.WaitReply()
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	if !reply.OK() {
+		return dserror.FromStandard(reply.Error())
+	}
+
+	return nil
 }
 
 // GetTransport gets the http transport of the sandbox
@@ -389,14 +470,69 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	<-statusMet
 }
 
+// ImportPaths defines a type for creating imopsts.json for Deno
+type ImportPaths struct {
+	Imports map[string]string `json:"imports"`
+}
+
+func (s *Sandbox) makeImportMap() (*[]byte, error) {
+	im := ImportPaths{
+		Imports: map[string]string{
+			"@app/":        "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey)),
+			"@appspace/":   "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppspacesFilesPath, s.appspace.LocationKey)),
+			"@dropserver/": "file:" + trailingSlash(s.Config.Exec.SandboxCodePath),
+		}}
+
+	j, err := json.Marshal(im)
+	if err != nil {
+		return nil, err
+	}
+
+	return &j, nil
+}
+func trailingSlash(p string) string {
+	if strings.HasSuffix(p, string(os.PathSeparator)) {
+		return p
+	}
+	return p + string(os.PathSeparator)
+}
+
+func (s *Sandbox) writeImportMap() error {
+	data, err := s.makeImportMap()
+	if err != nil {
+		return err
+	}
+
+	// this should be taken care of externally on appspace install probably.
+	err = os.MkdirAll(s.getAppspaceMetaPath(), 0700)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(s.getImportPathFile(), *data, 0600)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func (s *Sandbox) getImportPathFile() string {
+	return filepath.Join(s.getAppspaceMetaPath(), "import-paths.json")
+}
+
+// this really needs to be extracted out!
+func (s *Sandbox) getAppspaceMetaPath() string {
+	return filepath.Join(s.Config.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", s.appspace.AppspaceID))
+}
+
 /////////////
-func cleanSocketsDir(sockDir string) domain.Error {
+func cleanSocketsDir(sockDir string) error {
 	if err := os.RemoveAll(sockDir); err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 	return nil
 }
-func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, domain.Error) {
+func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, error) {
 	sockDir := getSocketsDir(baseDir, appspaceID)
 
 	dsErr := cleanSocketsDir(sockDir)
@@ -405,7 +541,7 @@ func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, domai
 	}
 
 	if err := os.MkdirAll(sockDir, 0700); err != nil {
-		return "", dserror.FromStandard(err)
+		return "", err
 	}
 
 	return sockDir, nil

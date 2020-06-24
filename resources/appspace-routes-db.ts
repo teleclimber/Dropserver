@@ -28,7 +28,7 @@ type RouteHandler = {
 
 export type Route = {
 	methods: string[],
-	path: string,
+	"route-path": string,
 	auth: Auth,
 	handler: RouteHandler
 }
@@ -52,7 +52,7 @@ class Routes {
 
 		const route:Route = {
 			methods,
-			path: routePath,
+			"route-path": routePath,
 			auth,
 			handler
 		}

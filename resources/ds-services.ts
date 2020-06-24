@@ -26,12 +26,14 @@ export class DsServices {
 	private async listenMessages() {
 		if(this.twine === undefined) throw new Error("twine should not be undefined at this point.")
 		for await (const message of this.twine.incomingMessages() ) {
+			console.log("got a message");
 			switch (message.service) {
-				case sandboxService:
-					throw new Error("not implemented yet");
+				//case sandboxService:
+				//	throw new Error("not implemented yet"); // not getting caught anywhere
 					// TODO
-					break;
+				//	break;
 				case executeService:
+					console.log("got exec fn message")
 					handleExec(message);
 					break;
 			
