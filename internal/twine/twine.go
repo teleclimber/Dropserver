@@ -326,13 +326,13 @@ func (t *Twine) receiveMessage() (*messageMeta, error) {
 		return nil, err
 	}
 	var size int
-	sizeSmol := binary.LittleEndian.Uint16(sizeBytes)
+	sizeSmol := binary.BigEndian.Uint16(sizeBytes)
 	if sizeSmol == 0xff {
 		sizeBytesBig, err := t.read(4) // four for big ... that's 4Gigabytes!!!!!! :/
 		if err != nil {
 			return nil, err
 		}
-		size = int(binary.LittleEndian.Uint32(sizeBytesBig))
+		size = int(binary.BigEndian.Uint32(sizeBytesBig))
 	} else {
 		size = int(sizeSmol)
 	}
@@ -465,8 +465,8 @@ func (t *Twine) Reply(msgID int, cmd int, payload *[]byte) error {
 	return nil
 }
 
-// ReplyOKClose sends an OK and closes the message
-func (t *Twine) ReplyOKClose(msgID int) error {
+// ReplyClose sends an OK and closes the message
+func (t *Twine) ReplyClose(msgID int, ok bool, errStr string) error {
 	// This one could be either a local ID or a remote ID.
 	// because we can send OK in response to an incoming message
 
@@ -492,7 +492,14 @@ func (t *Twine) ReplyOKClose(msgID int) error {
 		}
 	}
 
-	err = t.send(msgID, 0, closeService, int(protocolOK), nil) // cmd is 0 on ok close?
+	cmd := protocolOK
+	var payload []byte
+	if !ok {
+		cmd = protocolError
+		payload = []byte(errStr)
+	}
+
+	err = t.send(msgID, 0, closeService, int(cmd), &payload) // cmd is 0 on ok close?
 	if err != nil {
 		t.ErrorChan <- err
 	}
@@ -654,14 +661,14 @@ func (t *Twine) send(msgID int, refMsgID int, service serviceID, cmd int, payloa
 	}
 	bSmol := make([]byte, 2)
 	if size >= 0xff {
-		binary.LittleEndian.PutUint16(bSmol, 0xff)
+		binary.BigEndian.PutUint16(bSmol, 0xff)
 		metaBytes = append(metaBytes, bSmol...)
 
 		bBig := make([]byte, 4)
-		binary.LittleEndian.PutUint32(bBig, uint32(size))
+		binary.BigEndian.PutUint32(bBig, uint32(size))
 		metaBytes = append(metaBytes, bBig...)
 	} else {
-		binary.LittleEndian.PutUint16(bSmol, uint16(size))
+		binary.BigEndian.PutUint16(bSmol, uint16(size))
 		metaBytes = append(metaBytes, bSmol...)
 	}
 

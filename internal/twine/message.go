@@ -20,7 +20,7 @@ type MessageGetReplyI interface {
 // This can be a reply to an incoming messgae or to a reply.
 type MessageReplyOKErrI interface {
 	SendOK() error
-	// ReplyError
+	SendError(string) error
 }
 
 // MessageReplierI adds teh ability to reply to an incoming message
@@ -115,7 +115,7 @@ func (m *Message) WaitReply() (ReceivedReplyI, error) {
 
 // SendOK sends an OK and closes the message
 func (m *Message) SendOK() error {
-	err := m.t.ReplyOKClose(m.msgID)
+	err := m.t.ReplyClose(m.msgID, true, "")
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,10 @@ func (m *Message) SendOK() error {
 
 // SendError sends the error code along with description
 func (m *Message) SendError(errStr string) error {
-	// TODO: implement
+	err := m.t.ReplyClose(m.msgID, false, errStr)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
