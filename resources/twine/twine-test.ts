@@ -140,49 +140,90 @@ Deno.test({
 	}
 });
 
-Deno.test("ref-requests", async () => {
+Deno.test({
+	name: "hi, multiple messages, from server, graceful",
+	//ignore: true,
+	fn: async () => {
+		const temp_dir = await Deno.makeTempDir();
+		const sock_path = path.join(temp_dir, "test.sock");
 
-	const temp_dir = await Deno.makeTempDir();
-	const sock_path = path.join(temp_dir, "test.sock");
+		const twine_client = new Twine(sock_path, false);
+		const twine_server = new Twine(sock_path, true);
 
-	const twine_client = new Twine(sock_path, false);
-	const twine_server = new Twine(sock_path, true);
+		const server_start = twine_server.startServer();
+		await twine_client.startClient();
+		await server_start;
 
-	const server_start = twine_server.startServer();
-	await twine_client.startClient();
-	await server_start;
-
-	(async function() {
-		let num = 0;
-		for await (const message of twine_server.incomingMessages()) {
-			++num;
-			assertEquals(7, message.service);
-
-			for await (const ref_m of message.incomingMessages() ) {
-				assertEquals(33, ref_m.command);
-				ref_m.sendOK();
+		(async function() {
+			for await (const message of twine_client.incomingMessages()) {
+				console.log("got message");
+				assertEquals(7, message.service);
 				message.sendOK();
 			}
+		})();
 
-			
-		}
-		if(num !== 1) throw new Error("expected only one message");
-	})();
+		console.log("after start client");
 
-	console.log("after start client");
+		let reply = await twine_server.sendBlock(7, 11, new TextEncoder().encode("test payload numero uno"));
+		assert(reply.ok);
 
-	const sent = await twine_client.send(7, 11, undefined);
-	console.log("after sent");
-	const ref_rep = await sent.refSendBlock(33, undefined);
-	assert(ref_rep.ok);
-	console.log("after ref send block");
+		reply = await twine_server.sendBlock(7, 12, new TextEncoder().encode("test payload numero dos"));
+		assert(reply.ok);
 
-	const reply = await sent.waitReply();
-	assert(reply.ok);
+		console.log("got OK");
 
-	console.log("got OK");
+		await twine_server.graceful();
 
-	await twine_client.graceful();
+		await Deno.remove(temp_dir, {recursive: true});
+	}
+});
 
-	await Deno.remove(temp_dir, {recursive: true});
+Deno.test({
+	name: "ref-requests",
+	//ignore: true,
+	fn: async () => {
+		const temp_dir = await Deno.makeTempDir();
+		const sock_path = path.join(temp_dir, "test.sock");
+
+		const twine_client = new Twine(sock_path, false);
+		const twine_server = new Twine(sock_path, true);
+
+		const server_start = twine_server.startServer();
+		await twine_client.startClient();
+		await server_start;
+
+		(async function() {
+			let num = 0;
+			for await (const message of twine_server.incomingMessages()) {
+				++num;
+				assertEquals(7, message.service);
+
+				for await (const ref_m of message.incomingMessages() ) {
+					assertEquals(33, ref_m.command);
+					ref_m.sendOK();
+					message.sendOK();
+				}
+
+				
+			}
+			if(num !== 1) throw new Error("expected only one message");
+		})();
+
+		console.log("after start client");
+
+		const sent = await twine_client.send(7, 11, undefined);
+		console.log("after sent");
+		const ref_rep = await sent.refSendBlock(33, undefined);
+		assert(ref_rep.ok);
+		console.log("after ref send block");
+
+		const reply = await sent.waitReply();
+		assert(reply.ok);
+
+		console.log("got OK");
+
+		await twine_client.graceful();
+
+		await Deno.remove(temp_dir, {recursive: true});
+	}
 });
