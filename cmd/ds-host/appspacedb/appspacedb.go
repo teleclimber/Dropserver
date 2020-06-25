@@ -1,4 +1,4 @@
-//go:generate mockgen -destination=mocks.go -package=appspacedb github.com/teleclimber/DropServer/cmd/ds-host/appspacedb DbConnI
+//go:generate mockgen -destination=mocks.go -package=appspacedb -self_package=github.com/teleclimber/DropServer/cmd/ds-host/appspacedb github.com/teleclimber/DropServer/cmd/ds-host/appspacedb DbConnI
 
 // The API for interacting with these DBs has to be versioned!
 

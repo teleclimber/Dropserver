@@ -1,6 +1,6 @@
 package migrateappspace
 
-//go:generate mockgen -destination=mocks.go -package=migrateappspace github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace MigrationSandobxMgrI,MigrationSandboxI
+//go:generate mockgen -destination=mocks.go -package=migrateappspace -self_package=github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace MigrationSandobxMgrI,MigrationSandboxI
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 // What we still need:

@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (

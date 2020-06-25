@@ -1,6 +1,6 @@
 {
 	"go.gopath": "/Users/ollie/go/",
-	"go.inferGopath": true,
+	"go.inferGopath": false,
 	"go.liveErrors": {
 		"enabled": false,
 		"delay": 500
