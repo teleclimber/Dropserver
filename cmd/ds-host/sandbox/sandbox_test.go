@@ -160,8 +160,6 @@ func TestRunnerScriptError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
@@ -184,18 +182,12 @@ func TestRunnerScriptError(t *testing.T) {
 		id:        7,
 		status:    domain.SandboxStarting,
 		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		LogClient: logger,
 		Config:    cfg}
-
-	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes() // Could tighten that up
 
 	appVersion := &domain.AppVersion{}
 	appspace := &domain.Appspace{}
 
-	err = s.Start(appVersion, appspace)
-	if err != nil {
-		t.Error(err)
-	}
+	s.Start(appVersion, appspace)
 
 	s.WaitFor(domain.SandboxReady)
 
@@ -209,8 +201,6 @@ func TestRunnerScriptError(t *testing.T) {
 func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -236,10 +226,7 @@ func TestStart(t *testing.T) {
 		appspace:   appspace,
 		appVersion: appVersion,
 		status:     domain.SandboxStarting,
-		LogClient:  logger,
 		Config:     cfg}
-
-	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	err = s.Start(appVersion, appspace)
 	if err != nil {

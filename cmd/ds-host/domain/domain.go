@@ -135,9 +135,8 @@ const (
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
 	ID() int
-	ExecFn(AppspaceRouteHandler) Error
+	ExecFn(AppspaceRouteHandler) error
 	GetTransport() http.RoundTripper
-	GetLogClient() LogCLientI
 	TiedUp() bool
 	LastActive() time.Time
 	TaskBegin() chan bool

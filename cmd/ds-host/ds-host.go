@@ -171,8 +171,7 @@ func main() {
 	migrationJobModel.PrepareStatements()
 
 	sandboxManager := &sandbox.Manager{
-		Config: runtimeConfig,
-		Logger: logger}
+		Config: runtimeConfig}
 
 	migrationJobCtl := &migrateappspace.JobController{
 		AppspaceModel:     appspaceModel,
@@ -274,8 +273,7 @@ func main() {
 		AppspaceModel:          appspaceModel,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
-		AppModel:               appModel,
-		Logger:                 logger}
+		AppModel:               appModel}
 
 	userRoutes := &userroutes.UserRoutes{
 		Authenticator:     authenticator,
@@ -306,8 +304,7 @@ func main() {
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel,
-		V0:            appspaceRoutesV0,
-		Logger:        logger}
+		V0:            appspaceRoutesV0}
 
 	revServices := &domain.ReverseServices{
 		Routes: appspaceRouteModels,

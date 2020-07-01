@@ -32,12 +32,10 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
 		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
-		Logger:        logger}
+		AppspaceModel: appspaceModel}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
@@ -52,7 +50,6 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(nil, dserror.New(dserror.NoRowsInResultSet))
-	logger.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
 
@@ -70,12 +67,10 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
 		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
-		Logger:        logger}
+		AppspaceModel: appspaceModel}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
@@ -91,7 +86,6 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
 	appModel.EXPECT().GetFromID(gomock.Any()).Return(nil, dserror.New(dserror.InternalError))
-	logger.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
 
@@ -103,10 +97,8 @@ func TestServeHTTPBadApp(t *testing.T) {
 func getASR(mockCtrl *gomock.Controller) *AppspaceRoutes {
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	return &AppspaceRoutes{
 		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
-		Logger:        logger}
+		AppspaceModel: appspaceModel}
 }

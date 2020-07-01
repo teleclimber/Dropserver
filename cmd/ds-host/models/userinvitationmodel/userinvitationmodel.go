@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -65,7 +66,7 @@ func (m *UserInvitationModel) GetAll() ([]*domain.UserInvitation, domain.Error) 
 
 	err := m.stmt.getAll.Select(&invites)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Settings Model, db error, Get: "+err.Error())
+		m.getLogger("GetAll()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -75,14 +76,14 @@ func (m *UserInvitationModel) GetAll() ([]*domain.UserInvitation, domain.Error) 
 // Get is used to know if an email is invited
 func (m *UserInvitationModel) Get(email string) (*domain.UserInvitation, domain.Error) {
 	email = normalizeEmail(email)
-	
+
 	var invite domain.UserInvitation
 	err := m.stmt.get.Get(&invite, email)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, dserror.New(dserror.NoRowsInResultSet)
 		}
-		m.Logger.Log(domain.ERROR, nil, "Settings Model, db error, Get: "+err.Error())
+		m.getLogger("Get()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -94,17 +95,17 @@ func (m *UserInvitationModel) Create(email string) domain.Error {
 	email = normalizeEmail(email)
 
 	if len(email) < 4 || len(email) > 200 {
-		msg := fmt.Sprintf("UserInvitationModel: email has unreasonable length: %d chars",len(email))
-		m.Logger.Log(domain.WARN, nil, msg)
+		msg := fmt.Sprintf("UserInvitationModel: email has unreasonable length: %d chars", len(email))
+		m.getLogger("Create()").Log(msg)
 		return dserror.New(dserror.InternalError, msg)
 	}
 
 	// should we not normalize emails?
-	// I think we do this in 
+	// I think we do this in
 
 	_, err := m.stmt.create.Exec(email)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "UserInvitationModel Create error: "+err.Error())
+		m.getLogger("Create()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
@@ -117,16 +118,22 @@ func (m *UserInvitationModel) Delete(email string) domain.Error {
 
 	_, err := m.stmt.delete.Exec(email)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "UserInvitationModel Delete error: "+err.Error())
+		m.getLogger("Delete").Error(err)
 		return dserror.FromStandard(err)
 	}
 
 	return nil
 }
 
+func (m *UserInvitationModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("UserInvitationModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}
+
 func normalizeEmail(email string) string {
 	// may ned to trim whitespace too?
 	return strings.ToLower(email)
 }
-
-

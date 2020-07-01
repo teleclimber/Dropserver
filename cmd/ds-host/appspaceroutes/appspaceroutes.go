@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -16,7 +17,6 @@ type AppspaceRoutes struct {
 	AppspaceModel      domain.AppspaceModel
 	RouteModelsManager domain.AppspaceRouteModels
 	V0                 domain.RouteHandler
-	Logger             domain.LogCLientI
 }
 
 // ^^ Also need access to sessions
@@ -29,8 +29,6 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	appspace, dsErr := r.AppspaceModel.GetFromSubdomain(appspaceSubdomain)
 	if dsErr != nil && dsErr.Code() == dserror.NoRowsInResultSet {
 		http.Error(res, "Appspace does not exist", http.StatusNotFound)
-		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain},
-			"Appspace does not exist: "+appspaceSubdomain)
 		return
 	} else if dsErr != nil {
 		dsErr.HTTPError(res)
@@ -39,9 +37,8 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	routeData.Appspace = appspace
 
 	app, dsErr := r.AppModel.GetFromID(appspace.AppID)
-	if dsErr != nil { // do we differentiate between empty result vs other errors?
-		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain, "app": string(appspace.AppID)},
-			"App does not exist: "+string(appspace.AppID))
+	if dsErr != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
+		r.getLogger(appspace).Log("Error: App does not exist") // this is an actua system error: an appspace is missing its app.
 		dsErr.HTTPError(res)
 		return
 	}
@@ -49,9 +46,7 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 
 	appVersion, dsErr := r.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
 	if dsErr != nil {
-		// is this an internal error? It seems that if an appspace is using a version, that version has to exist?!?
-		r.Logger.Log(domain.ERROR, map[string]string{"app-space": appspaceSubdomain, "app": string(appspace.AppID)},
-			"App version does not exist: "+string(appspace.AppVersion))
+		r.getLogger(appspace).Log("Error: AppVersion does not exist")
 		http.Error(res, "App Version not found", http.StatusInternalServerError)
 		return
 	}
@@ -59,5 +54,8 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 
 	// This is where we branch off into different API versions for serving appspace traffic
 	r.V0.ServeHTTP(res, req, routeData)
+}
 
+func (r *AppspaceRoutes) getLogger(appspace *domain.Appspace) *record.DsLogger {
+	return record.NewDsLogger().AppID(appspace.AppID).AppVersion(appspace.AppVersion).AppspaceID(appspace.AppspaceID).AddNote("AppspaceRoutes")
 }

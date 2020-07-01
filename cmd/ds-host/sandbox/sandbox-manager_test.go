@@ -20,12 +20,8 @@ func TestKillPool(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.Num = 1
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-
 	m := &Manager{
-		Config: cfg,
-		Logger: logger,
-	}
+		Config: cfg}
 
 	m.Init()
 

@@ -5,10 +5,10 @@ package sandbox
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/twine"
 	"golang.org/x/sys/unix"
 )
@@ -66,20 +66,19 @@ type Sandbox struct {
 	appSpaceSession appSpaceSession // put a getter for that?
 	killScore       float64         // this should not be here.
 	Config          *domain.RuntimeConfig
-	LogClient       domain.LogCLientI
 }
 
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
 func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) error { // TODO: return an error, presumably?
-	s.LogClient.Log(domain.INFO, nil, "Starting sandbox")
-
 	s.appVersion = appVersion
 	s.appspace = appspace
 
+	logger := s.getLogger("Start()")
+
 	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
 	if err != nil {
-		// just stop right here.
+		s.getLogger(fmt.Sprintf("Start(), makeSocketsDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
 	}
 	s.socketsDir = socketsDir
@@ -96,13 +95,15 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	twineServer, err := twine.NewServer(path.Join(socketsDir, "rev.sock"))
 	if err != nil {
-		return err
+		logger.AddNote("twine.NewServer").Error(err)
+		return err // maybe return a user-centered error
 	}
 	s.twine = twineServer
 
 	err = os.Setenv("NO_COLOR", "true")
 	if err != nil {
-		return err
+		logger.AddNote("os.Setenv").Error(err)
+		return err // return user-centered error
 	}
 
 	// Give deno's current sandboxing ideas,
@@ -124,19 +125,19 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		//log.Fatal(err)
-		return err
+		logger.AddNote("cmd.StdoutPipe()").Error(err)
+		return err // user centered error
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		//log.Fatal(err)
+		logger.AddNote("cmd.StderrPipe()").Error(err)
 		return err
 	}
 
 	err = cmd.Start() // returns right away
 	if err != nil {
-		//log.Fatal(err)
+		logger.AddNote("cmd.Start()").Error(err)
 		return err
 	}
 
@@ -144,10 +145,9 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	_, ok := <-s.twine.ReadyChan
 	if !ok {
-		// failstart
-		// handle and return.
+		logger.Log("Apparent failed start. ReadyChan closed")
 		s.Stop()
-		return err
+		return errors.New("Failed to start sandbox")
 	}
 
 	go s.listenMessages()
@@ -166,7 +166,8 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 		for { // you need to be in a loop to keep the channel "flowing"
 			err := <-s.twine.ErrorChan
 			if err != nil {
-				s.LogClient.Log(domain.WARN, nil, "Shutting sandbox down because of error on reverse listener")
+				s.getLogger("ErrorChan").Error(err)
+				// We may want to stash a message on s. to enlighten user as to what happened?
 				s.Stop()
 			} else {
 				break // errorChan was closed, so exit loop
@@ -191,7 +192,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	err := s.cmd.Wait()
 	if err != nil {
-		log.Println("cmd.Wait returned error", err)
+		s.getLogger("monitor(), s.cmd.Wait()").Error(err)
 		s.Stop()
 		// Here we should kill off reverse listener?
 		// This is where we want to log things for the benefit of the dropapp user.
@@ -212,7 +213,7 @@ func printLogs(r io.ReadCloser) {
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
-			fmt.Printf("%s", buf[0:n])
+			fmt.Printf("%s", buf[0:n]) // OK not sure about these. IS this effectively console.log output?
 		}
 		if err != nil {
 			break
@@ -226,6 +227,7 @@ func (s *Sandbox) listenMessages() {
 		case routesService:
 			s.services.Routes.Command(s.appspace, message)
 		default:
+			s.getLogger("listenMessages()").Log(fmt.Sprintf("Service not recognized: %v", message.ServiceID()))
 			message.SendError("service not recognized")
 		}
 	}
@@ -255,12 +257,10 @@ func (s *Sandbox) Stop() {
 
 	err := s.kill(false)
 	if err != nil {
-		s.LogClient.Log(domain.ERROR, nil, "Unable to kill sandbox")
 		// force kill
 		err = s.kill(true)
 		if err != nil {
 			// ???
-			s.LogClient.Log(domain.ERROR, nil, "Unable to FORCE kill sandbox")
 		}
 	}
 
@@ -273,9 +273,10 @@ func (s *Sandbox) Stop() {
 	// If had to forcekill then quarantine the
 
 	// Not sure if we can do this now, or have to wait til dead...
-	cleanSocketsDir(s.socketsDir)
-	// ^^ capture error and log or somesuch.
-
+	err = cleanSocketsDir(s.socketsDir)
+	if err != nil {
+		s.getLogger("Stop(), cleanSocketDir()").Error(err)
+	}
 }
 
 func (s *Sandbox) pidAlive() bool {
@@ -296,7 +297,7 @@ func (s *Sandbox) pidAlive() bool {
 
 // kill sandbox, which means send it the kill sig
 // This should get picked up internally and it should shut itself down.
-func (s *Sandbox) kill(force bool) domain.Error {
+func (s *Sandbox) kill(force bool) error {
 	process := s.cmd.Process
 
 	if process == nil {
@@ -309,7 +310,7 @@ func (s *Sandbox) kill(force bool) domain.Error {
 	}
 	err := process.Signal(sig)
 	if err != nil {
-		s.LogClient.Log(domain.INFO, nil, fmt.Sprintf("kill: Error killing process. Force: %t", force))
+		s.getLogger("kill()").AddNote(fmt.Sprintf("process.Signal(sig). Force: %t", force)).Error(err)
 	}
 
 	var alive bool
@@ -327,7 +328,7 @@ func (s *Sandbox) kill(force bool) domain.Error {
 	}
 
 	if alive {
-		return dserror.New(dserror.SandboxFailedToTerminate)
+		return errors.New("sandbox failed to terminate") // is this a sentinel error?
 	}
 	return nil
 }
@@ -347,7 +348,7 @@ func (s *Sandbox) Status() domain.SandboxStatus {
 }
 
 // ExecFn executes a function in athesandbox, based on the params of AppspaceRouteHandler
-func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) domain.Error {
+func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 	// check status of sandbox first?
 	taskCh := s.TaskBegin()
 	defer func() {
@@ -360,23 +361,26 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) domain.Error {
 
 	payload, err := json.Marshal(handler)
 	if err != nil {
-		return dserror.FromStandard(err)
+		// this is an input error. The caller is at fault probably. Don't log.
+		return err //return a "bad input" error, and wrap it?
 	}
 
 	sent, err := s.twine.Send(executeService, execFnCommand, &payload)
 	if err != nil {
-		return dserror.FromStandard(err)
+		s.getLogger("ExecFn(), s.twine.Send()").Error(err)
+		return errors.New("Error sending to sandbox")
 	}
 
 	// maybe receive interim progress messages?
 
 	reply, err := sent.WaitReply()
 	if err != nil {
-		return dserror.FromStandard(err)
+		s.getLogger("ExecFn(), sent.WaitReply()").Error(err)
+		return err
 	}
 
 	if !reply.OK() {
-		return dserror.FromStandard(reply.Error())
+		return reply.Error()
 	}
 
 	return nil
@@ -387,9 +391,19 @@ func (s *Sandbox) GetTransport() http.RoundTripper {
 	return s.transport
 }
 
-// GetLogClient retuns the Logging client
-func (s *Sandbox) GetLogClient() domain.LogCLientI {
-	return s.LogClient
+// getLogger retuns the Logging client
+func (s *Sandbox) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("Sandbox")
+	if s.appVersion != nil {
+		l.AppID(s.appVersion.AppID).AppVersion(s.appVersion.Version)
+	}
+	if s.appspace != nil {
+		l.AppspaceID(s.appspace.AppspaceID)
+	}
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }
 
 // TiedUp returns the appspaceSession
@@ -485,6 +499,7 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 
 	j, err := json.Marshal(im)
 	if err != nil {
+		s.getLogger("makeImportMap()").Error(err)
 		return nil, err
 	}
 
@@ -506,11 +521,13 @@ func (s *Sandbox) writeImportMap() error {
 	// this should be taken care of externally on appspace install probably.
 	err = os.MkdirAll(s.getAppspaceMetaPath(), 0700)
 	if err != nil {
+		s.getLogger("writeImportMap()").AddNote("os.MkdirAll dir: " + s.getAppspaceMetaPath()).Error(err)
 		return err
 	}
 
 	err = ioutil.WriteFile(s.getImportPathFile(), *data, 0600)
 	if err != nil {
+		s.getLogger("writeImportMap()").AddNote("ioutil.WriteFile file: " + s.getImportPathFile()).Error(err)
 		return err
 	}
 
@@ -535,9 +552,9 @@ func cleanSocketsDir(sockDir string) error {
 func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, error) {
 	sockDir := getSocketsDir(baseDir, appspaceID)
 
-	dsErr := cleanSocketsDir(sockDir)
-	if dsErr != nil {
-		return "", dsErr
+	err := cleanSocketsDir(sockDir)
+	if err != nil {
+		return "", err
 	}
 
 	if err := os.MkdirAll(sockDir, 0700); err != nil {

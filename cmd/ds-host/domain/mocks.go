@@ -202,10 +202,10 @@ func (m *MockSandboxI) EXPECT() *MockSandboxIMockRecorder {
 }
 
 // ExecFn mocks base method
-func (m *MockSandboxI) ExecFn(arg0 AppspaceRouteHandler) Error {
+func (m *MockSandboxI) ExecFn(arg0 AppspaceRouteHandler) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecFn", arg0)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -213,20 +213,6 @@ func (m *MockSandboxI) ExecFn(arg0 AppspaceRouteHandler) Error {
 func (mr *MockSandboxIMockRecorder) ExecFn(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecFn", reflect.TypeOf((*MockSandboxI)(nil).ExecFn), arg0)
-}
-
-// GetLogClient mocks base method
-func (m *MockSandboxI) GetLogClient() LogCLientI {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLogClient")
-	ret0, _ := ret[0].(LogCLientI)
-	return ret0
-}
-
-// GetLogClient indicates an expected call of GetLogClient
-func (mr *MockSandboxIMockRecorder) GetLogClient() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogClient", reflect.TypeOf((*MockSandboxI)(nil).GetLogClient))
 }
 
 // GetTransport mocks base method

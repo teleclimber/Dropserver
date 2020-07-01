@@ -23,8 +23,6 @@ type Manager struct {
 
 	Services *domain.ReverseServices
 	Config   *domain.RuntimeConfig
-	Logger   domain.LogCLientI
-	// metrics, ...
 }
 
 type request struct {
@@ -78,8 +76,7 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 		services:  sM.Services,
 		status:    domain.SandboxStarting,
 		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:    sM.Config,
-		LogClient: sM.Logger.NewSandboxLogClient(sandboxID)}
+		Config:    sM.Config}
 
 	sM.sandboxes[appspace.AppspaceID] = &newSandbox
 
