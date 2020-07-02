@@ -15,8 +15,6 @@ import (
 type UserInvitationModel struct {
 	DB *domain.DB
 
-	Logger domain.LogCLientI
-
 	stmt struct {
 		getAll *sqlx.Stmt
 		get    *sqlx.Stmt

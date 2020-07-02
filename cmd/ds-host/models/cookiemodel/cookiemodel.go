@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -19,7 +20,6 @@ import (
 type CookieModel struct {
 	DB *domain.DB
 	// need config to select db type?
-	Logger domain.LogCLientI
 
 	stmt struct {
 		selectCookieID *sqlx.Stmt
@@ -77,7 +77,7 @@ func (m *CookieModel) Create(cookie domain.Cookie) (string, domain.Error) { // m
 
 	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Cookie Model Insert Cookie error: "+err.Error())
+		m.getLogger("Create()").Error(err)
 		return "", dserror.FromStandard(err)
 	}
 
@@ -93,7 +93,7 @@ func (m *CookieModel) Get(cookieID string) (*domain.Cookie, domain.Error) {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, nil
 		}
-		m.Logger.Log(domain.ERROR, nil, "Cookie Model, db error, Get: "+err.Error())
+		m.getLogger("Get()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -104,7 +104,7 @@ func (m *CookieModel) Get(cookieID string) (*domain.Cookie, domain.Error) {
 func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) domain.Error {
 	_, err := m.stmt.refresh.Exec(expires, cookieID)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Cookie Model, db error, Refresh: "+err.Error())
+		m.getLogger("UpdateExpires()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
@@ -118,9 +118,17 @@ func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) domain.E
 func (m *CookieModel) Delete(cookieID string) domain.Error {
 	_, err := m.stmt.delete.Exec(cookieID)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Cookie Model, db error, Delete: "+err.Error())
+		m.getLogger("Delete()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
 	return nil
+}
+
+func (m *CookieModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("CookieModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

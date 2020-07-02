@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -20,49 +21,50 @@ import (
 // AppFilesModel is struct for application files manager
 type AppFilesModel struct {
 	Config *domain.RuntimeConfig
-	Logger domain.LogCLientI
 }
 
 // Save puts the data passed in files in an apps directory
 func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
+	logger := a.getLogger("Save()")
 	appsPath := a.Config.Exec.AppsPath
 
 	err := os.MkdirAll(appsPath, 0766)
 	if err != nil {
-		a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create apps directory: "+err.Error())
-		return "", dserror.New(dserror.InternalError)
+		logger.AddNote("os.MkdirAll()").Error(err)
+		return "", dserror.New(dserror.InternalError) // user-friendly error
 	}
 
 	appPath, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {
-		a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create app directory: "+err.Error())
+		logger.AddNote("ioutil.TempDir()").Error(err)
 		return "", dserror.New(dserror.InternalError)
 	}
 
+	logger.AddNote("files loop")
 	writeErr := false
 	for f, data := range *files {
 		fPath := filepath.Join(appPath, f)
 		inside, err := pathInsidePath(fPath, appPath)
 		if err != nil {
-			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: Error determining if file path outside of app path: "+f+": "+err.Error())
+			logger.AddNote("pathInsidePath()").Error(err)
 			writeErr = true
 			break
 		}
 		if !inside {
-			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: file path outside of app path: "+f)
+			logger.Log(fmt.Sprintf("file path outside of app path: %v", f))
 			writeErr = true
 			break
 		}
 
 		err = os.MkdirAll(filepath.Dir(fPath), 0766)
 		if err != nil {
-			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to create app file directory: "+err.Error())
+			logger.AddNote(fmt.Sprintf("os.MkdirAll(): %v", f)).Error(err)
 			return "", dserror.New(dserror.InternalError)
 		}
 
 		err = ioutil.WriteFile(fPath, data, 0666) // TODO: correct permissions?
 		if err != nil {
-			a.Logger.Log(domain.ERROR, nil, "AppFilesModel: failed to write app file: "+f+": "+err.Error())
+			logger.AddNote(fmt.Sprintf("ioutil.WriteFile(): %v", f)).Error(err)
 			writeErr = true
 			break
 		}
@@ -73,11 +75,6 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 	}
 
 	locationKey := filepath.Base(appPath)
-
-	a.Logger.Log(domain.INFO,
-		map[string]string{"location-key": locationKey},
-		fmt.Sprintf("AppFilesModel: Saved %d files", len(*files)))
-	// ^^ here locationKey is good to include in map, but it should really be a type so we can reliably use it
 
 	return locationKey, nil
 }
@@ -91,9 +88,7 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		// Or it could be a more internal problem, like directory of apps not where it's expected to be.
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
-			a.Logger.Log(domain.ERROR,
-				map[string]string{"location-key": locationKey},
-				"AppFilesModel: Locationkey does not exist")
+			a.getLogger(fmt.Sprintf("ReadMeta(), location key: %v", locationKey)).Error(err)
 			return nil, dserror.New(dserror.InternalError, "ReadMeta: Location key not found "+locationKey)
 		}
 		return nil, dserror.New(dserror.AppConfigNotFound)
@@ -137,6 +132,7 @@ func (a *AppFilesModel) Delete(locationKey string) domain.Error {
 
 	err := os.RemoveAll(filepath.Join(a.Config.Exec.AppsPath, locationKey))
 	if err != nil {
+		a.getLogger("Delete()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
@@ -221,6 +217,14 @@ func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
 	}
 	return true // OK but there could be aonther problem, like permissions out of whack?
 	// Should probably log that as warning at least.
+}
+
+func (a *AppFilesModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppFilesModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // pathInsidePath determines if A path is inside (contained within) path B

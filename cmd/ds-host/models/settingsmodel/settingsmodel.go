@@ -5,14 +5,13 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // SettingsModel represents the model for settings
 type SettingsModel struct {
 	DB *domain.DB
-
-	Logger domain.LogCLientI
 
 	stmt struct {
 		getAll *sqlx.Stmt
@@ -61,7 +60,7 @@ func (m *SettingsModel) Get() (*domain.Settings, domain.Error) {
 
 	err := m.stmt.getAll.QueryRowx().StructScan(&settings)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Settings Model, db error, Get: "+err.Error())
+		m.getLogger("Get()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -72,7 +71,7 @@ func (m *SettingsModel) Get() (*domain.Settings, domain.Error) {
 func (m *SettingsModel) Set(settings *domain.Settings) domain.Error {
 	_, err := m.stmt.setReg.Exec(settings.RegistrationOpen)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Settings Model, db error, Set: "+err.Error())
+		m.getLogger("Set()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
@@ -83,9 +82,17 @@ func (m *SettingsModel) Set(settings *domain.Settings) domain.Error {
 func (m *SettingsModel) SetRegistrationOpen(open bool) domain.Error {
 	_, err := m.stmt.setReg.Exec(open)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Settings Model, db error, SetRegistrationOpen: "+err.Error())
+		m.getLogger("SetRegistrationOpen()").Error(err)
 		return dserror.FromStandard(err)
 	}
 
 	return nil
+}
+
+func (m *SettingsModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("SettingsModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

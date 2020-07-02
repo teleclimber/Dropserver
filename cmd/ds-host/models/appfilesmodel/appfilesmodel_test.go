@@ -100,12 +100,8 @@ func TestSave(t *testing.T) {
 	cfg.DataDir = dir
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
-
 	m := AppFilesModel{
-		Config: cfg,
-		Logger: logger}
+		Config: cfg}
 
 	// for files, create dummy data
 	// will read back to check it's there
@@ -186,12 +182,8 @@ func TestDelete(t *testing.T) {
 	cfg.DataDir = dir
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
-
 	m := AppFilesModel{
-		Config: cfg,
-		Logger: logger}
+		Config: cfg}
 
 	files := map[string][]byte{
 		"file1":             []byte("hello world"),

@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -15,35 +17,35 @@ import (
 type UserModel struct {
 	DB *domain.DB
 	// need config to select db type?
-	Logger domain.LogCLientI
 
 	stmt struct {
-		selectID	*sqlx.Stmt
-		selectEmail *sqlx.Stmt
-		selectAll	*sqlx.Stmt
-		insertUser	*sqlx.Stmt
-		updatePassword *sqlx.Stmt
-		getPassword *sqlx.Stmt
-		selectAdmin	*sqlx.Stmt
+		selectID        *sqlx.Stmt
+		selectEmail     *sqlx.Stmt
+		selectAll       *sqlx.Stmt
+		insertUser      *sqlx.Stmt
+		updatePassword  *sqlx.Stmt
+		getPassword     *sqlx.Stmt
+		selectAdmin     *sqlx.Stmt
 		selectAllAdmins *sqlx.Stmt
-		insertAdmin	*sqlx.Stmt
-		deleteAdmin	*sqlx.Stmt
+		insertAdmin     *sqlx.Stmt
+		deleteAdmin     *sqlx.Stmt
 	}
 }
 
 // going to try something better for prepare statements:
 type prepper struct {
 	handle *sqlx.DB
-	err error
+	err    error
 }
-func  (p *prepper) exec(query string) *sqlx.Stmt {
+
+func (p *prepper) exec(query string) *sqlx.Stmt {
 	if p.err != nil {
 		return nil
 	}
 
 	stmt, err := p.handle.Preparex(query)
 	if err != nil {
-		p.err = errors.New("Error preparing statmement "+query+" "+err.Error())
+		p.err = errors.New("Error preparing statmement " + query + " " + err.Error())
 		return nil
 	}
 
@@ -52,7 +54,7 @@ func  (p *prepper) exec(query string) *sqlx.Stmt {
 
 // PrepareStatements prepares the statements
 func (m *UserModel) PrepareStatements() {
-	p := prepper{ handle: m.DB.Handle }
+	p := prepper{handle: m.DB.Handle}
 
 	m.stmt.selectID = p.exec(`SELECT user_id, email FROM users WHERE user_id = ?`)
 
@@ -64,7 +66,7 @@ func (m *UserModel) PrepareStatements() {
 		("email", "password") VALUES (?, ?)`)
 
 	m.stmt.updatePassword = p.exec(`UPDATE users SET password = ? WHERE user_id = ?`)
-	
+
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
 
 	m.stmt.selectAdmin = p.exec(`SELECT EXISTS(SELECT 1 FROM admin_users WHERE user_id = ?)`)
@@ -83,16 +85,16 @@ func (m *UserModel) Create(email, password string) (*domain.User, domain.Error) 
 	// like blank or nearly blank emails and passwords.
 	// with the understanding that these should be checked before calling this method
 	if len(email) < 4 || len(email) > 200 {
-		msg := fmt.Sprintf("User Model: email has unreasonable length: %d chars",len(email))
-		m.Logger.Log(domain.WARN, nil, msg)
+		msg := fmt.Sprintf("email has unreasonable length: %d chars", len(email))
+		m.getLogger("Create()").Log(msg)
 		return nil, dserror.New(dserror.InternalError, msg)
 	}
 
 	if dsErr := m.validatePassword(password); dsErr != nil {
-		m.Logger.Log(domain.WARN, nil, dsErr.ExtraMessage())
+		m.getLogger("Create()").Log(dsErr.ExtraMessage())
 		return nil, dsErr
 	}
-	
+
 	hash, dsErr := m.hashPassword(password)
 	if dsErr != nil {
 		return nil, dsErr
@@ -105,17 +107,17 @@ func (m *UserModel) Create(email, password string) (*domain.User, domain.Error) 
 		if err.Error() == "UNIQUE constraint failed: users.email" {
 			return nil, dserror.New(dserror.EmailExists)
 		}
-		m.Logger.Log(domain.ERROR, nil, "User Model Insert User error: "+err.Error())
+		m.getLogger("Create(), insertUser").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
 	lastID, err := r.LastInsertId()
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "User Model lastID error:"+err.Error())
+		m.getLogger("Create() lastID").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 	if lastID >= 0xFFFFFFFF {
-		m.Logger.Log(domain.ERROR, nil, "User Model lastID out of bounds error")
+		m.getLogger("Create()").Log("lastID out of bounds")
 		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
 	}
 
@@ -123,6 +125,7 @@ func (m *UserModel) Create(email, password string) (*domain.User, domain.Error) 
 
 	user, dsErr := m.GetFromID(userID)
 	if dsErr != nil {
+		// maybe log that we failed to get the user we just created?
 		return nil, dsErr
 	}
 
@@ -156,7 +159,7 @@ func (m *UserModel) hashPassword(password string) ([]byte, domain.Error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		// log here too because this is not a good error
-		m.Logger.Log(domain.ERROR, nil, "User Model: error generating bcrypt: "+err.Error())
+		m.getLogger("hashPassword()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 	return hash, nil
@@ -171,7 +174,7 @@ func (m *UserModel) GetFromID(userID domain.UserID) (*domain.User, domain.Error)
 		if err.Error() == "sql: no rows in result set" {
 			return nil, dserror.New(dserror.NoRowsInResultSet)
 		}
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetFromID: "+err.Error())
+		m.getLogger("GetFromID()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 	// here we should differentiate between no rows returned and every other error?
@@ -189,7 +192,7 @@ func (m *UserModel) GetFromEmail(email string) (*domain.User, domain.Error) {
 		if err.Error() == "sql: no rows in result set" {
 			return nil, dserror.New(dserror.NoRowsInResultSet)
 		}
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetFromEmail: "+err.Error())
+		m.getLogger("GetFromEmail()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -203,12 +206,12 @@ func (m *UserModel) GetFromEmailPassword(email, password string) (*domain.User, 
 	if dsErr != nil {
 		return nil, dsErr
 	}
-	
+
 	var hash []byte
 	err := m.stmt.getPassword.Get(&hash, user.UserID)
 	if err != nil {
 		// this is likely internal error since we know the user exists
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetPassword: "+err.Error())
+		m.getLogger("GetFromEmailPassword()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -226,7 +229,7 @@ func (m *UserModel) GetAll() ([]*domain.User, domain.Error) {
 
 	err := m.stmt.selectAll.Select(&ret)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetAll: "+err.Error())
+		m.getLogger("GetAll()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -238,7 +241,7 @@ func (m *UserModel) IsAdmin(userID domain.UserID) bool {
 	var exists int
 	err := m.stmt.selectAdmin.Get(&exists, userID)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, admin exists: "+err.Error())
+		m.getLogger("IsAdmin()").Error(err)
 		return false
 	}
 
@@ -254,7 +257,7 @@ func (m *UserModel) GetAllAdmins() ([]domain.UserID, domain.Error) {
 
 	err := m.stmt.selectAllAdmins.Select(&ret)
 	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "User Model, db error, GetAllAdmins: "+err.Error())
+		m.getLogger("GetAllAdmins()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -268,8 +271,8 @@ func (m *UserModel) MakeAdmin(userID domain.UserID) domain.Error {
 		if err.Error() == "UNIQUE constraint failed: admin_users.user_id" {
 			return nil
 		}
-		msg := "User Model, make admin: db error "+err.Error()
-		m.Logger.Log(domain.ERROR, nil, msg)
+		m.getLogger("MakeAdmin()").Error(err)
+		msg := "User Model, make admin: db error " + err.Error()
 		return dserror.New(dserror.InternalError, msg)
 	}
 	return nil
@@ -279,11 +282,18 @@ func (m *UserModel) MakeAdmin(userID domain.UserID) domain.Error {
 func (m *UserModel) DeleteAdmin(userID domain.UserID) domain.Error {
 	_, err := m.stmt.deleteAdmin.Exec(userID)
 	if err != nil {
-		msg := "User Model, delete admin: db error "+err.Error()
-		m.Logger.Log(domain.ERROR, nil, msg)
+		m.getLogger("DeleteAdmin()").Error(err)
+		msg := "User Model, delete admin: db error " + err.Error()
 		return dserror.New(dserror.InternalError, msg)
 	}
 
 	return nil
 }
 
+func (m *UserModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("UserModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}

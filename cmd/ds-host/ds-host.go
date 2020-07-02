@@ -97,18 +97,15 @@ func main() {
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	settingsModel.PrepareStatements()
 
 	userInvitationModel := &userinvitationmodel.UserInvitationModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	userInvitationModel.PrepareStatements()
 
 	userModel := &usermodel.UserModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	userModel.PrepareStatements()
 
 	cliHandlers := clihandlers.CliHandlers{
@@ -143,13 +140,11 @@ func main() {
 	logger.Log(domain.INFO, nil, "ds-host is starting")
 
 	cookieModel := &cookiemodel.CookieModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	cookieModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
-		Config: runtimeConfig,
-		Logger: logger}
+		Config: runtimeConfig}
 
 	appModel := &appmodel.AppModel{
 		DB:     db,
