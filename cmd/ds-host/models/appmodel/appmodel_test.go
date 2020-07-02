@@ -103,7 +103,12 @@ func TestGetOwner(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	_, dsErr := appModel.Create(7, "test-app")
+	apps, dsErr := appModel.GetForOwner(7)
+	if dsErr != nil {
+		t.Error(dsErr)
+	}
+
+	_, dsErr = appModel.Create(7, "test-app")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -118,7 +123,7 @@ func TestGetOwner(t *testing.T) {
 		t.Error(dsErr)
 	}
 
-	apps, dsErr := appModel.GetForOwner(7)
+	apps, dsErr = appModel.GetForOwner(7)
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -193,11 +198,10 @@ func TestGetVersionForApp(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	
-	ins := []struct{
-		appID domain.AppID
-		version domain.Version
-		schema int
+	ins := []struct {
+		appID    domain.AppID
+		version  domain.Version
+		schema   int
 		location string
 	}{
 		{7, "0.0.1", 1, "foo-location"},
@@ -246,9 +250,9 @@ func TestDeleteVersion(t *testing.T) {
 	version := domain.Version("0.0.2")
 
 	_, dsErr := appModel.CreateVersion(appID, version, 4, "foobar")
-		if dsErr != nil {
-			t.Fatal(dsErr)
-		}
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
 
 	dsErr = appModel.DeleteVersion(appID, version)
 	if dsErr != nil {
@@ -260,4 +264,3 @@ func TestDeleteVersion(t *testing.T) {
 		t.Fatal("should have been no rows error", dsErr)
 	}
 }
-
