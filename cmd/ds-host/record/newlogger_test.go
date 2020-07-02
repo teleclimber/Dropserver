@@ -64,18 +64,32 @@ func TestAppspaceID(t *testing.T) {
 	}
 }
 
-func TestContextStr(t *testing.T) {
-	l := NewDsLogger()
-	str := l.contextStr()
+func TestUserID(t *testing.T) {
+	l := NewDsLogger().UserID(domain.UserID(7))
 
-	if str != "" {
-		t.Error("should be blank " + str)
+	if !l.hasUserID {
+		t.Error("should have user id")
+	}
+	if l.userID != domain.UserID(7) {
+		t.Error("wrong user id")
 	}
 
-	l.AppspaceID(domain.AppspaceID(7)).AppID(domain.AppID(13)).AppVersion(domain.Version("0.0.9")).AddNote("hello")
-	str = l.contextStr()
+	l.UserID(domain.UserID(13))
+	if l.userID != domain.UserID(13) {
+		t.Error("wrong user id")
+	}
+	if !strings.Contains(l.note, "7") {
+		t.Error("note should record fomer id")
+	}
+}
 
-	for _, s := range []string{"as:7", "a:13", "v:0.0.9", "hello"} {
+func TestContextStr(t *testing.T) {
+	l := NewDsLogger()
+
+	l.AppspaceID(domain.AppspaceID(7)).AppID(domain.AppID(13)).AppVersion(domain.Version("0.0.9")).UserID(domain.UserID(77)).AddNote("hello")
+	str := l.contextStr()
+
+	for _, s := range []string{"as:7", "a:13", "v:0.0.9", "u:77", "hello"} {
 		if !strings.Contains(str, s) {
 			t.Error(fmt.Sprintf("expected %v in context string: %v", s, str))
 		}

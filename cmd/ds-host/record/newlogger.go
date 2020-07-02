@@ -36,6 +36,8 @@ type DsLogger struct {
 	appVersion    domain.Version
 	appspaceID    domain.AppspaceID
 	hasAppspaceID bool
+	userID        domain.UserID
+	hasUserID     bool
 	note          string // note is extra info that is not a predetermined variable, but not the actual log message
 }
 
@@ -84,6 +86,18 @@ func (l *DsLogger) AppspaceID(appspaceID domain.AppspaceID) *DsLogger {
 	return l
 }
 
+// UserID is set on all uses of the returned logger
+// If user id is already set, the old user id is added to note
+func (l *DsLogger) UserID(userID domain.UserID) *DsLogger {
+	if l.hasUserID && l.userID != userID {
+		l.AddNote(fmt.Sprintf("ex-user-id:%v", l.userID))
+	}
+	l.hasUserID = true
+	l.userID = userID
+
+	return l
+}
+
 // AddNote appends a note to the not string
 func (l *DsLogger) AddNote(note string) *DsLogger {
 	if l.note != "" {
@@ -118,6 +132,9 @@ func (l *DsLogger) contextStr() string {
 	}
 	if l.hasAppspaceID {
 		str += fmt.Sprintf("as:%v ", l.appspaceID)
+	}
+	if l.hasUserID {
+		str += fmt.Sprintf("u:%v ", l.userID)
 	}
 	if l.note != "" {
 		str += "(" + l.note + ") "
