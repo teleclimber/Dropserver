@@ -71,7 +71,6 @@ func TestValidateConfig(t *testing.T) {
 func getPassingDefault() *domain.RuntimeConfig {
 	rtc := loadDefault()
 	rtc.DataDir = "/abc/def"
-	rtc.Loki.Address = "yada"
 	rtc.Sandbox.SocketsDir = "blah"
 	return rtc
 }

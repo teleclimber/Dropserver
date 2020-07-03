@@ -17,7 +17,6 @@ type JobController struct {
 	MigrationSandboxMgr MigrationSandobxMgrI
 	SandboxManager      domain.SandboxManagerI // regular appspace sandboxes
 	Config              *domain.RuntimeConfig
-	//Logger              domain.LogCLientI
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex

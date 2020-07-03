@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,LogCLientI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -36,10 +36,6 @@ type RuntimeConfig struct {
 		Num        int    `json:"num"`
 		SocketsDir string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
 	} `json:"sandbox"`
-	Loki struct {
-		Port    int16  `json:"port"`
-		Address string `json:"address"` // Address or IP? Or does it not matter for Loki?
-	} `json:"loki"`
 	Prometheus struct {
 		Port int16 `json:"port"`
 	} `json:"prometheus"`
@@ -100,12 +96,6 @@ const (
 	// DISABLE Maximum level, disables sending or printing
 	DISABLE LogLevel = iota
 )
-
-// LogCLientI represents an interface for logging
-type LogCLientI interface {
-	NewSandboxLogClient(int) LogCLientI
-	Log(LogLevel, map[string]string, string)
-}
 
 // MetricsI represents the global Metrics interface
 type MetricsI interface {

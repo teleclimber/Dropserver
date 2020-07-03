@@ -18,7 +18,6 @@ type AppspaceRoutes struct {
 	MigrationJobModel      domain.MigrationJobModel
 	MigrationJobController domain.MigrationJobController
 	AppModel               domain.AppModel
-	Logger                 domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the appspace routes

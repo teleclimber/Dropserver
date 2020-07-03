@@ -24,9 +24,6 @@ var configDefault = []byte(`{
 	"sandbox": {
 		"num": 3
 	},
-	"loki": {
-		"port": 3100
-	},
 	"prometheus": {
 		"port": 2112
 	}
@@ -144,14 +141,6 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 	if rtc.Sandbox.SocketsDir == "" {
 		panic("sockets dir can not be blank")
-	}
-
-	// Loki:
-	if rtc.Loki.Address == "" { // would be btter if we could disable Loki
-		panic("you need an address for Loki")
-	}
-	if rtc.Loki.Port == 0 {
-		panic("you need a port for Loki")
 	}
 
 	// Prometheus:

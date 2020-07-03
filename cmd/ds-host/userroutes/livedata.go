@@ -47,17 +47,16 @@ type LiveDataRoutes struct {
 	Authenticator     domain.Authenticator
 	JobController     domain.MigrationJobController
 	MigrationJobModel domain.MigrationJobModel
-	//Logger            domain.LogCLientI
-	wsConsts        *websocketConstants
-	tokens          map[string]token
-	tokenMux        sync.Mutex
-	tokenExp        time.Duration
-	tokenTicker     *time.Ticker
-	tokenTickerDone chan struct{}
-	clients         map[string]*liveDataClient
-	clientMux       sync.Mutex
-	clientClosed    chan string
-	stop            bool
+	wsConsts          *websocketConstants
+	tokens            map[string]token
+	tokenMux          sync.Mutex
+	tokenExp          time.Duration
+	tokenTicker       *time.Ticker
+	tokenTickerDone   chan struct{}
+	clients           map[string]*liveDataClient
+	clientMux         sync.Mutex
+	clientClosed      chan string
+	stop              bool
 }
 
 // Init makes the maps and what not
