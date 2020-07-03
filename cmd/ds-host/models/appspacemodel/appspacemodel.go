@@ -1,15 +1,19 @@
 package appspacemodel
 
 import (
+	"database/sql"
+	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 )
 
 // AppspaceModel represents the model for app spaces
 type AppspaceModel struct {
-	DB     *domain.DB
-	Logger domain.LogCLientI
+	DB *domain.DB
 
 	stmt struct {
 		selectID        *sqlx.Stmt
@@ -25,58 +29,29 @@ type AppspaceModel struct {
 // PrepareStatements for appspace model
 func (m *AppspaceModel) PrepareStatements() {
 	// Here is the place to get clever with statements if using multiple DBs.
-
-	var err error
+	p := sqlxprepper.NewPrepper(m.DB.Handle)
 
 	//get from ID
-	m.stmt.selectID, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE appspace_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM appspaces..."+err.Error())
-		panic(err)
-	}
+	m.stmt.selectID = p.Prep(`SELECT * FROM appspaces WHERE appspace_id = ?`)
 
 	//get from subdomain
-	m.stmt.selectSubdomain, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE subdomain = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT with subdomain..."+err.Error())
-		panic(err)
-	}
+	m.stmt.selectSubdomain = p.Prep(`SELECT * FROM appspaces WHERE subdomain = ?`)
 
 	// get all for an owner
-	m.stmt.selectOwner, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE owner_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectOwner "+err.Error())
-		panic(err)
-	}
+	m.stmt.selectOwner = p.Prep(`SELECT * FROM appspaces WHERE owner_id = ?`)
 
 	// Do we have a db select for app / app_version, or do we just look everything up for owner?
 	// -> advantage of app_id is that we might one day have non-owner apps
-	m.stmt.selectApp, err = m.DB.Handle.Preparex(`SELECT * FROM appspaces WHERE app_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement selectApp "+err.Error())
-		panic(err)
-	}
+	m.stmt.selectApp = p.Prep(`SELECT * FROM appspaces WHERE app_id = ?`)
 
 	// insert appspace:
-	m.stmt.insert, err = m.DB.Handle.Preparex(`INSERT INTO appspaces
+	m.stmt.insert = p.Prep(`INSERT INTO appspaces
 		("owner_id", "app_id", "app_version", subdomain, created, location_key) VALUES (?, ?, ?, ?, datetime("now"), ?)`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO appspaces..."+err.Error())
-		panic(err)
-	}
 
 	// pause
-	m.stmt.pause, err = m.DB.Handle.Preparex(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement UPDATE appspaces SET paused = ?... "+err.Error())
-		panic(err)
-	}
+	m.stmt.pause = p.Prep(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
 
-	m.stmt.setVersion, err = m.DB.Handle.Preparex(`UPDATE appspaces SET app_version = ? WHERE appspace_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement setVersion "+err.Error())
-		panic(err)
-	}
+	m.stmt.setVersion = p.Prep(`UPDATE appspaces SET app_version = ? WHERE appspace_id = ?`)
 }
 
 // GetFromID gets an AppSpace by its ID
@@ -85,9 +60,9 @@ func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspac
 
 	err := m.stmt.selectID.QueryRowx(appspaceID).StructScan(&appspace)
 	if err != nil {
+		m.getLogger("GetFromID()").AppspaceID(appspaceID).Error(err)
 		return nil, dserror.FromStandard(err)
 	}
-	// ^^ here we should differentiate between no rows returned and every other error
 
 	return &appspace, nil
 }
@@ -98,21 +73,23 @@ func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, do
 
 	err := m.stmt.selectSubdomain.QueryRowx(subdomain).StructScan(&appspace)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if err == sql.ErrNoRows {
 			return nil, dserror.New(dserror.NoRowsInResultSet)
 		}
+		m.getLogger("GetFromSubdomain(), subdomain: " + subdomain).Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
 	return &appspace, nil
 }
 
-// GetForOwner gets an AppSpace by looking up the subdomain
+// GetForOwner gets all appspaces for an owner
 func (m *AppspaceModel) GetForOwner(userID domain.UserID) ([]*domain.Appspace, domain.Error) {
 	ret := []*domain.Appspace{}
 
 	err := m.stmt.selectOwner.Select(&ret, userID)
 	if err != nil {
+		m.getLogger("GetForOwner()").UserID(userID).Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -125,6 +102,7 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 
 	err := m.stmt.selectApp.Select(&ret, appID)
 	if err != nil {
+		m.getLogger("GetForOwner()").AppID(appID).Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -133,19 +111,24 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 
 // Create adds an appspace to the database
 func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, domain.Error) {
+	logger := m.getLogger("GetForOwner()").UserID(ownerID).AppID(appID).AppVersion(version).AddNote(fmt.Sprintf("subdomain:%v, locationkey:%v", subdomain, locationKey))
+
 	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain, locationKey)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: appspaces.subdomain" {
 			return nil, dserror.New(dserror.DomainNotUnique)
 		}
+		logger.AddNote("insert").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
 	lastID, err := r.LastInsertId()
 	if err != nil {
+		logger.AddNote("r.lastInsertId()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 	if lastID >= 0xFFFFFFFF {
+		logger.Log("LastID greater than uint32")
 		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
 	}
 
@@ -153,6 +136,7 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 
 	appspace, dsErr := m.GetFromID(appspaceID)
 	if dsErr != nil {
+		logger.AddNote("GetFromID()").Error(dsErr.ToStandard())
 		return nil, dsErr // this indicates a severe internal problem, not "oh we coudln't find it"
 	}
 
@@ -163,6 +147,7 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.Error {
 	_, err := m.stmt.pause.Exec(pause, appspaceID)
 	if err != nil {
+		m.getLogger("Pause").Error(err)
 		return dserror.FromStandard(err)
 	}
 
@@ -173,8 +158,17 @@ func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.E
 func (m *AppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) domain.Error {
 	_, err := m.stmt.setVersion.Exec(version, appspaceID)
 	if err != nil {
+		m.getLogger("SetVersion").Error(err)
 		return dserror.FromStandard(err)
 	}
 
 	return nil
+}
+
+func (m *AppspaceModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppspaceModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

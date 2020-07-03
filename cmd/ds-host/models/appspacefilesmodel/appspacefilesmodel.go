@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -14,7 +15,6 @@ import (
 // AppspaceFilesModel is struct for application files manager
 type AppspaceFilesModel struct {
 	Config *domain.RuntimeConfig
-	Logger domain.LogCLientI
 }
 
 // Probably need a create location
@@ -25,13 +25,13 @@ func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
 
 	err := os.MkdirAll(appspacesPath, 0766)
 	if err != nil {
-		a.Logger.Log(domain.ERROR, nil, "AppspaceFilesModel: failed to create apps directory: "+err.Error())
+		a.getLogger("CreateLocation(), os.Mkdirall").AddNote(appspacesPath).Error(err)
 		return "", dserror.New(dserror.InternalError)
 	}
 
 	appspacePath, err := ioutil.TempDir(appspacesPath, "as")
 	if err != nil {
-		a.Logger.Log(domain.ERROR, nil, "AppspaceFilesModel: failed to create app directory: "+err.Error())
+		a.getLogger("CreateLocation(), ioutil.TempDir").AddNote(appspacesPath).Error(err)
 		return "", dserror.New(dserror.InternalError)
 	}
 
@@ -87,3 +87,11 @@ func (a *AppspaceFilesModel) getAppspacesPath() string {
 // 	return true, nil
 // }
 // unused here so far.
+
+func (a *AppspaceFilesModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppspaceFilesModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}

@@ -147,22 +147,18 @@ func main() {
 		Config: runtimeConfig}
 
 	appModel := &appmodel.AppModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	appModel.PrepareStatements()
 
 	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
-		Config: runtimeConfig,
-		Logger: logger}
+		Config: runtimeConfig}
 
 	appspaceModel := &appspacemodel.AppspaceModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	appspaceModel.PrepareStatements()
 
 	migrationJobModel := &migrationjobmodel.MigrationJobModel{
-		DB:     db,
-		Logger: logger}
+		DB: db}
 	migrationJobModel.PrepareStatements()
 
 	sandboxManager := &sandbox.Manager{

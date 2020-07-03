@@ -24,12 +24,8 @@ func TestDelete(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.DataDir = dir
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	//logger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
-
 	m := AppspaceFilesModel{
-		Config: cfg,
-		Logger: logger}
+		Config: cfg}
 
 	locKey, dsErr := m.CreateLocation()
 	if dsErr != nil {

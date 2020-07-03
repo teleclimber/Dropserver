@@ -5,14 +5,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
+	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 )
 
 // MigrationJobModel represents the model for app spaces
 type MigrationJobModel struct {
-	DB     *domain.DB
-	Logger domain.LogCLientI
+	DB *domain.DB
 
 	stmt struct {
 		create *sqlx.Stmt
@@ -30,52 +31,23 @@ type MigrationJobModel struct {
 // PrepareStatements for appspace model
 func (m *MigrationJobModel) PrepareStatements() {
 	// Here is the place to get clever with statemevts if using multiple DBs.
+	p := sqlxprepper.NewPrepper(m.DB.Handle)
 
-	var err error
-
-	m.stmt.create, err = m.DB.Handle.Preparex(`INSERT INTO migrationjobs
+	m.stmt.create = p.Prep(`INSERT INTO migrationjobs
 		("job_id", "owner_id", "appspace_id", "to_version", "priority", "created") VALUES (NULL, ?, ?, ?, ?, datetime("now"))`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO migrationjobs..."+err.Error())
-		panic(err)
-	}
 
-	m.stmt.getJob, err = m.DB.Handle.Preparex(`SELECT * FROM migrationjobs WHERE job_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement getJob"+err.Error())
-		panic(err)
-	}
+	m.stmt.getJob = p.Prep(`SELECT * FROM migrationjobs WHERE job_id = ?`)
 
-	m.stmt.getPendingAppspace, err = m.DB.Handle.Preparex(`SELECT * FROM migrationjobs WHERE appspace_id = ? AND started IS NULL`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT pending for appspace migrationjobs..."+err.Error())
-		panic(err)
-	}
+	m.stmt.getPendingAppspace = p.Prep(`SELECT * FROM migrationjobs WHERE appspace_id = ? AND started IS NULL`)
 
-	m.stmt.getPending, err = m.DB.Handle.Preparex(`SELECT * FROM migrationjobs WHERE started IS NULL
+	m.stmt.getPending = p.Prep(`SELECT * FROM migrationjobs WHERE started IS NULL
 		ORDER BY priority DESC, created DESC`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT next migrationjobs..."+err.Error())
-		panic(err)
-	}
 
-	m.stmt.setStarted, err = m.DB.Handle.Preparex(`UPDATE migrationjobs SET started = datetime("now") WHERE job_id = ? AND started IS NULL`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement UPDATE migrationjobs SET started..."+err.Error())
-		panic(err)
-	}
+	m.stmt.setStarted = p.Prep(`UPDATE migrationjobs SET started = datetime("now") WHERE job_id = ? AND started IS NULL`)
 
-	m.stmt.setFinished, err = m.DB.Handle.Preparex(`UPDATE migrationjobs SET finished = datetime("now"), error = ? WHERE job_id = ? AND started IS NOT NULL AND finished IS NULL`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement UPDATE migrationjobs SET started..."+err.Error())
-		panic(err)
-	}
+	m.stmt.setFinished = p.Prep(`UPDATE migrationjobs SET finished = datetime("now"), error = ? WHERE job_id = ? AND started IS NOT NULL AND finished IS NULL`)
 
-	m.stmt.deleteJob, err = m.DB.Handle.Preparex(`DELETE FROM migrationjobs WHERE job_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement DELETE FROM migrationjobs..."+err.Error())
-		panic(err)
-	}
+	m.stmt.deleteJob = p.Prep(`DELETE FROM migrationjobs WHERE job_id = ?`)
 }
 
 // create job
@@ -89,6 +61,7 @@ func (m *MigrationJobModel) PrepareStatements() {
 func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, domain.Error) {
 	tx, err := m.DB.Handle.Beginx()
 	if err != nil {
+		m.getLogger("Create(), Beginx()").Error(err)
 		tx.Rollback()
 		return nil, dserror.FromStandard(err)
 	}
@@ -97,6 +70,7 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 	get := tx.Stmtx(m.stmt.getPendingAppspace)
 	err = get.QueryRowx(appspaceID).StructScan(&job)
 	if err != nil && err != sql.ErrNoRows {
+		m.getLogger("Create(), QueryRowx()").Error(err)
 		tx.Rollback()
 		return nil, dserror.FromStandard(err)
 	}
@@ -104,6 +78,7 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 		del := tx.Stmtx(m.stmt.deleteJob)
 		_, err := del.Exec(job.JobID)
 		if err != nil {
+			m.getLogger("Create(), del.Exec()").Error(err)
 			tx.Rollback()
 			return nil, dserror.FromStandard(err)
 		}
@@ -113,17 +88,23 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 
 	r, err := create.Exec(ownerID, appspaceID, toVersion, priority)
 	if err != nil {
+		m.getLogger("Create(), create.Exec()").Error(err)
 		tx.Rollback()
 		return nil, dserror.FromStandard(err)
 	}
 
 	jobID, err := r.LastInsertId()
 	if err != nil {
+		m.getLogger("Create(), LastInsertId()").Error(err)
 		tx.Rollback()
 		return nil, dserror.FromStandard(err)
 	}
 
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		m.getLogger("Create(), tx.Commit()").Error(err)
+		return nil, dserror.FromStandard(err)
+	}
 
 	return m.GetJob(domain.JobID(jobID))
 }
@@ -137,6 +118,7 @@ func (m *MigrationJobModel) GetJob(jobID domain.JobID) (*domain.MigrationJob, do
 		if err == sql.ErrNoRows {
 			return nil, dserror.New(dserror.NoRowsInResultSet)
 		}
+		m.getLogger("GetJob()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 	return &ret, nil
@@ -166,6 +148,7 @@ func (m *MigrationJobModel) GetPending() ([]*domain.MigrationJob, domain.Error) 
 
 	err := m.stmt.getPending.Select(&ret)
 	if err != nil && err != sql.ErrNoRows {
+		m.getLogger("GetPending()").Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -181,10 +164,12 @@ func (m *MigrationJobModel) SetStarted(jobID domain.JobID) (bool, domain.Error) 
 	// return false, nil in case of no-change and caller can manage and start another one.
 	r, err := m.stmt.setStarted.Exec(jobID)
 	if err != nil {
+		m.getLogger("SetStarted(), setStarted.Exec()").Error(err)
 		return false, dserror.FromStandard(err)
 	}
 	num, err := r.RowsAffected()
 	if err != nil {
+		m.getLogger("SetStarted(), r.RowsAffected").Error(err)
 		return false, dserror.FromStandard(err)
 	}
 	if num != 1 {
@@ -197,10 +182,12 @@ func (m *MigrationJobModel) SetStarted(jobID domain.JobID) (bool, domain.Error) 
 func (m *MigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.NullString) domain.Error {
 	r, err := m.stmt.setFinished.Exec(errStr, jobID)
 	if err != nil {
+		m.getLogger("SetFinished(), setFinished.Exec()").Error(err)
 		return dserror.FromStandard(err)
 	}
 	num, err := r.RowsAffected()
 	if err != nil {
+		m.getLogger("SetFinished(), RowsAffected").Error(err)
 		return dserror.FromStandard(err)
 	}
 	if num != 1 {
@@ -218,3 +205,11 @@ func (m *MigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.Nul
 // 	}
 // 	return nil
 // }
+
+func (m *MigrationJobModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("MigrationJobModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}
