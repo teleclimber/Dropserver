@@ -137,8 +137,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger.Log(domain.INFO, nil, "ds-host is starting")
-
 	cookieModel := &cookiemodel.CookieModel{
 		DB: db}
 	cookieModel.PrepareStatements()
@@ -169,8 +167,7 @@ func main() {
 		AppModel:          appModel,
 		SandboxManager:    sandboxManager,
 		MigrationJobModel: migrationJobModel,
-		Config:            runtimeConfig,
-		Logger:            logger}
+		Config:            runtimeConfig}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
@@ -317,14 +314,3 @@ func main() {
 
 	fmt.Println("Leaving main func")
 }
-
-// func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, logger domain.LogCLientI) {
-// 	logger.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
-// 	var appSpace, app string
-// 	for i := 1; i <= n; i++ {
-// 		appSpace = fmt.Sprintf("as%d", i)
-// 		app = fmt.Sprintf("app%d", i)
-// 		//am.Create( &domain.App{Name:app})
-// 		//asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
-// 	}
-// }

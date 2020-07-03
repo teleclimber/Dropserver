@@ -1,11 +1,11 @@
 package migrateappspace
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
@@ -17,7 +17,7 @@ type JobController struct {
 	MigrationSandboxMgr MigrationSandobxMgrI
 	SandboxManager      domain.SandboxManagerI // regular appspace sandboxes
 	Config              *domain.RuntimeConfig
-	Logger              domain.LogCLientI
+	//Logger              domain.LogCLientI
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
@@ -33,8 +33,7 @@ type JobController struct {
 // with a delay (in the future)
 func (c *JobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
 	c.MigrationSandboxMgr = &MigrationSandboxMgr{
-		Config: c.Config,
-		Logger: c.Logger}
+		Config: c.Config}
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
 	c.fanIn = make(chan runningJobStatus)
@@ -131,16 +130,20 @@ func (c *JobController) eventManifold() { // eventBus?
 	for d := range c.fanIn {
 		if d.errString.Valid {
 			// TODO: put migration job id, appspace id, ...
-			c.Logger.Log(domain.ERROR, nil, "Run migration job: finished with error: "+d.errString.String)
+			c.getLogger("eventManifold").Log("Run migration job: finished with error: " + d.errString.String)
+			// ^^ This is more likely be app-level logging.
 		} else {
-			c.Logger.Log(domain.INFO, nil, "Run migration job "+statString[d.status]+": "+strconv.Itoa(int(d.origJob.JobID))+" ")
+			//c.Logger.Log(domain.INFO, nil, "Run migration job "+statString[d.status]+": "+strconv.Itoa(int(d.origJob.JobID))+" ")
+			// ^^ successful migrations need not be logged to dev log.
 		}
 
 		// Clean up:
 		if d.status == domain.MigrationFinished {
 			dsErr := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
 			if dsErr != nil {
-				c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
+				//c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
+				// ^^ this is already logged by model. No need to log.
+				// But should probably warn user that something is not right.
 			}
 
 			c.runningMux.Lock()
@@ -199,16 +202,18 @@ func (c *JobController) startNext() {
 
 	jobs, dsErr := c.MigrationJobModel.GetPending()
 	if dsErr != nil {
-		c.Logger.Log(domain.ERROR, nil, "Error getting pending jobs: "+dsErr.PublicString())
+		//c.Logger.Log(domain.ERROR, nil, "Error getting pending jobs: "+dsErr.PublicString())
+		// ^^ already logged by model.
 		return
 	}
 
 	var runJob *domain.MigrationJob
 	for _, j := range jobs {
-		ok, dsErr := c.MigrationJobModel.SetStarted(j.JobID)
-		if dsErr != nil {
-			c.Logger.Log(domain.ERROR, nil, "Error setting job to started: "+dsErr.PublicString())
-		}
+		ok, _ := c.MigrationJobModel.SetStarted(j.JobID)
+		// if dsErr != nil {
+		// 	c.Logger.Log(domain.ERROR, nil, "Error setting job to started: "+dsErr.PublicString())
+		// already logged by model
+		// }
 		if ok {
 			// check if a job is already running on that appspace
 			// TODO: wouldn't you check that before calling setStarted??
@@ -306,6 +311,14 @@ func (c *JobController) runJob(job *runningJob) {
 	}
 }
 
+func (c *JobController) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("JobController")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}
+
 // It seems a key thing is making it possible for sandbox proxy to query started jobs
 // ..so as to avoid starting a sandbox while this is happening.
 // Also there needs to be a place to store pending migrations so they can be started one by one.
@@ -326,6 +339,9 @@ func (c *JobController) runJob(job *runningJob) {
 
 // TODO: split job into parts based on the dropserver API version of the app version
 // .. you'll have to stop the sandbox and migrate appspace meta db, then start new sandbox with new version libs
+
+// Wondering if runningJob should have its own getLogger?
+// Might cut down on message passing?
 
 type runningJob struct {
 	migrationJob *domain.MigrationJob

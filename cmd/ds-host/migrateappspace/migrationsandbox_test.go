@@ -20,8 +20,6 @@ func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-
 	// dir, err := ioutil.TempDir("", "")
 	// if err != nil {
 	// 	t.Error(err)
@@ -38,10 +36,7 @@ func TestStart(t *testing.T) {
 	cfg.Exec.MigratorScriptPath = p.migratorScript
 
 	s := &migrationSandbox{
-		Logger: logger,
 		Config: cfg}
-
-	logger.EXPECT().Log(domain.INFO, nil, gomock.Any())
 
 	dsErr := s.Start("workingapp", "appspace-loc-5", 1, 2)
 	if dsErr != nil {
@@ -52,8 +47,6 @@ func TestStart(t *testing.T) {
 func TestStartFail(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	// dir, err := ioutil.TempDir("", "")
 	// if err != nil {
@@ -69,11 +62,7 @@ func TestStartFail(t *testing.T) {
 	cfg.Exec.MigratorScriptPath = p.migratorScript
 
 	s := &migrationSandbox{
-		Logger: logger,
 		Config: cfg}
-
-	logger.EXPECT().Log(domain.INFO, nil, gomock.Any())
-	logger.EXPECT().Log(domain.ERROR, nil, gomock.Any())
 
 	dsErr := s.Start("workingapp", "appspace-loc-5", 2, 3)
 	if dsErr == nil {

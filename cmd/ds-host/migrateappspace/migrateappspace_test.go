@@ -245,11 +245,7 @@ func TestEventManifold(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-	log.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
-
 	c := &JobController{
-		Logger:      log,
 		runningJobs: make(map[domain.JobID]*runningJob),
 		fanIn:       make(chan runningJobStatus, 10),
 		ownerSubs:   make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)}
@@ -284,12 +280,8 @@ func TestEventManifoldFinished(t *testing.T) {
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-	log.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
-
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
-		Logger:            log,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
 		stop:              true, // prevents startNext from running again
@@ -329,11 +321,8 @@ func TestFullStartStop(t *testing.T) {
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-
 	c := &JobController{
-		MigrationJobModel: migrationJobModel,
-		Logger:            log}
+		MigrationJobModel: migrationJobModel}
 
 	c.Start()
 	c.Stop()
@@ -347,14 +336,10 @@ func TestFullStartStopWithJob(t *testing.T) {
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-	log.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
-
 	appspaceID := domain.AppspaceID(7)
 
 	c := &JobController{
-		MigrationJobModel: migrationJobModel,
-		Logger:            log}
+		MigrationJobModel: migrationJobModel}
 
 	rj := c.createRunningJob(&domain.MigrationJob{
 		JobID:      1,

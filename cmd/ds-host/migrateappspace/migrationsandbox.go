@@ -10,6 +10,7 @@ package migrateappspace
 // - some level of appspace api on host (yes, DB!!)
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"golang.org/x/sys/unix"
 )
@@ -32,14 +34,12 @@ type MigrationSandobxMgrI interface {
 // MigrationSandboxMgr is in charge of creating migration sandboxes.
 type MigrationSandboxMgr struct {
 	Config *domain.RuntimeConfig
-	Logger domain.LogCLientI
 }
 
 // CreateSandbox creates a sandbox struct and returns it
 func (m *MigrationSandboxMgr) CreateSandbox() MigrationSandboxI { //*migrationSandbox {
 	sandbox := migrationSandbox{
-		Config: m.Config,
-		Logger: m.Logger}
+		Config: m.Config}
 
 	return &sandbox
 }
@@ -59,13 +59,11 @@ type migrationSandbox struct {
 	//statusSub chan migrationSandboxStatus	// no status, just run and return
 
 	Config *domain.RuntimeConfig
-	Logger domain.LogCLientI
 }
 
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
 func (s *migrationSandbox) Start(appLocation string, appspaceLocation string, from int, to int) domain.Error {
-	s.Logger.Log(domain.INFO, nil, "Starting sandbox")
 
 	// Will need reverse listener:
 	//var dsErr domain.Error
@@ -77,7 +75,7 @@ func (s *migrationSandbox) Start(appLocation string, appspaceLocation string, fr
 	// }
 
 	cmd := exec.Command(
-		"node",
+		"node", // TODO: Deno should be used here
 		s.Config.Exec.MigratorScriptPath,
 		//s.reverseListener.socketPath,
 		filepath.Join(s.Config.Exec.AppsPath, appLocation), // TODO: This could lead to errors. Make apps dir a runtime config exec field?
@@ -93,21 +91,21 @@ func (s *migrationSandbox) Start(appLocation string, appspaceLocation string, fr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		errStr := "could not get stdout pipe " + err.Error()
-		s.Logger.Log(domain.ERROR, nil, "migrationsandbox: "+errStr)
+		s.getLogger("Start").Error(err)
 		return dserror.New(dserror.SandboxFailedStart, errStr)
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		errStr := "could not get stderr pipe " + err.Error()
-		s.Logger.Log(domain.ERROR, nil, "migrationsandbox: "+errStr)
+		s.getLogger("Start").Error(err)
 		return dserror.New(dserror.SandboxFailedStart, errStr)
 	}
 
 	err = cmd.Start() // returns right away
 	if err != nil {
 		errStr := "error on cmd.Start " + err.Error()
-		s.Logger.Log(domain.ERROR, nil, "migrationsandbox: "+errStr)
+		s.getLogger("Start").Error(err)
 		return dserror.New(dserror.SandboxFailedStart, errStr)
 	}
 
@@ -153,7 +151,7 @@ func (s *migrationSandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) d
 	err := s.cmd.Wait()
 	if err != nil {
 		errStr := "sandbox finished with error: " + err.Error()
-		s.Logger.Log(domain.ERROR, nil, "migrationsandbox: "+errStr)
+		s.getLogger("monitor()").Error(err)
 		return dserror.New(dserror.SandboxFailedStart, errStr)
 	}
 
@@ -197,12 +195,10 @@ func (s *migrationSandbox) Stop() {
 
 	err := s.kill(false)
 	if err != nil {
-		s.Logger.Log(domain.ERROR, nil, "Unable to kill sandbox")
 		// force kill
 		err = s.kill(true)
 		if err != nil {
 			// ???
-			s.Logger.Log(domain.ERROR, nil, "Unable to FORCE kill sandbox")
 		}
 	}
 	/////.....
@@ -224,7 +220,7 @@ func (s *migrationSandbox) pidAlive() bool {
 
 // kill sandbox, which means send it the kill sig
 // This should get picked up internally and it should shut itself down.
-func (s *migrationSandbox) kill(force bool) domain.Error {
+func (s *migrationSandbox) kill(force bool) error {
 	process := s.cmd.Process
 
 	sig := unix.SIGTERM
@@ -233,7 +229,7 @@ func (s *migrationSandbox) kill(force bool) domain.Error {
 	}
 	err := process.Signal(sig)
 	if err != nil {
-		s.Logger.Log(domain.INFO, nil, fmt.Sprintf("kill: Error killing process. Force: %t", force))
+		s.getLogger("kill()").AddNote(fmt.Sprintf("kill: Error killing process. Force: %t", force)).Error(err)
 	}
 
 	var alive bool
@@ -251,7 +247,15 @@ func (s *migrationSandbox) kill(force bool) domain.Error {
 	}
 
 	if alive {
-		return dserror.New(dserror.SandboxFailedToTerminate)
+		return errors.New("Failed to kill sandbox")
 	}
 	return nil
+}
+
+func (s *migrationSandbox) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("migrationSandbox")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
