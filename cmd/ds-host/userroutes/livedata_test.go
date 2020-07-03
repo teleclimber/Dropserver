@@ -135,9 +135,6 @@ func TestWSRemoteStop(t *testing.T) {
 
 	defer leaktest.GoroutineLeakCheck(t)()
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-	log.EXPECT().Log(domain.ERROR, gomock.Any(), gomock.Any())
-
 	tokStr := "abc"
 	uid := domain.UserID(7)
 
@@ -163,8 +160,7 @@ func TestWSRemoteStop(t *testing.T) {
 
 	liveDataRoutes := &LiveDataRoutes{
 		JobController:     jobCtl,
-		MigrationJobModel: migrationJobModel,
-		Logger:            log}
+		MigrationJobModel: migrationJobModel}
 	liveDataRoutes.Init()
 	liveDataRoutes.wsConsts.writeWait = time.Second
 	liveDataRoutes.wsConsts.pongWait = time.Second
@@ -212,8 +208,6 @@ func TestWSMultipleRemotes(t *testing.T) {
 
 	defer leaktest.GoroutineLeakCheck(t)()
 
-	log := domain.NewMockLogCLientI(mockCtrl)
-
 	tokStr1 := "abc"
 	tokStr2 := "def"
 	uid := domain.UserID(7)
@@ -250,8 +244,7 @@ func TestWSMultipleRemotes(t *testing.T) {
 
 	liveDataRoutes := &LiveDataRoutes{
 		JobController:     jobCtl,
-		MigrationJobModel: migrationJobModel,
-		Logger:            log}
+		MigrationJobModel: migrationJobModel}
 	liveDataRoutes.Init()
 
 	liveDataRoutes.tokens[tokStr1] = token{uid, time.Now().Add(time.Minute)}

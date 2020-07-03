@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -46,17 +47,17 @@ type LiveDataRoutes struct {
 	Authenticator     domain.Authenticator
 	JobController     domain.MigrationJobController
 	MigrationJobModel domain.MigrationJobModel
-	Logger            domain.LogCLientI
-	wsConsts          *websocketConstants
-	tokens            map[string]token
-	tokenMux          sync.Mutex
-	tokenExp          time.Duration
-	tokenTicker       *time.Ticker
-	tokenTickerDone   chan struct{}
-	clients           map[string]*liveDataClient
-	clientMux         sync.Mutex
-	clientClosed      chan string
-	stop              bool
+	//Logger            domain.LogCLientI
+	wsConsts        *websocketConstants
+	tokens          map[string]token
+	tokenMux        sync.Mutex
+	tokenExp        time.Duration
+	tokenTicker     *time.Ticker
+	tokenTickerDone chan struct{}
+	clients         map[string]*liveDataClient
+	clientMux       sync.Mutex
+	clientClosed    chan string
+	stop            bool
 }
 
 // Init makes the maps and what not
@@ -171,7 +172,7 @@ func (l *LiveDataRoutes) startWsConn(res http.ResponseWriter, req *http.Request,
 
 	conn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
-		l.Logger.Log(domain.WARN, nil, "unable to upgrade to websocket conn "+err.Error()+" ..req origin: "+req.Header.Get("Origin"))
+		l.getLogger("startWsConn(), Upgrade(), req origin: " + req.Header.Get("Origin")).Error(err)
 		http.Error(res, "unable to upgrade to websocket", http.StatusInternalServerError)
 		return
 	}
@@ -182,8 +183,7 @@ func (l *LiveDataRoutes) startWsConn(res http.ResponseWriter, req *http.Request,
 		conn:              conn,
 		wsConsts:          l.wsConsts,
 		jobController:     l.JobController,
-		migrationJobModel: l.MigrationJobModel,
-		logger:            l.Logger}
+		migrationJobModel: l.MigrationJobModel}
 	client.start()
 	client.subscribeJobs()
 
@@ -197,6 +197,14 @@ func (l *LiveDataRoutes) startWsConn(res http.ResponseWriter, req *http.Request,
 		l.clientMux.Unlock()
 		l.clientClosed <- tokStr
 	}()
+}
+
+func (l *LiveDataRoutes) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("LiveDataRoutes")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 type updateData struct {
@@ -224,8 +232,6 @@ type liveDataClient struct {
 	done       chan struct{}
 	stopped    bool
 	stopMux    sync.Mutex
-
-	logger domain.LogCLientI
 }
 
 func (c *liveDataClient) start() {
@@ -261,7 +267,8 @@ func (c *liveDataClient) subscribeJobs() {
 	for _, cs := range curStat {
 		job, err := c.migrationJobModel.GetJob(cs.JobID)
 		if err != nil {
-			c.logger.Log(domain.ERROR, nil, "error getting job in livedataclient subscribe "+err.ExtraMessage())
+			//c.logger.Log(domain.ERROR, nil, "error getting job in livedataclient subscribe "+err.ExtraMessage())
+			// logged in model
 			continue // frontend will have trouble with subsequent updates, but oh well.
 		}
 		c.updatesPipe <- updateData{
@@ -273,13 +280,8 @@ func (c *liveDataClient) subscribeJobs() {
 	go func() {
 		for update := range updateChan {
 			var job *domain.MigrationJob
-			var err domain.Error
 			if update.Status == domain.MigrationStarted {
-				job, err = c.migrationJobModel.GetJob(update.JobID)
-				if err != nil {
-					c.logger.Log(domain.ERROR, nil, "error getting job in livedataclient subscribe "+err.ExtraMessage())
-					//continue // frontend will have trouble with subsequent updates, but oh well.
-				}
+				job, _ = c.migrationJobModel.GetJob(update.JobID)
 			}
 			c.updatesPipe <- updateData{job, update}
 		}
@@ -302,21 +304,18 @@ func (c *liveDataClient) readPump() {
 	c.conn.SetReadLimit(c.wsConsts.maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
-		fmt.Println("readpump PongHandler")
 		err := c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		if err != nil {
-			fmt.Println("error setting read deadline in SetPongHandler")
+			c.getLogger("readPump(), SetPongHandler(), SetReadDeadline()").Error(err)
 		}
 		return err
 	})
 	for {
 		_, _, err := c.conn.ReadMessage()
-		fmt.Println("readpump ReadMessage")
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.logger.Log(domain.DEBUG, nil, "IsUnexpectedCloseError() "+err.Error())
+				c.getLogger("readPump(), conn.ReadMessage()").Error(err)
 			}
-			fmt.Println("readPump ReadMessage error", err.Error())
 			break
 		}
 		// message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
@@ -347,7 +346,7 @@ func (c *liveDataClient) writePump() {
 	defer c.stop()
 	defer func() {
 		if err != nil {
-			c.logger.Log(domain.ERROR, nil, "writePump error: "+errStr)
+			c.getLogger("writePump()").AddNote(errStr).Error(err)
 			// We may want to limit the errors we log, because we may get too many remote disconnects clogging up the log
 		}
 	}()
@@ -357,12 +356,12 @@ func (c *liveDataClient) writePump() {
 			data := newUpdateData(update)
 			err = c.conn.SetWriteDeadline(time.Now().Add(c.wsConsts.writeWait))
 			if err != nil {
-				errStr = "updatesPipe SetWriteDeadline " + err.Error()
+				errStr = "updatesPipe SetWriteDeadline"
 				return
 			}
 			err = c.conn.WriteJSON(data)
 			if err != nil {
-				errStr = "updatesPipe WriteJSON " + err.Error()
+				errStr = "updatesPipe WriteJSON"
 				return
 			}
 		case <-c.ticker.C:
@@ -370,18 +369,26 @@ func (c *liveDataClient) writePump() {
 
 			err = c.conn.SetWriteDeadline(time.Now().Add(c.wsConsts.writeWait))
 			if err != nil {
-				errStr = "ticker SetWriteDeadline " + err.Error()
+				errStr = "ticker SetWriteDeadline"
 				return
 			}
 			err = c.conn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
-				errStr = "ticker WriteMessage " + err.Error()
+				errStr = "ticker WriteMessage"
 				return
 			}
 		case <-c.stopWrites:
 			return
 		}
 	}
+}
+
+func (c *liveDataClient) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("liveDataClient").UserID(c.userID)
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // converting types

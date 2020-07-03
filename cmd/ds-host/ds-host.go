@@ -177,8 +177,7 @@ func main() {
 	liveDataRoutes := &userroutes.LiveDataRoutes{
 		JobController:     migrationJobCtl,
 		MigrationJobModel: migrationJobModel,
-		Authenticator:     authenticator,
-		Logger:            logger}
+		Authenticator:     authenticator}
 	liveDataRoutes.Init()
 
 	sigs := make(chan os.Signal, 1)
