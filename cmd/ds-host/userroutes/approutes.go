@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
@@ -18,7 +19,6 @@ type ApplicationRoutes struct {
 	AppFilesModel domain.AppFilesModel
 	AppModel      domain.AppModel
 	AppspaceModel domain.AppspaceModel
-	Logger        domain.LogCLientI
 }
 
 // post to / to create a new application even if only partially,
@@ -251,7 +251,7 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 	// streaming version
 	reader, err := req.MultipartReader()
 	if err != nil {
-		a.Logger.Log(domain.INFO, map[string]string{}, "Approutes:extractFiles: Request apparently not multipart form")
+		a.getLogger("extractFiles(), req.MultipartReader()").Error(err)
 		return &fileData
 	}
 
@@ -347,4 +347,12 @@ func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteDa
 	}
 
 	return version, nil
+}
+
+func (a *ApplicationRoutes) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("ApplicationRoutes")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

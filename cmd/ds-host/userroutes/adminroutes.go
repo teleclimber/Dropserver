@@ -14,7 +14,6 @@ type AdminRoutes struct {
 	SettingsModel       domain.SettingsModel
 	UserInvitationModel domain.UserInvitationModel
 	Validator           domain.Validator
-	Logger              domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the admin routes

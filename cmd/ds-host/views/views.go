@@ -6,12 +6,12 @@ import (
 	"path"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // Views struct handles server-rendered templated views
 type Views struct {
 	Config *domain.RuntimeConfig
-	Logger domain.LogCLientI
 
 	base BaseData
 
@@ -62,7 +62,8 @@ func (v *Views) Login(res http.ResponseWriter, viewData domain.LoginViewData) {
 
 	err := v.loginTemplate.Execute(res, d)
 	if err != nil {
-		v.Logger.Log(domain.ERROR, nil, err.Error())
+		record.NewDsLogger().AddNote("")
+		v.getLogger("Login()").Error(err)
 		// Too late to send error status. Hopefully the logger is enough.
 	}
 }
@@ -81,7 +82,7 @@ func (v *Views) Signup(res http.ResponseWriter, viewData domain.SignupViewData) 
 
 	err := v.signupTemplate.Execute(res, d)
 	if err != nil {
-		v.Logger.Log(domain.ERROR, nil, err.Error())
+		v.getLogger("Signup()").Error(err)
 		// Too late to send error status. Hopefully the logger is enough.
 	}
 }
@@ -99,7 +100,7 @@ func (v *Views) UserHome(res http.ResponseWriter) {
 
 	err := v.userHomeTemplate.Execute(res, d)
 	if err != nil {
-		v.Logger.Log(domain.ERROR, nil, err.Error())
+		v.getLogger("UserHome()").Error(err)
 		// Too late to send error status. Hopefully the logger is enough.
 	}
 }
@@ -117,7 +118,15 @@ func (v *Views) Admin(res http.ResponseWriter) {
 
 	err := v.adminTemplate.Execute(res, d)
 	if err != nil {
-		v.Logger.Log(domain.ERROR, nil, err.Error())
+		v.getLogger("Admin()").Error(err)
 		// Too late to send error status. Hopefully the logger is enough.
 	}
+}
+
+func (v *Views) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("Views")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

@@ -15,7 +15,6 @@ type V0 struct {
 	AppspaceRouteModels domain.AppspaceRouteModels
 	DropserverRoutes    domain.RouteHandler // versioned
 	SandboxProxy        domain.RouteHandler // versioned?
-	Logger              domain.LogCLientI
 }
 
 // ^^ Also need access to sessions

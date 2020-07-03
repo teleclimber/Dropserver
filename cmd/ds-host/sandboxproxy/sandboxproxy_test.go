@@ -28,7 +28,6 @@ import (
 type testMocks struct {
 	sandboxProxy  *SandboxProxy
 	sandboxServer *httptest.Server
-	sbLogger      *domain.MockLogCLientI
 	routeData     *domain.AppspaceRouteData
 }
 
@@ -38,8 +37,6 @@ func TestServeHTTP200(t *testing.T) {
 
 	tm := createMocks(mockCtrl, sandboxHandler200)
 	defer tm.sandboxServer.Close()
-
-	tm.sbLogger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
 
 	// from https://blog.questionable.services/article/testing-http-handlers-go/
 	// craft a request
@@ -75,8 +72,6 @@ func TestServeHTTP404(t *testing.T) {
 	tm := createMocks(mockCtrl, sandboxHandler404)
 	defer tm.sandboxServer.Close()
 
-	tm.sbLogger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
-
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -93,12 +88,10 @@ func TestServeHTTP404(t *testing.T) {
 
 func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter, *http.Request)) testMocks {
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 	metrics := domain.NewMockMetricsI(mockCtrl)
 
 	sandboxProxy := &SandboxProxy{
 		SandboxManager: sandboxManager,
-		Logger:         logger,
 		Metrics:        metrics}
 
 	routeData := &domain.AppspaceRouteData{
@@ -116,11 +109,6 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 
 	// dummy server to stand in for sandbox
 	ts := httptest.NewServer(http.HandlerFunc(sbHandler))
-
-	//sandbox.EXPECT().GetPort().Return(ts.Listener.Addr().(*net.TCPAddr).Port)
-
-	sbLogger := domain.NewMockLogCLientI(mockCtrl)
-	sandbox.EXPECT().GetLogClient().Return(sbLogger)
 
 	taskCh := make(chan bool)
 	sandbox.EXPECT().TaskBegin().Return(taskCh)
@@ -140,7 +128,6 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	return testMocks{
 		sandboxProxy:  sandboxProxy,
 		sandboxServer: ts,
-		sbLogger:      sbLogger,
 		routeData:     routeData,
 	}
 

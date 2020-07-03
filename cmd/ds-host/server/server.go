@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // Server struct sets all parameters about the server
@@ -19,7 +20,6 @@ type Server struct {
 	AppspaceRoutes domain.RouteHandler
 
 	Metrics domain.MetricsI
-	Logger  domain.LogCLientI
 
 	rootDomainPieces    []string
 	publicStaticHandler http.Handler
@@ -80,8 +80,8 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// ..then pass remainder to appspace routes.
 	subdomains, ok := getSubdomains(req.Host, s.rootDomainPieces)
 	if !ok {
+		s.getLogger("ServeHTTP(), getSubdomains()").Log("Error getting subdomains from host string: " + req.Host)
 		http.Error(res, "Error getting subdomains from host string", http.StatusInternalServerError)
-		s.Logger.Log(domain.DEBUG, map[string]string{}, "Error getting subdomains from host string: "+req.Host)
 		return
 	} else if len(subdomains) == 0 {
 		// no subdomain. It's the site itself?
@@ -112,6 +112,14 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
 	}
+}
+
+func (s *Server) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("Server")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 func getSubdomains(reqHost string, rootDomainPieces []string) (subdomains []string, ok bool) {

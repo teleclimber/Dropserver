@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
 	SandboxManager domain.SandboxManagerI // not needed at server level
-	Logger         domain.LogCLientI
 	Metrics        domain.MetricsI
 }
 
@@ -20,11 +20,6 @@ type SandboxProxy struct {
 // Could still see splitting this function in two.
 func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, routeData *domain.AppspaceRouteData) {
 	defer s.Metrics.HostHandleReq(time.Now())
-
-	appName := routeData.App.Name
-	appspaceName := routeData.Appspace.Subdomain
-
-	fmt.Println("in request handler", appspaceName, appName)
 
 	// Not clear where responsibility lies for not starting a sandbox for a paused appsapce?
 	// for literally paused, it's in appspaceroutes
@@ -48,24 +43,16 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)
 	if err != nil {
-		sb.GetLogClient().Log(domain.ERROR, map[string]string{
-			"app-space": appspaceName, "app": appName},
-			"http.NewRequest error: "+err.Error())
-
-		fmt.Println("http.NewRequest error", oReq.Method, sbAddress, err)
-		//os.Exit(1)
-		// don't exit, but need to think about how to deal with this gracefully.
+		s.getLogger("ServeHTTP(), http.NewRequest()").Error(err)
+		// Maybe add app id and appspace id?
+		// probably need to bail if we can't create a requst
 	}
 
 	cReq.Header = header
 
 	cRes, err := sbTransport.RoundTrip(cReq)
 	if err != nil {
-		sb.GetLogClient().Log(domain.ERROR, map[string]string{
-			"app-space": appspaceName, "app": appName},
-			"sb.Transport.RoundTrip(cReq) error: "+err.Error())
-		fmt.Println("sb.Transport.RoundTrip(cReq) error", err)
-		//os.Exit(1)
+		s.getLogger("ServeHTTP(), sbTransport.RoundTrip()").Error(err)
 	}
 
 	// futz around with headers
@@ -78,10 +65,14 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	cRes.Body.Close()
 
 	reqTaskCh <- true
+}
 
-	sb.GetLogClient().Log(domain.INFO, map[string]string{
-		"app-space": appspaceName, "app": appName},
-		"Request handled")
+func (s *SandboxProxy) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("SandboxProxy")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // From https://golang.org/src/net/http/httputil/reverseproxy.go

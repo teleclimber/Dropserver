@@ -20,7 +20,6 @@ type UserRoutes struct {
 	UserModel         domain.UserModel
 	Views             domain.Views
 	Validator         domain.Validator
-	Logger            domain.LogCLientI
 }
 
 // ServeHTTP handles http traffic to the user routes

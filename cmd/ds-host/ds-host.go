@@ -88,8 +88,6 @@ func main() {
 	record.Init(runtimeConfig) // ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	logger := record.NewLogClient(runtimeConfig) // we should start logger before migration step, and log migrations
-
 	validator := &validator.Validator{}
 	validator.Init()
 
@@ -224,12 +222,10 @@ func main() {
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: sandboxManager,
-		Logger:         logger,
 		Metrics:        &m}
 
 	// Views
 	views := &views.Views{
-		Logger: logger,
 		Config: runtimeConfig}
 	views.PrepareTemplates()
 
@@ -246,14 +242,12 @@ func main() {
 		UserModel:           userModel,
 		SettingsModel:       settingsModel,
 		UserInvitationModel: userInvitationModel,
-		Validator:           validator,
-		Logger:              logger}
+		Validator:           validator}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
-		Logger:        logger}
+		AppspaceModel: appspaceModel}
 
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
 		AppspaceFilesModel:     appspaceFilesModel,
@@ -271,8 +265,7 @@ func main() {
 		LiveDataRoutes:    liveDataRoutes,
 		UserModel:         userModel,
 		Views:             views,
-		Validator:         validator,
-		Logger:            logger}
+		Validator:         validator}
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		Config:    runtimeConfig,
@@ -285,8 +278,7 @@ func main() {
 	appspaceRoutesV0 := &appspaceroutes.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
-		SandboxProxy:        sandboxProxy,
-		Logger:              logger}
+		SandboxProxy:        sandboxProxy}
 
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
 		AppModel:      appModel,
@@ -303,8 +295,7 @@ func main() {
 		Config:         runtimeConfig,
 		UserRoutes:     userRoutes,
 		AppspaceRoutes: appspaceRoutes,
-		Metrics:        &m,
-		Logger:         logger}
+		Metrics:        &m}
 
 	fmt.Println("starting server")
 
