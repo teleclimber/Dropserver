@@ -48,10 +48,6 @@ func TestSandboxExecFn(t *testing.T) {
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	logger.EXPECT().NewSandboxLogClient(gomock.Any()).Return(logger).AnyTimes()
-	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
 	appVersion := domain.AppVersion{
 		LocationKey: "app-location"}
 	appspace := domain.Appspace{
@@ -59,8 +55,7 @@ func TestSandboxExecFn(t *testing.T) {
 		LocationKey: "appspace-location"}
 
 	sM := sandbox.Manager{
-		Config: cfg,
-		Logger: logger}
+		Config: cfg}
 
 	sM.Init()
 
@@ -111,10 +106,6 @@ func TestSandboxCreateRoute(t *testing.T) {
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	logger.EXPECT().NewSandboxLogClient(gomock.Any()).Return(logger).AnyTimes()
-	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
 	v := &validator.Validator{}
 	v.Init()
 
@@ -134,8 +125,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 
 	sM := sandbox.Manager{
 		Services: revServices,
-		Config:   cfg,
-		Logger:   logger}
+		Config:   cfg}
 
 	appVersion := domain.AppVersion{
 		LocationKey: "app-location"}
@@ -164,9 +154,9 @@ func TestSandboxCreateRoute(t *testing.T) {
 
 	handler := domain.AppspaceRouteHandler{
 		File: "@app/test-file.ts"}
-	dsErr := sb.ExecFn(handler)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = sb.ExecFn(handler)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// check to see if the route exists in the DB...

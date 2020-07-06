@@ -54,20 +54,14 @@ func TestIntegration1(t *testing.T) {
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
 	cfg.Exec.AppspacesMetaPath = dataDir
 
-	logger := domain.NewMockLogCLientI(mockCtrl)
-	logger.EXPECT().NewSandboxLogClient(gomock.Any()).Return(logger).AnyTimes()
-	logger.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
 	metrics := domain.NewMockMetricsI(mockCtrl)
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 
 	sM := sandbox.Manager{
-		Config: cfg, //create with convenient data
-		Logger: logger}
+		Config: cfg} //create with convenient data
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
-		Logger:         logger,
 		Metrics:        metrics}
 
 	sM.Init()

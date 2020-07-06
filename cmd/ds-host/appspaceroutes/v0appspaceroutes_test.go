@@ -16,11 +16,9 @@ func TestServeHTTPDropserverRoute(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	v0 := &V0{
-		DropserverRoutes: dropserverRoutes,
-		Logger:           logger}
+		DropserverRoutes: dropserverRoutes}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/dropserver",
@@ -55,12 +53,10 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)
 	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 
 	v0 := &V0{
 		AppspaceRouteModels: asRoutesModel,
-		SandboxProxy:        sandboxProxy,
-		Logger:              logger}
+		SandboxProxy:        sandboxProxy}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
