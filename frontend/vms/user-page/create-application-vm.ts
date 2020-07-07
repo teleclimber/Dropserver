@@ -1,7 +1,5 @@
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
-import { VersionMeta } from '../../generated-types/userroutes-classes';
-
 import ApplicationsDM from '../../dms/applications-dm';
 import ApplicationDM from '../../dms/application-dm';// is that really a DM?
 import { VersionComparison } from './app-uses-vm';
@@ -22,7 +20,11 @@ type CreateApplicationVMCbs = {
 export default class CreateApplicationVM {
 	@observable state: EditState = EditState.start;
 	@observable application?: ApplicationDM;
-	@observable version_meta?: VersionMeta;
+	@observable version_meta?: {
+		app_name: string,
+		version: string,
+		schema: number
+	};
 
 	@observable select_files_vm: SelectFilesVM | undefined;
 

@@ -8,8 +8,6 @@ import ds_axios, {url} from '../ds-axios-helper-ts';
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
-import {GetStartLiveDataResp} from '../generated-types/userroutes-classes';
-
 export enum MigrationStatus { "started", "running", "finished" }
 function hydrateMigrationStatus(s:string) {
 	switch(s) {
@@ -85,15 +83,13 @@ export default class LiveDataDM {
 
 		if( !resp || !resp.data ) return;
 
-		const tok_resp = new GetStartLiveDataResp(resp.data);
-
 		if( !url.startsWith("//") ) {
 			throw new Error("unexpected form of user routes base url");
 		}
 
 		let wss_protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-		let socket = new WebSocket(wss_protocol+url+"/live/"+tok_resp.token)
+		let socket = new WebSocket(wss_protocol+url+"/live/"+resp.data.token)
 
 		socket.onopen = () => {
 			runInAction( () => this.connected = true )

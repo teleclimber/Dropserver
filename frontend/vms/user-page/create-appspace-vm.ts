@@ -1,10 +1,9 @@
 import { action, computed, observable, decorate, configure, runInAction, intercept, observe } from "mobx";
 
-import { ApplicationMeta, VersionMeta, MigrationStatusResp } from '../../generated-types/userroutes-classes';
-
 import AppspacesDM from '../../dms/appspaces-dm';
 import AppspaceDM from '../../dms/appspace-dm';
 import ApplicationsDM from '../../dms/applications-dm';
+import {VersionDM} from '../../dms/application-dm';
 import LiveDataDM, {MigrationStatus, LiveMigrationJob} from '../../dms/live-data-dm';
 
 import AppspaceVM from './appspace-vm';
@@ -40,7 +39,7 @@ export default class CreateAppspaceVM {
 
 		// set version to undefined if not found in app_versions
 		observe(this, 'app_versions', change => {
-			if( !change.newValue.find((v:VersionMeta) => v.version === this.version) ) {
+			if( !change.newValue.find((v:VersionDM) => v.version === this.version) ) {
 				runInAction( () => this.version = undefined );
 			}
 		});
@@ -54,7 +53,7 @@ export default class CreateAppspaceVM {
 	}
 
 	@computed
-	get app_versions(): VersionMeta[] {
+	get app_versions(): VersionDM[] {
 		if( this.app_id == undefined ) return [];
 		const a = this.deps.applications_dm.getApplication(this.app_id);
 		return a.versions;
@@ -66,7 +65,7 @@ export default class CreateAppspaceVM {
 		const app = this.deps.applications_dm.getApplication(this.app_id);
 		
 		if( !this.version ) return false;
-		if( !app.versions.find((v:VersionMeta) => v.version === this.version) ) return false;
+		if( !app.versions.find((v:VersionDM) => v.version === this.version) ) return false;
 		
 		return true;
 	}

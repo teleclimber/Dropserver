@@ -5,10 +5,8 @@
 
 import { action, computed, observable, decorate, configure, runInAction } from "mobx";
 
-import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
-
 import ApplicationsDM from '../../dms/applications-dm';
-import ApplicationDM from '../../dms/application-dm';
+import ApplicationDM, {VersionDM} from '../../dms/application-dm';
 import AppspaceDM from '../../dms/appspace-dm';
 import LiveDataDM from '../../dms/live-data-dm';
 
@@ -37,7 +35,7 @@ export default class AppspaceVM {
 		}
 		return a;
 	}
-	@computed get version(): VersionMeta {
+	@computed get version(): VersionDM {
 		return this.application.getVersion(this.appspace.app_version);
 	}
 

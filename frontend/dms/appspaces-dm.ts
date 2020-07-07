@@ -1,9 +1,8 @@
 import ds_axios from '../ds-axios-helper-ts';
 
 import AppspaceDM from './appspace-dm';
-import ApplicationsDM from './applications-dm';
 
-import { AxiosResponse, AxiosPromise } from 'axios';
+import { AxiosResponse } from 'axios';
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
 export default class AppspacesDM {
@@ -14,7 +13,7 @@ export default class AppspacesDM {
 	constructor() {}
 
 	async fetch() {
-		let resp;
+		let resp:any;
 		try {
 			resp = await ds_axios.get( '/api/appspace' );
 		}
@@ -25,10 +24,8 @@ export default class AppspacesDM {
 
 		if( !resp || !resp.data || !resp.data.appspaces ) return;	// return what?
 
-		let appspaces = <AppspaceMeta[]>resp.data.appspaces;// TODO: fix it up?
-
 		runInAction( () => {
-			this.appspaces = appspaces.map( (a: any) => new AppspaceDM(a) );
+			this.appspaces = resp.data.appspaces.map( (a: any) => new AppspaceDM(a) );
 		});
 	}
 

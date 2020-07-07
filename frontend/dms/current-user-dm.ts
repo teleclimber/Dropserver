@@ -1,17 +1,15 @@
 import ds_axios from '../ds-axios-helper-ts';
 
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
-//import autoDecorate from '../utils/mobx-auto-decorate';
-
-import {UserData} from '../generated-types/userroutes-classes';
-//autoDecorate(UserData);	// though not strictly necessary, since we are not changin that data?
-
-import {PatchPasswordReq} from '../generated-types/userroutes-interfaces';
 
 export default class CurrentUserDM {
 	static injectKey = Symbol();
 
-	@observable user: UserData | undefined;
+	@observable user: {
+		email: string,
+		user_id: number,
+		is_admin: boolean
+	} | undefined;
 
 	constructor() {
 		this.fetch();
@@ -30,13 +28,18 @@ export default class CurrentUserDM {
 		if( !resp || !resp.data ) return;
 
 		runInAction( () => {
-			this.user = new UserData(resp.data);
+			const d = resp.data;
+			this.user = {
+				email: d.email+"",
+				user_id: Number(d.user_id),
+				is_admin: !!d.is_admin
+			};
 		});
 
 	}
 
 	async changePassword(old_pw: string, new_pw: string): Promise<boolean> {
-		let req : PatchPasswordReq = {
+		let req = {
 			new: new_pw,
 			old: old_pw
 		};

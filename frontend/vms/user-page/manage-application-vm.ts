@@ -1,11 +1,9 @@
 import { action, computed, observable, decorate, configure, runInAction, flow } from "mobx";
 
-import { VersionMeta } from '../../generated-types/userroutes-classes';
-
 import ApplicationsDM from '../../dms/applications-dm';
-import ApplicationDM from '../../dms/application-dm';// is that really a DM?
+import ApplicationDM, {VersionDM} from '../../dms/application-dm';// is that really a DM?
 import AppspacesDM from "../../dms/appspaces-dm";
-import ApplicationVM, {VersionComparison} from './app-uses-vm';
+import {VersionComparison} from './app-uses-vm';
 
 import SelectFilesVM from '../ui/select-app-files-vm';
 import AppUsesVM from "./app-uses-vm";
@@ -24,7 +22,7 @@ export default class ManageApplicationVM {
 	app_id: number;
 	application: ApplicationDM;
 	app_uses: AppUsesVM;
-	@observable show_version: VersionMeta | undefined;
+	@observable show_version: VersionDM | undefined;
 	@observable state: EditState = EditState.start;
 
 	@observable delete_check: string = '';
@@ -38,7 +36,7 @@ export default class ManageApplicationVM {
 	}
 
 	@action
-	showVersion(version: VersionMeta) {
+	showVersion(version: VersionDM) {
 		this.show_version = version;
 	}
 
@@ -121,7 +119,7 @@ export default class ManageApplicationVM {
 
 		const upRet = await this.application.uploadNewVersion(this.select_files_vm.app_files);
 
-		if( upRet.error || upRet.version_meta == undefined ) {
+		if( upRet.error || upRet.version == undefined ) {
 			// I don't know what to do exactly.
 			this.state = EditState.error;
 		}

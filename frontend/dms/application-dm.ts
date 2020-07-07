@@ -2,48 +2,73 @@ import ds_axios from '../ds-axios-helper-ts';
 import { AxiosResponse } from 'axios';
 
 import { action, computed, observable, decorate, configure, runInAction, flow, observe } from "mobx";
-import { ApplicationMeta, VersionMeta, PostVersionResp } from '../generated-types/userroutes-classes';
-
-import autoDecorate from '../utils/mobx-auto-decorate';
-autoDecorate(ApplicationMeta);
 
 import { compare as semverCompare, gt as semverGt, lt as semverLt } from 'semver';
+
+type VersionData = {
+	app_name: string,
+	version: string,
+	schema: number,
+	created_dt: Date
+}
 
 type UploadVersionResp = {
 	error: boolean,
 	error_message?: string,
-	version_meta?: VersionMeta
+	version?: VersionDM
 }
 
-export default class ApplicationDM extends ApplicationMeta {
+// PostVersionResp is
+// type PostVersionResp struct {
+// 	VersionMeta VersionMeta `json:"version_meta"`
+// }
+// type PostVersionResp = {
+// 	version_meta: any
+// }
 
-	constructor(data:ApplicationMeta) {
-		super(data);
+export default class ApplicationDM {
+	// AppID    int           `json:"app_id"`
+	// AppName  string        `json:"app_name"`
+	// Created  time.Time     `json:"created_dt"`
+	// Versions []VersionMeta `json:"versions"`
+	@observable app_id: number;
+	@observable app_name: string;
+	@observable created_dt: Date;
+	@observable versions: VersionDM[];
+
+	constructor(data:any) {
+		this.app_id = Number(data.app_id);
+		this.app_name = data.app_name+"";
+		this.created_dt = new Date(data.created_dt);
+		this.versions = [];
+		if( Array.isArray(data.versions) ) {
+			this.versions = data.versions.map( (v:any) => new VersionDM(v) );
+		}
 	}
 
-	@computed get sorted_versions(): VersionMeta[] {
+	@computed get sorted_versions(): VersionDM[] {
 		return this.versions.slice().sort( (a, b) => {
 			return semverCompare(b.version, a.version);	// reverse order
 		});
 	}
 
-	getVersion(version: string): VersionMeta {
-		const v = this.versions.find( (v:VersionMeta) => v.version === version );
+	getVersion(version: string): VersionDM {
+		const v = this.versions.find( (v:VersionDM) => v.version === version );
 		if(!v) throw new Error('version not found');
 		return v
 	}
 	versionExists(version: string): boolean {
-		const v = this.versions.find( (v:VersionMeta) => v.version === version );
+		const v = this.versions.find( (v:VersionDM) => v.version === version );
 		return !!v;
 	}
-	getPrevVersion(version:string): VersionMeta | undefined {
+	getPrevVersion(version:string): VersionDM | undefined {
 		// it's the first one that is less than passed version
 		const versions = this.sorted_versions;
-		return versions.find( (v:VersionMeta) => semverLt(v.version, version));
+		return versions.find( (v:VersionDM) => semverLt(v.version, version));
 	}
-	getNextVersion(version:string): VersionMeta | undefined {
+	getNextVersion(version:string): VersionDM | undefined {
 		const versions = this.sorted_versions;
-		return versions.slice().reverse().find( (v:VersionMeta) => semverGt(v.version, version));
+		return versions.slice().reverse().find( (v:VersionDM) => semverGt(v.version, version));
 	}
 
 	async uploadNewVersion(selected_files: SelectedFile[]): Promise<UploadVersionResp> {
@@ -74,17 +99,35 @@ export default class ApplicationDM extends ApplicationMeta {
 		}
 		else {
 			ret.error = false;
-
-			const resp_inst = new PostVersionResp(resp.data);
-
 			runInAction( () => {
-				this.versions.push(resp_inst.version_meta);
-			});
-			
-			ret.version_meta = resp_inst.version_meta;
+				ret.version = new VersionDM(resp.data.version_meta);
+				this.versions.push(ret.version);
+			});	
 		}
 
 		return ret;
+	}
+
+}
+
+// VersionMeta is for listing versions of application code
+// type VersionMeta struct {
+// 	AppName string         `json:"app_name"`
+// 	Version domain.Version `json:"version"`
+// 	Schema  int            `json:"schema"`
+// 	Created time.Time      `json:"created_dt"`
+// }
+export class VersionDM {
+	@observable app_name: string;
+	@observable version: string;
+	@observable schema: number;
+	@observable created_dt: Date;
+
+	constructor(data:any) {
+		this.app_name = data.app_name+"";
+		this.version = data.version+"";
+		this.schema = Number(data.schema);
+		this.created_dt = new Date(data.created_dt);
 	}
 
 }

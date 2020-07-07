@@ -1,14 +1,16 @@
 import { action, computed, observable, decorate, observe, runInAction, autorun } from "mobx";
 
-import { ApplicationMeta, VersionMeta } from '../../generated-types/userroutes-classes';
-
 interface WebkitFile extends File {
 	webkitRelativePath: string;
 }
 
 export default class SelectAppFilesVM {
-	@observable _file_list: { file_list: undefined | FileList };
-	@observable metadata: VersionMeta | undefined;
+	@observable private _file_list: { file_list: undefined | FileList };
+	@observable metadata: {
+		app_name: string,
+		version: string,
+		schema: number
+	} | undefined;
 	@observable app_json_error: string = '';
 
 	constructor() {
@@ -23,7 +25,6 @@ export default class SelectAppFilesVM {
 		return this.app_files.find( (s:SelectedFile) => s.rel_path === 'application.json');
 	}
 
-	//@action
 	readAppJson() {
 		if( !this.app_json_file ) {
 			this.metadata = undefined;	// not sure this will set correctly
@@ -39,7 +40,7 @@ export default class SelectAppFilesVM {
 			});
 		}
 		reader.onload = () => {
-			let app_data;
+			let app_data:any;
 			try {
 				app_data = JSON.parse(<string>reader.result);
 			}
@@ -54,14 +55,12 @@ export default class SelectAppFilesVM {
 				// should probably verify data is at least believable
 				// version is properly interpreted as semver for ex
 				// schema is a number.
-				const ret: VersionMeta = {
-					app_name: app_data.name,
-					version: app_data.version,
-					schema: app_data.schema ? Number(app_data.schema) : 0,
-					created_dt: new Date
-				};
 				runInAction( () => {
-					this.metadata = ret;
+					this.metadata = {
+						app_name: app_data.name,
+						version: app_data.version,
+						schema: app_data.schema ? Number(app_data.schema) : 0
+					};
 					this.app_json_error = '';
 				});
 			}

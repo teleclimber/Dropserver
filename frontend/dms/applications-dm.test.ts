@@ -1,8 +1,6 @@
 import ApplicationsDM from './applications-dm';
 import ds_axios from '../ds-axios-helper-ts';
 
-import { ApplicationMeta } from '../generated-types/userroutes-classes';
-
 jest.mock('../ds-axios-helper-ts');
 const mockAxios = ds_axios as jest.Mocked<typeof ds_axios>;
 
@@ -32,9 +30,9 @@ test('it loads applications', async () => {
 
 
 
-function getTestApps() : ApplicationMeta[] {
+function getTestApps() {
 
-	const app1 : ApplicationMeta = {
+	const app1 = {
 		app_id: 1,
 		app_name: 'one',
 		created_dt: new Date,
@@ -48,7 +46,7 @@ function getTestApps() : ApplicationMeta[] {
 		]
 	};
 
-	const app2 : ApplicationMeta = {
+	const app2 = {
 		app_id: 2,
 		app_name: 'two',
 		created_dt: new Date,
@@ -67,7 +65,7 @@ function getTestApps() : ApplicationMeta[] {
 		]
 	};
 
-	const app3 : ApplicationMeta = {
+	const app3 = {
 		app_id: 3,
 		app_name: 'three',
 		created_dt: new Date,

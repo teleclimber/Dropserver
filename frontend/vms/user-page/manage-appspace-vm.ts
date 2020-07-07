@@ -1,10 +1,9 @@
 import { action, computed, observable, decorate, configure, runInAction, intercept, observe } from "mobx";
 
-import { ApplicationMeta, VersionMeta, MigrationStatusResp } from '../../generated-types/userroutes-classes';
-
 import AppspacesDM from '../../dms/appspaces-dm';
 import AppspaceDM from '../../dms/appspace-dm';
 import ApplicationsDM from '../../dms/applications-dm';
+import {VersionDM} from '../../dms/application-dm';
 import LiveDataDM, {MigrationStatus, LiveMigrationJob} from '../../dms/live-data-dm';
 
 import AppspaceVM from './appspace-vm';
@@ -25,7 +24,7 @@ export default class ManageAppspaceVM {
 	@observable state: ManageState = ManageState.start;	//make that an EditState
 	@observable appspace_vm: AppspaceVM;
 
-	@observable upgrade_version: VersionMeta | undefined;
+	@observable upgrade_version: VersionDM | undefined;
 
 	@observable delete_check: string = '';
 

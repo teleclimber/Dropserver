@@ -3,17 +3,13 @@ import ds_axios from '../ds-axios-helper-ts';
 import { action, computed, observable, decorate, configure, runInAction, flow, observe } from "mobx";
 import { AxiosResponse } from 'axios';
 
-import ApplicationDM from './application-dm';
-
-import { GetAppsResp, PostAppResp, ApplicationMeta, VersionMeta } from '../generated-types/userroutes-classes';
-// GetAppsResp no longer used. Still in flux what/how to use generated types and classes.
+import ApplicationDM, {VersionDM} from './application-dm';
 
 type UploadApplicationResp = {
 	error: boolean,
 	error_message?: string,
 	application?: ApplicationDM
 }
-
 
 export default class ApplicationsDM {
 	static injectKey = Symbol();
@@ -31,7 +27,7 @@ export default class ApplicationsDM {
 	}
 	
 	async fetchAll() {
-		let resp;
+		let resp:any;
 		try {
 			resp = await ds_axios.get( '/api/application' );
 		}
@@ -42,12 +38,8 @@ export default class ApplicationsDM {
 
 		if( !resp || !resp.data || !resp.data.apps ) return;	// return what?
 
-		//let apps_resp = new GetAppsResp(resp.data);	
-		//^^ actually not using the GetAPpsResp generated type because it complicates creation of extended classes that have that data.
-		let apps = <ApplicationMeta[]>resp.data.apps;
-
 		runInAction( () => {
-			this.applications = apps.map( (a: any) => new ApplicationDM(a) );
+			this.applications = resp.data.apps.map( (a: any) => new ApplicationDM(a) );
 			this.fetched = true;
 		});
 	}
@@ -105,7 +97,7 @@ export default class ApplicationsDM {
 		const application = this.getApplication(app_id);
 		if( !application ) return;	//error	// will throw before we get here anywyas.
 
-		const i = application.versions.findIndex( (v: VersionMeta) => v.version === version );
+		const i = application.versions.findIndex( (v: VersionDM) => v.version === version );
 		runInAction( () => {
 			application.versions.splice( i, 1 );
 		});

@@ -1,14 +1,16 @@
 import { action, computed, observable, decorate, configure, runInAction } from "mobx";
 
-import { VersionMeta } from '../../generated-types/userroutes-classes';
-
-import ApplicationDM from '../../dms/application-dm';
+import ApplicationDM, {VersionDM} from '../../dms/application-dm';
 import AppspacesDM from '../../dms/appspaces-dm';
 
 export type VersionComparison = {
-	upload: VersionMeta,
-	previous?: VersionMeta,
-	next?: VersionMeta,
+	upload: {
+		app_name: string,
+		version: string,
+		schema: number
+	},
+	previous?: VersionDM,
+	next?: VersionDM,
 	fatal: boolean,
 	errors: {
 		version: string,
