@@ -47,12 +47,12 @@ func Load(configFile string) *domain.RuntimeConfig {
 
 	validateConfig(rtc)
 
-	cwd, err := os.Getwd()
+	ex, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
 
-	setExecValues(rtc, cwd)
+	setExecValues(rtc, filepath.Dir(ex))
 
 	return rtc
 }
