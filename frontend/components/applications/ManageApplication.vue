@@ -66,7 +66,7 @@
 				<!-- Create Appspace button? or too confusing? -->
 			</div>
 			<div class="appspaces-container">
-				<div v-for="appspace in appspaces_dm.app_version_appspaces[manage_vm.application.app_id][manage_vm.show_version.version]" 
+				<div v-for="appspace in appspaces_dm.getAppVersionAppspaces(manage_vm.application.app_id, manage_vm.show_version.version)" 
 				:key="appspace.appspace_id"
 				class="appspace">
 					{{ appspace.subdomain }}

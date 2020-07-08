@@ -58,6 +58,14 @@ export default class AppspacesDM {
 		return {appspace, job_id};
 	}
 
+	getAppVersionAppspaces(app_id:number, version: string) :AppspaceDM[] {
+		const ret:AppspaceDM[] = [];
+		this.appspaces.forEach( as => {
+			if( as.app_id === app_id && as.app_version === version ) ret.push(as)
+		});
+		return ret;
+	}
+
 	// Need help to support queries involving applications and app versions
 	@computed get app_version_appspaces() : { [app_id: string]: { [app_version: string]:AppspaceDM[] }} {
 		let ret : { [app_id: string]: { [app_version: string]:AppspaceDM[] }} = {};
