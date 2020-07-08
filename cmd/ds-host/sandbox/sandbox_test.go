@@ -187,7 +187,11 @@ func TestRunnerScriptError(t *testing.T) {
 	appVersion := &domain.AppVersion{}
 	appspace := &domain.Appspace{}
 
-	s.Start(appVersion, appspace)
+	err = s.Start(appVersion, appspace)
+	if err != nil {
+		t.Error(err)
+		s.Stop()
+	}
 
 	s.WaitFor(domain.SandboxReady)
 
@@ -230,6 +234,7 @@ func TestStart(t *testing.T) {
 
 	err = s.Start(appVersion, appspace)
 	if err != nil {
+		s.Stop()
 		t.Error(err)
 	}
 

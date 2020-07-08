@@ -61,6 +61,9 @@ func TestSandboxExecFn(t *testing.T) {
 
 	sandboxChan := sM.GetForAppSpace(&appVersion, &appspace)
 	sb := <-sandboxChan
+	if sb == nil {
+		t.Error("Sandbox channel closed")
+	}
 	defer sb.Stop()
 
 	data := []byte("export default function testFn() { console.log(\"testFn running\"); };")

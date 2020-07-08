@@ -83,7 +83,12 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 	sM.recordSandboxStatusMetric()
 
 	go func() {
-		newSandbox.Start(appVersion, appspace)
+		err := newSandbox.Start(appVersion, appspace)
+		if err != nil {
+			close(ch)
+			newSandbox.Stop()
+			return
+		}
 		newSandbox.WaitFor(domain.SandboxReady)
 		// sandbox may not be ready if it failed to start.
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
