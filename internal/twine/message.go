@@ -1,5 +1,7 @@
 package twine
 
+//go:generate mockgen -destination=mocks.go -package=twine -self_package=github.com/teleclimber/DropServer/internal/twine  github.com/teleclimber/DropServer/internal/twine SentMessageI,ReceivedMessageI,ReceivedReplyI
+
 import "errors"
 
 // MessageI is the baseinterface for all Twine message interfaces
