@@ -160,12 +160,15 @@ func main() {
 	sandboxManager := &sandbox.Manager{
 		Config: runtimeConfig}
 
+	migrationSandboxMaker := &migrateappspace.SandboxMaker{
+		Config: runtimeConfig}
+
 	migrationJobCtl := &migrateappspace.JobController{
 		AppspaceModel:     appspaceModel,
 		AppModel:          appModel,
 		SandboxManager:    sandboxManager,
-		MigrationJobModel: migrationJobModel,
-		Config:            runtimeConfig}
+		SandboxMaker:      migrationSandboxMaker,
+		MigrationJobModel: migrationJobModel}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
@@ -289,6 +292,7 @@ func main() {
 		Routes: appspaceRouteModels,
 	}
 	sandboxManager.Services = revServices
+	migrationSandboxMaker.ReverseServices = revServices
 
 	// Create server.
 	server := &server.Server{

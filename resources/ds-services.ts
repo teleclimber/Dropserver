@@ -6,18 +6,19 @@
 // - receive message saying run function x at file y
 
 import Twine from "./twine/twine.ts";
-import handleExec from "./ds-exec-service.ts";
+import Metadata from "./ds-metadata.ts";
 
 const sandboxService = 11;
 const executeService = 12;
+const migrateService = 13;
 
 export class DsServices {
 	private twine:Twine|undefined;
 	constructor() {}
 
-	async initTwine(sock_path: string) {
+	async initTwine() {
 		if(this.twine !== undefined) throw new Error("Twine already initiated");
-		this.twine = new Twine(sock_path, false);
+		this.twine = new Twine(Metadata.rev_sock_path, false);
 		await this.twine.startClient();
 
 		// then need to listen for incoming messages
@@ -28,14 +29,15 @@ export class DsServices {
 		for await (const message of this.twine.incomingMessages() ) {
 			console.log("got a message");
 			switch (message.service) {
-				//case sandboxService:
-				//	throw new Error("not implemented yet"); // not getting caught anywhere
-					// TODO
-				//	break;
 				case executeService:
-					console.log("got exec fn message")
-					handleExec(message);
+					const exec_mod = await import("./ds-exec-service.ts");
+					exec_mod.handleMessage(message);
 					break;
+
+				case migrateService:
+					const migrate_mod = await import('./ds-migrate-service.ts');
+					migrate_mod.handleMessage(message);
+					break
 			
 				default:
 					message.sendError("service not recognized")

@@ -7,7 +7,7 @@ type ExecFnData = {
 	fn?: string
 }
 
-export default async function handleMessage(message: ReceivedMessageI) {
+export async function handleMessage(message: ReceivedMessageI) {
 	switch (message.command) {
 		case exec_fn_cmd:
 			await execFnHandler(message);

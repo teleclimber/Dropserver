@@ -2,7 +2,7 @@ import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.3.0/stub.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import Twine, { Message } from "./twine/twine.ts";
-import execHandler from "./ds-exec-service.ts";
+import {handleMessage} from "./ds-exec-service.ts";
 
 Deno.test({
 	name: "execute default function",
@@ -30,7 +30,7 @@ Deno.test({
 
 		const stubbed_sendOK: Stub<Message> = stub(m, "sendOK");
 
-		await execHandler(m);
+		await handleMessage(m);
 
 		assertEquals(stubbed_sendOK.calls.length, 1);
 		stubbed_sendOK.restore();
@@ -63,7 +63,7 @@ Deno.test({
 
 		const stubbed_sendOK: Stub<Message> = stub(m, "sendOK");
 
-		await execHandler(m);
+		await handleMessage(m);
 
 		assertEquals(stubbed_sendOK.calls.length, 1);
 		stubbed_sendOK.restore();

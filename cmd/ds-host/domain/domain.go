@@ -126,6 +126,7 @@ const (
 type SandboxI interface {
 	ID() int
 	ExecFn(AppspaceRouteHandler) error
+	SendMessage(int, int, *[]byte) (twine.SentMessageI, error)
 	GetTransport() http.RoundTripper
 	TiedUp() bool
 	LastActive() time.Time

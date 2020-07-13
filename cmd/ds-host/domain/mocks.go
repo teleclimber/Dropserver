@@ -208,6 +208,21 @@ func (mr *MockSandboxIMockRecorder) LastActive() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastActive", reflect.TypeOf((*MockSandboxI)(nil).LastActive))
 }
 
+// SendMessage mocks base method
+func (m *MockSandboxI) SendMessage(arg0, arg1 int, arg2 *[]byte) (twine.SentMessageI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendMessage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(twine.SentMessageI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendMessage indicates an expected call of SendMessage
+func (mr *MockSandboxIMockRecorder) SendMessage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockSandboxI)(nil).SendMessage), arg0, arg1, arg2)
+}
+
 // SetStatus mocks base method
 func (m *MockSandboxI) SetStatus(arg0 SandboxStatus) {
 	m.ctrl.T.Helper()

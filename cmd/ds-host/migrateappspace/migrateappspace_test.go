@@ -8,6 +8,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 func TestSubscribe(t *testing.T) {
@@ -88,7 +89,11 @@ func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	controller := &JobController{}
+	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+	sandboxMaker.EXPECT().Make()
+
+	controller := &JobController{
+		SandboxMaker: sandboxMaker}
 	job := &domain.MigrationJob{}
 	rj := controller.createRunningJob(job)
 
@@ -118,8 +123,6 @@ func TestRunJob(t *testing.T) {
 	appModel := domain.NewMockAppModel(mockCtrl)
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
-	migrationSandboxMgr := NewMockMigrationSandobxMgrI(mockCtrl)
-	migrationSandbox := NewMockMigrationSandboxI(mockCtrl)
 
 	appID := domain.AppID(7)
 	appspaceID := domain.AppspaceID(11)
@@ -152,17 +155,28 @@ func TestRunJob(t *testing.T) {
 
 	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()
 
-	// migrationsandbox if schemas are different
-	migrationSandbox.EXPECT().Start("to-location", "appspace-location", 1, 2)
-	migrationSandboxMgr.EXPECT().CreateSandbox().Return(migrationSandbox)
-
 	appspaceModel.EXPECT().SetVersion(appspaceID, toVersion).Return(nil)
 
+	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
+	replyMessage.EXPECT().OK().Return(true)
+
+	sentMessage := twine.NewMockSentMessageI(mockCtrl)
+	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
+
+	sandbox := domain.NewMockSandboxI(mockCtrl)
+	sandbox.EXPECT().Start(gomock.Any(), gomock.Any()).Return(nil)
+	sandbox.EXPECT().WaitFor(gomock.Any())
+	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
+	sandbox.EXPECT().Stop()
+
+	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+	sandboxMaker.EXPECT().Make().Return(sandbox)
+
 	c := &JobController{
-		AppspaceModel:       appspaceModel,
-		AppModel:            appModel,
-		SandboxManager:      sandboxManager,
-		MigrationSandboxMgr: migrationSandboxMgr,
+		AppspaceModel:  appspaceModel,
+		AppModel:       appModel,
+		SandboxManager: sandboxManager,
+		SandboxMaker:   sandboxMaker,
 	}
 
 	rj := c.createRunningJob(job)
@@ -202,8 +216,7 @@ func TestStartNextOneJob(t *testing.T) {
 
 	j := &domain.MigrationJob{
 		JobID:      1,
-		AppspaceID: appspaceID,
-	}
+		AppspaceID: appspaceID}
 
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{j}, nil)
@@ -212,9 +225,13 @@ func TestStartNextOneJob(t *testing.T) {
 	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, dserror.New(dserror.NoRowsInResultSet))
 
+	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+	sandboxMaker.EXPECT().Make()
+
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
 		AppspaceModel:     appspaceModel,
+		SandboxMaker:      sandboxMaker,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
 	}
@@ -280,8 +297,12 @@ func TestEventManifoldFinished(t *testing.T) {
 	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
+	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+	sandboxMaker.EXPECT().Make()
+
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
+		SandboxMaker:      sandboxMaker,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
 		stop:              true, // prevents startNext from running again
@@ -338,8 +359,12 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
+	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+	sandboxMaker.EXPECT().Make()
+
 	c := &JobController{
-		MigrationJobModel: migrationJobModel}
+		MigrationJobModel: migrationJobModel,
+		SandboxMaker:      sandboxMaker}
 
 	rj := c.createRunningJob(&domain.MigrationJob{
 		JobID:      1,
@@ -362,3 +387,22 @@ func TestFullStartStopWithJob(t *testing.T) {
 }
 
 // ^^ test close all, etc...
+
+// func getSandboxMaker(mockCtrl *gomock.Controller) SandboxMakerI {
+// 	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
+// 	replyMessage.EXPECT().OK().Return(true)
+
+// 	sentMessage := twine.NewMockSentMessageI(mockCtrl)
+// 	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
+
+// 	sandbox := domain.NewMockSandboxI(mockCtrl)
+// 	sandbox.EXPECT().Start(gomock.Any(), gomock.Any()).Return(nil)
+// 	sandbox.EXPECT().WaitFor(gomock.Any())
+// 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
+// 	sandbox.EXPECT().Stop()
+
+// 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
+// 	sandboxMaker.EXPECT().Make().Return(sandbox)
+
+// 	return sandboxMaker
+// }

@@ -1,22 +1,29 @@
 package migrateappspace
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-version"
+
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
+// Twine command values:
+var migrateCommand = 11
+
 // JobController handles appspace functionality
 type JobController struct {
-	MigrationJobModel   domain.MigrationJobModel
-	AppModel            domain.AppModel
-	AppspaceModel       domain.AppspaceModel
-	MigrationSandboxMgr MigrationSandobxMgrI
-	SandboxManager      domain.SandboxManagerI // regular appspace sandboxes
-	Config              *domain.RuntimeConfig
+	MigrationJobModel domain.MigrationJobModel
+	AppModel          domain.AppModel
+	AppspaceModel     domain.AppspaceModel
+	SandboxManager    domain.SandboxManagerI // regular appspace sandboxes
+	SandboxMaker      SandboxMakerI
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
@@ -31,9 +38,6 @@ type JobController struct {
 // Start allows jobs to run and can start the first job
 // with a delay (in the future)
 func (c *JobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
-	c.MigrationSandboxMgr = &MigrationSandboxMgr{
-		Config: c.Config}
-
 	c.runningJobs = make(map[domain.JobID]*runningJob)
 	c.fanIn = make(chan runningJobStatus)
 	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
@@ -246,7 +250,7 @@ func (c *JobController) startNext() {
 func (c *JobController) createRunningJob(job *domain.MigrationJob) *runningJob {
 	return &runningJob{
 		migrationJob: job,
-		sandboxMgr:   c.MigrationSandboxMgr,
+		sandbox:      c.SandboxMaker.Make(),
 		statusSubs:   make([]chan<- runningJobStatus, 0)}
 }
 func (c *JobController) runJob(job *runningJob) {
@@ -283,6 +287,19 @@ func (c *JobController) runJob(job *runningJob) {
 		// otherwise it's also an error
 	}
 
+	/// compare from and to versions and set a migrateDown flag on job.
+	fromV, err := version.NewVersion(string(job.appspace.AppVersion))
+	if err != nil {
+		job.errStr.SetString(err.Error())
+		return
+	}
+	toV, err := version.NewVersion(string(job.migrationJob.ToVersion))
+	if err != nil {
+		job.errStr.SetString(err.Error())
+		return
+	}
+	job.migrateDown = toV.LessThan(fromV)
+
 	c.SandboxManager.StopAppspace(appspaceID)
 	// ^^ regarding stopping the appspace, if the appspace is in use,
 	// in particular with say an open websocket connection
@@ -301,7 +318,14 @@ func (c *JobController) runJob(job *runningJob) {
 	// if schemas are the same we don't need to run migration code
 	// but still need to "stop the world" to restart sandbox andcrud/static routes with new version.
 
-	job.runMigration()
+	// Here it would be good to pause or go back-and-forth with a service that sets appspace availabliilty to do this.
+
+	err = job.runMigration()
+	if err != nil {
+		// log to log for user
+		// do rollbacks or whatever
+		return
+	}
 
 	dsErr = c.AppspaceModel.SetVersion(appspaceID, job.toVersion.Version)
 	if dsErr != nil {
@@ -347,8 +371,8 @@ type runningJob struct {
 	appspace     *domain.Appspace
 	fromVersion  *domain.AppVersion
 	toVersion    *domain.AppVersion
-	sandboxMgr   MigrationSandobxMgrI
-	sandbox      MigrationSandboxI
+	migrateDown  bool
+	sandbox      domain.SandboxI
 	status       domain.MigrationJobStatus
 	errStr       nulltypes.NullString
 	curSchema    int
@@ -364,18 +388,68 @@ type runningJobStatus struct {
 	curSchema int
 }
 
-func (r *runningJob) runMigration() {
-	if r.fromVersion.Schema != r.toVersion.Schema {
-		r.setStatus(domain.MigrationRunning)
-
-		r.sandbox = r.sandboxMgr.CreateSandbox()
-
-		// sign up for sandbox events
-
-		r.sandbox.Start(r.toVersion.LocationKey, r.appspace.LocationKey, r.fromVersion.Schema, r.toVersion.Schema)
-
-		// sandbox.WaitDone() <- or some such
+func (r *runningJob) runMigration() error {
+	if r.fromVersion.Schema == r.toVersion.Schema {
+		return nil
 	}
+
+	r.setStatus(domain.MigrationRunning)
+
+	// always use the latest version to perfrom migration, whether up or down
+	sandboxAppVersion := r.toVersion
+	if r.migrateDown {
+		sandboxAppVersion = r.fromVersion
+	}
+
+	defer r.sandbox.Stop()
+	err := r.sandbox.Start(sandboxAppVersion, r.appspace)
+	if err != nil {
+		// host level error? log it
+		r.getLogger("runMigration, sandbox.Start()").Error(err)
+		return err
+	}
+	r.sandbox.WaitFor(domain.SandboxReady)
+	// sandbox may not be ready if it failed to start.
+	// check status?
+	// Maybe WaitFor could return an error if the status is changed to something that can never become Ready.
+
+	// Here we should have a migration service
+	// Send message to migrate from a -> b
+	// .. which might be incremental  version-by-version?
+
+	p := struct {
+		FromSchema int `json:"from"`
+		ToSchema   int `json:"to"`
+	}{FromSchema: r.fromVersion.Schema,
+		ToSchema: r.toVersion.Schema}
+
+	payload, err := json.Marshal(p)
+	if err != nil {
+		// this is an ds host error
+		r.getLogger("runMigration, jsonMarshal payload").Error(err)
+		return err // "internal error"
+	}
+
+	sent, err := r.sandbox.SendMessage(sandbox.MigrateService, migrateCommand, &payload)
+	if err != nil {
+		r.getLogger("runMigration, sandbox.SendMessage").Error(err)
+		return err
+	}
+
+	// we could get regular updates, like the current version number, etc...
+	// But for now just wait for the response
+	reply, err := sent.WaitReply()
+	if err != nil {
+		// This one probaly means the sandbox crashed or some such
+		r.getLogger("runMigration, sandbox.SendMessage").Error(err)
+		return err
+	}
+
+	if !reply.OK() {
+		return reply.Error() // this is the only one that is not an internal error
+	}
+
+	return nil
 }
 
 func (r *runningJob) subscribeStatus(sub chan<- runningJobStatus) {
@@ -411,4 +485,12 @@ func (r *runningJob) getCurStatusData() runningJobStatus {
 		status:    r.status,
 		errString: r.errStr,
 		curSchema: r.curSchema}
+}
+
+func (r *runningJob) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("runningJob")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

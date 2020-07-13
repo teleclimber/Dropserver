@@ -1,7 +1,6 @@
 package sandbox
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -69,16 +68,8 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a service to lock!
 	// .. or trust that it only gets called with poolMux locked by caller.
 
-	fmt.Println("Creating new Sandbox", appspace.AppspaceID)
-
-	newSandbox := Sandbox{ // <-- this really needs a maker fn of some sort??
-		id:        sandboxID,
-		services:  sM.Services,
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:    sM.Config}
-
-	sM.sandboxes[appspace.AppspaceID] = &newSandbox
+	newSandbox := NewSandbox(sandboxID, sM.Services, sM.Config)
+	sM.sandboxes[appspace.AppspaceID] = newSandbox
 
 	sM.recordSandboxStatusMetric()
 
@@ -92,7 +83,7 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 		newSandbox.WaitFor(domain.SandboxReady)
 		// sandbox may not be ready if it failed to start.
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
-		ch <- &newSandbox
+		ch <- newSandbox
 	}()
 }
 

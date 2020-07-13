@@ -46,6 +46,10 @@ type Task struct {
 
 const sandboxService = 11
 const executeService = 12
+
+// MigrateService is for appspace migration
+const MigrateService = 13 // hmm...
+
 const routesService = 14
 
 const execFnCommand = 11
@@ -66,6 +70,18 @@ type Sandbox struct {
 	appSpaceSession appSpaceSession // put a getter for that?
 	killScore       float64         // this should not be here.
 	Config          *domain.RuntimeConfig
+}
+
+// NewSandbox creates a new sandbox with the passed parameters
+func NewSandbox(sandboxID int, services *domain.ReverseServices, config *domain.RuntimeConfig) *Sandbox {
+	newSandbox := &Sandbox{ // <-- this really needs a maker fn of some sort??
+		id:        sandboxID,
+		services:  services,
+		status:    domain.SandboxStarting,
+		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:    config}
+
+	return newSandbox
 }
 
 // Start Should start() return a channel or something?
@@ -384,6 +400,15 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 	}
 
 	return nil
+}
+
+// SendMessage sends to sandbox via twine
+func (s *Sandbox) SendMessage(serviceID int, commandID int, payload *[]byte) (twine.SentMessageI, error) {
+	sent, err := s.twine.Send(serviceID, commandID, payload)
+	if err != nil {
+		return nil, err
+	}
+	return sent, nil
 }
 
 // GetTransport gets the http transport of the sandbox
