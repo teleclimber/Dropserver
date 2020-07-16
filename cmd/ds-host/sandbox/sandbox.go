@@ -87,6 +87,8 @@ func NewSandbox(sandboxID int, services *domain.ReverseServices, config *domain.
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
 func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) error { // TODO: return an error, presumably?
+	s.getLogger("Start()").Debug("starting...")
+
 	s.appVersion = appVersion
 	s.appspace = appspace
 

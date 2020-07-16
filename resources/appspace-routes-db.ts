@@ -20,17 +20,21 @@ type Auth = {
 	type: string
 }
 
-type RouteHandler = {
-	type: string,
+export type FunctionHandler = {	// is that how we want to do this? Would it be better to have several types and overload it?
+	type: "function",
 	file: string,
 	function: string
+}
+export type FileHandler = {	// is that how we want to do this? Would it be better to have several types and overload it?
+	type: "file",
+	path: string	// must start with @apspace/... or @app/...
 }
 
 export type Route = {
 	methods: string[],
 	"route-path": string,
 	auth: Auth,
-	handler: RouteHandler
+	handler: FunctionHandler | FileHandler
 }
 
 class Routes {
@@ -46,7 +50,7 @@ class Routes {
 	// like sned and sendBlock?
 
 
-	async createRoute(methods: string[], routePath: string, auth: Auth, handler: RouteHandler) {
+	async createRoute(methods: string[], routePath: string, auth: Auth, handler: FunctionHandler|FileHandler) {
 
 		// TODO: need to validate things on this end.
 

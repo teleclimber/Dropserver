@@ -15,6 +15,7 @@ import (
 type AppspaceRoutes struct {
 	AppspaceFilesModel     domain.AppspaceFilesModel
 	AppspaceModel          domain.AppspaceModel
+	AppspaceMetaDB         domain.AppspaceMetaDB
 	MigrationJobModel      domain.MigrationJobModel
 	MigrationJobController domain.MigrationJobController
 	AppModel               domain.AppModel
@@ -159,6 +160,11 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	if dsErr != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
+	}
+
+	err := a.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
+	if err != nil {
+		http.Error(res, "Failed to create appspace meta db", http.StatusInternalServerError)
 	}
 
 	// migrate to whatever version was selected

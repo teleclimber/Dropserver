@@ -141,11 +141,6 @@ func TestRunJob(t *testing.T) {
 		AppVersion:  fromVersion,
 		LocationKey: "appspace-location",
 	}, nil)
-	appModel.EXPECT().GetVersion(appID, fromVersion).Return(&domain.AppVersion{
-		AppID:   appID,
-		Version: fromVersion,
-		Schema:  1,
-	}, nil)
 	appModel.EXPECT().GetVersion(appID, toVersion).Return(&domain.AppVersion{
 		AppID:       appID,
 		Version:     toVersion,
@@ -156,6 +151,12 @@ func TestRunJob(t *testing.T) {
 	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()
 
 	appspaceModel.EXPECT().SetVersion(appspaceID, toVersion).Return(nil)
+
+	infoModel := domain.NewMockAppspaceInfoModel(mockCtrl)
+	infoModel.EXPECT().GetSchema().Return(1, nil)
+	infoModel.EXPECT().SetSchema(2).Return(nil)
+	infoModels := domain.NewMockAppspaceInfoModels(mockCtrl)
+	infoModels.EXPECT().Get(appspaceID).Return(infoModel)
 
 	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
 	replyMessage.EXPECT().OK().Return(true)
@@ -173,15 +174,20 @@ func TestRunJob(t *testing.T) {
 	sandboxMaker.EXPECT().Make().Return(sandbox)
 
 	c := &JobController{
-		AppspaceModel:  appspaceModel,
-		AppModel:       appModel,
-		SandboxManager: sandboxManager,
-		SandboxMaker:   sandboxMaker,
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		AppspaceInfoModels: infoModels,
+		SandboxManager:     sandboxManager,
+		SandboxMaker:       sandboxMaker,
 	}
 
 	rj := c.createRunningJob(job)
 
 	c.runJob(rj)
+
+	if rj.errStr.Valid {
+		t.Error(rj.errStr.Value())
+	}
 }
 
 func TestStartNextStopped(t *testing.T) {
@@ -385,24 +391,3 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	c.Stop()
 }
-
-// ^^ test close all, etc...
-
-// func getSandboxMaker(mockCtrl *gomock.Controller) SandboxMakerI {
-// 	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
-// 	replyMessage.EXPECT().OK().Return(true)
-
-// 	sentMessage := twine.NewMockSentMessageI(mockCtrl)
-// 	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
-
-// 	sandbox := domain.NewMockSandboxI(mockCtrl)
-// 	sandbox.EXPECT().Start(gomock.Any(), gomock.Any()).Return(nil)
-// 	sandbox.EXPECT().WaitFor(gomock.Any())
-// 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
-// 	sandbox.EXPECT().Stop()
-
-// 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-// 	sandboxMaker.EXPECT().Make().Return(sandbox)
-
-// 	return sandboxMaker
-// }

@@ -1,6 +1,7 @@
 package appspacemetadb
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,7 +9,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // can create and destroy appspace meta db file
@@ -32,7 +33,7 @@ func (mdb *AppspaceMetaDB) Init() {
 
 // Create an apspace meta DB file for an appspace.
 // Should specify schema version or DS API version, and branch accordingly.
-func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int) domain.Error {
+func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int) error {
 
 	readyChan := make(chan struct{})
 	conn := &DbConn{
@@ -45,6 +46,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 	_ = <-readyChan
 
 	if conn.connError != nil {
+		mdb.getLogger("Create(), connError").Error(conn.connError)
 		return conn.connError
 	}
 
@@ -112,13 +114,13 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 		_, err := os.Stat(dbFile)
 		if !os.IsNotExist(err) {
 			conn.statusMux.Lock()
-			conn.connError = dserror.New(dserror.AppspaceDBFileExists, "DB file: "+dbFile)
+			conn.connError = errors.New("Appspace DB file already exists: " + dbFile)
 			return
 		}
 		err = os.MkdirAll(metaPath, 0700)
 		if err != nil {
 			conn.statusMux.Lock()
-			conn.connError = dserror.FromStandard(err)
+			conn.connError = err
 		}
 
 		dsn += "c"
@@ -127,14 +129,14 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 	handle, err := sqlx.Open("sqlite3", dsn)
 	if err != nil {
 		conn.statusMux.Lock()
-		conn.connError = dserror.FromStandard(err)
+		conn.connError = err
 		return
 	}
 
 	conn.statusMux.Lock()
 	err = handle.Ping()
 	if err != nil {
-		conn.connError = dserror.FromStandard(err)
+		conn.connError = err
 		return
 	}
 
@@ -150,6 +152,14 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 	}
 }
 
+func (mdb *AppspaceMetaDB) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppspaceMetaDB")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}
+
 // this should be extracted and moved to a thing that can be imported by anything that needs it
 func getAppspaceMetaPath(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
 	return filepath.Join(cfg.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", appspaceID))
@@ -159,7 +169,7 @@ func getAppspaceMetaPath(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID
 type DbConn struct {
 	statusMux    sync.Mutex // not 100% sure what it's covering.
 	handle       *sqlx.DB   // maybe sqlx for this one?
-	connError    domain.Error
+	connError    error
 	readySub     []chan struct{}
 	liveRequests int // I think this counts ongoing requests that are "claimed" towards this conn. Can't close unless it's zero
 
@@ -172,8 +182,9 @@ func (dbc *DbConn) GetHandle() *sqlx.DB {
 }
 
 // RunMigrationStep runs a single migration step
-func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) domain.Error {
-	var dsErr domain.Error
+// This is exported but doesn't match the domain.DbConn Interface that is returned above.
+func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) error {
+	var err error
 	switch toVersion {
 	case 0:
 		v0h := &v0handle{handle: dbc.handle}
@@ -182,10 +193,10 @@ func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) domain.Error {
 		} else {
 			v0h.migrateDownToV0()
 		}
-		dsErr = v0h.checkErr()
+		err = v0h.checkErr()
 	default:
-		dsErr = dserror.New(dserror.AppspaceAPIVersionNotFound)
+		err = fmt.Errorf("Appspace API version not handled: %v", toVersion)
 	}
 
-	return dsErr
+	return err
 }

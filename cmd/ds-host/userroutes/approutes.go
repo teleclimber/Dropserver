@@ -105,7 +105,9 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 		verResp := make([]VersionMeta, 0)
 		for _, appVersion := range appVersions {
 			verResp = append(verResp, VersionMeta{
+				AppName: appVersion.AppName,
 				Version: appVersion.Version,
+				Schema:  appVersion.Schema,
 				Created: appVersion.Created})
 		}
 

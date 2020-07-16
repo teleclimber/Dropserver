@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModels,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -336,7 +336,8 @@ type App struct {
 // AppVersion represents a set of app files with a version
 // we also need a DropServerAPI version, that indicates the api the ap is expecting to use to interact with the system.
 type AppVersion struct {
-	AppID       AppID `db:"app_id"`
+	AppID       AppID  `db:"app_id"`
+	AppName     string `db:"app_name"`
 	Version     Version
 	Schema      int `db:"schema"` // that is the schema for the app's own data
 	Created     time.Time
@@ -480,9 +481,23 @@ type AppspaceRouteConfig struct {
 type DbConn interface {
 	GetHandle() *sqlx.DB
 }
+
+// AppspaceMetaDB manages the files and connections for each appspace's metadata DB
 type AppspaceMetaDB interface {
-	Create(AppspaceID, int) Error
+	Create(AppspaceID, int) error
 	GetConn(AppspaceID) DbConn
+}
+
+// AppspaceInfoModels caches and dishes AppspaceInfoModels
+type AppspaceInfoModels interface {
+	Init()
+	Get(AppspaceID) AppspaceInfoModel
+}
+
+// AppspaceInfoModel holds metadata like current schema and ds api version for the appspace.
+type AppspaceInfoModel interface {
+	GetSchema() (int, error)
+	SetSchema(int) error
 }
 
 // RouteModelV0 serves route data queries at version 0

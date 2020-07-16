@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-version"
-
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
@@ -19,11 +17,12 @@ var migrateCommand = 11
 
 // JobController handles appspace functionality
 type JobController struct {
-	MigrationJobModel domain.MigrationJobModel
-	AppModel          domain.AppModel
-	AppspaceModel     domain.AppspaceModel
-	SandboxManager    domain.SandboxManagerI // regular appspace sandboxes
-	SandboxMaker      SandboxMakerI
+	MigrationJobModel  domain.MigrationJobModel
+	AppModel           domain.AppModel
+	AppspaceModel      domain.AppspaceModel
+	AppspaceInfoModels domain.AppspaceInfoModels
+	SandboxManager     domain.SandboxManagerI // regular appspace sandboxes
+	SandboxMaker       SandboxMakerI
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
@@ -38,6 +37,8 @@ type JobController struct {
 // Start allows jobs to run and can start the first job
 // with a delay (in the future)
 func (c *JobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
+	c.getLogger("Start()").Debug("starting")
+
 	c.runningJobs = make(map[domain.JobID]*runningJob)
 	c.fanIn = make(chan runningJobStatus)
 	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
@@ -235,6 +236,7 @@ func (c *JobController) startNext() {
 	}
 
 	if runJob != nil {
+		c.getLogger("startNext()").Debug("Found job to run")
 		rj := c.createRunningJob(runJob)
 		rj.subscribeStatus(c.fanIn)
 		rj.setStatus(domain.MigrationStarted)
@@ -269,16 +271,14 @@ func (c *JobController) runJob(job *runningJob) {
 		// otherwise, bigger problem.
 	}
 
-	job.fromVersion, dsErr = c.AppModel.GetVersion(job.appspace.AppID, job.appspace.AppVersion)
-	if dsErr != nil {
-		job.errStr.SetString("Error getting fromVersion: " + dsErr.PublicString())
+	infoModel := c.AppspaceInfoModels.Get(appspaceID)
+	fromSchema, err := infoModel.GetSchema()
+	if err != nil {
+		job.errStr.SetString("Error getting current schema: " + err.Error())
 		return
-		// if no rows, that means version was deleted even though appspaces were using it
-		// That's a program error
-		// otherwise it's also an error
 	}
 
-	job.toVersion, dsErr = c.AppModel.GetVersion(job.appspace.AppID, job.migrationJob.ToVersion)
+	toVersion, dsErr := c.AppModel.GetVersion(job.appspace.AppID, job.migrationJob.ToVersion)
 	if dsErr != nil {
 		job.errStr.SetString("Error getting toVersion: " + dsErr.PublicString())
 		return
@@ -287,18 +287,26 @@ func (c *JobController) runJob(job *runningJob) {
 		// otherwise it's also an error
 	}
 
-	/// compare from and to versions and set a migrateDown flag on job.
-	fromV, err := version.NewVersion(string(job.appspace.AppVersion))
-	if err != nil {
-		job.errStr.SetString(err.Error())
+	if toVersion.Schema == fromSchema {
+		// any cleanup?
+		// still need to stop the appspace sandbox and restart it with the correct app code
+		// Also probably need to clear caches... of various... things?
 		return
 	}
-	toV, err := version.NewVersion(string(job.migrationJob.ToVersion))
-	if err != nil {
-		job.errStr.SetString(err.Error())
-		return
+
+	job.useVersion = toVersion
+	job.fromSchema = job.curSchema
+	job.toSchema = toVersion.Schema
+
+	if job.toSchema < job.fromSchema {
+		job.migrateDown = true
+		job.useVersion, dsErr = c.AppModel.GetVersion(job.appspace.AppID, job.appspace.AppVersion)
+		if dsErr != nil {
+			job.errStr.SetString("Error getting fromVersion: " + dsErr.PublicString())
+			return
+			// if no rows, that means version was deleted even though appspaces were using it. That's a program error
+		}
 	}
-	job.migrateDown = toV.LessThan(fromV)
 
 	c.SandboxManager.StopAppspace(appspaceID)
 	// ^^ regarding stopping the appspace, if the appspace is in use,
@@ -324,10 +332,17 @@ func (c *JobController) runJob(job *runningJob) {
 	if err != nil {
 		// log to log for user
 		// do rollbacks or whatever
+		job.errStr.SetString("Error running Migration: " + err.Error())
 		return
 	}
 
-	dsErr = c.AppspaceModel.SetVersion(appspaceID, job.toVersion.Version)
+	err = infoModel.SetSchema(job.toSchema)
+	if err != nil {
+		job.errStr.SetString("Error setting schema after Migration: " + err.Error())
+		return
+	}
+
+	dsErr = c.AppspaceModel.SetVersion(appspaceID, toVersion.Version)
 	if dsErr != nil {
 		job.errStr.SetString("Error setting new Version: " + dsErr.PublicString())
 		return
@@ -369,13 +384,14 @@ func (c *JobController) getLogger(note string) *record.DsLogger {
 type runningJob struct {
 	migrationJob *domain.MigrationJob
 	appspace     *domain.Appspace
-	fromVersion  *domain.AppVersion
-	toVersion    *domain.AppVersion
+	useVersion   *domain.AppVersion
+	fromSchema   int
+	toSchema     int
+	curSchema    int // not sure about this one
 	migrateDown  bool
 	sandbox      domain.SandboxI
 	status       domain.MigrationJobStatus
 	errStr       nulltypes.NullString
-	curSchema    int
 	statusSubs   []chan<- runningJobStatus
 	//curStatusData domain.MigrationStatusData
 	statusMux sync.Mutex
@@ -389,20 +405,16 @@ type runningJobStatus struct {
 }
 
 func (r *runningJob) runMigration() error {
-	if r.fromVersion.Schema == r.toVersion.Schema {
+	if r.fromSchema == r.toSchema {
 		return nil
 	}
 
 	r.setStatus(domain.MigrationRunning)
 
-	// always use the latest version to perfrom migration, whether up or down
-	sandboxAppVersion := r.toVersion
-	if r.migrateDown {
-		sandboxAppVersion = r.fromVersion
-	}
+	r.getLogger("runMigration()").Debug("about to start migration")
 
 	defer r.sandbox.Stop()
-	err := r.sandbox.Start(sandboxAppVersion, r.appspace)
+	err := r.sandbox.Start(r.useVersion, r.appspace)
 	if err != nil {
 		// host level error? log it
 		r.getLogger("runMigration, sandbox.Start()").Error(err)
@@ -420,8 +432,8 @@ func (r *runningJob) runMigration() error {
 	p := struct {
 		FromSchema int `json:"from"`
 		ToSchema   int `json:"to"`
-	}{FromSchema: r.fromVersion.Schema,
-		ToSchema: r.toVersion.Schema}
+	}{FromSchema: r.fromSchema,
+		ToSchema: r.toSchema}
 
 	payload, err := json.Marshal(p)
 	if err != nil {
@@ -484,7 +496,7 @@ func (r *runningJob) getCurStatusData() runningJobStatus {
 		origJob:   r.migrationJob,
 		status:    r.status,
 		errString: r.errStr,
-		curSchema: r.curSchema}
+		curSchema: r.curSchema} // how does this get updated?
 }
 
 func (r *runningJob) getLogger(note string) *record.DsLogger {

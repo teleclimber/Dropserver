@@ -153,6 +153,16 @@ func main() {
 		DB: db}
 	appspaceModel.PrepareStatements()
 
+	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
+		Config:    runtimeConfig,
+		Validator: validator}
+	appspaceMetaDb.Init()
+
+	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb}
+	appspaceInfoModels.Init()
+
 	migrationJobModel := &migrationjobmodel.MigrationJobModel{
 		DB: db}
 	migrationJobModel.PrepareStatements()
@@ -164,11 +174,12 @@ func main() {
 		Config: runtimeConfig}
 
 	migrationJobCtl := &migrateappspace.JobController{
-		AppspaceModel:     appspaceModel,
-		AppModel:          appModel,
-		SandboxManager:    sandboxManager,
-		SandboxMaker:      migrationSandboxMaker,
-		MigrationJobModel: migrationJobModel}
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		AppspaceInfoModels: appspaceInfoModels,
+		SandboxManager:     sandboxManager,
+		SandboxMaker:       migrationSandboxMaker,
+		MigrationJobModel:  migrationJobModel}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
@@ -200,7 +211,7 @@ func main() {
 
 	sandboxManager.Init()
 
-	fmt.Println("Main after sandbox manager start")
+	record.Debug("Main after sandbox manager start")
 
 	// maybe we can start profiler here?
 	if *cpuprofile != "" {
@@ -255,6 +266,7 @@ func main() {
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
+		AppspaceMetaDB:         appspaceMetaDb,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
@@ -270,13 +282,11 @@ func main() {
 		Views:             views,
 		Validator:         validator}
 
-	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		Config:    runtimeConfig,
-		Validator: validator}
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb,
 		Validator:      validator}
+	appspaceRouteModels.Init()
 
 	appspaceRoutesV0 := &appspaceroutes.V0{
 		AppspaceRouteModels: appspaceRouteModels,

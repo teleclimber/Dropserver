@@ -3,8 +3,6 @@ package appspacemetadb
 import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 type v0handle struct {
@@ -23,9 +21,9 @@ func (h *v0handle) exec(q string) {
 	}
 }
 
-func (h *v0handle) checkErr() domain.Error {
+func (h *v0handle) checkErr() error {
 	if h.err != nil {
-		return dserror.FromStandard(h.err)
+		return h.err
 	}
 	return nil
 }

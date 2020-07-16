@@ -3,6 +3,7 @@ package record
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -21,6 +22,13 @@ func InitDsLogger() {
 	// for now set flags and what not.
 	//log.Ldate|log.Ltime|log.Lshortfile
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+}
+
+// Debug just logs the message if in debug mode
+func Debug(message string) {
+	if os.Getenv("DEBUG") != "" {
+		log.Print("DEBUG: " + message)
+	}
 }
 
 // Log just logs the message
@@ -106,6 +114,13 @@ func (l *DsLogger) AddNote(note string) *DsLogger {
 	l.note += note
 
 	return l
+}
+
+// Debug writes the message to the log if debug mode is on
+func (l *DsLogger) Debug(message string) {
+	if os.Getenv("DEBUG") != "" {
+		log.Print("DEBUG: " + l.contextStr() + message)
+	}
 }
 
 // Log writes the message to the log
