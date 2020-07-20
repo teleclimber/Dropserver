@@ -14,8 +14,8 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/posener/wstest v1.2.0
 	github.com/prometheus/client_golang v1.7.1
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
+	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/sys v0.0.0-20200720211630-cb9d2d5c5666
 	google.golang.org/appengine v1.6.6 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0
