@@ -522,6 +522,9 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 			"@app/":        "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey)),
 			"@appspace/":   "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppspacesFilesPath, s.appspace.LocationKey)),
 			"@dropserver/": "file:" + trailingSlash(s.Config.Exec.SandboxCodePath),
+			//"/":            "undefined:", // Defeat imports from outside the app dir. See:
+			//"./": "./", // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
+			// meh this doesn't work because it blocks everything form outside the scrip dir.
 		}}
 
 	j, err := json.Marshal(im)

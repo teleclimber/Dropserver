@@ -188,9 +188,8 @@ func TestRunnerScriptError(t *testing.T) {
 	appspace := &domain.Appspace{}
 
 	err = s.Start(appVersion, appspace)
-	if err != nil {
-		t.Error(err)
-		s.Stop()
+	if err == nil {
+		t.Error("expected error from sandbox")
 	}
 
 	s.WaitFor(domain.SandboxReady)
@@ -232,7 +231,7 @@ func TestStart(t *testing.T) {
 		status:     domain.SandboxStarting,
 		Config:     cfg}
 
-	err = s.Start(appVersion, appspace)
+	err = s.Start(appVersion, appspace) //failing to start
 	if err != nil {
 		s.Stop()
 		t.Error(err)
