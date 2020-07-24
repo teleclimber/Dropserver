@@ -3,8 +3,10 @@ package appspacemodel
 import (
 	"testing"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -263,14 +265,20 @@ func TestGetForApp(t *testing.T) {
 }
 
 func TestPause(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	asPausedEvents := testmocks.NewMockAppspacePausedEvents(mockCtrl)
+	asPausedEvents.EXPECT().Send(gomock.Any(), true)
 	model := &AppspaceModel{
-		DB: db}
+		AsPausedEvent: asPausedEvents,
+		DB:            db}
 
 	model.PrepareStatements()
 

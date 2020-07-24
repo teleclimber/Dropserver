@@ -10,10 +10,12 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
@@ -92,6 +94,9 @@ func main() {
 	validator.Init()
 
 	stdInput := &stdinput.StdInput{}
+
+	// events
+	appspacePausedEvent := &events.AppspacePausedEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -231,7 +236,18 @@ func main() {
 
 	m := record.Metrics{}
 
-	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
+	appspaceStatus := &appspacestatus.AppspaceStatus{
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		AppspaceInfoModels: appspaceInfoModels,
+		//AppspaceRoutes: see below
+		MigrationJobs:       migrationJobCtl,
+		MigrationJobsEvents: migrationJobCtl,
+		AppspacePausedEvent: appspacePausedEvent,
+	}
+	appspaceStatus.Init()
+
+	migrationJobCtl.AppspaceStatus = appspaceStatus
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
@@ -294,9 +310,12 @@ func main() {
 		SandboxProxy:        sandboxProxy}
 
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
-		V0:            appspaceRoutesV0}
+		AppModel:       appModel,
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: appspaceStatus,
+		V0:             appspaceRoutesV0}
+	appspaceRoutes.Init()
+	appspaceStatus.AppspaceRoutes = appspaceRoutes
 
 	revServices := &domain.ReverseServices{
 		Routes: appspaceRouteModels,
@@ -312,6 +331,9 @@ func main() {
 		Metrics:        &m}
 
 	fmt.Println("starting server")
+
+	// start things up
+	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.

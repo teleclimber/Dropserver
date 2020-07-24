@@ -17,8 +17,18 @@ import (
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppFilesModel domain.AppFilesModel
-	AppModel      domain.AppModel
-	AppspaceModel domain.AppspaceModel
+	AppModel      interface {
+		GetFromID(domain.AppID) (*domain.App, domain.Error)
+		GetForOwner(domain.UserID) ([]*domain.App, domain.Error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, domain.Error)
+		Create(domain.UserID, string) (*domain.App, domain.Error)
+		CreateVersion(domain.AppID, domain.Version, int, string) (*domain.AppVersion, domain.Error)
+		DeleteVersion(domain.AppID, domain.Version) domain.Error
+	}
+	AppspaceModel interface {
+		GetForApp(domain.AppID) ([]*domain.Appspace, domain.Error)
+	}
 }
 
 // post to / to create a new application even if only partially,

@@ -6,12 +6,75 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
+func TestGetRunningJobs(t *testing.T) {
+	c := &JobController{
+		runningJobs: make(map[domain.JobID]*runningJob)}
+
+	appspaceID := domain.AppspaceID(7)
+
+	c.runningJobs[domain.JobID(5)] = &runningJob{
+		migrationJob: &domain.MigrationJob{
+			AppspaceID: appspaceID,
+		},
+	}
+
+	jobs := c.GetRunningJobs()
+	if len(jobs) != 1 {
+		t.Error("expected one job")
+	}
+	if jobs[0].AppspaceID != appspaceID {
+		t.Error("bad appspace ID")
+	}
+}
+
 func TestSubscribe(t *testing.T) {
+	c := &JobController{}
+	ch := make(chan<- domain.MigrationStatusData)
+
+	c.Subscribe(ch)
+	if len(c.subscribers) != 1 {
+		t.Error("expected 1 subscriber")
+	}
+
+	c.Unsubscribe(ch)
+	if len(c.subscribers) != 0 {
+		t.Error("expected no subscribers")
+	}
+}
+
+func TestSubscribeEvent(t *testing.T) {
+	c := &JobController{
+		fanIn: make(chan runningJobStatus)}
+	go c.eventManifold()
+	ch := make(chan domain.MigrationStatusData)
+	c.Subscribe(ch)
+
+	appspaceID := domain.AppspaceID(7)
+
+	go func() {
+		c.fanIn <- runningJobStatus{
+			origJob: &domain.MigrationJob{
+				AppspaceID: appspaceID,
+			},
+		}
+		close(c.fanIn)
+	}()
+
+	status := <-ch
+	if status.AppspaceID != appspaceID {
+		t.Error("expected correct appspace id")
+	}
+
+	c.Unsubscribe(ch)
+}
+
+func TestSubscribeOwner(t *testing.T) {
 	c := &JobController{}
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
@@ -29,7 +92,7 @@ func TestSubscribe(t *testing.T) {
 	}
 }
 
-func TestSubscribeDouble(t *testing.T) {
+func TestSubscribeOwnerDouble(t *testing.T) {
 	c := &JobController{}
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
@@ -52,7 +115,7 @@ func TestSubscribeDouble(t *testing.T) {
 	}
 }
 
-func TestSubscribeWithRunningJob(t *testing.T) {
+func TestSubscribeOwnerWithRunningJob(t *testing.T) {
 	c := &JobController{}
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
@@ -61,10 +124,12 @@ func TestSubscribeWithRunningJob(t *testing.T) {
 	ownerID := domain.UserID(7)
 	sessionID := "abc"
 	jobID := domain.JobID(11)
+	appspaceID := domain.AppspaceID(22)
 	c.runningJobs[jobID] = &runningJob{
 		migrationJob: &domain.MigrationJob{
-			JobID:   jobID,
-			OwnerID: ownerID,
+			JobID:      jobID,
+			AppspaceID: appspaceID,
+			OwnerID:    ownerID,
 		},
 		status: domain.MigrationRunning,
 	}
@@ -120,8 +185,8 @@ func TestRunJob(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	appModel := testmocks.NewMockAppModel(mockCtrl)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
 
 	appID := domain.AppID(7)
@@ -155,7 +220,7 @@ func TestRunJob(t *testing.T) {
 	infoModel := domain.NewMockAppspaceInfoModel(mockCtrl)
 	infoModel.EXPECT().GetSchema().Return(1, nil)
 	infoModel.EXPECT().SetSchema(2).Return(nil)
-	infoModels := domain.NewMockAppspaceInfoModels(mockCtrl)
+	infoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	infoModels.EXPECT().Get(appspaceID).Return(infoModel)
 
 	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
@@ -173,12 +238,16 @@ func TestRunJob(t *testing.T) {
 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
 	sandboxMaker.EXPECT().Make().Return(sandbox)
 
+	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
+	appspaceStatus.EXPECT().WaitStopped(appspaceID)
+
 	c := &JobController{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: infoModels,
 		SandboxManager:     sandboxManager,
 		SandboxMaker:       sandboxMaker,
+		AppspaceStatus:     appspaceStatus,
 	}
 
 	rj := c.createRunningJob(job)
@@ -228,15 +297,23 @@ func TestStartNextOneJob(t *testing.T) {
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{j}, nil)
 	migrationJobModel.EXPECT().SetStarted(j.JobID).Return(true, nil)
 
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+
+	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
+	appspaceStatus.EXPECT().WaitStopped(appspaceID)
 
 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
 	sandboxMaker.EXPECT().Make()
 
+	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
+	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()
+
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
 		AppspaceModel:     appspaceModel,
+		AppspaceStatus:    appspaceStatus,
+		SandboxManager:    sandboxManager,
 		SandboxMaker:      sandboxMaker,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),

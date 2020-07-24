@@ -8,6 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/posener/wstest"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/leaktest"
 )
 
@@ -35,7 +36,7 @@ func TestWSExpiredToken(t *testing.T) {
 	tokStr := "abc"
 	uid := domain.UserID(7)
 
-	jobCtl := domain.NewMockMigrationJobController(mockCtrl)
+	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 
 	liveDataRoutes := &LiveDataRoutes{
 		JobController: jobCtl}
@@ -74,7 +75,7 @@ func TestWS(t *testing.T) {
 	updateChan := make(chan domain.MigrationStatusData)
 	updateChanClosed := false
 
-	jobCtl := domain.NewMockMigrationJobController(mockCtrl)
+	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 	jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
 	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
 		if !updateChanClosed {
@@ -146,7 +147,7 @@ func TestWSRemoteStop(t *testing.T) {
 	updateChan := make(chan domain.MigrationStatusData)
 	updateChanClosed := false
 
-	jobCtl := domain.NewMockMigrationJobController(mockCtrl)
+	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 	jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
 	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
 		if !updateChanClosed {
@@ -217,7 +218,7 @@ func TestWSMultipleRemotes(t *testing.T) {
 		{JobID: jobID, Status: domain.MigrationRunning},
 	}
 
-	jobCtl := domain.NewMockMigrationJobController(mockCtrl)
+	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 
 	updateChan1 := make(chan domain.MigrationStatusData)
 	updateChan1Closed := false

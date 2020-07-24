@@ -15,6 +15,10 @@ import (
 type AppspaceModel struct {
 	DB *domain.DB
 
+	AsPausedEvent interface {
+		Send(domain.AppspaceID, bool)
+	}
+
 	stmt struct {
 		selectID        *sqlx.Stmt
 		selectOwner     *sqlx.Stmt
@@ -150,6 +154,8 @@ func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.E
 		m.getLogger("Pause").Error(err)
 		return dserror.FromStandard(err)
 	}
+
+	m.AsPausedEvent.Send(appspaceID, pause)
 
 	return nil
 }

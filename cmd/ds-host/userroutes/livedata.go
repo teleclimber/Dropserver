@@ -42,10 +42,15 @@ type token struct {
 	expire time.Time
 }
 
+type jobControllerI interface {
+	SubscribeOwner(domain.UserID, string) (<-chan domain.MigrationStatusData, []domain.MigrationStatusData) // TODO change to new event thingo?
+	UnsubscribeOwner(domain.UserID, string)
+}
+
 // LiveDataRoutes provides live data update service.
 type LiveDataRoutes struct {
 	Authenticator     domain.Authenticator
-	JobController     domain.MigrationJobController
+	JobController     jobControllerI
 	MigrationJobModel domain.MigrationJobModel
 	wsConsts          *websocketConstants
 	tokens            map[string]token
@@ -222,7 +227,7 @@ type liveDataClient struct {
 
 	ticker *time.Ticker
 
-	jobController     domain.MigrationJobController
+	jobController     jobControllerI
 	migrationJobModel domain.MigrationJobModel
 
 	updatesPipe chan updateData

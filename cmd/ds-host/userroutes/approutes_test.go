@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestGetAppFromPath(t *testing.T) {
@@ -22,7 +23,7 @@ func TestGetAppFromPath(t *testing.T) {
 		Cookie: &domain.Cookie{
 			UserID: uid}}
 
-	m := domain.NewMockAppModel(mockCtrl)
+	m := testmocks.NewMockAppModel(mockCtrl)
 	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: uid}, nil)
 
 	a := ApplicationRoutes{
@@ -64,7 +65,7 @@ func TestGetAppFromPathUnauthorized(t *testing.T) {
 		Cookie: &domain.Cookie{
 			UserID: uid}}
 
-	m := domain.NewMockAppModel(mockCtrl)
+	m := testmocks.NewMockAppModel(mockCtrl)
 	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: domain.UserID(13)}, nil)
 
 	a := ApplicationRoutes{
@@ -89,7 +90,7 @@ func TestGetVersionFromPath(t *testing.T) {
 
 	appID := domain.AppID(7)
 
-	m := domain.NewMockAppModel(mockCtrl)
+	m := testmocks.NewMockAppModel(mockCtrl)
 	m.EXPECT().GetVersion(appID, domain.Version("0.1.2")).Return(&domain.AppVersion{}, nil)
 
 	a := ApplicationRoutes{
@@ -292,10 +293,10 @@ func TestDeleteVersion(t *testing.T) {
 		AppID:      appID,
 		AppVersion: domain.Version("0.0.1")}
 
-	asModel := domain.NewMockAppspaceModel(mockCtrl)
+	asModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
 
-	appModel := domain.NewMockAppModel(mockCtrl)
+	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
 
 	afModel := domain.NewMockAppFilesModel(mockCtrl)
@@ -327,7 +328,7 @@ func TestDeleteVersionInUse(t *testing.T) {
 		AppID:      appID,
 		AppVersion: v}
 
-	asModel := domain.NewMockAppspaceModel(mockCtrl)
+	asModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
 
 	a := ApplicationRoutes{

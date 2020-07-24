@@ -13,6 +13,8 @@
 
     "go.useLanguageServer": true,
 
+    //"deno.enable": false,
+
     "jest.rootPath": "frontend/",
     
     "workbench.colorCustomizations": {

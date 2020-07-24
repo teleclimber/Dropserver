@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -30,8 +31,8 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	appModel := testmocks.NewMockAppModel(mockCtrl)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
 		AppModel:      appModel,
@@ -65,12 +66,17 @@ func TestServeHTTPBadApp(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	appspaceID := domain.AppspaceID(7)
+	appID := domain.AppID(11)
+
+	appModel := testmocks.NewMockAppModel(mockCtrl)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 
 	appspaceRoutes := &AppspaceRoutes{
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel}
+		AppModel:       appModel,
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: appspaceStatus}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
@@ -84,8 +90,12 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}, nil)
-	appModel.EXPECT().GetFromID(gomock.Any()).Return(nil, dserror.New(dserror.InternalError))
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{
+		AppspaceID: appspaceID,
+		Subdomain:  "as1",
+		AppID:      appID}, nil)
+	appModel.EXPECT().GetFromID(appID).Return(nil, dserror.New(dserror.InternalError))
+	appspaceStatus.EXPECT().Ready(appspaceID).Return(true)
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
 
@@ -94,9 +104,96 @@ func TestServeHTTPBadApp(t *testing.T) {
 	}
 }
 
+// need to test events
+
+// then need to test a successful route call.
+func TestEmitLiveCountNoop(t *testing.T) {
+	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes.Init()
+
+	appspaceID := domain.AppspaceID(7)
+
+	appspaceRoutes.emitLiveCount(appspaceID, 11)
+}
+
+func TestEmitLiveCount(t *testing.T) {
+	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes.Init()
+
+	appspaceID := domain.AppspaceID(7)
+
+	subChan := make(chan int)
+	appspaceRoutes.subscribers[appspaceID] = append([]chan<- int{}, subChan)
+
+	go func() {
+		appspaceRoutes.emitLiveCount(appspaceID, 11)
+	}()
+
+	count := <-subChan
+	if count != 11 {
+		t.Error("expected count to be 11")
+	}
+}
+
+func TestSubscribe(t *testing.T) {
+	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes.Init()
+
+	appspaceID := domain.AppspaceID(7)
+
+	subChan := make(chan int)
+
+	count := appspaceRoutes.SubscribeLiveCount(appspaceID, subChan)
+	if count != 0 {
+		t.Error("count should be zero")
+	}
+
+	go func() {
+		appspaceRoutes.emitLiveCount(appspaceID, 11)
+	}()
+
+	count = <-subChan
+	if count != 11 {
+		t.Error("expected count to be 11")
+	}
+
+	appspaceRoutes.UnsubscribeLiveCount(appspaceID, subChan)
+	if len(appspaceRoutes.subscribers[appspaceID]) != 0 {
+		t.Error("there should be no subscribers left")
+	}
+}
+
+func TestIncrement(t *testing.T) {
+	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes.Init()
+
+	appspaceID := domain.AppspaceID(7)
+
+	appspaceRoutes.incrementLiveCount(appspaceID)
+	appspaceRoutes.incrementLiveCount(appspaceID)
+
+	subChan := make(chan int)
+	count := appspaceRoutes.SubscribeLiveCount(appspaceID, subChan)
+	if count != 2 {
+		t.Error("count should be two")
+	}
+
+	go func() {
+		appspaceRoutes.decrementLiveCount(appspaceID)
+		appspaceRoutes.decrementLiveCount(appspaceID)
+	}()
+
+	for count = range subChan {
+		if count == 0 {
+			appspaceRoutes.UnsubscribeLiveCount(appspaceID, subChan)
+			close(subChan)
+		}
+	}
+}
+
 func getASR(mockCtrl *gomock.Controller) *AppspaceRoutes {
-	appModel := domain.NewMockAppModel(mockCtrl)
-	appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
+	appModel := testmocks.NewMockAppModel(mockCtrl)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
 	return &AppspaceRoutes{
 		AppModel:      appModel,

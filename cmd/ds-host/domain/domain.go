@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModels,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel,MigrationJobController
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -344,17 +344,6 @@ type AppVersion struct {
 	LocationKey string `db:"location_key"`
 }
 
-// AppModel is the interface for the app model
-type AppModel interface {
-	GetFromID(AppID) (*App, Error)
-	GetForOwner(UserID) ([]*App, Error)
-	Create(UserID, string) (*App, Error)
-	GetVersion(AppID, Version) (*AppVersion, Error)
-	GetVersionsForApp(AppID) ([]*AppVersion, Error)
-	CreateVersion(AppID, Version, int, string) (*AppVersion, Error)
-	DeleteVersion(AppID, Version) Error
-}
-
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
 	OwnerID     UserID     `db:"owner_id"`
@@ -367,17 +356,6 @@ type Appspace struct {
 	LocationKey string `db:"location_key"`
 
 	// Config AppspaceConfig ..this one is harder
-}
-
-// AppspaceModel is the interface for the appspace model
-type AppspaceModel interface {
-	GetFromID(AppspaceID) (*Appspace, Error)
-	GetFromSubdomain(string) (*Appspace, Error)
-	GetForOwner(UserID) ([]*Appspace, Error)
-	GetForApp(AppID) ([]*Appspace, Error)
-	Create(UserID, AppID, Version, string, string) (*Appspace, Error)
-	Pause(AppspaceID, bool) Error
-	SetVersion(AppspaceID, Version) Error
 }
 
 // AppFilesMetadata containes metadata that can be gleaned from
@@ -396,15 +374,6 @@ type AppspaceDBManager interface {
 	// TODO: add Command for rev listener
 }
 
-// MigrationJobController controls and tracks appspace migration jobs
-type MigrationJobController interface {
-	Start()
-	Stop()
-	WakeUp()
-	SubscribeOwner(UserID, string) (<-chan MigrationStatusData, []MigrationStatusData)
-	UnsubscribeOwner(UserID, string)
-}
-
 // MigrationJobStatus represents the Status of an appspace's migration to a different version
 // including possibly a different schema
 type MigrationJobStatus int
@@ -421,12 +390,13 @@ const ( //maybe at MigrationWaiting at some point
 
 // MigrationStatusData reflects the current status of the migrationJob referenced
 type MigrationStatusData struct {
-	JobID     JobID
-	Status    MigrationJobStatus
-	Started   nulltypes.NullTime
-	Finished  nulltypes.NullTime
-	ErrString nulltypes.NullString
-	CurSchema int
+	JobID      JobID
+	AppspaceID AppspaceID
+	Status     MigrationJobStatus
+	Started    nulltypes.NullTime
+	Finished   nulltypes.NullTime
+	ErrString  nulltypes.NullString
+	CurSchema  int
 }
 
 // JobID is the id of appspace migration job
@@ -488,12 +458,6 @@ type AppspaceMetaDB interface {
 	GetConn(AppspaceID) DbConn
 }
 
-// AppspaceInfoModels caches and dishes AppspaceInfoModels
-type AppspaceInfoModels interface {
-	Init()
-	Get(AppspaceID) AppspaceInfoModel
-}
-
 // AppspaceInfoModel holds metadata like current schema and ds api version for the appspace.
 type AppspaceInfoModel interface {
 	GetSchema() (int, error)
@@ -534,6 +498,14 @@ type ReverseServices struct {
 type ReverseService interface {
 	Command(appspace *Appspace, message twine.ReceivedMessageI) // pass message id too? Maybe a way to id the sandbox?
 	// also probably Addendum or whatever you want to call it when the message is reused
+}
+
+// Events...
+
+//AppspacePausedEvent is the payload for appspace paused event
+type AppspacePausedEvent struct {
+	AppspaceID AppspaceID
+	Paused     bool
 }
 
 // cli stuff

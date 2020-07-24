@@ -11,14 +11,25 @@ import (
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
-// AppspaceRoutes handles routes for applications uploading, creating, deleting.
+// AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
-	AppspaceFilesModel     domain.AppspaceFilesModel
-	AppspaceModel          domain.AppspaceModel
+	AppModel interface {
+		GetFromID(domain.AppID) (*domain.App, domain.Error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+	}
+	AppspaceFilesModel domain.AppspaceFilesModel
+	AppspaceModel      interface {
+		GetForOwner(domain.UserID) ([]*domain.Appspace, domain.Error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+		Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, domain.Error)
+		Pause(domain.AppspaceID, bool) domain.Error
+		GetFromSubdomain(string) (*domain.Appspace, domain.Error)
+	}
 	AppspaceMetaDB         domain.AppspaceMetaDB
 	MigrationJobModel      domain.MigrationJobModel
-	MigrationJobController domain.MigrationJobController
-	AppModel               domain.AppModel
+	MigrationJobController interface {
+		WakeUp()
+	}
 }
 
 // ServeHTTP handles http traffic to the appspace routes

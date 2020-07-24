@@ -17,12 +17,23 @@ var migrateCommand = 11
 
 // JobController handles appspace functionality
 type JobController struct {
-	MigrationJobModel  domain.MigrationJobModel
-	AppModel           domain.AppModel
-	AppspaceModel      domain.AppspaceModel
-	AppspaceInfoModels domain.AppspaceInfoModels
-	SandboxManager     domain.SandboxManagerI // regular appspace sandboxes
-	SandboxMaker       SandboxMakerI
+	MigrationJobModel domain.MigrationJobModel
+	AppModel          interface {
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+	}
+	AppspaceModel interface {
+		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+		SetVersion(domain.AppspaceID, domain.Version) domain.Error
+	}
+	AppspaceInfoModels interface {
+		Get(domain.AppspaceID) domain.AppspaceInfoModel
+	}
+	AppspaceStatus interface {
+		Ready(appspaceID domain.AppspaceID) bool
+		WaitStopped(appspaceID domain.AppspaceID) // probably will have to be WaitStopped
+	}
+	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
+	SandboxMaker   SandboxMakerI
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
@@ -32,6 +43,9 @@ type JobController struct {
 
 	fanIn     chan runningJobStatus
 	ownerSubs map[domain.UserID]map[string]chan<- domain.MigrationStatusData
+
+	// TODO need subscribe mux, no?
+	subscribers []chan<- domain.MigrationStatusData
 }
 
 // Start allows jobs to run and can start the first job
@@ -82,6 +96,27 @@ func (c *JobController) Stop() {
 	close(c.fanIn)
 }
 
+// Subscribe to running migration job events
+func (c *JobController) Subscribe(ch chan<- domain.MigrationStatusData) {
+	c.removeSubscriber(ch)
+	c.subscribers = append(c.subscribers, ch)
+}
+
+// Unsubscribe to running migration job events
+func (c *JobController) Unsubscribe(ch chan<- domain.MigrationStatusData) {
+	c.removeSubscriber(ch)
+}
+
+func (c *JobController) removeSubscriber(ch chan<- domain.MigrationStatusData) {
+	// get a feeling you'll need a mutex to cover subscribers?
+	for i, s := range c.subscribers {
+		if s == ch {
+			c.subscribers[i] = c.subscribers[len(c.subscribers)-1]
+			c.subscribers = c.subscribers[:len(c.subscribers)-1]
+		}
+	}
+}
+
 // SubscribeOwner returns current jobs for owner
 // and pipes all updates to the provided channel.
 // Is this currently running jobs? OR pending jobs too?
@@ -123,6 +158,16 @@ func (c *JobController) UnsubscribeOwner(ownerID domain.UserID, subID string) {
 	delete(c.ownerSubs[ownerID], subID)
 }
 
+// GetRunningJobs returns an array of currently started and unfinished jobs
+func (c *JobController) GetRunningJobs() (rj []domain.MigrationStatusData) {
+	c.runningMux.Lock()
+	defer c.runningMux.Unlock()
+	for _, job := range c.runningJobs {
+		rj = append(rj, makeMigrationStatusData(job.getCurStatusData()))
+	}
+	return
+}
+
 var statString = map[domain.MigrationJobStatus]string{ // TODO: this is duplicated, particularly with json response
 	domain.MigrationStarted:  "started",
 	domain.MigrationRunning:  "running",
@@ -162,24 +207,31 @@ func (c *JobController) eventManifold() { // eventBus?
 		}
 
 		// Subscribers
+		migrationStatusData := makeMigrationStatusData(d)
+
 		subs, ok := c.ownerSubs[d.origJob.OwnerID]
 		if ok {
 			for _, updateChan := range subs {
-				updateChan <- makeMigrationStatusData(d)
+				updateChan <- migrationStatusData
 				// worried this may block or panic if we don't have all our ducks in a row
 			}
+		}
+
+		for _, ch := range c.subscribers {
+			ch <- migrationStatusData
 		}
 	}
 }
 
 func makeMigrationStatusData(s runningJobStatus) domain.MigrationStatusData {
 	return domain.MigrationStatusData{
-		JobID:     s.origJob.JobID,
-		Status:    s.status,
-		Started:   s.origJob.Started,
-		Finished:  s.origJob.Finished,
-		ErrString: s.errString,
-		CurSchema: s.curSchema,
+		JobID:      s.origJob.JobID,
+		AppspaceID: s.origJob.AppspaceID,
+		Status:     s.status,
+		Started:    s.origJob.Started,
+		Finished:   s.origJob.Finished,
+		ErrString:  s.errString,
+		CurSchema:  s.curSchema,
 	}
 }
 
@@ -260,6 +312,10 @@ func (c *JobController) runJob(job *runningJob) {
 
 	appspaceID := job.migrationJob.AppspaceID
 
+	c.AppspaceStatus.WaitStopped(appspaceID)
+
+	c.SandboxManager.StopAppspace(appspaceID) // Even if there is no code to run for the migration the sandbox has to be restarted with new app version.
+
 	var dsErr domain.Error
 
 	job.appspace, dsErr = c.AppspaceModel.GetFromID(appspaceID)
@@ -307,26 +363,6 @@ func (c *JobController) runJob(job *runningJob) {
 			// if no rows, that means version was deleted even though appspaces were using it. That's a program error
 		}
 	}
-
-	c.SandboxManager.StopAppspace(appspaceID)
-	// ^^ regarding stopping the appspace, if the appspace is in use,
-	// in particular with say an open websocket connection
-	// the appspace won't automatically allow itself to quit.
-	// We can wait, but then the job has actually started, so further requests are blocked.
-	// -> weird limbo state.
-	// -> Need appspace graceful wait, which is called before "starting" the job.
-	// ..then when all connections happen to close out, the appspace quits and the job can start
-	// However, we'll also need a "please quit" signal that the appspace code can receive and act on
-	// ..(like cleanly close things down)
-	// And finally a force quit.
-
-	// Note that it's not just stopping the sandbox.
-	// All crud routes / static stuff needs to be stopped too (or paused perhaps)
-
-	// if schemas are the same we don't need to run migration code
-	// but still need to "stop the world" to restart sandbox andcrud/static routes with new version.
-
-	// Here it would be good to pause or go back-and-forth with a service that sets appspace availabliilty to do this.
 
 	err = job.runMigration()
 	if err != nil {

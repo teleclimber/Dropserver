@@ -48,6 +48,12 @@ func (g *AppspaceInfoModels) Get(appspaceID domain.AppspaceID) domain.AppspaceIn
 	return m
 }
 
+// GetSchema is a convenience function that returns the current schema for the appspaceID
+func (g *AppspaceInfoModels) GetSchema(appspaceID domain.AppspaceID) (int, error) {
+	m := g.Get(appspaceID)
+	return m.GetSchema()
+}
+
 // InfoModel interacts with the info table of appspace meata db
 type InfoModel struct {
 	AppspaceMetaDB domain.AppspaceMetaDB

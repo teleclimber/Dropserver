@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestGetAppspaceFromPath(t *testing.T) {
@@ -17,7 +18,7 @@ func TestGetAppspaceFromPath(t *testing.T) {
 		Cookie: &domain.Cookie{
 			UserID: uid}}
 
-	asm := domain.NewMockAppspaceModel(mockCtrl)
+	asm := testmocks.NewMockAppspaceModel(mockCtrl)
 	asm.EXPECT().GetFromID(domain.AppspaceID(123)).Return(&domain.Appspace{OwnerID: uid}, nil)
 
 	a := AppspaceRoutes{
@@ -78,7 +79,7 @@ func TestGetAppspaceFromPathUnauthorized(t *testing.T) {
 		Cookie: &domain.Cookie{
 			UserID: domain.UserID(7)}}
 
-	asm := domain.NewMockAppspaceModel(mockCtrl)
+	asm := testmocks.NewMockAppspaceModel(mockCtrl)
 	asm.EXPECT().GetFromID(domain.AppspaceID(123)).Return(&domain.Appspace{OwnerID: domain.UserID(13)}, nil)
 
 	a := AppspaceRoutes{
