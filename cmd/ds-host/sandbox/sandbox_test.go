@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -213,7 +214,8 @@ func TestStart(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 	cfg.Exec.AppspacesFilesPath = dir
 	cfg.Exec.AppsPath = dir
 	cfg.Exec.AppspacesMetaPath = dir
@@ -231,7 +233,7 @@ func TestStart(t *testing.T) {
 		status:     domain.SandboxStarting,
 		Config:     cfg}
 
-	err = s.Start(appVersion, appspace) //failing to start
+	err = s.Start(appVersion, appspace)
 	if err != nil {
 		s.Stop()
 		t.Error(err)
@@ -244,13 +246,141 @@ func TestStart(t *testing.T) {
 	s.Stop()
 }
 
-func getJSRuntimePath() string {
+func TestExecFn(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	appDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(appDir)
+
+	appLocation := "app-loc"
+	err = os.MkdirAll(path.Join(appDir, appLocation), 0755)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.Sandbox.SocketsDir = dir
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
+	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppsPath = appDir
+	cfg.Exec.AppspacesMetaPath = dir
+
+	appVersion := &domain.AppVersion{
+		LocationKey: appLocation}
+	appspace := &domain.Appspace{
+		AppspaceID:  domain.AppspaceID(13),
+		LocationKey: "appspace-loc"}
+
+	scriptPath := path.Join(appDir, appLocation, "app.ts")
+
+	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Sandbox{
+		id:         7,
+		appspace:   appspace,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		Config:     cfg}
+
+	err = s.Start(appVersion, appspace)
+	if err != nil {
+		s.Stop()
+		t.Error(err)
+	}
+
+	if s.Status() != domain.SandboxReady {
+		t.Error("sandbox status should be ready")
+	}
+
+	err = s.ExecFn(domain.AppspaceRouteHandler{
+		File:     "@app/app.ts",
+		Function: "abc",
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	s.Stop()
+}
+
+func TestExecForbiddenImport(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	forbiddenDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(forbiddenDir)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.Sandbox.SocketsDir = dir
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
+	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppsPath = dir
+	cfg.Exec.AppspacesMetaPath = dir
+
+	appVersion := &domain.AppVersion{
+		LocationKey: "app-loc"}
+	appspace := &domain.Appspace{
+		AppspaceID:  domain.AppspaceID(13),
+		LocationKey: "appspace-loc"}
+
+	scriptPath := path.Join(forbiddenDir, "bad.ts")
+
+	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello bad'); }"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Sandbox{
+		id:         7,
+		appspace:   appspace,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		Config:     cfg}
+
+	err = s.Start(appVersion, appspace)
+	if err != nil {
+		s.Stop()
+		t.Error(err)
+	}
+
+	if s.Status() != domain.SandboxReady {
+		t.Error("sandbox status should be ready")
+	}
+
+	err = s.ExecFn(domain.AppspaceRouteHandler{
+		File:     scriptPath,
+		Function: "abc",
+	})
+	if err == nil {
+		t.Error("Expected an error")
+	}
+
+	s.Stop()
+}
+
+func getSandboxCodePath() string {
 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.ts")
-
-	return jsRuntime
+	return filepath.Join(dir, "../../../resources/")
+}
+func getSandboxRunnerPath() string {
+	return filepath.Join(getSandboxCodePath(), "ds-sandbox-runner.ts")
 }

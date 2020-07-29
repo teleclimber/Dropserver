@@ -517,14 +517,20 @@ type ImportPaths struct {
 }
 
 func (s *Sandbox) makeImportMap() (*[]byte, error) {
+	appPath := trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey))
+	appspacePath := trailingSlash(filepath.Join(s.Config.Exec.AppspacesFilesPath, s.appspace.LocationKey))
+	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
+	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
 	im := ImportPaths{
 		Imports: map[string]string{
-			"@app/":        "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey)),
-			"@appspace/":   "file:" + trailingSlash(filepath.Join(s.Config.Exec.AppspacesFilesPath, s.appspace.LocationKey)),
-			"@dropserver/": "file:" + trailingSlash(s.Config.Exec.SandboxCodePath),
-			//"/":            "undefined:", // Defeat imports from outside the app dir. See:
-			//"./": "./", // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
-			// meh this doesn't work because it blocks everything form outside the scrip dir.
+			"/":            "undefined:", // Defeat imports from outside the app dir. See:
+			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
+			"@app/":        appPath,
+			"@appspace/":   appspacePath,
+			"@dropserver/": dropserverPath,
+			appPath:        appPath,
+			appspacePath:   appspacePath,
+			dropserverPath: dropserverPath,
 		}}
 
 	j, err := json.Marshal(im)

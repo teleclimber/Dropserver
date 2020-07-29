@@ -44,7 +44,7 @@ async function execFnHandler(message: ReceivedMessageI) {
 	else fn = mod[data.fn];
 
 	if(typeof fn !== "function") {
-		await message.sendError("Not a function");
+		await message.sendError("Not a function: "+data.fn);
 		return;
 	}
 

@@ -28,6 +28,12 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
+	if sb == nil {
+		// sandbox failed to start or something
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	//sbName := sb.GetName()       // Get ID instead of Name, only used for logging / debugging.
 	sbAddress := fmt.Sprintf("http://127.0.0.1") // TODO: is this unix+http?
 	sbTransport := sb.GetTransport()
