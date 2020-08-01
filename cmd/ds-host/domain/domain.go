@@ -363,9 +363,7 @@ type Appspace struct {
 type AppFilesMetadata struct {
 	AppName       string  `json:"name"`
 	AppVersion    Version `json:"version"`
-	SchemaVersion int     `json:"schema_version"` // Now wondering what this is and where it's stored. Should it be in appspace meta db?
-	// there is a whole gaggle of stuff, at least according to earlier node version.
-	// currently we have it in app.json what the routes are.
+	SchemaVersion int     `json:"schema_version"`
 }
 
 // AppspaceDBManager manages connections to appspace databases

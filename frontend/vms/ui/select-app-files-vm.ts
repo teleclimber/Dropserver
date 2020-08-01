@@ -11,32 +11,35 @@ export default class SelectAppFilesVM {
 		version: string,
 		schema: number
 	} | undefined;
-	@observable app_json_error: string = '';
+	@observable app_meta_error: string = '';
 
 	constructor() {
 		this._file_list = { file_list: undefined };
-		observe(this, 'app_json_file', () => {
-			this.readAppJson();
+		observe(this, 'app_files', () => {
+			this.readAppMeta();
 		});
 	}
 
-	@computed get app_json_file(): SelectedFile | undefined {
+	@action
+	readAppMeta() {
+		this.app_meta_error = '';
 		if( !this.app_files ) return undefined;
-		return this.app_files.find( (s:SelectedFile) => s.rel_path === 'application.json');
-	}
 
-	readAppJson() {
-		if( !this.app_json_file ) {
+		const schema_version:number = this.getSchemaVersion();
+
+		const app_json_file = this.app_files.find( (s:SelectedFile) => s.rel_path === 'application.json');
+
+		if( !app_json_file ) {
 			this.metadata = undefined;	// not sure this will set correctly
 			return;
 		}
 
 		const reader = new FileReader();
-		reader.readAsText(this.app_json_file.file, "UTF-8");
+		reader.readAsText(app_json_file.file, "UTF-8");
 		reader.onerror = (event) => {
 			runInAction( () => {
 				this.metadata = undefined;
-				this.app_json_error = 'Failed to read application.json';
+				this.app_meta_error = 'Failed to read application.json';
 			});
 		}
 		reader.onload = () => {
@@ -47,29 +50,46 @@ export default class SelectAppFilesVM {
 			catch(e) {
 				runInAction( () => {
 					this.metadata = undefined;
-					this.app_json_error = 'Failed to parse application.json';
+					this.app_meta_error = 'Failed to parse application.json';
 				});
 			}
 
 			if( app_data ) {
 				// should probably verify data is at least believable
 				// version is properly interpreted as semver for ex
-				// schema is a number.
 				runInAction( () => {
 					this.metadata = {
 						app_name: app_data.name,
 						version: app_data.version,
-						schema: app_data.schema ? Number(app_data.schema) : 0
+						schema: schema_version
 					};
-					this.app_json_error = '';
+					
 				});
 			}
 		}
 	}
 
+	getSchemaVersion() : number {
+		if( !this.app_files ) return 0;
+
+		const re = /migrations\/(\d+)\//;	// do we need to use OS-specific seprators?
+
+		let v = 0;
+		this.app_files.forEach( (f:SelectedFile) => {
+			const matches = f.rel_path.match(re);
+			if( matches && matches.length === 2 ) {
+				const fv = Number(matches[1]);
+				// we should detect 0 as a bad schema version. Minimum is 1.
+				// we should warn on discontinuous versions?
+				if( fv > v ) v = fv;
+			}
+		});
+		return v;
+	}
+
 	@action
 	setFileList(files:FileList) {
-		this._file_list = { file_list: files };
+		this._file_list = { file_list: files };	// trick to force mobx to see a new list of files, since borwser reuses FileList object
 	}
 
 	//@computed //precisely not computed!
@@ -103,8 +123,7 @@ export default class SelectAppFilesVM {
 
 	@computed get error(): string {
 		if( !this.app_files ) return '';	// no error if nothing selected
-		if( !this.app_json_file ) return 'Failed to find application.json';
-		return this.app_json_error;
+		return this.app_meta_error;
 	}
 }
 

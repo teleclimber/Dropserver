@@ -13,7 +13,7 @@
 
     "go.useLanguageServer": true,
 
-    //"deno.enable": false,
+    "deno.enable": false,
 
     "jest.rootPath": "frontend/",
     
