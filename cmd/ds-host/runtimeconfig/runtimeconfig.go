@@ -30,7 +30,7 @@ var configDefault = []byte(`{
 }`)
 
 // Load opens the json passed and merges it with defaults
-func Load(configFile string) *domain.RuntimeConfig {
+func Load(configFile string, execPath string) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
 
@@ -47,12 +47,15 @@ func Load(configFile string) *domain.RuntimeConfig {
 
 	validateConfig(rtc)
 
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
+	if execPath == "" {
+		ex, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		execPath = filepath.Dir(ex)
 	}
 
-	setExecValues(rtc, filepath.Dir(ex))
+	setExecValues(rtc, execPath)
 
 	return rtc
 }
