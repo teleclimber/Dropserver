@@ -40,7 +40,7 @@
 			"host": "10.211.55.9",
 			"port": 2345,
 			//"program": "${workspaceFolder}/cmd/ds-host",
-			"remotePath": "/home/developer/go/src/github.com/teleclimber/DropServer",
+			"remotePath": "/home/developer/dropserver-code",
 			//"env": {},
 			//"args": ["-config=/home/developer/ds-config.json"]
 			// "showLog": true,
