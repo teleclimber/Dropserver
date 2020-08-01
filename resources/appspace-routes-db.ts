@@ -22,7 +22,7 @@ type Auth = {
 
 export type FunctionHandler = {	// is that how we want to do this? Would it be better to have several types and overload it?
 	type: "function",
-	file: string,
+	file: string,	// maybe this should be called "module"
 	function: string
 }
 export type FileHandler = {	// is that how we want to do this? Would it be better to have several types and overload it?

@@ -1,13 +1,118 @@
 package appspaceroutes
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
+
+func TestGetFilePath(t *testing.T) {
+	config := &domain.RuntimeConfig{}
+	config.Exec.AppsPath = "/data-dir/apps-path"
+	routeData := &domain.AppspaceRouteData{
+		AppVersion: &domain.AppVersion{
+			LocationKey: "app-version-123",
+		},
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Path: "/some-files",
+			Handler: domain.AppspaceRouteHandler{
+				Type: "file",
+				Path: "@app/static-files/",
+			},
+		},
+		URLTail: "/some-files/css/style.css",
+	}
+
+	v0 := &V0{
+		Config: config,
+	}
+
+	p, err := v0.getFilePath(routeData)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := "/data-dir/apps-path/app-version-123/static-files/css/style.css"
+	if p != expected {
+		t.Error("expected " + expected)
+	}
+
+	// now try illegal path:
+	routeData.URLTail = "/some-files/../../gotcha.txt"
+	p, err = v0.getFilePath(routeData)
+	if err == nil {
+		t.Error("expected error, got " + p)
+	}
+
+	// now try a specific file for route path
+	routeData.URLTail = "/some-files/css/style.css"
+	routeData.RouteConfig.Path = "/some-files/css/style.css"
+	routeData.RouteConfig.Handler.Path = "@app/static-files/style.css"
+	p, err = v0.getFilePath(routeData)
+	if err != nil {
+		t.Error(err)
+	}
+	expected = "/data-dir/apps-path/app-version-123/static-files/style.css"
+	if p != expected {
+		t.Error("expected " + expected)
+	}
+}
+
+func TestServeFile(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	config := &domain.RuntimeConfig{}
+	config.Exec.AppsPath = dir
+	routeData := &domain.AppspaceRouteData{
+		AppVersion: &domain.AppVersion{
+			LocationKey: "app-version-123",
+		},
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Path: "/some-files",
+			Handler: domain.AppspaceRouteHandler{
+				Type: "file",
+				Path: "@app/static-files/",
+			},
+		},
+		URLTail: "/some-files/css/style.css",
+	}
+
+	v0 := &V0{
+		Config: config,
+	}
+
+	p := filepath.Join(dir, "app-version-123", "static-files", "css")
+	t.Log("writing css to: " + p)
+	err = os.MkdirAll(p, 0755)
+	if err != nil {
+		t.Error(err)
+	}
+	fileData := []byte("BODY { color: red; }")
+	ioutil.WriteFile(filepath.Join(p, "style.css"), fileData, 0644)
+
+	req, err := http.NewRequest("GET", "/some-files/css/style.css", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	v0.serveFile(rr, req, routeData)
+
+	respString := string(rr.Body.Bytes())
+	if respString != string(fileData) {
+		t.Error("expected file data, got " + respString)
+	}
+}
 
 // path is dropserver, does it forward to dropserver route?
 func TestServeHTTPDropserverRoute(t *testing.T) {

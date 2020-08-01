@@ -3,7 +3,6 @@ package appspacemetadb
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"path"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/twine"
 )
@@ -68,16 +68,14 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 
 	err := json.Unmarshal(*payload, &data)
 	if err != nil {
-		// log
-		fmt.Println(err)
+		m.getLogger("reverseCmdCreate, json.Unmarshal").Error(err)
 		message.SendError("json unmarshall error")
 		return
 	}
 
 	dsErr := m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
 	if dsErr != nil {
-		// log
-		fmt.Println(dsErr)
+		m.getLogger("reverseCmdCreate, m.Create").Error(dsErr.ToStandard())
 		message.SendError("db error on create")
 		return
 	}
@@ -270,6 +268,14 @@ func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceR
 
 	// need to return something....
 	return &routeConfig, nil
+}
+
+func (m *RouteModelV0) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("RouteModelV0")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // func v0selectMethodsOr()

@@ -210,6 +210,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	err := s.cmd.Wait()
 	if err != nil {
+		// TODO check error type (see Wait comment)
 		s.getLogger("monitor(), s.cmd.Wait()").Error(err)
 		s.Stop()
 		// Here we should kill off reverse listener?

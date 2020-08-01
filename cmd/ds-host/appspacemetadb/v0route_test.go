@@ -141,6 +141,11 @@ func TestV0RouteMatch(t *testing.T) {
 		t.Fatal(dsErr)
 	}
 
+	dsErr = r.Create([]string{"get"}, "/uvw/somefile.txt", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{})
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+
 	route, dsErr := r.Match("get", "/xyz/")
 	if dsErr != nil {
 		t.Fatal(dsErr)
@@ -175,6 +180,22 @@ func TestV0RouteMatch(t *testing.T) {
 	}
 	if route.Auth.Type != "owner" {
 		t.Error("got the wrong route data")
+	}
+
+	route, dsErr = r.Match("get", "/uvw/")
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if route != nil {
+		t.Error("expecte /uvw/ route to be nil")
+	}
+
+	route, dsErr = r.Match("get", "/uvw/somefile.txt")
+	if dsErr != nil {
+		t.Fatal(dsErr)
+	}
+	if route == nil {
+		t.Error("expected non-nil route")
 	}
 }
 

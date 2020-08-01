@@ -136,8 +136,6 @@ func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) appspaceStatus 
 }
 
 func (s *AppspaceStatus) loadStatus(appspaceID domain.AppspaceID) (status appspaceStatus) {
-	// TODO lock status mux
-
 	appspace, dsErr := s.AppspaceModel.GetFromID(appspaceID)
 	if dsErr != nil {
 		status.problem = true

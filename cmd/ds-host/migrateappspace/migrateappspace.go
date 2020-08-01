@@ -351,7 +351,8 @@ func (c *JobController) runJob(job *runningJob) {
 	}
 
 	job.useVersion = toVersion
-	job.fromSchema = job.curSchema
+	job.fromSchema = fromSchema
+	job.curSchema = fromSchema
 	job.toSchema = toVersion.Schema
 
 	if job.toSchema < job.fromSchema {
@@ -489,7 +490,7 @@ func (r *runningJob) runMigration() error {
 	reply, err := sent.WaitReply()
 	if err != nil {
 		// This one probaly means the sandbox crashed or some such
-		r.getLogger("runMigration, sandbox.SendMessage").Error(err)
+		r.getLogger("runMigration, sent.WaitReply").Error(err)
 		return err
 	}
 

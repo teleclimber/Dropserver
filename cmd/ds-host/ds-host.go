@@ -46,12 +46,14 @@ var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as
 
 var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
+var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
+
 func main() {
 	//startServer := true	// currnetly actually not used.
 
 	flag.Parse()
 
-	runtimeConfig := runtimeconfig.Load(*configFlag)
+	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag)
 
 	dbManager := &database.Manager{
 		Config: runtimeConfig}
@@ -307,7 +309,8 @@ func main() {
 	appspaceRoutesV0 := &appspaceroutes.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
-		SandboxProxy:        sandboxProxy}
+		SandboxProxy:        sandboxProxy,
+		Config:              runtimeConfig}
 
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
 		AppModel:       appModel,

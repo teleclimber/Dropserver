@@ -93,14 +93,14 @@ func (r *AppspaceRoutes) incrementLiveCount(appspaceID domain.AppspaceID) {
 		r.liveCounter[appspaceID] = 0
 	}
 	r.liveCounter[appspaceID]++
-	r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
+	go r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
 }
 func (r *AppspaceRoutes) decrementLiveCount(appspaceID domain.AppspaceID) {
 	r.liveCounterMux.Lock()
 	defer r.liveCounterMux.Unlock()
 	if _, ok := r.liveCounter[appspaceID]; ok {
 		r.liveCounter[appspaceID]--
-		r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
+		go r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
 		if r.liveCounter[appspaceID] == 0 {
 			delete(r.liveCounter, appspaceID)
 		}
@@ -152,8 +152,10 @@ func (r *AppspaceRoutes) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 	if !ok {
 		return
 	}
-	for _, c := range subscribers {
-		c <- count
+	for _, ch := range subscribers {
+		go func(c chan<- int) {
+			c <- count
+		}(ch)
 	}
 }
 
