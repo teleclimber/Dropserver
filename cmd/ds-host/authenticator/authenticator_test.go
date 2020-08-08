@@ -68,7 +68,7 @@ func TestGetForAccountNoCookie(t *testing.T) {
 	a := &Authenticator{
 		Config: getConfig()}
 
-	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
 	if dsErr == nil {
 		t.Error("should error")
 	}
@@ -100,7 +100,7 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
 	if dsErr == nil {
 		t.Error("should error")
 	}
@@ -137,7 +137,7 @@ func TestGetForAccountNotUser(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
 	if dsErr == nil {
 		t.Error("should error")
 	}
@@ -174,7 +174,7 @@ func TestGetForAccountExpired(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.AccountAuthorized(rr, req, &domain.AppspaceRouteData{})
+	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
 	if dsErr == nil {
 		t.Error("should error")
 	}
@@ -183,7 +183,7 @@ func TestGetForAccountExpired(t *testing.T) {
 	}
 }
 
-func TestAccountAuthorized(t *testing.T) {
+func TestAuthenticate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -214,7 +214,7 @@ func TestAccountAuthorized(t *testing.T) {
 
 	routeData := &domain.AppspaceRouteData{}
 
-	dsErr := a.AccountAuthorized(rr, req, routeData)
+	dsErr := a.Authenticate(rr, req, routeData)
 	if dsErr != nil {
 		t.Error("should not error")
 	}

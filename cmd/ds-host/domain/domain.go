@@ -160,9 +160,10 @@ type SandboxI interface {
 // we'll see what that means when we start doing composable routes. Will we need server then?
 
 // Authenticator is an interface
+// Maybe this should be renamed Session or somesuch
 type Authenticator interface {
 	SetForAccount(http.ResponseWriter, UserID) Error
-	AccountAuthorized(http.ResponseWriter, *http.Request, *AppspaceRouteData) Error
+	Authenticate(http.ResponseWriter, *http.Request, *AppspaceRouteData) Error
 	UnsetForAccount(http.ResponseWriter, *http.Request)
 }
 
@@ -272,8 +273,8 @@ type Cookie struct {
 	// UserAccount indicates whether this cookie is for the user's account management
 	UserAccount bool `db:"user_account"`
 
-	// Appspace is the identifier of the appspace that this cookie gives acess to
-	// It's mutually exclusive with UserHome.
+	// AppspaceID is the appspace that the cookie can authorize
+	// It's mutually exclusive with UserAccount.
 	AppspaceID AppspaceID `db:"appspace_id"`
 }
 
@@ -435,6 +436,7 @@ type AppspaceRouteHandler struct {
 
 // AppspaceRouteAuth is a JSON friendly struct that contains
 // description of auth paradigm for a route
+// Will need a lot more than just type in the long run.
 type AppspaceRouteAuth struct {
 	Type string `json:"type"`
 }

@@ -12,18 +12,42 @@ import (
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
+func TestV0validateAuth(t *testing.T) {
+	// OK there ust isn't anything to do here yet
+}
+
+func TestV0validateHandler(t *testing.T) {
+	handler := domain.AppspaceRouteHandler{
+		Type: "file",
+		Path: "/some-path/yo"}
+
+	err := v0validateHandler(handler)
+	if err == nil {
+		t.Error("expected error from bad path")
+	}
+
+	handler.Path = "@app/yo"
+	err = v0validateHandler(handler)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestV0RouteCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	auth := domain.AppspaceRouteAuth{Type: "owner"}
+	handler := domain.AppspaceRouteHandler{Type: "file", Path: "@app/abc/"}
+
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	dsErr := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{}, domain.AppspaceRouteHandler{})
+	dsErr := r.Create([]string{"get", "post"}, "/abc/", auth, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
 
-	dsErr = r.Create([]string{"post"}, "/abc", domain.AppspaceRouteAuth{}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"post"}, "/abc", auth, handler)
 	if dsErr == nil {
 		t.Fatal("Expected error on duplicate route")
 	}
@@ -31,12 +55,12 @@ func TestV0RouteCreate(t *testing.T) {
 		t.Fatal("Expected error to be route exists.")
 	}
 
-	dsErr = r.Create([]string{"patch"}, "/abc", domain.AppspaceRouteAuth{}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"patch"}, "/abc", auth, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
 
-	dsErr = r.Create([]string{"get", "post"}, "/abc/def", domain.AppspaceRouteAuth{}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"get", "post"}, "/abc/def", auth, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
@@ -56,12 +80,12 @@ func TestV0RouteGet(t *testing.T) {
 		t.Error("expected no rows")
 	}
 
-	dsErr = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function"})
+	dsErr = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
 
-	dsErr = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
@@ -95,7 +119,7 @@ func TestV0Delete(t *testing.T) {
 
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	dsErr := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{}, domain.AppspaceRouteHandler{})
+	dsErr := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
@@ -118,6 +142,8 @@ func TestV0RouteMatch(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	handler := domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"}
+
 	appspaceID := domain.AppspaceID(7)
 
 	db := v0RoutesGetTestDBHandle(t)
@@ -131,17 +157,17 @@ func TestV0RouteMatch(t *testing.T) {
 		appspaceID:     appspaceID,
 	}
 
-	dsErr := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{})
+	dsErr := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
 
-	dsErr = r.Create([]string{"get"}, "/abc/def/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"get"}, "/abc/def/", domain.AppspaceRouteAuth{Type: "public"}, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
 
-	dsErr = r.Create([]string{"get"}, "/uvw/somefile.txt", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{})
+	dsErr = r.Create([]string{"get"}, "/uvw/somefile.txt", domain.AppspaceRouteAuth{Type: "public"}, handler)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}

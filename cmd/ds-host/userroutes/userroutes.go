@@ -11,7 +11,6 @@ import (
 
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
-	Authenticator     domain.Authenticator
 	AuthRoutes        domain.RouteHandler
 	ApplicationRoutes domain.RouteHandler
 	AppspaceRoutes    domain.RouteHandler
@@ -36,14 +35,11 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 		routeData.URLTail = tail
 		u.LiveDataRoutes.ServeHTTP(res, req, routeData)
 	} else {
-		// Must be logged in to go past this point.
-		dsErr := u.Authenticator.AccountAuthorized(res, req, routeData)
-		if dsErr != nil {
-			http.Redirect(res, req, "/login", http.StatusFound)
-			return
+		if routeData.Cookie != nil && routeData.Cookie.UserAccount == true {
+			u.serveLoggedInRoutes(res, req, routeData)
+		} else {
+			res.WriteHeader(http.StatusUnauthorized)
 		}
-
-		u.serveLoggedInRoutes(res, req, routeData)
 	}
 }
 
@@ -52,7 +48,9 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 
 	if routeData.Cookie.UserAccount == false {
+		// log it too
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
+		return
 	}
 
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)

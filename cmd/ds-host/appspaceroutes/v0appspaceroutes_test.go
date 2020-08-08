@@ -12,6 +12,53 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+func TestAuthorize(t *testing.T) {
+	v0 := &V0{}
+
+	ownerID := domain.UserID(7)
+	appspaceID := domain.AppspaceID(11)
+
+	routeData := domain.AppspaceRouteData{
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Auth: domain.AppspaceRouteAuth{
+				Type: "public",
+			},
+		},
+	}
+	a := v0.authorize(&routeData)
+	if !a {
+		t.Error("expected public route authorized")
+	}
+
+	routeData.RouteConfig.Auth.Type = "owner"
+	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
+	a = v0.authorize(&routeData)
+	if a {
+		t.Error("expected unauthorized because no cookie")
+	}
+
+	routeData.Cookie = &domain.Cookie{
+		UserID: domain.UserID(13),
+	}
+	a = v0.authorize(&routeData)
+	if a {
+		t.Error("expected unauthorized because wrong user for cookie")
+	}
+
+	routeData.Cookie.UserID = ownerID
+	routeData.Cookie.AppspaceID = domain.AppspaceID(33)
+	a = v0.authorize(&routeData)
+	if a {
+		t.Error("expected unauthorized because wrong appspace ID")
+	}
+
+	routeData.Cookie.AppspaceID = appspaceID
+	a = v0.authorize(&routeData)
+	if !a {
+		t.Error("expected route authorized")
+	}
+}
+
 func TestGetFilePath(t *testing.T) {
 	config := &domain.RuntimeConfig{}
 	config.Exec.AppsPath = "/data-dir/apps-path"

@@ -290,7 +290,6 @@ func main() {
 		AppModel:               appModel}
 
 	userRoutes := &userroutes.UserRoutes{
-		Authenticator:     authenticator,
 		AuthRoutes:        authRoutes,
 		AdminRoutes:       adminRoutes,
 		ApplicationRoutes: applicationRoutes,
@@ -328,6 +327,7 @@ func main() {
 
 	// Create server.
 	server := &server.Server{
+		Authenticator:  authenticator,
 		Config:         runtimeConfig,
 		UserRoutes:     userRoutes,
 		AppspaceRoutes: appspaceRoutes,

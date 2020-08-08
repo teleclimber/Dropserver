@@ -50,12 +50,11 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 		}
 		routeData.RouteConfig = routeConfig
 
-		// TODO: auth.
-		// r.Authenticator.ForAppspace(appspaceID)
-		// Consider that there are a number of possible results here:
-		// - no cookie
-		// - cookie but not authorized on this route (non-owner)
-		// - non-owner, but authorized
+		if !r.authorize(routeData) {
+			// for now just send unauthorized
+			http.Error(res, "not authorized", http.StatusUnauthorized)
+			return
+		}
 
 		switch routeConfig.Handler.Type {
 		case "function":
@@ -69,14 +68,34 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 	}
 }
 
+func (r *V0) authorize(routeData *domain.AppspaceRouteData) bool {
+	switch routeData.RouteConfig.Auth.Type {
+	case "owner":
+		if routeData.Cookie == nil {
+			return false
+		}
+		if routeData.Cookie.UserID != routeData.Appspace.OwnerID {
+			return false
+		}
+		if routeData.Cookie.AppspaceID != routeData.Appspace.AppspaceID {
+			return false
+		}
+		return true
+	case "public":
+		return true
+	}
+
+	r.getLogger("authorize").Log("Unrecognized route config auth type: " + routeData.RouteConfig.Auth.Type)
+
+	return false
+}
+
 func (r *V0) serveFile(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	p, err := r.getFilePath(routeData)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	r.getLogger("serveFile").Log("Path " + p)
 
 	// check if p is a directory? If so handle as either dir listing or index.html?
 	fileinfo, err := os.Stat(p)

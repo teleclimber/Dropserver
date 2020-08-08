@@ -34,18 +34,17 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 	return nil
 }
 
-// AccountAuthorized tells whether a request should be allowed to proceed or not.
-// OK, but it's not clear what the "ForAccount" means? What account are we referring to?
-func (a *Authenticator) AccountAuthorized(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) domain.Error {
+// Authenticate determines whether the request includes a cookie that identifies a user
+// If a user is found this data is attached to routeData in the cookie field.
+func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) domain.Error {
 	cookie, dsErr := a.getCookie(req)
 	if dsErr != nil {
 		return dsErr
 	}
 
 	routeData.Cookie = cookie
-	// augment routeData to have convenient logged-in user Fields?
-	// apparently Cookie holds something useful there?
 
+	// Do we definitely refresh cookie in all cases?
 	a.refreshCookie(res, cookie.CookieID)
 
 	return nil
@@ -110,6 +109,8 @@ func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) 
 }
 
 func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expires time.Time) {
+	// TODO: this needs work because it seems to create a bunch of new cookies.
+	// I think we have to explicitly set domain and path?
 	http.SetCookie(res, &http.Cookie{
 		Name:     "session_token",
 		Value:    cookieID,

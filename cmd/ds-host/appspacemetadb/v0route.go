@@ -3,6 +3,7 @@ package appspacemetadb
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"path"
 	"sort"
@@ -108,7 +109,17 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 		return dsErr
 	}
 
+	err := v0validateAuth(auth)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
 	authStr, err := json.Marshal(auth)
+	if err != nil {
+		return dserror.FromStandard(err)
+	}
+
+	err = v0validateHandler(handler)
 	if err != nil {
 		return dserror.FromStandard(err)
 	}
@@ -357,4 +368,48 @@ func v0appspaceRouteFromRow(r routeRow) (domain.AppspaceRouteConfig, domain.Erro
 		Handler: handler}
 
 	return routeConfig, nil
+}
+
+func v0validateAuth(auth domain.AppspaceRouteAuth) error {
+	switch auth.Type {
+	case "owner":
+		// no need for anything else. all other fields shoudl be zero-value
+		return nil
+	case "public":
+		// no need for anything else
+		return nil
+	default:
+		return errors.New("Unrecognized Auth type: " + auth.Type)
+	}
+}
+
+var v0validPaths = [3]string{"@dropserver/", "@app/", "@appspace/"}
+
+func v0validateHandler(handler domain.AppspaceRouteHandler) error {
+	switch handler.Type {
+	case "function":
+		if handler.File == "" {
+			return errors.New("Route handler of type function has empty file (module) field")
+		}
+		return nil
+		// I don't think you are required to set the function. If it's not set the runner calles the default export.
+	case "file":
+		if handler.Path == "" {
+			return errors.New("Route handler of type file has empty path field")
+		}
+		pathValid := false
+		for _, p := range v0validPaths {
+			if strings.HasPrefix(handler.Path, p) {
+				pathValid = true
+				break
+			}
+		}
+		if !pathValid {
+			return errors.New("Route handler of type file has invalid path: " + handler.Path)
+		}
+		return nil
+	default:
+		return errors.New("Unrecognized Handler type: " + handler.Type)
+	}
+
 }

@@ -13,7 +13,8 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig
+	Authenticator domain.Authenticator
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     domain.RouteHandler
@@ -64,7 +65,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	//
 
 	// temporary CORS header to allow frontend dev.
-	// TODO: Make this a config option.
+	// TODO: Make this a config option!
 	res.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// switch on top level routes:
@@ -100,7 +101,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		routeData := &domain.AppspaceRouteData{ // hrm, not named well. Open to using same interface though.
 			URLTail:    req.URL.Path,
 			Subdomains: &subdomains}
-
+		s.Authenticator.Authenticate(res, req, routeData)
 		s.UserRoutes.ServeHTTP(res, req, routeData)
 	default:
 		// first filter through blacklist of subdomains
@@ -109,7 +110,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		routeData := &domain.AppspaceRouteData{
 			URLTail:    req.URL.Path,
 			Subdomains: &subdomains}
-
+		s.Authenticator.Authenticate(res, req, routeData)
 		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
 	}
 }

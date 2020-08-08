@@ -2,16 +2,15 @@ package server
 
 import (
 	"fmt"
- 	"testing"
+	"testing"
 )
-
 
 func TestGetSubdomains(t *testing.T) {
 	cases := []struct {
-		input    string
+		input      string
 		rootPieces []string
 		subdomains []string
-		ok       bool
+		ok         bool
 	}{
 		// correct domain, no subdomains:
 		{"dropserver.develop", dsDevPieces(), []string{}, true},
@@ -25,9 +24,9 @@ func TestGetSubdomains(t *testing.T) {
 		// throw in some capital letters:
 		{"du-Report.dropserVer.develoP", dsDevPieces(), []string{"du-report"}, true},
 		// correct and two subdomains
-		{"foo.du-report.dropserver.develop", dsDevPieces(), []string{"foo","du-report"}, true},
+		{"foo.du-report.dropserver.develop", dsDevPieces(), []string{"foo", "du-report"}, true},
 		// correct and subdomains and throw a :port in
-		{"foo.du-report.dropserver.develop:3000", dsDevPieces(), []string{"foo","du-report"}, true},
+		{"foo.du-report.dropserver.develop:3000", dsDevPieces(), []string{"foo", "du-report"}, true},
 		// Single-level domain (like for local dev)
 		{"dropserver", []string{"dropserver"}, []string{}, true},
 		// three level root domain, no subdomain
@@ -57,20 +56,20 @@ func dsDevPieces() []string {
 // A nil argument is equivalent to an empty slice.
 // from https://yourbasic.org/golang/compare-slices/
 func stringSlicesEqual(a, b []string) bool {
-    if len(a) != len(b) {
-        return false
-    }
-    for i, v := range a {
-        if v != b[i] {
-            return false
-        }
-    }
-    return true
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestReverse(t *testing.T) {
 	cases := []struct {
-		in []string
+		in  []string
 		out []string
 	}{
 		{[]string{"a"}, []string{"a"}},
@@ -86,7 +85,4 @@ func TestReverse(t *testing.T) {
 	}
 }
 
-// TODO need to test ServeHTTP
-
-
-
+// TODO need to test ServeHTTP!
