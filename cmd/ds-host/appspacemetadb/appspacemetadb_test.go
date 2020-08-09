@@ -52,9 +52,9 @@ func TestCreateAndGet(t *testing.T) {
 	}
 	mdb.Init()
 
-	dsErr := mdb.Create(domain.AppspaceID(13), 0)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = mdb.Create(domain.AppspaceID(13), 0)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// OK, now test Get

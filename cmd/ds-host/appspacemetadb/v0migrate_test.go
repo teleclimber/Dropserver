@@ -41,8 +41,8 @@ func TestV0ExecError(t *testing.T) {
 		"value" TEXT
 	)`)
 
-	dsErr := v0h.checkErr()
-	if dsErr == nil {
+	err := v0h.checkErr()
+	if err == nil {
 		t.Error("expected error")
 	}
 }
@@ -52,9 +52,9 @@ func TestMigrateUpToV0(t *testing.T) {
 
 	v0h.migrateUpToV0()
 
-	dsErr := v0h.checkErr()
-	if dsErr != nil {
-		t.Error(dsErr)
+	err := v0h.checkErr()
+	if err != nil {
+		t.Error(err)
 	}
 }
 

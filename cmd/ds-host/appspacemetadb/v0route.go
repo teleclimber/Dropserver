@@ -86,9 +86,9 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 // Create adds a new route to the DB
 // Wonder if I need an "overwrite" flag?
 func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) error { // and more stuff...
-	rr, dsErr := m.Get(methods, routePath)
-	if dsErr != nil {
-		return dsErr
+	rr, err := m.Get(methods, routePath)
+	if err != nil {
+		return err
 	}
 	if rr != nil && len(*rr) > 0 {
 		return errors.New("Appspace route already exists")
@@ -96,19 +96,19 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 
 	var mBitz uint16 = 0
 	for _, m := range methods {
-		mBit, dsErr := v0normalizeMethod(m)
-		if dsErr != nil {
-			return dsErr
+		mBit, err := v0normalizeMethod(m)
+		if err != nil {
+			return err
 		}
 		mBitz = mBitz | mBit
 	}
 
-	routePath, dsErr = v0normalizePath(routePath)
-	if dsErr != nil {
-		return dsErr
+	routePath, err = v0normalizePath(routePath)
+	if err != nil {
+		return err
 	}
 
-	err := v0validateAuth(auth)
+	err = v0validateAuth(auth)
 	if err != nil {
 		return err
 	}
@@ -147,23 +147,23 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 
 	var mBitz uint16 = 0
 	for _, m := range methods {
-		mBit, dsErr := v0normalizeMethod(m)
-		if dsErr != nil {
-			return &rr, dsErr
+		mBit, err := v0normalizeMethod(m)
+		if err != nil {
+			return &rr, err
 		}
 		mBitz = mBitz | mBit
 	}
 
-	routePath, dsErr := v0normalizePath(routePath)
-	if dsErr != nil {
-		return &rr, dsErr
+	routePath, err := v0normalizePath(routePath)
+	if err != nil {
+		return &rr, err
 	}
 
 	db := m.getDB()
 
 	var rowz []routeRow
 
-	err := db.Select(&rowz, `SELECT * FROM routes WHERE methods&? != 0 AND path = ?`, mBitz, routePath)
+	err = db.Select(&rowz, `SELECT * FROM routes WHERE methods&? != 0 AND path = ?`, mBitz, routePath)
 	if err != nil {
 		return nil, err
 	}
@@ -171,9 +171,9 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 	// if no error expand routeRows into AppspaceRouteConfig
 	rr = make([]domain.AppspaceRouteConfig, len(rowz))
 	for i, r := range rowz {
-		routeConfig, dsErr := v0appspaceRouteFromRow(r)
-		if dsErr != nil {
-			return nil, dsErr
+		routeConfig, err := v0appspaceRouteFromRow(r)
+		if err != nil {
+			return nil, err
 		}
 		rr[i] = routeConfig
 	}
@@ -194,23 +194,23 @@ func (m *RouteModelV0) Delete(methods []string, routePath string) error {
 		mBitz = mBitz | b
 	}
 	for _, m := range methods {
-		mBit, dsErr := v0normalizeMethod(m)
-		if dsErr != nil {
-			return dsErr
+		mBit, err := v0normalizeMethod(m)
+		if err != nil {
+			return err
 		}
 		mBitz = mBitz ^ mBit
 	}
 
-	routePath, dsErr := v0normalizePath(routePath)
-	if dsErr != nil {
-		return dsErr
+	routePath, err := v0normalizePath(routePath)
+	if err != nil {
+		return err
 	}
 
 	db := m.getDB()
 
 	// Do a transaction here to avoid problems?
 
-	_, err := db.Exec(`UPDATE routes SET methods = methods&? WHERE path = ?`, mBitz, routePath)
+	_, err = db.Exec(`UPDATE routes SET methods = methods&? WHERE path = ?`, mBitz, routePath)
 	if err != nil {
 		return err
 	}

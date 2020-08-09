@@ -51,11 +51,11 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 	}
 
 	// create tables  ->  need to branch out to different models for different API versions.
-	dsErr := conn.RunMigrationStep(dsAPIVersion, true)
-	if dsErr != nil {
+	err := conn.RunMigrationStep(dsAPIVersion, true)
+	if err != nil {
 		// nothing really to revert to.
 		// Just means something is borked and we can't create an appspace right now?
-		return dsErr
+		return err
 	}
 
 	mdb.connsMux.Lock()
