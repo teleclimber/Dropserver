@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
@@ -74,9 +73,9 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 		return
 	}
 
-	dsErr := m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
-	if dsErr != nil {
-		m.getLogger("reverseCmdCreate, m.Create").Error(dsErr.ToStandard())
+	err = m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
+	if err != nil {
+		m.getLogger("reverseCmdCreate, m.Create").Error(err)
 		message.SendError("db error on create")
 		return
 	}
@@ -86,13 +85,13 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 
 // Create adds a new route to the DB
 // Wonder if I need an "overwrite" flag?
-func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) domain.Error { // and more stuff...
+func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) error { // and more stuff...
 	rr, dsErr := m.Get(methods, routePath)
 	if dsErr != nil {
 		return dsErr
 	}
 	if rr != nil && len(*rr) > 0 {
-		return dserror.New(dserror.AppspaceRouteExists)
+		return errors.New("Appspace route already exists")
 	}
 
 	var mBitz uint16 = 0
@@ -111,29 +110,30 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 
 	err := v0validateAuth(auth)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	authStr, err := json.Marshal(auth)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	err = v0validateHandler(handler)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	handlerStr, err := json.Marshal(handler)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	db := m.getDB()
 
 	_, err = db.Exec(`INSERT INTO routes (methods, path, auth, handler) VALUES (?, ?, ?, ?)`, strconv.Itoa(int(mBitz)), routePath, authStr, handlerStr)
 	if err != nil {
-		return dserror.FromStandard(err)
+		// should log this as it's not normal
+		return err
 	}
 
 	return nil
@@ -142,7 +142,7 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 // Get returns all routes that
 // - match one of the methods passed, and
 // - matches the routePath exactly (no interpolation is done to match sub-paths)
-func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.AppspaceRouteConfig, domain.Error) {
+func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.AppspaceRouteConfig, error) {
 	var rr []domain.AppspaceRouteConfig //may not work, may need to have interim type to egt from db row, then parse the json columsn
 
 	var mBitz uint16 = 0
@@ -165,7 +165,7 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 
 	err := db.Select(&rowz, `SELECT * FROM routes WHERE methods&? != 0 AND path = ?`, mBitz, routePath)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	// if no error expand routeRows into AppspaceRouteConfig
@@ -184,7 +184,7 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 // Delete each route that matches a method, and the routePath exactly
 // If a row has multiple methods, the method is removed from the row.
 // If no methods remain, the row is deleted.
-func (m *RouteModelV0) Delete(methods []string, routePath string) domain.Error {
+func (m *RouteModelV0) Delete(methods []string, routePath string) error {
 	// To remove methods from existing route
 	// add up all possible method bits
 	// then remove the methods from that.
@@ -212,12 +212,12 @@ func (m *RouteModelV0) Delete(methods []string, routePath string) domain.Error {
 
 	_, err := db.Exec(`UPDATE routes SET methods = methods&? WHERE path = ?`, mBitz, routePath)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	_, err = db.Exec(`DELETE FROM routes WHERE methods = 0 AND path = ?`, routePath)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	return nil
@@ -232,15 +232,15 @@ func (m *RouteModelV0) GetAll() {
 
 // Match finds the route that should handle the request
 // The path will be broken into parts to find the subset path that matches.
-func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceRouteConfig, domain.Error) {
-	mBit, dsErr := v0normalizeMethod(method)
-	if dsErr != nil {
-		return nil, dsErr
+func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceRouteConfig, error) {
+	mBit, err := v0normalizeMethod(method)
+	if err != nil {
+		return nil, err
 	}
 
-	routePath, dsErr = v0normalizePath(routePath)
-	if dsErr != nil {
-		return nil, dsErr
+	routePath, err = v0normalizePath(routePath)
+	if err != nil {
+		return nil, err
 	}
 
 	db := m.getDB()
@@ -258,7 +258,8 @@ func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceR
 
 	q, args, err := sqlx.In(`SELECT * FROM routes WHERE methods&?=? AND path IN (?) ORDER BY LENGTH(path) DESC`, mBit, mBit, inPaths)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		// log because it's an error in this code
+		return nil, err
 	}
 
 	q = db.Rebind(q)
@@ -269,12 +270,12 @@ func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceR
 		if err == sql.ErrNoRows {
 			return nil, nil // no rows found, no matching route exists
 		}
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
-	routeConfig, dsErr := v0appspaceRouteFromRow(r)
-	if dsErr != nil {
-		return nil, dsErr
+	routeConfig, err := v0appspaceRouteFromRow(r)
+	if err != nil {
+		return nil, err
 	}
 
 	// need to return something....
@@ -291,7 +292,7 @@ func (m *RouteModelV0) getLogger(note string) *record.DsLogger {
 
 // func v0selectMethodsOr()
 
-func v0normalizePath(routePath string) (string, domain.Error) {
+func v0normalizePath(routePath string) (string, error) {
 	// to lower case
 	// leading /
 	// no trailing /
@@ -300,13 +301,13 @@ func v0normalizePath(routePath string) (string, domain.Error) {
 
 	u, err := url.Parse(routePath)
 	if err != nil {
-		return "", dserror.FromStandard(err)
+		return "", err
 	}
 
 	ret := strings.ToLower(path.Clean(u.Path))
 
 	if ret == "." {
-		return "", dserror.New(dserror.InputValidationError, "Failed to normalize path: "+routePath)
+		return "", errors.New("Failed to normalize path: " + routePath)
 	}
 
 	return ret, nil
@@ -328,11 +329,11 @@ var v0methodBits = map[string]uint16{
 
 // }
 
-func v0normalizeMethod(method string) (uint16, domain.Error) {
+func v0normalizeMethod(method string) (uint16, error) {
 	method = strings.ToLower(method)
 	bitz, ok := v0methodBits[method]
 	if !ok {
-		return 0, dserror.New(dserror.InputValidationError, "method not recognized: "+method)
+		return 0, errors.New("method not recognized: " + method)
 	}
 	return bitz, nil
 }
@@ -348,17 +349,17 @@ func v0GetMethodsFromBits(bitz uint16) []string {
 	return ret
 }
 
-func v0appspaceRouteFromRow(r routeRow) (domain.AppspaceRouteConfig, domain.Error) {
+func v0appspaceRouteFromRow(r routeRow) (domain.AppspaceRouteConfig, error) {
 	var auth domain.AppspaceRouteAuth
 	err := json.Unmarshal([]byte(r.Auth), &auth)
 	if err != nil {
-		return domain.AppspaceRouteConfig{}, dserror.FromStandard(err)
+		return domain.AppspaceRouteConfig{}, err
 	}
 
 	var handler domain.AppspaceRouteHandler
 	err = json.Unmarshal([]byte(r.Handler), &handler)
 	if err != nil {
-		return domain.AppspaceRouteConfig{}, dserror.FromStandard(err)
+		return domain.AppspaceRouteConfig{}, err
 	}
 
 	routeConfig := domain.AppspaceRouteConfig{

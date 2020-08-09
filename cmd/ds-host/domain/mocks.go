@@ -1286,10 +1286,10 @@ func (m *MockRouteModelV0) EXPECT() *MockRouteModelV0MockRecorder {
 }
 
 // Create mocks base method
-func (m *MockRouteModelV0) Create(arg0 []string, arg1 string, arg2 AppspaceRouteAuth, arg3 AppspaceRouteHandler) Error {
+func (m *MockRouteModelV0) Create(arg0 []string, arg1 string, arg2 AppspaceRouteAuth, arg3 AppspaceRouteHandler) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -1300,10 +1300,10 @@ func (mr *MockRouteModelV0MockRecorder) Create(arg0, arg1, arg2, arg3 interface{
 }
 
 // Delete mocks base method
-func (m *MockRouteModelV0) Delete(arg0 []string, arg1 string) Error {
+func (m *MockRouteModelV0) Delete(arg0 []string, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -1314,11 +1314,11 @@ func (mr *MockRouteModelV0MockRecorder) Delete(arg0, arg1 interface{}) *gomock.C
 }
 
 // Get mocks base method
-func (m *MockRouteModelV0) Get(arg0 []string, arg1 string) (*[]AppspaceRouteConfig, Error) {
+func (m *MockRouteModelV0) Get(arg0 []string, arg1 string) (*[]AppspaceRouteConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*[]AppspaceRouteConfig)
-	ret1, _ := ret[1].(Error)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
@@ -1341,11 +1341,11 @@ func (mr *MockRouteModelV0MockRecorder) GetAll() *gomock.Call {
 }
 
 // Match mocks base method
-func (m *MockRouteModelV0) Match(arg0, arg1 string) (*AppspaceRouteConfig, Error) {
+func (m *MockRouteModelV0) Match(arg0, arg1 string) (*AppspaceRouteConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Match", arg0, arg1)
 	ret0, _ := ret[0].(*AppspaceRouteConfig)
-	ret1, _ := ret[1].(Error)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 

@@ -201,6 +201,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	routesV0 := domain.NewMockRouteModelV0(mockCtrl)
 	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
 		Handler: domain.AppspaceRouteHandler{Type: "function"},
+		Auth:    domain.AppspaceRouteAuth{Type: "public"},
 	}, nil)
 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)

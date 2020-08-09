@@ -36,12 +36,9 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 		r.DropserverRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		routeModel := r.AppspaceRouteModels.GetV0(routeData.Appspace.AppspaceID)
-		routeConfig, dsErr := routeModel.Match(req.Method, routeData.URLTail)
-		if dsErr != nil {
-			//..if not found then go 404 ... or do that automatically from errors?
-			// here we don't log (for now) because it's not a system error to have the wrong route requested
-			// Though the app owner may be interested in seeing the errors?
-			dsErr.HTTPError(res)
+		routeConfig, err := routeModel.Match(req.Method, routeData.URLTail)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if routeConfig == nil {

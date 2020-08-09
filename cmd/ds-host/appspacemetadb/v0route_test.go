@@ -9,7 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestV0validateAuth(t *testing.T) {
@@ -42,27 +41,28 @@ func TestV0RouteCreate(t *testing.T) {
 
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	dsErr := r.Create([]string{"get", "post"}, "/abc/", auth, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := r.Create([]string{"get", "post"}, "/abc/", auth, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Create([]string{"post"}, "/abc", auth, handler)
-	if dsErr == nil {
+	err = r.Create([]string{"post"}, "/abc", auth, handler)
+	if err == nil {
 		t.Fatal("Expected error on duplicate route")
 	}
-	if dsErr.Code() != dserror.AppspaceRouteExists {
-		t.Fatal("Expected error to be route exists.")
+	// TODO: figure out how to do sentinel errors
+	// if dsErr.Code() != dserror.AppspaceRouteExists {
+	// 	t.Fatal("Expected error to be route exists.")
+	// }
+
+	err = r.Create([]string{"patch"}, "/abc", auth, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Create([]string{"patch"}, "/abc", auth, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
-	}
-
-	dsErr = r.Create([]string{"get", "post"}, "/abc/def", auth, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Create([]string{"get", "post"}, "/abc/def", auth, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -72,27 +72,27 @@ func TestV0RouteGet(t *testing.T) {
 
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	rr, dsErr := r.Get([]string{"get"}, "/abc")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	rr, err := r.Get([]string{"get"}, "/abc")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(*rr) != 0 {
 		t.Error("expected no rows")
 	}
 
-	dsErr = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	rr, dsErr = r.Get([]string{"get"}, "/abc")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	rr, err = r.Get([]string{"get"}, "/abc")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(*rr) != 1 {
 		t.Error("expected 1 row")
@@ -104,9 +104,9 @@ func TestV0RouteGet(t *testing.T) {
 		t.Error("didn't get the row data we expected")
 	}
 
-	rr, dsErr = r.Get([]string{"get", "post"}, "/abc")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	rr, err = r.Get([]string{"get", "post"}, "/abc")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(*rr) != 2 {
 		t.Error("expected 2 row")
@@ -119,19 +119,19 @@ func TestV0Delete(t *testing.T) {
 
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	dsErr := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Delete([]string{"get"}, "/abc")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Delete([]string{"get"}, "/abc")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	rr, dsErr := r.Get([]string{"get"}, "/abc")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	rr, err := r.Get([]string{"get"}, "/abc")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(*rr) != 0 {
 		t.Error("expected no row")
@@ -157,32 +157,32 @@ func TestV0RouteMatch(t *testing.T) {
 		appspaceID:     appspaceID,
 	}
 
-	dsErr := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Create([]string{"get"}, "/abc/def/", domain.AppspaceRouteAuth{Type: "public"}, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Create([]string{"get"}, "/abc/def/", domain.AppspaceRouteAuth{Type: "public"}, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = r.Create([]string{"get"}, "/uvw/somefile.txt", domain.AppspaceRouteAuth{Type: "public"}, handler)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = r.Create([]string{"get"}, "/uvw/somefile.txt", domain.AppspaceRouteAuth{Type: "public"}, handler)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	route, dsErr := r.Match("get", "/xyz/")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	route, err := r.Match("get", "/xyz/")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if route != nil {
 		t.Error("expected no route found")
 	}
 
-	route, dsErr = r.Match("get", "/abc/def/")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	route, err = r.Match("get", "/abc/def/")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if route == nil {
 		t.Fatal("expected a route found")
@@ -194,9 +194,9 @@ func TestV0RouteMatch(t *testing.T) {
 		t.Error("got the wrong route data")
 	}
 
-	route, dsErr = r.Match("post", "/abc/def/")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	route, err = r.Match("post", "/abc/def/")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if route == nil {
 		t.Fatal("expected a route found")
@@ -208,17 +208,17 @@ func TestV0RouteMatch(t *testing.T) {
 		t.Error("got the wrong route data")
 	}
 
-	route, dsErr = r.Match("get", "/uvw/")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	route, err = r.Match("get", "/uvw/")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if route != nil {
 		t.Error("expecte /uvw/ route to be nil")
 	}
 
-	route, dsErr = r.Match("get", "/uvw/somefile.txt")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	route, err = r.Match("get", "/uvw/somefile.txt")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if route == nil {
 		t.Error("expected non-nil route")
@@ -283,9 +283,9 @@ func v0RoutesGetTestDBHandle(t *testing.T) *sqlx.DB {
 
 	v0h.migrateUpToV0()
 
-	dsErr := v0h.checkErr()
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = v0h.checkErr()
+	if err != nil {
+		t.Error(err)
 	}
 
 	return handle

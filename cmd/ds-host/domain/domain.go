@@ -468,18 +468,19 @@ type AppspaceInfoModel interface {
 // RouteModelV0 serves route data queries at version 0
 type RouteModelV0 interface {
 	ReverseCommand(message twine.ReceivedMessageI)
-	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) Error
+	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) error
 
 	// Get returns all routes that
 	// - match one of the methods passed, and
 	// - matches the routePath exactly (no interpolation is done to match sub-paths)
-	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, Error)
+	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, error)
 	GetAll()
-	Delete(methods []string, url string) Error
+	Delete(methods []string, url string) error
 
 	// Match finds the route that should handle the request
 	// The path will be broken into parts to find the subset path that matches.
-	Match(method string, url string) (*AppspaceRouteConfig, Error)
+	// It returns (nil, nil) if no matches found
+	Match(method string, url string) (*AppspaceRouteConfig, error)
 }
 
 // AppspaceRouteModels returns models of the desired version
