@@ -31,7 +31,7 @@ var configDefault = []byte(`{
 }`)
 
 // Load opens the json passed and merges it with defaults
-func Load(configFile string, execPath string) *domain.RuntimeConfig {
+func Load(configFile string, execPath string, noSsl bool) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
 
@@ -45,6 +45,8 @@ func Load(configFile string, execPath string) *domain.RuntimeConfig {
 
 		mergeLocal(rtc, configHandle)
 	}
+
+	rtc.Server.NoSsl = noSsl
 
 	validateConfig(rtc)
 
