@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -38,7 +37,6 @@ func TestGetSubdomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		fmt.Println(c.input)
 		subdomains, ok := getSubdomains(c.input, c.rootPieces)
 		if c.ok != ok {
 			t.Errorf("%s: expected OK %t, got %t", c.input, c.ok, ok)

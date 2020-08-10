@@ -39,8 +39,14 @@ func (s *Server) Start() { //return a server type
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		fmt.Println(err)
+	var err error
+	if s.Config.Server.NoSsl {
+		err = http.ListenAndServe(addr, nil)
+	} else {
+		err = http.ListenAndServeTLS(addr, s.Config.Server.SslCert, s.Config.Server.SslKey, nil)
+	}
+	if err != nil {
+		s.getLogger("Start(), http.ListenAndServeTLS").Error(err)
 		os.Exit(1)
 	}
 }

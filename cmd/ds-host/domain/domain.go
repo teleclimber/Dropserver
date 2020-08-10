@@ -29,8 +29,11 @@ import (
 type RuntimeConfig struct {
 	DataDir string `json:"data-dir"`
 	Server  struct {
-		Port int16  `json:"port"`
-		Host string `json:"host"`
+		Port    int16  `json:"port"`
+		Host    string `json:"host"`
+		NoSsl   bool   `json:"no-ssl"`
+		SslCert string `json:"ssl-cert"`
+		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
 	Sandbox struct {
 		Num        int    `json:"num"`

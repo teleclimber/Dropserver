@@ -41,7 +41,7 @@ func TestSetExecValues(t *testing.T) {
 	}
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestValidateHost(t *testing.T) {
 	rtc := getPassingDefault()
 	tv(t, rtc, "default", false)
 
@@ -68,10 +68,22 @@ func TestValidateConfig(t *testing.T) {
 	// mostly testing fo rproblems with host validation
 	// because it impacts a lot of things.
 }
+func TestValidateSsl(t *testing.T) {
+	rtc := getPassingDefault()
+	tv(t, rtc, "default", false)
+
+	rtc.Server.NoSsl = false
+	tv(t, rtc, "no cert or key", true)
+
+	rtc.Server.SslCert = "some.crt"
+	rtc.Server.SslKey = "the.key"
+	tv(t, rtc, "ssl with cert and key", false)
+}
 func getPassingDefault() *domain.RuntimeConfig {
 	rtc := loadDefault()
 	rtc.DataDir = "/abc/def"
 	rtc.Sandbox.SocketsDir = "blah"
+	rtc.Server.NoSsl = true
 	return rtc
 }
 func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic bool) {

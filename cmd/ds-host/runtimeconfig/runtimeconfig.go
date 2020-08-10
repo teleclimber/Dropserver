@@ -19,7 +19,8 @@ import (
 var configDefault = []byte(`{
 	"server": {
 		"port": 3000,
-		"host": "localhost"
+		"host": "localhost",
+		"no-ssl": false
 	},
 	"sandbox": {
 		"num": 3
@@ -136,6 +137,11 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 	if addr := net.ParseIP(host); addr != nil {
 		panic("host can not be an IP")
+	}
+	if !rtc.Server.NoSsl {
+		if rtc.Server.SslCert == "" || rtc.Server.SslKey == "" {
+			panic("please specify SSL cert and key, or set no-ssl to true.")
+		}
 	}
 
 	// Sandbox:
