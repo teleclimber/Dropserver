@@ -165,8 +165,8 @@ type SandboxI interface {
 // Authenticator is an interface
 // Maybe this should be renamed Session or somesuch
 type Authenticator interface {
-	SetForAccount(http.ResponseWriter, UserID) Error
-	Authenticate(http.ResponseWriter, *http.Request, *AppspaceRouteData) Error
+	SetForAccount(http.ResponseWriter, UserID) error
+	Authenticate(http.ResponseWriter, *http.Request) (*Cookie, error)
 	UnsetForAccount(http.ResponseWriter, *http.Request)
 }
 
@@ -260,10 +260,10 @@ type User struct {
 // CookieModel is the interface for storing and retriving cookies
 type CookieModel interface {
 	PrepareStatements()
-	Get(string) (*Cookie, Error)
-	Create(Cookie) (string, Error)
-	UpdateExpires(string, time.Time) Error
-	Delete(string) Error
+	Get(string) (*Cookie, error)
+	Create(Cookie) (string, error)
+	UpdateExpires(string, time.Time) error
+	Delete(string) error
 }
 
 // Cookie represents the server-side representation of a stored cookie

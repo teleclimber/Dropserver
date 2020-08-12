@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestSetCookie(t *testing.T) {
@@ -68,12 +67,12 @@ func TestGetForAccountNoCookie(t *testing.T) {
 	a := &Authenticator{
 		Config: getConfig()}
 
-	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
-	if dsErr == nil {
-		t.Error("should error")
+	cookie, err := a.Authenticate(rr, req)
+	if err != nil {
+		t.Error(err)
 	}
-	if dsErr.Code() != dserror.Unauthorized {
-		t.Error("error code not as expected", dsErr)
+	if cookie != nil {
+		t.Error("No cookie should be returned")
 	}
 }
 
@@ -100,15 +99,16 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
-	if dsErr == nil {
-		t.Error("should error")
+	cookie, err := a.Authenticate(rr, req)
+	if err != nil {
+		t.Error(err)
 	}
-	if dsErr.Code() != dserror.Unauthorized {
-		t.Error("error code not as expected", dsErr)
+	if cookie != nil {
+		t.Error("No cookie should be returned")
 	}
 }
 
+// this test is not so revealing since our more strict interpretation of "Authenticate"
 func TestGetForAccountNotUser(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -132,17 +132,21 @@ func TestGetForAccountNotUser(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
 	}, nil)
+	cm.EXPECT().UpdateExpires("abc", gomock.Any())
 
 	a := &Authenticator{
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
-	if dsErr == nil {
-		t.Error("should error")
+	cookie, err := a.Authenticate(rr, req)
+	if err != nil {
+		t.Error(err)
 	}
-	if dsErr.Code() != dserror.Unauthorized {
-		t.Error("error code not as expected", dsErr)
+	if cookie == nil {
+		t.Error("cookie should not be nil")
+	}
+	if cookie.UserAccount {
+		t.Error("cookie should not be for user account")
 	}
 }
 
@@ -174,12 +178,12 @@ func TestGetForAccountExpired(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	dsErr := a.Authenticate(rr, req, &domain.AppspaceRouteData{})
-	if dsErr == nil {
-		t.Error("should error")
+	cookie, err := a.Authenticate(rr, req)
+	if err != nil {
+		t.Error(err)
 	}
-	if dsErr.Code() != dserror.Unauthorized {
-		t.Error("error code not as expected", dsErr)
+	if cookie != nil {
+		t.Error("cookie should be nil")
 	}
 }
 
@@ -214,12 +218,14 @@ func TestAuthenticate(t *testing.T) {
 
 	routeData := &domain.AppspaceRouteData{}
 
-	dsErr := a.Authenticate(rr, req, routeData)
-	if dsErr != nil {
+	cookie, err := a.Authenticate(rr, req)
+	if err != nil {
 		t.Error("should not error")
 	}
-
-	if routeData.Cookie.CookieID != "abc" {
+	if cookie == nil {
+		t.Error("cookie should not be nil")
+	}
+	if cookie.CookieID != "abc" {
 		t.Error("route data not as expected", routeData)
 	}
 }
@@ -288,14 +294,8 @@ func TestUnsetForAccount(t *testing.T) {
 }
 
 func getConfig() *domain.RuntimeConfig {
-	var s = struct {
-		Port int16  `json:"port"`
-		Host string `json:"host"`
-	}{
-		Host: "dropserver.org"}
-
-	rtc := domain.RuntimeConfig{
-		Server: s}
+	rtc := domain.RuntimeConfig{}
+	rtc.Server.Host = "dropserver.org"
 
 	return &rtc
 }

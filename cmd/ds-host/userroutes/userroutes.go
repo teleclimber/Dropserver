@@ -35,7 +35,7 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 		routeData.URLTail = tail
 		u.LiveDataRoutes.ServeHTTP(res, req, routeData)
 	} else {
-		if routeData.Cookie != nil && routeData.Cookie.UserAccount == true {
+		if routeData.Cookie != nil && routeData.Cookie.UserAccount {
 			u.serveLoggedInRoutes(res, req, routeData)
 		} else {
 			res.WriteHeader(http.StatusUnauthorized)

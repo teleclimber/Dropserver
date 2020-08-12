@@ -423,11 +423,11 @@ func (m *MockCookieModel) EXPECT() *MockCookieModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockCookieModel) Create(arg0 Cookie) (string, Error) {
+func (m *MockCookieModel) Create(arg0 Cookie) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(Error)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
@@ -438,10 +438,10 @@ func (mr *MockCookieModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
 }
 
 // Delete mocks base method
-func (m *MockCookieModel) Delete(arg0 string) Error {
+func (m *MockCookieModel) Delete(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -452,11 +452,11 @@ func (mr *MockCookieModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 }
 
 // Get mocks base method
-func (m *MockCookieModel) Get(arg0 string) (*Cookie, Error) {
+func (m *MockCookieModel) Get(arg0 string) (*Cookie, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0)
 	ret0, _ := ret[0].(*Cookie)
-	ret1, _ := ret[1].(Error)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
@@ -479,10 +479,10 @@ func (mr *MockCookieModelMockRecorder) PrepareStatements() *gomock.Call {
 }
 
 // UpdateExpires mocks base method
-func (m *MockCookieModel) UpdateExpires(arg0 string, arg1 time.Time) Error {
+func (m *MockCookieModel) UpdateExpires(arg0 string, arg1 time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateExpires", arg0, arg1)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
@@ -923,24 +923,25 @@ func (m *MockAuthenticator) EXPECT() *MockAuthenticatorMockRecorder {
 }
 
 // Authenticate mocks base method
-func (m *MockAuthenticator) Authenticate(arg0 http.ResponseWriter, arg1 *http.Request, arg2 *AppspaceRouteData) Error {
+func (m *MockAuthenticator) Authenticate(arg0 http.ResponseWriter, arg1 *http.Request) (*Cookie, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authenticate", arg0, arg1, arg2)
-	ret0, _ := ret[0].(Error)
-	return ret0
+	ret := m.ctrl.Call(m, "Authenticate", arg0, arg1)
+	ret0, _ := ret[0].(*Cookie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Authenticate indicates an expected call of Authenticate
-func (mr *MockAuthenticatorMockRecorder) Authenticate(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockAuthenticatorMockRecorder) Authenticate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticate", reflect.TypeOf((*MockAuthenticator)(nil).Authenticate), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticate", reflect.TypeOf((*MockAuthenticator)(nil).Authenticate), arg0, arg1)
 }
 
 // SetForAccount mocks base method
-func (m *MockAuthenticator) SetForAccount(arg0 http.ResponseWriter, arg1 UserID) Error {
+func (m *MockAuthenticator) SetForAccount(arg0 http.ResponseWriter, arg1 UserID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetForAccount", arg0, arg1)
-	ret0, _ := ret[0].(Error)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 

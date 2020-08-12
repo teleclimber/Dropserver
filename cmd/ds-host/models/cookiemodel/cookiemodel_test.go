@@ -34,9 +34,9 @@ func TestGetNoRows(t *testing.T) {
 	cookieModel.PrepareStatements()
 
 	// There should be an error, but no panics
-	c, dsErr := cookieModel.Get("foo")
-	if dsErr != nil {
-		t.Error(dsErr)
+	c, err := cookieModel.Get("foo")
+	if err != nil {
+		t.Error(err)
 	}
 	if c != nil {
 		t.Error("cookie should have been nil")
@@ -114,14 +114,14 @@ func TestUpdateExpires(t *testing.T) {
 	}
 
 	expires := time.Date(2019, time.Month(5), 29, 6, 2, 0, 0, time.UTC)
-	dsErr := cookieModel.UpdateExpires(cookieID, expires)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = cookieModel.UpdateExpires(cookieID, expires)
+	if err != nil {
+		t.Error(err)
 	}
 
-	c2, dsErr := cookieModel.Get(cookieID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	c2, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	if c2.Expires != expires {
@@ -151,24 +151,24 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	c2, dsErr := cookieModel.Get(cookieID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	c2, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
 	}
 	if c2 == nil {
 		t.Error("should have gotten a cookie")
 	}
 
-	dsErr = cookieModel.Delete(cookieID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = cookieModel.Delete(cookieID)
+	if err != nil {
+		t.Error(err)
 	}
 
-	c3, dsErr := cookieModel.Get(cookieID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	c3, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
 	}
-	if c3!= nil {
+	if c3 != nil {
 		t.Error("should have been nil because we deleted it")
 	}
 
@@ -177,4 +177,3 @@ func TestDelete(t *testing.T) {
 // more things to test:
 // - appspace_id
 // - bad input of appspace_id + user_account?
-

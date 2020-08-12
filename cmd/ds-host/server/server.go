@@ -100,23 +100,29 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	fmt.Println(subdomains, req.URL)
 
 	topSub := subdomains[len(subdomains)-1]
-	switch topSub {
-	case "static":
+	if topSub == "static" {
 		s.publicStaticHandler.ServeHTTP(res, req)
+		return
+	}
+
+	cookie, err := s.Authenticator.Authenticate(res, req)
+	if err != nil {
+		http.Error(res, "cookie error", http.StatusInternalServerError)
+		return
+	}
+
+	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
+		URLTail:    req.URL.Path,
+		Subdomains: &subdomains,
+		Cookie:     cookie}
+
+	switch topSub {
 	case "user":
-		routeData := &domain.AppspaceRouteData{ // hrm, not named well. Open to using same interface though.
-			URLTail:    req.URL.Path,
-			Subdomains: &subdomains}
-		s.Authenticator.Authenticate(res, req, routeData)
 		s.UserRoutes.ServeHTTP(res, req, routeData)
 	default:
+		// It's an appspace subdomain
 		// first filter through blacklist of subdomains
 		// ..though probably do that in appspace routes handler, not here.
-
-		routeData := &domain.AppspaceRouteData{
-			URLTail:    req.URL.Path,
-			Subdomains: &subdomains}
-		s.Authenticator.Authenticate(res, req, routeData)
 		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
 	}
 }

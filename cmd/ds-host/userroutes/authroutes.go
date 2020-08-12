@@ -102,7 +102,11 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 		}
 	} else {
 		// we're in
-		a.Authenticator.SetForAccount(res, user.UserID)
+		err := a.Authenticator.SetForAccount(res, user.UserID)
+		if err != nil {
+			http.Error(res, "internal error", http.StatusInternalServerError)
+			return
+		}
 
 		http.Redirect(res, req, "/", http.StatusFound)
 	}
@@ -183,7 +187,11 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 		}
 	} else {
 		// we're in
-		a.Authenticator.SetForAccount(res, user.UserID)
+		err := a.Authenticator.SetForAccount(res, user.UserID)
+		if err != nil {
+			http.Error(res, "internal error", http.StatusInternalServerError)
+			return
+		}
 
 		http.Redirect(res, req, "/", http.StatusMovedPermanently)
 	}

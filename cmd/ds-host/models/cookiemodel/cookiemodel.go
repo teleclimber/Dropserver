@@ -13,7 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // CookieModel stores and retrives cookies for you
@@ -67,25 +66,26 @@ func (m *CookieModel) PrepareStatements() {
 }
 
 // Create adds the cookie to the DB and returns the UUID
-func (m *CookieModel) Create(cookie domain.Cookie) (string, domain.Error) { // maybe we shouldn't pass cookie obj?
+func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we shouldn't pass cookie obj?
 	/// genrate cookie_id
 	UUID, err := uuid.NewRandom()
 	if err != nil {
-		return "", dserror.FromStandard(err)
+		m.getLogger("uuid.NewRandom()").Error(err)
+		return "", err
 	}
 	cookieID := UUID.String()
 
 	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID)
 	if err != nil {
 		m.getLogger("Create()").Error(err)
-		return "", dserror.FromStandard(err)
+		return "", err
 	}
 
 	return cookieID, nil
 }
 
 // Get returns the locally stored values for a cookie id / uuid
-func (m *CookieModel) Get(cookieID string) (*domain.Cookie, domain.Error) {
+func (m *CookieModel) Get(cookieID string) (*domain.Cookie, error) {
 	var cookie domain.Cookie
 
 	err := m.stmt.selectCookieID.QueryRowx(cookieID).StructScan(&cookie)
@@ -94,18 +94,18 @@ func (m *CookieModel) Get(cookieID string) (*domain.Cookie, domain.Error) {
 			return nil, nil
 		}
 		m.getLogger("Get()").Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return &cookie, nil
 }
 
 // UpdateExpires sets the expiration date on the cooke
-func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) domain.Error {
+func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) error {
 	_, err := m.stmt.refresh.Exec(expires, cookieID)
 	if err != nil {
 		m.getLogger("UpdateExpires()").Error(err)
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	// I don't want to check that rows affected == 1 because if you call this back-to-back
@@ -115,11 +115,11 @@ func (m *CookieModel) UpdateExpires(cookieID string, expires time.Time) domain.E
 }
 
 // Delete removes the cookie from the DB
-func (m *CookieModel) Delete(cookieID string) domain.Error {
+func (m *CookieModel) Delete(cookieID string) error {
 	_, err := m.stmt.delete.Exec(cookieID)
 	if err != nil {
 		m.getLogger("Delete()").Error(err)
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	return nil

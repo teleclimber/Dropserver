@@ -143,16 +143,17 @@ func (l *LiveDataRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (l *LiveDataRoutes) serveToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	dsErr := l.Authenticator.Authenticate(res, req, routeData)
-	if dsErr != nil {
+	cookie, err := l.Authenticator.Authenticate(res, req)
+	if err != nil {
+		http.Error(res, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if cookie == nil || !cookie.UserAccount {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if routeData.Cookie == nil || !routeData.Cookie.UserAccount {
-		res.WriteHeader(http.StatusUnauthorized)
-		return
-	}
+	routeData.Cookie = cookie
 
 	l.tokenMux.Lock()
 	defer l.tokenMux.Unlock()

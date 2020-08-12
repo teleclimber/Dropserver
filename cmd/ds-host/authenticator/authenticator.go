@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 const cookieExpMinutes = 30
@@ -18,43 +17,42 @@ type Authenticator struct {
 
 // SetForAccount creates a cookie and sends it down
 // It is for access to the user account only
-func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.UserID) domain.Error {
+func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.UserID) error {
 	cookie := domain.Cookie{
 		UserID:      userID,
 		UserAccount: true,
 		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
-	cookieID, dsErr := a.CookieModel.Create(cookie)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
-		return dsErr
+	cookieID, err := a.CookieModel.Create(cookie)
+	if err != nil {
+		return err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires)
+	a.setCookie(res, cookieID, cookie.Expires) // need to set domain (and path)
 
 	return nil
 }
 
-// Authenticate determines whether the request includes a cookie that identifies a user
-// If a user is found this data is attached to routeData in the cookie field.
-func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) domain.Error {
-	cookie, dsErr := a.getCookie(req)
-	if dsErr != nil {
-		return dsErr
+// Authenticate returns a cookie if a valid and verified cookie was included in the request
+func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request) (*domain.Cookie, error) {
+	cookie, err := a.getCookie(req)
+	if err != nil {
+		return nil, err
 	}
-
-	routeData.Cookie = cookie
+	if cookie == nil {
+		return nil, nil
+	}
 
 	// Do we definitely refresh cookie in all cases?
 	a.refreshCookie(res, cookie.CookieID)
 
-	return nil
+	return cookie, nil
 }
 
 // UnsetForAccount is the opposite of SetForAccount
 // deletes cookie, wipes cookie from DB?
 func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Request) {
-	cookie, dsErr := a.getCookie(req)
-	if dsErr == nil {
+	cookie, err := a.getCookie(req)
+	if err == nil {
 		a.CookieModel.Delete(cookie.CookieID)
 		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second))
 	}
@@ -64,29 +62,26 @@ func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Reque
 // - get cookie value
 // - get
 
-func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, domain.Error) {
+func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, error) {
 	c, err := req.Cookie("session_token")
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// If the cookie is not set, return unauthorized
-			return nil, dserror.New(dserror.Unauthorized, "no cookie sent")
+			return nil, nil
 		}
 		// For any other type of error, return a bad request status
-		return nil, dserror.New(dserror.BadRequest)
+		return nil, err
 	}
 
-	cookie, dsErr := a.CookieModel.Get(c.Value)
-	if dsErr != nil {
-		return nil, dsErr //this should be internal error?
+	cookie, err := a.CookieModel.Get(c.Value)
+	if err != nil {
+		return nil, err //this should be internal error?
 	}
 	if cookie == nil {
-		return nil, dserror.New(dserror.Unauthorized)
-	}
-	if !cookie.UserAccount {
-		return nil, dserror.New(dserror.Unauthorized)
+		return nil, nil
 	}
 	if cookie.Expires.Before(time.Now()) {
-		return nil, dserror.New(dserror.Unauthorized)
+		return nil, nil
 	}
 
 	return cookie, nil
@@ -96,8 +91,8 @@ func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, domain.Err
 func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) {
 	expires := time.Now().Add(cookieExpMinutes * time.Minute)
 
-	dsErr := a.CookieModel.UpdateExpires(cookieID, expires)
-	if dsErr != nil {
+	err := a.CookieModel.UpdateExpires(cookieID, expires)
+	if err != nil {
 		// hmmm. If norows just skip it.
 		// If something else, log it then ...?
 		// This isn't critical.
@@ -109,17 +104,15 @@ func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) 
 }
 
 func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expires time.Time) {
-	// TODO: this needs work because it seems to create a bunch of new cookies.
-	// I think we have to explicitly set domain and path?
 	http.SetCookie(res, &http.Cookie{
 		Name:     "session_token",
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client
 		MaxAge:   int(expires.Sub(time.Now()).Seconds()),
-		Domain:   "user." + a.Config.Server.Host,
+		Domain:   "user." + a.Config.Server.Host, // TODO: this is obviously not right for appspaces
 		SameSite: http.SameSiteStrictMode,
-		//secure: true,	// doesn't work on develop
-		// domain?
+		Secure:   !a.Config.Server.NoSsl,
+		Path:     "/",
+		HttpOnly: true,
 	})
-
 }
