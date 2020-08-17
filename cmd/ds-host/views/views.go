@@ -15,10 +15,11 @@ type Views struct {
 
 	base BaseData
 
-	loginTemplate    *template.Template
-	signupTemplate   *template.Template
-	userHomeTemplate *template.Template
-	adminTemplate    *template.Template
+	appspaceLoginTemplate *template.Template
+	loginTemplate         *template.Template
+	signupTemplate        *template.Template
+	userHomeTemplate      *template.Template
+	adminTemplate         *template.Template
 }
 
 // BaseData is the basic data that the page needs to render
@@ -35,7 +36,10 @@ func (v *Views) PrepareTemplates() {
 		PublicStaticPrefix: v.Config.Exec.PublicStaticAddress,
 		JSAPIURLVar:        v.Config.Exec.UserRoutesAddress}
 
-	templatePath := path.Join(v.Config.Exec.GoTemplatesDir, "login.html")
+	templatePath := path.Join(v.Config.Exec.GoTemplatesDir, "appspace.html")
+	v.appspaceLoginTemplate = template.Must(template.ParseFiles(templatePath))
+
+	templatePath = path.Join(v.Config.Exec.GoTemplatesDir, "login.html")
 	v.loginTemplate = template.Must(template.ParseFiles(templatePath))
 
 	templatePath = path.Join(v.Config.Exec.GoTemplatesDir, "signup.html")
@@ -47,6 +51,25 @@ func (v *Views) PrepareTemplates() {
 
 	templatePath = path.Join(v.Config.Exec.WebpackTemplatesDir, "admin.html")
 	v.adminTemplate = template.Must(template.ParseFiles(templatePath))
+}
+
+type appspaceLoginData struct {
+	BaseData
+	AppspaceLoginViewData domain.AppspaceLoginViewData
+}
+
+// AppspaceLogin executes the login template and sends it down as a response?
+func (v *Views) AppspaceLogin(res http.ResponseWriter, viewData domain.AppspaceLoginViewData) {
+	d := appspaceLoginData{
+		BaseData:              v.base,
+		AppspaceLoginViewData: viewData}
+
+	err := v.appspaceLoginTemplate.Execute(res, d)
+	if err != nil {
+		record.NewDsLogger().AddNote("")
+		v.getLogger("AppspaceLogin()").Error(err)
+		// Too late to send error status. Hopefully the logger is enough.
+	}
 }
 
 type loginData struct {

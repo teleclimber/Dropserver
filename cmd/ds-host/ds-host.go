@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
@@ -195,6 +196,9 @@ func main() {
 		CookieModel: cookieModel,
 		Config:      runtimeConfig}
 
+	appspaceLogin := &appspacelogin.AppspaceLogin{}
+	appspaceLogin.Start()
+
 	liveDataRoutes := &userroutes.LiveDataRoutes{
 		JobController:     migrationJobCtl,
 		MigrationJobModel: migrationJobModel,
@@ -210,6 +214,8 @@ func main() {
 
 		sandboxManager.StopAll()
 		fmt.Println("All sandbox stopped")
+
+		appspaceLogin.Stop()
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
@@ -270,6 +276,7 @@ func main() {
 		UserModel:           userModel,
 		UserInvitationModel: userInvitationModel,
 		Authenticator:       authenticator,
+		AppspaceLogin:       appspaceLogin,
 		Validator:           validator}
 
 	adminRoutes := &userroutes.AdminRoutes{
@@ -311,6 +318,8 @@ func main() {
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
+		Authenticator:       authenticator,
+		AppspaceLogin:       appspaceLogin,
 		Config:              runtimeConfig}
 
 	appspaceRoutes := &appspaceroutes.AppspaceRoutes{

@@ -18,7 +18,10 @@
 				</div>
 			{{end}}
 
-			<h2>Log In</h2>
+			<h2>
+				Log In
+				{{ if ne .LoginViewData.AppspaceLoginToken "" }} To Appspace {{end}}
+			</h2>
 
 			<form action="/login" method="post" class="form-grid">
 				<label>Email:</label>
@@ -26,6 +29,8 @@
 
 				<label>Password:</label>
 				<input type="password" name="password">
+
+				<input type="hidden" name="asl" value="{{ .LoginViewData.AppspaceLoginToken }}">
 
 				<button type="submit">Log In</button>
 			</form>

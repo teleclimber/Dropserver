@@ -1,6 +1,7 @@
 package appspaceroutes
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestAuthorize(t *testing.T) {
@@ -25,37 +27,173 @@ func TestAuthorize(t *testing.T) {
 			},
 		},
 	}
-	a := v0.authorize(&routeData)
+	a := v0.authorize(&routeData, &domain.Authentication{})
 	if !a {
 		t.Error("expected public route authorized")
 	}
 
 	routeData.RouteConfig.Auth.Type = "owner"
 	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
-	a = v0.authorize(&routeData)
+	a = v0.authorize(&routeData, &domain.Authentication{})
 	if a {
-		t.Error("expected unauthorized because no cookie")
+		t.Error("expected unauthorized because no auth")
 	}
 
-	routeData.Cookie = &domain.Cookie{
+	auth := &domain.Authentication{
 		UserID: domain.UserID(13),
 	}
-	a = v0.authorize(&routeData)
+	a = v0.authorize(&routeData, auth)
 	if a {
-		t.Error("expected unauthorized because wrong user for cookie")
+		t.Error("expected unauthorized because wrong user for auth")
 	}
 
-	routeData.Cookie.UserID = ownerID
-	routeData.Cookie.AppspaceID = domain.AppspaceID(33)
-	a = v0.authorize(&routeData)
+	auth.UserID = ownerID
+	auth.AppspaceID = domain.AppspaceID(33)
+	a = v0.authorize(&routeData, auth)
 	if a {
 		t.Error("expected unauthorized because wrong appspace ID")
 	}
 
-	routeData.Cookie.AppspaceID = appspaceID
-	a = v0.authorize(&routeData)
+	auth.AppspaceID = appspaceID
+	a = v0.authorize(&routeData, auth)
 	if !a {
 		t.Error("expected route authorized")
+	}
+}
+
+// Test login tokens and its failure modes.
+func TestProcessLoginTokenNone(t *testing.T) {
+	req, err := http.NewRequest("GET", "/some-files/css/style.css", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v0 := &V0{}
+
+	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
+	if err != nil {
+		t.Error(err)
+	}
+	if auth != nil {
+		t.Error("expected auth to be nil")
+	}
+}
+
+func TestProcessLoginToken(t *testing.T) {
+	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc&dropserver-login-token=def", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v0 := &V0{}
+
+	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
+	if err == nil {
+		t.Error("expected error due to multiple tokens")
+	}
+	if auth != nil {
+		t.Error("expected auth to be nil")
+	}
+}
+
+func TestProcessLoginTokenBadToken(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
+	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{}, errors.New("No valid token"))
+
+	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v0 := &V0{
+		AppspaceLogin: appspaceLogin,
+	}
+
+	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
+	if err == nil {
+		t.Error("expected error")
+	}
+	if auth != nil {
+		t.Error("expected auth to be nil")
+	}
+}
+
+func TestProcessLoginTokenWrongAppspace(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
+	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{AppspaceID: domain.AppspaceID(13)}, nil)
+
+	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v0 := &V0{
+		AppspaceLogin: appspaceLogin,
+	}
+
+	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
+		Appspace: &domain.Appspace{AppspaceID: domain.AppspaceID(7)}})
+	if err == nil {
+		t.Error("expected error")
+	}
+	if auth != nil {
+		t.Error("expected auth to be nil")
+	}
+}
+
+func TestProcessLoginTokenOK(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceID := domain.AppspaceID(7)
+	userID := domain.UserID(11)
+
+	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
+	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{
+		AppspaceID: appspaceID,
+		UserID:     userID}, nil)
+
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
+	authenticator.EXPECT().SetForAppspace(gomock.Any(), userID, appspaceID, "some.host").Return("somecookie", nil)
+
+	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v0 := &V0{
+		Authenticator: authenticator,
+		AppspaceLogin: appspaceLogin,
+	}
+
+	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
+		Appspace: &domain.Appspace{
+			AppspaceID: appspaceID,
+			Subdomain:  "some.host",
+		}})
+	if err != nil {
+		t.Error(err)
+	}
+	if auth == nil {
+		t.Error("expected some auth")
+	}
+	if auth.AppspaceID != appspaceID {
+		t.Error("wrong appspace ID")
+	}
+	if auth.CookieID != "somecookie" {
+		t.Error("wrong cookie ID")
+	}
+	if auth.UserAccount {
+		t.Error("should not be for user account")
+	}
+	if auth.UserID != userID {
+		t.Error("wrong user id")
 	}
 }
 

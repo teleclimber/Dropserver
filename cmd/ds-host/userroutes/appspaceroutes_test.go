@@ -15,7 +15,7 @@ func TestGetAppspaceFromPath(t *testing.T) {
 	uid := domain.UserID(7)
 	routeData := &domain.AppspaceRouteData{
 		URLTail: "/123",
-		Cookie: &domain.Cookie{
+		Authentication: &domain.Authentication{
 			UserID: uid}}
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
@@ -76,7 +76,7 @@ func TestGetAppspaceFromPathUnauthorized(t *testing.T) {
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail: "/123",
-		Cookie: &domain.Cookie{
+		Authentication: &domain.Authentication{
 			UserID: domain.UserID(7)}}
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)

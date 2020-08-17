@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+	<title>Authentication</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="{{.BaseData.PublicStaticPrefix}}/login-style.css" rel="stylesheet">
+</head>
+<body>
+	<div class="login-grid">
+		<h1 class="dropserver-logo">
+			<a href="/">dr<span class="drop-o">o</span>p<span class="s">server</span></a>
+		</h1>
+	
+		<div class="login-box">
+			<h2>
+				This Link is Private
+			</h2>
+
+
+			<p>
+				<a href="/login?asl={{ .AppspaceLoginViewData.AppspaceLoginToken }}">Click to login</a>
+			</p>
+	
+	
+		</div>
+	</div>
+
+</body>
+</html>

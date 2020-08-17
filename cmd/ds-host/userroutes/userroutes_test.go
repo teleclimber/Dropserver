@@ -29,7 +29,7 @@ func TestUserData(t *testing.T) {
 		UserModel: um}
 
 	routeData := domain.AppspaceRouteData{
-		Cookie: &domain.Cookie{
+		Authentication: &domain.Authentication{
 			UserID: uid,
 		},
 	}
@@ -86,7 +86,7 @@ func TestChangePassword(t *testing.T) {
 		Validator: v}
 
 	routeData := domain.AppspaceRouteData{
-		Cookie: &domain.Cookie{
+		Authentication: &domain.Authentication{
 			UserID: uid,
 		},
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -119,7 +120,7 @@ func TestLoginPost(t *testing.T) {
 		UserID: userID,
 		Email:  email}, nil)
 
-	authenticator := domain.NewMockAuthenticator(mockCtrl)
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{
@@ -338,7 +339,7 @@ func TestSignupPost(t *testing.T) {
 		UserID: userID,
 		Email:  email}, nil)
 
-	authenticator := domain.NewMockAuthenticator(mockCtrl)
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{

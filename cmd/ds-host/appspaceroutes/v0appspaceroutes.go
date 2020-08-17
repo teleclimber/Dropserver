@@ -3,6 +3,7 @@ package appspaceroutes
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,10 +21,15 @@ type V0 struct {
 	AppspaceRouteModels domain.AppspaceRouteModels
 	DropserverRoutes    domain.RouteHandler // versioned
 	SandboxProxy        domain.RouteHandler // versioned?
-	Config              *domain.RuntimeConfig
+	AppspaceLogin       interface {
+		Create(domain.AppspaceID, url.URL) domain.AppspaceLoginToken
+		CheckRedirectToken(string) (domain.AppspaceLoginToken, error)
+	}
+	Authenticator interface {
+		SetForAppspace(http.ResponseWriter, domain.UserID, domain.AppspaceID, string) (string, error)
+	}
+	Config *domain.RuntimeConfig
 }
-
-// ^^ Also need access to sessions
 
 // ServeHTTP handles http traffic to the appspace
 func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -47,10 +53,26 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 		}
 		routeData.RouteConfig = routeConfig
 
-		if !r.authorize(routeData) {
-			// for now just send unauthorized
-			http.Error(res, "not authorized", http.StatusUnauthorized)
+		auth, err := r.processLoginToken(res, req, routeData)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if auth != nil {
+			if !r.authorize(routeData, auth) {
+				// If requester just logged in with a token but is not authroized, then just show as such.
+				// Here we do not redirect because that would cause a redirect loop.
+				http.Error(res, "Route unauthorized for user", http.StatusUnauthorized)
+				return
+			}
+		} else {
+			if !r.authorize(routeData, routeData.Authentication) {
+				u := *req.URL
+				u.Host = req.Host // is this OK?
+				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
+				http.Redirect(res, req, r.Config.Exec.UserRoutesAddress+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
+				return
+			}
 		}
 
 		switch routeConfig.Handler.Type {
@@ -65,16 +87,50 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 	}
 }
 
-func (r *V0) authorize(routeData *domain.AppspaceRouteData) bool {
+func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) (*domain.Authentication, error) {
+	loginTokenValues := req.URL.Query()["dropserver-login-token"]
+	if len(loginTokenValues) == 0 {
+		return nil, nil
+	}
+	if len(loginTokenValues) > 1 {
+		return nil, errors.New("multiple login tokens") // this should translate to http error "bad request"
+	}
+
+	token, err := r.AppspaceLogin.CheckRedirectToken(loginTokenValues[0])
+	if err != nil {
+		//http.Error(res, err.Error(), http.StatusBadRequest)
+		// maybe just ignore it? IT could be someone refreshed the page with the token.
+		// -> although that possibility is exactly why we should use a separate route to do appspace login
+		return nil, err
+	}
+
+	if token.AppspaceID != routeData.Appspace.AppspaceID {
+		// do nothing? How do we end up in this situation?
+		return nil, errors.New("wrong appspace")
+	}
+
+	cookieID, err := r.Authenticator.SetForAppspace(res, token.UserID, token.AppspaceID, routeData.Appspace.Subdomain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.Authentication{
+		HasUserID:  true,
+		UserID:     token.UserID,
+		AppspaceID: token.AppspaceID,
+		CookieID:   cookieID}, nil
+}
+
+func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authentication) bool {
 	switch routeData.RouteConfig.Auth.Type {
 	case "owner":
-		if routeData.Cookie == nil {
+		if auth == nil {
 			return false
 		}
-		if routeData.Cookie.UserID != routeData.Appspace.OwnerID {
+		if auth.UserID != routeData.Appspace.OwnerID {
 			return false
 		}
-		if routeData.Cookie.AppspaceID != routeData.Appspace.AppspaceID {
+		if auth.AppspaceID != routeData.Appspace.AppspaceID {
 			return false
 		}
 		return true

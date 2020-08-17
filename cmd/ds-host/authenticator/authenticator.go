@@ -1,6 +1,7 @@
 package authenticator
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -27,13 +28,35 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 		return err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires) // need to set domain (and path)
+	a.setCookie(res, cookieID, cookie.Expires, "user."+a.Config.Server.Host)
 
 	return nil
 }
 
+// SetForAppspace creates a cookie and sends it down
+// It is for access to the appspace only
+func (a *Authenticator) SetForAppspace(res http.ResponseWriter, userID domain.UserID, appspaceID domain.AppspaceID, subdomain string) (string, error) {
+	if subdomain == "" {
+		return "", errors.New("subdomain can't be blank")
+	}
+
+	cookie := domain.Cookie{
+		UserID:      userID,
+		AppspaceID:  appspaceID,
+		UserAccount: false,
+		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
+	cookieID, err := a.CookieModel.Create(cookie)
+	if err != nil {
+		return "", err
+	}
+
+	a.setCookie(res, cookieID, cookie.Expires, subdomain+"."+a.Config.Server.Host)
+
+	return cookieID, nil
+}
+
 // Authenticate returns a cookie if a valid and verified cookie was included in the request
-func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request) (*domain.Cookie, error) {
+func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request) (*domain.Authentication, error) {
 	cookie, err := a.getCookie(req)
 	if err != nil {
 		return nil, err
@@ -43,9 +66,18 @@ func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request)
 	}
 
 	// Do we definitely refresh cookie in all cases?
-	a.refreshCookie(res, cookie.CookieID)
+	//a.refreshCookie(res, cookie.CookieID)
+	// ^ commenting out until we can sort this out better.
 
-	return cookie, nil
+	auth := &domain.Authentication{
+		HasUserID:   true,
+		UserID:      cookie.UserID,
+		AppspaceID:  cookie.AppspaceID,
+		CookieID:    cookie.CookieID,
+		UserAccount: cookie.UserAccount,
+	}
+
+	return auth, nil
 }
 
 // UnsetForAccount is the opposite of SetForAccount
@@ -54,7 +86,7 @@ func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Reque
 	cookie, err := a.getCookie(req)
 	if err == nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second))
+		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), "user."+a.Config.Server.Host)
 	}
 }
 
@@ -100,16 +132,16 @@ func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) 
 		return
 	}
 
-	a.setCookie(res, cookieID, expires)
+	a.setCookie(res, cookieID, expires, "domain") // TODO: not sure how to get domain on cookie refresh?
 }
 
-func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expires time.Time) {
+func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expires time.Time, domain string) {
 	http.SetCookie(res, &http.Cookie{
 		Name:     "session_token",
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client
 		MaxAge:   int(expires.Sub(time.Now()).Seconds()),
-		Domain:   "user." + a.Config.Server.Host, // TODO: this is obviously not right for appspaces
+		Domain:   domain,
 		SameSite: http.SameSiteStrictMode,
 		Secure:   !a.Config.Server.NoSsl,
 		Path:     "/",

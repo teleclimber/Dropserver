@@ -14,7 +14,9 @@ import (
 // Server struct sets all parameters about the server
 type Server struct {
 	Config        *domain.RuntimeConfig
-	Authenticator domain.Authenticator
+	Authenticator interface {
+		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
+	}
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     domain.RouteHandler
@@ -105,16 +107,16 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	cookie, err := s.Authenticator.Authenticate(res, req)
+	auth, err := s.Authenticator.Authenticate(res, req)
 	if err != nil {
-		http.Error(res, "cookie error", http.StatusInternalServerError)
+		http.Error(res, "authentication error", http.StatusInternalServerError)
 		return
 	}
 
 	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
-		URLTail:    req.URL.Path,
-		Subdomains: &subdomains,
-		Cookie:     cookie}
+		URLTail:        req.URL.Path,
+		Subdomains:     &subdomains,
+		Authentication: auth}
 
 	switch topSub {
 	case "user":

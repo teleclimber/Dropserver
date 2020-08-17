@@ -29,25 +29,23 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// There should be a single point where we check auth, and if no good, bail.
 
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "signup" || head == "login" || head == "logout" { // also resetpw
+	if head == "signup" || head == "appspacelogin" || head == "login" || head == "logout" { // also resetpw
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
 	} else if head == "live" {
 		routeData.URLTail = tail
 		u.LiveDataRoutes.ServeHTTP(res, req, routeData)
 	} else {
-		if routeData.Cookie != nil && routeData.Cookie.UserAccount {
+		if routeData.Authentication != nil && routeData.Authentication.UserAccount {
 			u.serveLoggedInRoutes(res, req, routeData)
 		} else {
-			res.WriteHeader(http.StatusUnauthorized)
+			u.serveRedirectToLogin(res, req, routeData)
 		}
 	}
 }
 
-// TODO: user.domain.tld/user.js returns 200 and no useful data. This is wrong.
-
 func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 
-	if routeData.Cookie.UserAccount == false {
+	if routeData.Authentication.UserAccount == false {
 		// log it too
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 		return
@@ -91,10 +89,19 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 	}
 }
 
+func (u *UserRoutes) serveRedirectToLogin(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	head, _ := shiftpath.ShiftPath(routeData.URLTail)
+	if head == "" || head == "admin" {
+		http.Redirect(res, req, "/login", http.StatusTemporaryRedirect)
+	} else {
+		res.WriteHeader(http.StatusUnauthorized)
+	}
+}
+
 // getUserData returns a json with {email: ""...""} I think, so far.
 func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	// check if there is anything in routeData tail?
-	user, dsErr := u.UserModel.GetFromID(routeData.Cookie.UserID)
+	user, dsErr := u.UserModel.GetFromID(routeData.Authentication.UserID)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
@@ -152,7 +159,7 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	user, dsErr := u.UserModel.GetFromID(routeData.Cookie.UserID)
+	user, dsErr := u.UserModel.GetFromID(routeData.Authentication.UserID)
 	if dsErr != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		return

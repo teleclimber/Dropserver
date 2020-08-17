@@ -18,7 +18,7 @@ type AdminRoutes struct {
 
 // ServeHTTP handles http traffic to the admin routes
 func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	if routeData.Cookie == nil || !a.UserModel.IsAdmin(routeData.Cookie.UserID) {
+	if routeData.Authentication == nil || !a.UserModel.IsAdmin(routeData.Authentication.UserID) {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}

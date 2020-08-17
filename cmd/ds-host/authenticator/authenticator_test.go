@@ -19,7 +19,7 @@ func TestSetCookie(t *testing.T) {
 
 	cookieID := "abc"
 	expires := time.Date(2019, time.Month(5), 29, 6, 2, 0, 0, time.UTC)
-	a.setCookie(rr, cookieID, expires)
+	a.setCookie(rr, cookieID, expires, "abc")
 
 	sch, ok := rr.HeaderMap["Set-Cookie"]
 	if !ok {
@@ -132,7 +132,7 @@ func TestGetForAccountNotUser(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
 	}, nil)
-	cm.EXPECT().UpdateExpires("abc", gomock.Any())
+	//cm.EXPECT().UpdateExpires("abc", gomock.Any())
 
 	a := &Authenticator{
 		Config:      getConfig(),
@@ -210,7 +210,7 @@ func TestAuthenticate(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: true,
 	}, nil)
-	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
+	//cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
 		Config:      getConfig(),

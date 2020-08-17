@@ -35,7 +35,7 @@ type AppspaceRoutes struct {
 // ServeHTTP handles http traffic to the appspace routes
 // Namely create, delete, set version, etc...
 func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	if routeData.Cookie == nil || !routeData.Cookie.UserAccount {
+	if routeData.Authentication == nil || !routeData.Authentication.UserAccount {
 		// maybe log it? Frankly this should be a panic.
 		// It's programmer error pure and simple. Kill this thing.
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
@@ -73,7 +73,7 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	appspaces, dsErr := a.AppspaceModel.GetForOwner(routeData.Cookie.UserID)
+	appspaces, dsErr := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
@@ -113,7 +113,7 @@ func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData
 	if dsErr != nil {
 		return nil, dsErr
 	}
-	if appspace.OwnerID != routeData.Cookie.UserID {
+	if appspace.OwnerID != routeData.Authentication.UserID {
 		return nil, dserror.New(dserror.Unauthorized)
 	}
 
@@ -144,7 +144,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		dsErr.HTTPError(res)
 		return
 	}
-	if app.OwnerID != routeData.Cookie.UserID {
+	if app.OwnerID != routeData.Authentication.UserID {
 		http.Error(res, "Application not owned by logged in user", http.StatusUnauthorized)
 		// this could just be internal error? because this shouldn't happen unless we made a mistake?
 		return
@@ -167,7 +167,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	appspace, dsErr := a.AppspaceModel.Create(routeData.Cookie.UserID, app.AppID, version.Version, sub, locationKey)
+	appspace, dsErr := a.AppspaceModel.Create(routeData.Authentication.UserID, app.AppID, version.Version, sub, locationKey)
 	if dsErr != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
@@ -181,7 +181,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// migrate to whatever version was selected
 	// TODO: Must block appspace from being used until migration is done
 
-	job, dsErr := a.MigrationJobModel.Create(routeData.Cookie.UserID, appspace.AppspaceID, version.Version, true)
+	job, dsErr := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
@@ -246,7 +246,7 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 		return
 	}
 
-	_, dsErr = a.MigrationJobModel.Create(routeData.Cookie.UserID, appspace.AppspaceID, reqData.Version, true)
+	_, dsErr = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return

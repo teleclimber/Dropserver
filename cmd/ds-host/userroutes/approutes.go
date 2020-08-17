@@ -38,7 +38,7 @@ type ApplicationRoutes struct {
 // ServeHTTP handles http traffic to the application routes
 // Namely upload, create new application, delete, ...
 func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	if routeData.Cookie == nil || !routeData.Cookie.UserAccount {
+	if routeData.Authentication == nil || !routeData.Authentication.UserAccount {
 		// maybe log it?
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 	}
@@ -95,7 +95,7 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 }
 
 func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	apps, dsErr := a.AppModel.GetForOwner(routeData.Cookie.UserID)
+	apps, dsErr := a.AppModel.GetForOwner(routeData.Authentication.UserID)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return
@@ -166,7 +166,7 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 			return
 		}
 
-		app, dsErr := a.AppModel.Create(routeData.Cookie.UserID, filesMetadata.AppName)
+		app, dsErr := a.AppModel.Create(routeData.Authentication.UserID, filesMetadata.AppName)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -336,7 +336,7 @@ func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) 
 	if dsErr != nil {
 		return nil, dsErr
 	}
-	if app.OwnerID != routeData.Cookie.UserID {
+	if app.OwnerID != routeData.Authentication.UserID {
 		return nil, dserror.New(dserror.Unauthorized)
 	}
 

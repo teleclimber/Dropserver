@@ -49,7 +49,9 @@ type jobControllerI interface {
 
 // LiveDataRoutes provides live data update service.
 type LiveDataRoutes struct {
-	Authenticator     domain.Authenticator
+	Authenticator interface {
+		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
+	}
 	JobController     jobControllerI
 	MigrationJobModel domain.MigrationJobModel
 	wsConsts          *websocketConstants
@@ -143,17 +145,17 @@ func (l *LiveDataRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (l *LiveDataRoutes) serveToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	cookie, err := l.Authenticator.Authenticate(res, req)
+	auth, err := l.Authenticator.Authenticate(res, req)
 	if err != nil {
 		http.Error(res, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if cookie == nil || !cookie.UserAccount {
+	if auth == nil || !auth.UserAccount {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	routeData.Cookie = cookie
+	routeData.Authentication = auth
 
 	l.tokenMux.Lock()
 	defer l.tokenMux.Unlock()
@@ -164,7 +166,7 @@ func (l *LiveDataRoutes) serveToken(res http.ResponseWriter, req *http.Request, 
 		return
 	}
 
-	l.tokens[tokStr] = token{routeData.Cookie.UserID, time.Now().Add(l.tokenExp)}
+	l.tokens[tokStr] = token{routeData.Authentication.UserID, time.Now().Add(l.tokenExp)}
 
 	resp := GetStartLiveDataResp{Token: tokStr}
 	writeJSON(res, resp)
@@ -445,6 +447,7 @@ func getStatusString(s domain.MigrationJobStatus) string {
 
 ////////////
 // random string stuff
+// TODO CRYPTO This should be using crypto package
 const chars61 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand2 = rand.New(

@@ -1,10 +1,11 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Authenticator,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -162,27 +163,47 @@ type SandboxI interface {
 // ..it's more of an application logic struct.
 // we'll see what that means when we start doing composable routes. Will we need server then?
 
-// Authenticator is an interface
-// Maybe this should be renamed Session or somesuch
-type Authenticator interface {
-	SetForAccount(http.ResponseWriter, UserID) error
-	Authenticate(http.ResponseWriter, *http.Request) (*Cookie, error)
-	UnsetForAccount(http.ResponseWriter, *http.Request)
+// Authentication provides the authenticated data for a request
+type Authentication struct {
+	HasUserID   bool
+	UserID      UserID
+	AppspaceID  AppspaceID // if appspace ids start at 1, we can say that 0 is a non-existent id
+	UserAccount bool       // we're less sure of this one
+	CookieID    string     // if there is a cookie
+}
+
+type TimedToken struct {
+	Token   string
+	Created time.Time
+}
+type AppspaceLoginToken struct {
+	AppspaceID    AppspaceID
+	AppspaceURL   url.URL
+	UserID        UserID
+	LoginToken    TimedToken
+	RedirectToken TimedToken
 }
 
 // Views interface
 type Views interface {
 	PrepareTemplates()
+	AppspaceLogin(http.ResponseWriter, AppspaceLoginViewData)
 	Login(http.ResponseWriter, LoginViewData)
 	Signup(http.ResponseWriter, SignupViewData)
 	UserHome(http.ResponseWriter)
 	Admin(http.ResponseWriter)
 }
 
+// AppspaceLoginViewData is used to pass messages and parameters to the login page
+type AppspaceLoginViewData struct {
+	AppspaceLoginToken string
+}
+
 // LoginViewData is used to pass messages and parameters to the login page
 type LoginViewData struct {
-	Message string
-	Email   string
+	Message            string
+	Email              string
+	AppspaceLoginToken string
 }
 
 // SignupViewData is used to pass messages and parameters to the login page
@@ -205,13 +226,13 @@ type SignupViewData struct {
 // - path tail?
 // - golang Context thing? We need to read up on that.
 type AppspaceRouteData struct {
-	Cookie      *Cookie
-	App         *App
-	AppVersion  *AppVersion
-	Appspace    *Appspace
-	URLTail     string
-	RouteConfig *AppspaceRouteConfig
-	Subdomains  *[]string
+	Authentication *Authentication
+	App            *App
+	AppVersion     *AppVersion
+	Appspace       *Appspace
+	URLTail        string
+	RouteConfig    *AppspaceRouteConfig
+	Subdomains     *[]string
 }
 
 // RouteHandler is a generic interface for sub route handling.
@@ -274,6 +295,7 @@ type Cookie struct {
 	Expires  time.Time `db:"expires"`
 
 	// UserAccount indicates whether this cookie is for the user's account management
+	// possibly superfluous. cookie issue on user subdomain is for account management. It can't be for anything else?
 	UserAccount bool `db:"user_account"`
 
 	// AppspaceID is the appspace that the cookie can authorize
