@@ -164,8 +164,9 @@ func main() {
 	appspaceModel.PrepareStatements()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		Config:    runtimeConfig,
-		Validator: validator}
+		Config:        runtimeConfig,
+		Validator:     validator,
+		AppspaceModel: appspaceModel}
 	appspaceMetaDb.Init()
 
 	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{

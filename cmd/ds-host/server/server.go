@@ -48,7 +48,7 @@ func (s *Server) Start() { //return a server type
 		err = http.ListenAndServeTLS(addr, s.Config.Server.SslCert, s.Config.Server.SslKey, nil)
 	}
 	if err != nil {
-		s.getLogger("Start(), http.ListenAndServeTLS").Error(err)
+		s.getLogger("Start(), http.ListenAndServe[TLS]").Error(err)
 		os.Exit(1)
 	}
 }

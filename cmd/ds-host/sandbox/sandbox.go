@@ -136,7 +136,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		s.Config.Exec.SandboxRunnerPath,
 		s.socketsDir,
 		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
-		filepath.Join(s.Config.Exec.AppspacesFilesPath, appspace.LocationKey),
+		filepath.Join(s.Config.Exec.AppspacesPath, appspace.LocationKey, "files"),
 	)
 	s.cmd = cmd
 	// Note that ultimately we need to stick this in a Cgroup
@@ -519,7 +519,7 @@ type ImportPaths struct {
 
 func (s *Sandbox) makeImportMap() (*[]byte, error) {
 	appPath := trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey))
-	appspacePath := trailingSlash(filepath.Join(s.Config.Exec.AppspacesFilesPath, s.appspace.LocationKey))
+	appspacePath := trailingSlash(filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "files"))
 	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
 	im := ImportPaths{
@@ -556,9 +556,9 @@ func (s *Sandbox) writeImportMap() error {
 	}
 
 	// this should be taken care of externally on appspace install probably.
-	err = os.MkdirAll(s.getAppspaceMetaPath(), 0700)
+	err = os.MkdirAll(filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey), 0700)
 	if err != nil {
-		s.getLogger("writeImportMap()").AddNote("os.MkdirAll dir: " + s.getAppspaceMetaPath()).Error(err)
+		s.getLogger("writeImportMap()").AddNote("os.MkdirAll").Error(err)
 		return err
 	}
 
@@ -571,12 +571,7 @@ func (s *Sandbox) writeImportMap() error {
 	return nil
 }
 func (s *Sandbox) getImportPathFile() string {
-	return filepath.Join(s.getAppspaceMetaPath(), "import-paths.json")
-}
-
-// this really needs to be extracted out!
-func (s *Sandbox) getAppspaceMetaPath() string {
-	return filepath.Join(s.Config.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", s.appspace.AppspaceID))
+	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
 }
 
 /////////////

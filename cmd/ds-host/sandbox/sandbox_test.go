@@ -24,7 +24,7 @@ func TestImportMaps(t *testing.T) {
 			LocationKey: "av-loc-77"},
 		Config: &domain.RuntimeConfig{}}
 
-	s.Config.Exec.AppspacesFilesPath = "/temp/as-path"
+	s.Config.Exec.AppspacesPath = "/temp/as-path"
 	s.Config.Exec.AppsPath = "/temp/apps-path"
 	s.Config.Exec.SandboxCodePath = "/temp/sandbox-code-path"
 
@@ -177,7 +177,7 @@ func TestRunnerScriptError(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxRunnerPath = scriptPath
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
 
 	s := &Sandbox{
 		id:        7,
@@ -216,9 +216,8 @@ func TestStart(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
-	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = dir
-	cfg.Exec.AppspacesMetaPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: "app-loc"}
@@ -269,9 +268,8 @@ func TestExecFn(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
-	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = appDir
-	cfg.Exec.AppspacesMetaPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: appLocation}
@@ -330,9 +328,8 @@ func TestExecForbiddenImport(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
-	cfg.Exec.AppspacesFilesPath = dir
+	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = dir
-	cfg.Exec.AppspacesMetaPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: "app-loc"}

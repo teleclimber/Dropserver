@@ -56,8 +56,7 @@ type RuntimeConfig struct {
 		SandboxRunnerPath   string
 		MigratorScriptPath  string
 		AppsPath            string
-		AppspacesMetaPath   string
-		AppspacesFilesPath  string
+		AppspacesPath       string
 	}
 }
 

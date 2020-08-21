@@ -5,11 +5,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestStartConn(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
@@ -23,10 +28,14 @@ func TestStartConn(t *testing.T) {
 	}
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	AppspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	AppspaceModel.EXPECT().GetFromID(domain.AppspaceID(13)).Return(&domain.Appspace{LocationKey: "abc"}, nil)
 
 	mdb := &AppspaceMetaDB{
-		Config: cfg,
+		Config:        cfg,
+		AppspaceModel: AppspaceModel,
 	}
 
 	mdb.startConn(conn, domain.AppspaceID(13), true)
@@ -39,27 +48,37 @@ func TestStartConn(t *testing.T) {
 // More tests needed.
 
 func TestCreateAndGet(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.RemoveAll(dir)
 
+	appspaceID := domain.AppspaceID(13)
+
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	AppspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	AppspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
+
 	mdb := &AppspaceMetaDB{
-		Config: cfg,
+		Config:        cfg,
+		AppspaceModel: AppspaceModel,
 	}
 	mdb.Init()
 
-	err = mdb.Create(domain.AppspaceID(13), 0)
+	err = mdb.Create(appspaceID, 0)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// OK, now test Get
 
-	dbConn := mdb.GetConn(domain.AppspaceID(13))
+	dbConn := mdb.GetConn(appspaceID)
 	h := dbConn.GetHandle()
 
 	var res struct {

@@ -50,9 +50,8 @@ func TestIntegration1(t *testing.T) {
 	cfg.Sandbox.SocketsDir = socketsDir
 	cfg.DataDir = dataDir
 	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
-	cfg.Exec.AppspacesFilesPath = filepath.Join(dataDir, "appspaces-files")
+	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
-	cfg.Exec.AppspacesMetaPath = dataDir
 
 	metrics := domain.NewMockMetricsI(mockCtrl)
 	metrics.EXPECT().HostHandleReq(gomock.Any())

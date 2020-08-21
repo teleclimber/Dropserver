@@ -38,7 +38,6 @@ package appspacedb
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -57,10 +56,14 @@ import (
 
 // Manager manages the connection for the database
 type Manager struct {
-	Config    *domain.RuntimeConfig
-	Validator domain.Validator
-	connsMux  sync.Mutex
-	conns     map[connsKey]*connsVal
+	Config        *domain.RuntimeConfig
+	Validator     domain.Validator
+	AppspaceModel interface {
+		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+	}
+
+	connsMux sync.Mutex
+	conns    map[connsKey]*connsVal
 }
 
 type connsKey struct {
@@ -227,7 +230,13 @@ func (m *Manager) getConn(key connsKey) *connsVal {
 }
 
 func (m *Manager) startConn(c *connsVal, key connsKey, create bool) {
-	dbPath := getAppspaceMetaDir(m.Config, key.appspaceID)
+	appspace, dsErr := m.AppspaceModel.GetFromID(key.appspaceID)
+	if dsErr != nil {
+		c.connError = dsErr
+		return // TODO: need to release chanels that are waiting
+	}
+
+	dbPath := filepath.Join(m.Config.Exec.AppspacesPath, appspace.LocationKey)
 	dbConn, dsErr := openConn(dbPath, key.dbName, create)
 	c.statusMux.Lock()
 	if dsErr != nil {
@@ -325,9 +334,4 @@ func queryDataFromJSON(jsonBytes []byte) (*QueryData, domain.Error) {
 	}
 
 	return &data, nil
-}
-
-// This should be brought out to a package that can be injected
-func getAppspaceMetaDir(cfg *domain.RuntimeConfig, appspaceID domain.AppspaceID) string {
-	return filepath.Join(cfg.Exec.AppspacesMetaPath, fmt.Sprintf("appspace-%v", appspaceID))
 }

@@ -3,7 +3,6 @@ package appspacedb
 import (
 	"bytes"
 	"database/sql"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 // json to qeury data
@@ -146,15 +146,24 @@ func TestQueryDataFromJSONWithNullParam(t *testing.T) {
 }
 
 func TestStartConn(t *testing.T) {
-	appspaceID := domain.AppspaceID(7)
-	dir := makeAppspaceDB(t, appspaceID)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	appspaceID := domain.AppspaceID(13)
+
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(domain.AppspaceID(13)).Return(&domain.Appspace{LocationKey: "abc"}, nil)
 
 	m := &Manager{
-		Config: cfg,
+		Config:        cfg,
+		AppspaceModel: appspaceModel,
 	}
 	m.Init()
 
@@ -188,20 +197,25 @@ func TestCreateDbHandler(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appspaceID := domain.AppspaceID(7)
+	loc := "abc"
+	appspaceID := domain.AppspaceID(13)
 
-	dir := makeAppspaceDB(t, appspaceID)
+	dir := makeAppspaceDB(t, loc)
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
 
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().DBName("some-db").Return(nil)
 
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
+
 	m := &Manager{
-		Config:    cfg,
-		Validator: validator,
+		Config:        cfg,
+		Validator:     validator,
+		AppspaceModel: appspaceModel,
 	}
 	m.Init()
 
@@ -223,16 +237,24 @@ func TestCreateDbHandler(t *testing.T) {
 }
 
 func TestGetConn(t *testing.T) {
-	appspaceID := domain.AppspaceID(7)
-	dir := makeAppspaceDB(t, appspaceID)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
 	defer os.RemoveAll(dir)
 
+	appspaceID := domain.AppspaceID(13)
+
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
 
 	m := &Manager{
-		Config: cfg,
+		Config:        cfg,
+		AppspaceModel: appspaceModel,
 	}
 	m.Init()
 
@@ -258,13 +280,15 @@ func TestGetConn(t *testing.T) {
 // Test that a second request for DB that comes in before the DB is ready
 // works OK by receivng the conn when it's ready
 func TestGetConnSecondOverlap(t *testing.T) {
-	appspaceID := domain.AppspaceID(7)
-	dir := makeAppspaceDB(t, appspaceID)
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
 
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	appspaceID := domain.AppspaceID(13)
 
 	m := &Manager{
 		Config: cfg,
@@ -305,16 +329,24 @@ func TestGetConnSecondOverlap(t *testing.T) {
 }
 
 func TestGetConnSecond(t *testing.T) {
-	appspaceID := domain.AppspaceID(7)
-	dir := makeAppspaceDB(t, appspaceID)
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppspacesMetaPath = dir
+	cfg.Exec.AppspacesPath = dir
+
+	appspaceID := domain.AppspaceID(13)
+
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
 
 	m := &Manager{
-		Config: cfg,
+		Config:        cfg,
+		AppspaceModel: appspaceModel,
 	}
 	m.Init()
 
@@ -379,13 +411,13 @@ func TestDBRun(t *testing.T) {
 
 ////////////////
 // helpers..
-func makeAppspaceDB(t *testing.T, appspaceID domain.AppspaceID) string {
+func makeAppspaceDB(t *testing.T, locationKey string) string {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
 	}
 
-	asDir := filepath.Join(dir, fmt.Sprintf("appspace-%v", appspaceID))
+	asDir := filepath.Join(dir, locationKey)
 
 	err = os.Mkdir(asDir, 0700)
 	if err != nil {

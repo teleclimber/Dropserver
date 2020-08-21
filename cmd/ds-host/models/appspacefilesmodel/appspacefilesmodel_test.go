@@ -23,6 +23,7 @@ func TestDelete(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.DataDir = dir
+	cfg.Exec.AppspacesPath = dir
 
 	m := AppspaceFilesModel{
 		Config: cfg}
@@ -36,7 +37,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal("location key can not be empty string")
 	}
 
-	appspacePath := filepath.Join(m.getAppspacesPath(), locKey)
+	appspacePath := filepath.Join(cfg.Exec.AppspacesPath, locKey)
 
 	if _, err := os.Stat(appspacePath); os.IsNotExist(err) {
 		// path/to/whatever does not exist

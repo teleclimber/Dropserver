@@ -21,17 +21,21 @@ type AppspaceFilesModel struct {
 
 // CreateLocation creates a new location for an appspace
 func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
-	appspacesPath := a.getAppspacesPath()
-
-	err := os.MkdirAll(appspacesPath, 0766)
+	err := os.MkdirAll(a.Config.Exec.AppspacesPath, 0766) // This base dir for all appspaces should probably be created at ds-host migration time
 	if err != nil {
-		a.getLogger("CreateLocation(), os.Mkdirall").AddNote(appspacesPath).Error(err)
+		a.getLogger("CreateLocation(), os.Mkdirall").AddNote(a.Config.Exec.AppspacesPath).Error(err)
 		return "", dserror.New(dserror.InternalError)
 	}
 
-	appspacePath, err := ioutil.TempDir(appspacesPath, "as")
+	appspacePath, err := ioutil.TempDir(a.Config.Exec.AppspacesPath, "as")
 	if err != nil {
-		a.getLogger("CreateLocation(), ioutil.TempDir").AddNote(appspacesPath).Error(err)
+		a.getLogger("CreateLocation(), ioutil.TempDir").AddNote(a.Config.Exec.AppspacesPath).Error(err)
+		return "", dserror.New(dserror.InternalError)
+	}
+
+	err = os.MkdirAll(filepath.Join(appspacePath, "files"), 0766)
+	if err != nil {
+		a.getLogger("CreateLocation(), os.Mkdirall for files").Error(err)
 		return "", dserror.New(dserror.InternalError)
 	}
 
@@ -58,8 +62,7 @@ func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
 // Do this later
 
 func (a *AppspaceFilesModel) locationKeyExists(locationKey string) bool {
-	appsPath := a.getAppspacesPath()
-	_, err := os.Stat(filepath.Join(appsPath, locationKey))
+	_, err := os.Stat(filepath.Join(a.Config.Exec.AppspacesPath, locationKey))
 	if err == nil {
 		return true
 	}
@@ -68,10 +71,6 @@ func (a *AppspaceFilesModel) locationKeyExists(locationKey string) bool {
 	}
 	return true // OK but there could be aonther problem, like permissions out of whack?
 	// Should probably log that as warning at least.
-}
-
-func (a *AppspaceFilesModel) getAppspacesPath() string {
-	return filepath.Join(a.Config.DataDir, "appspaces") //TODO haven't we moved that over to Config?
 }
 
 // pathInsidePath determines if A path is inside (contained within) path B

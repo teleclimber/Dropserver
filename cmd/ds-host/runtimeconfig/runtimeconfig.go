@@ -70,12 +70,10 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static")
 	rtc.Exec.SandboxCodePath = filepath.Join(binDir, "../resources/")
 	rtc.Exec.SandboxRunnerPath = filepath.Join(binDir, "../resources/ds-sandbox-runner.ts")
-	rtc.Exec.MigratorScriptPath = filepath.Join(binDir, "../resources/ds-appspace-migrator.js")
 
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
-	rtc.Exec.AppspacesMetaPath = filepath.Join(rtc.DataDir, "appspaces-meta")
-	rtc.Exec.AppspacesFilesPath = filepath.Join(rtc.DataDir, "appspaces-files")
+	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
 
 	//  subdomain sorting out:
 	host := rtc.Server.Host

@@ -12,8 +12,10 @@ import (
 
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
-	SandboxManager domain.SandboxManagerI // not needed at server level
-	Metrics        domain.MetricsI
+	SandboxManager interface {
+		GetForAppSpace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
+	} // not needed at server level
+	Metrics domain.MetricsI
 }
 
 // ServeHTTP forwards the request to a sandbox
