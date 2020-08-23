@@ -78,7 +78,10 @@ func TestCreateAndGet(t *testing.T) {
 
 	// OK, now test Get
 
-	dbConn := mdb.GetConn(appspaceID)
+	dbConn, err := mdb.GetConn(appspaceID)
+	if err != nil {
+		t.Error(err)
+	}
 	h := dbConn.GetHandle()
 
 	var res struct {

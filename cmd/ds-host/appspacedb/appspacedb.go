@@ -233,7 +233,7 @@ func (m *Manager) startConn(c *connsVal, key connsKey, create bool) {
 	appspace, dsErr := m.AppspaceModel.GetFromID(key.appspaceID)
 	if dsErr != nil {
 		c.connError = dsErr
-		return // TODO: need to release chanels that are waiting
+		return // TODO: need to release chanels that are waiting.. see meta db
 	}
 
 	dbPath := filepath.Join(m.Config.Exec.AppspacesPath, appspace.LocationKey)

@@ -480,7 +480,7 @@ type DbConn interface {
 // AppspaceMetaDB manages the files and connections for each appspace's metadata DB
 type AppspaceMetaDB interface {
 	Create(AppspaceID, int) error
-	GetConn(AppspaceID) DbConn
+	GetConn(AppspaceID) (DbConn, error)
 }
 
 // AppspaceInfoModel holds metadata like current schema and ds api version for the appspace.

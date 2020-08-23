@@ -151,7 +151,7 @@ func TestV0RouteMatch(t *testing.T) {
 	dbc := domain.NewMockDbConn(mockCtrl)
 	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
 	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc).AnyTimes()
+	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
 	r := &RouteModelV0{
 		AppspaceMetaDB: appspaceMetaDb,
 		appspaceID:     appspaceID,
@@ -259,7 +259,7 @@ func v0RoutesGetModel(t *testing.T, mockCtrl *gomock.Controller) *RouteModelV0 {
 	dbc := domain.NewMockDbConn(mockCtrl)
 	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
 	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc).AnyTimes()
+	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
 	r := &RouteModelV0{
 		AppspaceMetaDB: appspaceMetaDb,
 		appspaceID:     appspaceID,

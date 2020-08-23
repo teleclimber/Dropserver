@@ -1146,11 +1146,12 @@ func (mr *MockAppspaceMetaDBMockRecorder) Create(arg0, arg1 interface{}) *gomock
 }
 
 // GetConn mocks base method
-func (m *MockAppspaceMetaDB) GetConn(arg0 AppspaceID) DbConn {
+func (m *MockAppspaceMetaDB) GetConn(arg0 AppspaceID) (DbConn, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConn", arg0)
 	ret0, _ := ret[0].(DbConn)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetConn indicates an expected call of GetConn

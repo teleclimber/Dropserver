@@ -20,7 +20,7 @@ func TestInfoGetNoSchema(t *testing.T) {
 	dbConn.EXPECT().GetHandle().Return(db)
 
 	appspaceMetaDB := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetConn(asID).Return(dbConn)
+	appspaceMetaDB.EXPECT().GetConn(asID).Return(dbConn, nil)
 
 	infoModel := &InfoModel{
 		AppspaceMetaDB: appspaceMetaDB,
@@ -46,7 +46,7 @@ func TestInfoSetSchema(t *testing.T) {
 	dbConn.EXPECT().GetHandle().AnyTimes().Return(db)
 
 	appspaceMetaDB := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetConn(asID).AnyTimes().Return(dbConn)
+	appspaceMetaDB.EXPECT().GetConn(asID).AnyTimes().Return(dbConn, nil)
 
 	infoModel := &InfoModel{
 		AppspaceMetaDB: appspaceMetaDB,

@@ -71,7 +71,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 // need a migrate function too. It's just a fact.
 
 // GetConn returns the existing conn for the appspace ID or creates one if necessary
-func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) domain.DbConn {
+func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn, error) {
 	// lock, get from map, start if not there, wait if not ready, then unlock or somesuch
 
 	var readyChan chan struct{}
@@ -101,7 +101,7 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) domain.DbConn {
 		_ = <-readyChan
 	}
 
-	return conn
+	return conn, conn.connError
 }
 
 // Need a stop conn, or some way to automatically shut things off if idle?
@@ -109,11 +109,9 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) domain.DbConn {
 func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) {
 	appspace, dsErr := mdb.AppspaceModel.GetFromID(appspaceID)
 	if dsErr != nil {
-		conn.connError = dsErr.ToStandard()
+		setConnError(conn, dsErr.ToStandard())
 		return
 	}
-
-	defer conn.statusMux.Unlock()
 
 	appspacePath := filepath.Join(mdb.Config.Exec.AppspacesPath, appspace.LocationKey)
 	dbFile := filepath.Join(appspacePath, "appspace-meta.db")
@@ -122,14 +120,13 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 	if create {
 		_, err := os.Stat(dbFile)
 		if !os.IsNotExist(err) {
-			conn.statusMux.Lock()
-			conn.connError = errors.New("Appspace DB file already exists: " + dbFile)
+			setConnError(conn, errors.New("Appspace DB file already exists: "+dbFile))
 			return
 		}
 		err = os.MkdirAll(appspacePath, 0700)
 		if err != nil {
-			conn.statusMux.Lock()
-			conn.connError = err
+			setConnError(conn, err)
+			return
 		}
 
 		dsn += "c"
@@ -137,25 +134,21 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 
 	handle, err := sqlx.Open("sqlite3", dsn)
 	if err != nil {
-		conn.statusMux.Lock()
-		conn.connError = err
+		setConnError(conn, err)
+		return
+	}
+
+	err = handle.Ping()
+	if err != nil {
+		setConnError(conn, err)
 		return
 	}
 
 	conn.statusMux.Lock()
-	err = handle.Ping()
-	if err != nil {
-		conn.connError = err
-		return
-	}
-
 	conn.handle = handle
 	conn.stmts = make(map[string]*sqlx.Stmt)
+	conn.statusMux.Unlock()
 
-	// then release all the channels that are waiting
-	// TODO: what if we return early?
-	// maybe we need an error chan, and have a select?
-	// ..or close all chanels in a defer statement.
 	for _, ch := range conn.readySub {
 		close(ch)
 	}
@@ -167,6 +160,16 @@ func (mdb *AppspaceMetaDB) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
+}
+
+func setConnError(conn *DbConn, e error) {
+	conn.statusMux.Lock()
+	conn.connError = e
+	conn.statusMux.Unlock()
+
+	for _, ch := range conn.readySub {
+		close(ch)
+	}
 }
 
 // DbConn holds the db handle and relevant request data

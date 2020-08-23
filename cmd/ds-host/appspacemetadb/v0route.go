@@ -36,9 +36,12 @@ type routeRow struct {
 	Handler string
 }
 
-func (m *RouteModelV0) getDB() *sqlx.DB {
-	dbConn := m.AppspaceMetaDB.GetConn(m.appspaceID)
-	return dbConn.GetHandle()
+func (m *RouteModelV0) getDB() (*sqlx.DB, error) {
+	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return dbConn.GetHandle(), err
 }
 
 // ReverseCommand processes a command and payload from the reverse listener
@@ -128,7 +131,10 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 		return err
 	}
 
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
 
 	_, err = db.Exec(`INSERT INTO routes (methods, path, auth, handler) VALUES (?, ?, ?, ?)`, strconv.Itoa(int(mBitz)), routePath, authStr, handlerStr)
 	if err != nil {
@@ -159,7 +165,10 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 		return &rr, err
 	}
 
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
 
 	var rowz []routeRow
 
@@ -206,7 +215,10 @@ func (m *RouteModelV0) Delete(methods []string, routePath string) error {
 		return err
 	}
 
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
 
 	// Do a transaction here to avoid problems?
 
@@ -243,7 +255,10 @@ func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceR
 		return nil, err
 	}
 
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
 
 	// path matching
 	// We think routepath will always have a leading /, and no trailing /

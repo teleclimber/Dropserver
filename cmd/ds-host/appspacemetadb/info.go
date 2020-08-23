@@ -61,11 +61,14 @@ type InfoModel struct {
 	//do we need stmts? (I think these should be in the DB obj)
 }
 
-func (m *InfoModel) getDB() *sqlx.DB {
+func (m *InfoModel) getDB() (*sqlx.DB, error) {
 	// should probably cache that? Maybe?
 	// -> OK, but need to contend with possibility that the conn gets shut down.
-	dbConn := m.AppspaceMetaDB.GetConn(m.appspaceID)
-	return dbConn.GetHandle()
+	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return dbConn.GetHandle(), err
 }
 
 // SetDsAPIVersion sets the ds api version
@@ -80,9 +83,12 @@ func (m *InfoModel) getDB() *sqlx.DB {
 
 // SetSchema sets the schema in the info db
 func (m *InfoModel) SetSchema(schema int) error {
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return err
+	}
 
-	_, err := db.Exec(`DELETE FROM info WHERE name = ?`, schemaKey)
+	_, err = db.Exec(`DELETE FROM info WHERE name = ?`, schemaKey)
 	if err != nil {
 		m.getLogger("SetSchema(), Exec Delete").Error(err)
 		// does Exec error if no rows area affected?
@@ -102,13 +108,16 @@ func (m *InfoModel) SetSchema(schema int) error {
 func (m *InfoModel) GetSchema() (int, error) {
 	// for now just read it from the DB?
 	// In future, cache it, and invalidate on SetSchema
-	db := m.getDB()
+	db, err := m.getDB()
+	if err != nil {
+		return 0, err
+	}
 
 	var v struct {
 		Value string
 	}
 
-	err := db.Get(&v, `SELECT value FROM info WHERE name = ?`, schemaKey)
+	err = db.Get(&v, `SELECT value FROM info WHERE name = ?`, schemaKey)
 	if err != nil {
 		// if no-rows, then return 0
 		if err == sql.ErrNoRows {
