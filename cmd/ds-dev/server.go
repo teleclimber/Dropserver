@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // in ds-dev, server assumes all paths are appspace paths
@@ -19,6 +20,7 @@ type Server struct {
 	Authenticator interface {
 		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
 	}
+	DropserverDevHandler http.Handler
 
 	AppspaceRoutes domain.RouteHandler
 }
@@ -68,9 +70,14 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		Subdomains:     &[]string{"abc"},
 		Authentication: auth}
 
-	// if path is /dropserver-dev/ then handle separately
-	// else....
-
-	s.AppspaceRoutes.ServeHTTP(res, req, routeData)
-
+	head, tail := shiftpath.ShiftPath(req.URL.Path)
+	switch head {
+	case "dropserver":
+		http.Error(res, "not implemented yet", http.StatusNotImplemented)
+	case "dropserver-dev":
+		req.URL.Path = tail // shouldnt' modify request
+		s.DropserverDevHandler.ServeHTTP(res, req)
+	default:
+		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
+	}
 }

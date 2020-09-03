@@ -145,11 +145,21 @@ func main() {
 	devSandboxManager.Services = revServices
 	//migrationSandboxMaker.ReverseServices = revServices
 
+	dsDevHandler := &DropserverDevServer{}
+	dsDevHandler.SetBaseData(BaseData{
+		AppPath:        *appDirFlag,
+		AppName:        appFilesMeta.AppName,
+		AppVersion:     string(appFilesMeta.AppVersion),
+		AppSchema:      appFilesMeta.SchemaVersion,
+		AppspacePath:   *appspaceDirFlag,
+		AppspaceSchema: appspaceSchema})
+
 	// Create server.
 	server := &Server{
-		Authenticator:  devAuth,
-		Config:         runtimeConfig,
-		AppspaceRoutes: appspaceRoutes}
+		Authenticator:        devAuth,
+		Config:               runtimeConfig,
+		DropserverDevHandler: dsDevHandler,
+		AppspaceRoutes:       appspaceRoutes}
 
 	fmt.Println("starting server")
 

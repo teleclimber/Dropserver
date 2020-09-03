@@ -12,4 +12,11 @@ module.exports = {
         return args;
       });
   },
+  devServer: {
+    proxy: {
+      '/dropserver-dev': {
+        target: 'http://127.0.0.1:3003/'
+      }
+    }
+  }
 }
