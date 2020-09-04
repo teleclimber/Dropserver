@@ -111,9 +111,9 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	// Here start should take necessary data about appspace
 	// ..in order to pass in the right permissions to deno.
 
-	twineServer, err := twine.NewServer(path.Join(socketsDir, "rev.sock"))
+	twineServer, err := twine.NewUnixServer(path.Join(socketsDir, "rev.sock"))
 	if err != nil {
-		logger.AddNote("twine.NewServer").Error(err)
+		logger.AddNote("twine.NewUnixServer").Error(err)
 		return err // maybe return a user-centered error
 	}
 	s.twine = twineServer

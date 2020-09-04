@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 )
 
@@ -48,13 +47,23 @@ type messageMeta struct {
 	payload  *[]byte
 }
 
+// twineConn is the common interface for the underlying transport
+type twineConn interface {
+	//StartServer // I think start server/client, etc.. can be transport-specific. They are used in teh
+	Read(size int) ([]byte, error)
+	ReadToPtr(size int) (*[]byte, error)
+	WriteMessage(meta []byte, payload *[]byte) error
+	Close()
+}
+
 // Twine holds everything needed for the protocol to function
 type Twine struct {
-	isServer   bool
-	socketPath string
-	ln         *net.Listener // consider making that a ReadWriter so we can adapt anything there.
-	conn       *net.Conn
-	msgReg     *messageRegistry
+	isServer bool
+	conn     twineConn
+	// socketPath string
+	// ln         *net.Listener // consider making that a ReadWriter so we can adapt anything there.
+	// conn       *net.Conn
+	msgReg *messageRegistry
 
 	ReadyChan   chan struct{}
 	MessageChan chan ReceivedMessageI
@@ -70,44 +79,84 @@ type Twine struct {
 // Big question is how we communicate with outside world
 // Maybe a chanel with type that encapsulates whole message?
 
-// NewServer creates a new Twine struct configured to be a server
-func NewServer(sockPath string) (*Twine, error) {
-	t := makeNew(sockPath)
+// NewUnixServer creates a new Twine struct configured to be a server
+// This returns once server is listening; use ReadyChan to know when a handshake has been made
+func NewUnixServer(sockPath string) (*Twine, error) {
+	t := makeNew()
 	t.isServer = true
 	t.msgReg.firstMsgID = 128
 	t.msgReg.lastMsgID = 255
 	t.msgReg.nextID = 128
 
-	// TODO delete it first
-
-	unixListener, err := net.Listen("unix", t.socketPath)
+	unixServerConn, err := newUnixServer(sockPath)
 	if err != nil {
 		return nil, err
 	}
+	t.conn = unixServerConn
 
-	t.ln = &unixListener
+	go func() {
+		err := unixServerConn.StartServer()
+		if err != nil {
+			t.ErrorChan <- err
+			go t.close()
+			return
+		}
 
-	go t.startServer()
+		err = t.waitHi()
+		if err != nil {
+			t.ErrorChan <- err
+			go t.close()
+			return
+		}
+
+		t.ReadyChan <- struct{}{}
+
+		go t.receive()
+	}()
 
 	return t, nil
 }
 
-// NewClient creates a new Twine struct configured to be a client
-func NewClient(sockPath string) *Twine {
-	t := makeNew(sockPath)
+// NewUnixClient creates a new Twine struct configured to be a client
+func NewUnixClient(sockPath string) *Twine {
+	t := makeNew()
 	t.isServer = false
 	t.msgReg.firstMsgID = 1
 	t.msgReg.lastMsgID = 127
 	t.msgReg.nextID = 1
 
-	go t.startClient()
+	go func() {
+		u, err := newUnixClient(sockPath)
+		if err != nil {
+			t.ErrorChan <- err
+			go t.close()
+			return
+		}
+		t.conn = u
+
+		go t.receive()
+
+		err = t.sendHi()
+		if err != nil {
+			t.ErrorChan <- err // failstart
+			go t.close()
+			return
+		}
+		// then wait for "OK" from server?
+
+		t.ReadyChan <- struct{}{}
+	}()
 
 	return t
 }
 
-func makeNew(sockPath string) *Twine { // NewServer or NewClient
+// NewWebsocketServer returns a Twine instance from an upgraded connection??
+func NewWebsocketServer( /*upgraded connection?*/ ) *Twine {
+	return nil
+}
+
+func makeNew() *Twine {
 	t := &Twine{
-		socketPath:  sockPath,
 		ReadyChan:   make(chan struct{}),
 		MessageChan: make(chan ReceivedMessageI),
 		ErrorChan:   make(chan error),
@@ -118,32 +167,16 @@ func makeNew(sockPath string) *Twine { // NewServer or NewClient
 	return t
 }
 
-func (t *Twine) startServer() {
-	ln := *t.ln
-
-	revConn, err := ln.Accept() // This blocks until aconn shows up
-	if err != nil {
-		//t.ErrorChan <- errors.New("error accepting rev conn") // causes race condition on close
-		go t.close()
-		return
-	}
-	// ^^ here we assume that there is a single client
-
-	t.conn = &revConn
-
+func (t *Twine) waitHi() error { // so now this could return an error
 	m, err := t.receiveMessage()
 	if err != nil {
-		t.ErrorChan <- err
-		go t.close()
-		return
+		return err
 	}
 
 	if m.service != protocolService || m.command != protocolHi {
-		t.ErrorChan <- errors.New("first command not HI")
 		payload := []byte("first command not HI")
 		t.send(int(m.msgID), 0, m.service, int(protocolError), &payload)
-		go t.close() //close(t.ReadyChan)
-		return
+		return errors.New("first command not HI")
 	}
 
 	// treat as regular message?
@@ -151,36 +184,10 @@ func (t *Twine) startServer() {
 
 	err = t.send(int(m.msgID), 0, closeService, int(protocolOK), nil)
 	if err != nil {
-		t.ErrorChan <- err
-		go t.close() //close(t.ReadyChan)
-		return
+		return err
 	}
 
-	t.ReadyChan <- struct{}{}
-
-	go t.receive()
-}
-
-func (t *Twine) startClient() {
-	conn, err := net.Dial("unix", t.socketPath)
-	if err != nil {
-		t.ErrorChan <- err // failstart
-		return
-	}
-
-	t.conn = &conn
-
-	go t.receive()
-
-	err = t.sendHi()
-	if err != nil {
-		t.ErrorChan <- err // failstart
-		return
-	}
-
-	// then wait for "OK" from server?
-
-	t.ReadyChan <- struct{}{}
+	return nil
 }
 
 // startClient
@@ -290,21 +297,21 @@ func (t *Twine) receive() {
 	}
 }
 
-func (t *Twine) receiveMessage() (*messageMeta, error) {
+func (t *Twine) receiveMessage() (*messageMeta, error) { // This should be moved to transport layer, sadly?
 
-	serviceBytes, err := t.read(1) // let's read more than that?
+	serviceBytes, err := t.conn.Read(1) // let's read more than that?
 	if err != nil {
 		return nil, err
 	}
 	service := serviceID(serviceBytes[0])
 
-	cmdBytes, err := t.read(1)
+	cmdBytes, err := t.conn.Read(1)
 	if err != nil {
 		return nil, err
 	}
 	cmd := commandID(cmdBytes[0])
 
-	msgIDBytes, err := t.read(1)
+	msgIDBytes, err := t.conn.Read(1)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +320,7 @@ func (t *Twine) receiveMessage() (*messageMeta, error) {
 	// if it's a new message referencing an old message, get the referenced message id
 	refMsgID := uint8(0)
 	if service == refRequestService {
-		msgIDBytes, err = t.read(1)
+		msgIDBytes, err = t.conn.Read(1)
 		if err != nil {
 			return nil, err
 		}
@@ -321,14 +328,14 @@ func (t *Twine) receiveMessage() (*messageMeta, error) {
 		// check that it's not zero
 	}
 
-	sizeBytes, err := t.read(2) // two bytes for size
+	sizeBytes, err := t.conn.Read(2) // two bytes for size
 	if err != nil {
 		return nil, err
 	}
 	var size int
 	sizeSmol := binary.BigEndian.Uint16(sizeBytes)
 	if sizeSmol == 0xff {
-		sizeBytesBig, err := t.read(4) // four for big ... that's 4Gigabytes!!!!!! :/
+		sizeBytesBig, err := t.conn.Read(4) // four for big ... that's 4Gigabytes!!!!!! :/
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +344,7 @@ func (t *Twine) receiveMessage() (*messageMeta, error) {
 		size = int(sizeSmol)
 	}
 
-	payloadBytes, err := t.readToPtr(size)
+	payloadBytes, err := t.conn.ReadToPtr(size)
 	if err != nil {
 		return nil, err
 	}
@@ -353,28 +360,28 @@ func (t *Twine) receiveMessage() (*messageMeta, error) {
 	}, nil
 }
 
-func (t *Twine) read(size int) ([]byte, error) {
-	rc := *t.conn
-	p := make([]byte, size)
-	_, err := rc.Read(p)
-	if err != nil {
-		return p, err
-	}
+// func (t *Twine) read(size int) ([]byte, error) {
+// 	rc := *t.conn
+// 	p := make([]byte, size)
+// 	_, err := rc.Read(p)
+// 	if err != nil {
+// 		return p, err
+// 	}
 
-	return p, nil
-}
+// 	return p, nil
+// }
 
-// readToPtr reads from conn but returns a pointer to byte arrray
-func (t *Twine) readToPtr(size int) (*[]byte, error) {
-	rc := *t.conn
-	p := make([]byte, size)
-	_, err := rc.Read(p)
-	if err != nil {
-		return &p, err
-	}
+// // readToPtr reads from conn but returns a pointer to byte arrray
+// func (t *Twine) readToPtr(size int) (*[]byte, error) {
+// 	rc := *t.conn
+// 	p := make([]byte, size)
+// 	_, err := rc.Read(p)
+// 	if err != nil {
+// 		return &p, err
+// 	}
 
-	return &p, nil
-}
+// 	return &p, nil
+// }
 
 /// sends
 // There are a few send possibilities:
@@ -676,22 +683,9 @@ func (t *Twine) send(msgID int, refMsgID int, service serviceID, cmd int, payloa
 	t.writerMux.Lock()
 	defer t.writerMux.Unlock()
 
-	rc := *t.conn
-
-	_, err := rc.Write(metaBytes)
+	err := t.conn.WriteMessage(metaBytes, payload)
 	if err != nil {
-		// this is a problem.
-		// probably need to kill things off at this point.
-		return errors.New("error writing to socket")
-	}
-
-	if payload != nil {
-		_, err = rc.Write(*payload)
-		if err != nil {
-			// this is a problem.
-			// probably need to kill things off at this point.
-			return errors.New("error writing to socket")
-		}
+		return err
 	}
 
 	return nil
@@ -799,13 +793,7 @@ func (t *Twine) close() {
 		t.connClosed = true
 
 		if t.conn != nil {
-			rc := *t.conn
-			rc.Close() //might return an error
-		}
-
-		if t.ln != nil {
-			ln := *t.ln
-			ln.Close()
+			t.conn.Close()
 		}
 
 		close(t.ReadyChan)

@@ -28,7 +28,7 @@ func TestServerClient(t *testing.T) {
 
 	errs := make(chan error, 10)
 
-	ts, err := NewServer(sockPath)
+	ts, err := NewUnixServer(sockPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestServerClient(t *testing.T) {
 		}
 	}()
 
-	tc := NewClient(sockPath)
+	tc := NewUnixClient(sockPath)
 	go func() {
 		for err := range tc.ErrorChan {
 			errs <- fmt.Errorf("Client: %w", err)
@@ -127,7 +127,7 @@ func TestServiceMessages(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	ts, err := NewServer(sockPath)
+	ts, err := NewUnixServer(sockPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestServiceMessages(t *testing.T) {
 		wg.Done()
 	}()
 
-	tc := NewClient(sockPath)
+	tc := NewUnixClient(sockPath)
 	go func() {
 		for err := range tc.ErrorChan {
 			errs <- fmt.Errorf("Client: %w", err)
@@ -245,7 +245,7 @@ func TestServiceMessages(t *testing.T) {
 				refMessage.SendOK()
 			}
 
-			fmt.Println("exiting refMessages req chan")
+			//fmt.Println("exiting refMessages req chan")
 		}()
 		_, err = sent.WaitReply()
 		if err != nil {
