@@ -69,7 +69,7 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 
 	payload := message.Payload()
 
-	err := json.Unmarshal(*payload, &data)
+	err := json.Unmarshal(payload, &data)
 	if err != nil {
 		m.getLogger("reverseCmdCreate, json.Unmarshal").Error(err)
 		message.SendError("json unmarshall error")

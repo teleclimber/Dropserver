@@ -75,10 +75,10 @@ func (mr *MockSentMessageIMockRecorder) MsgID() *gomock.Call {
 }
 
 // Payload mocks base method
-func (m *MockSentMessageI) Payload() *[]byte {
+func (m *MockSentMessageI) Payload() []byte {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Payload")
-	ret0, _ := ret[0].(*[]byte)
+	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
@@ -103,7 +103,7 @@ func (mr *MockSentMessageIMockRecorder) RefMsgID() *gomock.Call {
 }
 
 // RefSend mocks base method
-func (m *MockSentMessageI) RefSend(arg0 int, arg1 *[]byte) (SentMessageI, error) {
+func (m *MockSentMessageI) RefSend(arg0 int, arg1 []byte) (SentMessageI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefSend", arg0, arg1)
 	ret0, _ := ret[0].(SentMessageI)
@@ -118,7 +118,7 @@ func (mr *MockSentMessageIMockRecorder) RefSend(arg0, arg1 interface{}) *gomock.
 }
 
 // RefSendBlock mocks base method
-func (m *MockSentMessageI) RefSendBlock(arg0 int, arg1 *[]byte) (ReceivedReplyI, error) {
+func (m *MockSentMessageI) RefSendBlock(arg0 int, arg1 []byte) (ReceivedReplyI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefSendBlock", arg0, arg1)
 	ret0, _ := ret[0].(ReceivedReplyI)
@@ -227,10 +227,10 @@ func (mr *MockReceivedMessageIMockRecorder) MsgID() *gomock.Call {
 }
 
 // Payload mocks base method
-func (m *MockReceivedMessageI) Payload() *[]byte {
+func (m *MockReceivedMessageI) Payload() []byte {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Payload")
-	ret0, _ := ret[0].(*[]byte)
+	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
@@ -255,7 +255,7 @@ func (mr *MockReceivedMessageIMockRecorder) RefMsgID() *gomock.Call {
 }
 
 // RefSend mocks base method
-func (m *MockReceivedMessageI) RefSend(arg0 int, arg1 *[]byte) (SentMessageI, error) {
+func (m *MockReceivedMessageI) RefSend(arg0 int, arg1 []byte) (SentMessageI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefSend", arg0, arg1)
 	ret0, _ := ret[0].(SentMessageI)
@@ -270,7 +270,7 @@ func (mr *MockReceivedMessageIMockRecorder) RefSend(arg0, arg1 interface{}) *gom
 }
 
 // RefSendBlock mocks base method
-func (m *MockReceivedMessageI) RefSendBlock(arg0 int, arg1 *[]byte) (ReceivedReplyI, error) {
+func (m *MockReceivedMessageI) RefSendBlock(arg0 int, arg1 []byte) (ReceivedReplyI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefSendBlock", arg0, arg1)
 	ret0, _ := ret[0].(ReceivedReplyI)
@@ -285,7 +285,7 @@ func (mr *MockReceivedMessageIMockRecorder) RefSendBlock(arg0, arg1 interface{})
 }
 
 // Reply mocks base method
-func (m *MockReceivedMessageI) Reply(arg0 int, arg1 *[]byte) error {
+func (m *MockReceivedMessageI) Reply(arg0 int, arg1 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Reply", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -420,10 +420,10 @@ func (mr *MockReceivedReplyIMockRecorder) OK() *gomock.Call {
 }
 
 // Payload mocks base method
-func (m *MockReceivedReplyI) Payload() *[]byte {
+func (m *MockReceivedReplyI) Payload() []byte {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Payload")
-	ret0, _ := ret[0].(*[]byte)
+	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 

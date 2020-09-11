@@ -479,7 +479,7 @@ func (r *runningJob) runMigration() error {
 		return err // "internal error"
 	}
 
-	sent, err := r.sandbox.SendMessage(sandbox.MigrateService, migrateCommand, &payload)
+	sent, err := r.sandbox.SendMessage(sandbox.MigrateService, migrateCommand, payload)
 	if err != nil {
 		r.getLogger("runMigration, sandbox.SendMessage").Error(err)
 		return err

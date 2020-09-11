@@ -384,7 +384,7 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 		return err //return a "bad input" error, and wrap it?
 	}
 
-	sent, err := s.twine.Send(executeService, execFnCommand, &payload)
+	sent, err := s.twine.Send(executeService, execFnCommand, payload)
 	if err != nil {
 		s.getLogger("ExecFn(), s.twine.Send()").Error(err)
 		return errors.New("Error sending to sandbox")
@@ -406,7 +406,7 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 }
 
 // SendMessage sends to sandbox via twine
-func (s *Sandbox) SendMessage(serviceID int, commandID int, payload *[]byte) (twine.SentMessageI, error) {
+func (s *Sandbox) SendMessage(serviceID int, commandID int, payload []byte) (twine.SentMessageI, error) {
 	sent, err := s.twine.Send(serviceID, commandID, payload)
 	if err != nil {
 		return nil, err

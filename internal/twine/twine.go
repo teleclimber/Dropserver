@@ -44,15 +44,13 @@ type messageMeta struct {
 	command  commandID
 	msgID    uint8
 	refMsgID uint8
-	payload  *[]byte
+	payload  []byte
 }
 
 // twineConn is the common interface for the underlying transport
 type twineConn interface {
-	//StartServer // I think start server/client, etc.. can be transport-specific. They are used in teh
-	Read(size int) ([]byte, error)
-	ReadToPtr(size int) (*[]byte, error)
-	WriteMessage(meta []byte, payload *[]byte) error
+	ReadMessage() (*messageMeta, error)
+	WriteMessage(meta []byte, payload []byte) error
 	Close()
 }
 
@@ -60,10 +58,7 @@ type twineConn interface {
 type Twine struct {
 	isServer bool
 	conn     twineConn
-	// socketPath string
-	// ln         *net.Listener // consider making that a ReadWriter so we can adapt anything there.
-	// conn       *net.Conn
-	msgReg *messageRegistry
+	msgReg   *messageRegistry
 
 	ReadyChan   chan struct{}
 	MessageChan chan ReceivedMessageI
@@ -168,14 +163,14 @@ func makeNew() *Twine {
 }
 
 func (t *Twine) waitHi() error { // so now this could return an error
-	m, err := t.receiveMessage()
+	m, err := t.conn.ReadMessage()
 	if err != nil {
 		return err
 	}
 
 	if m.service != protocolService || m.command != protocolHi {
 		payload := []byte("first command not HI")
-		t.send(int(m.msgID), 0, m.service, int(protocolError), &payload)
+		t.send(int(m.msgID), 0, m.service, int(protocolError), payload)
 		return errors.New("first command not HI")
 	}
 
@@ -194,7 +189,7 @@ func (t *Twine) waitHi() error { // so now this could return an error
 // Read THIS:: https://johnrefior.com/gobits/read?post=12
 func (t *Twine) receive() {
 	for {
-		raw, err := t.receiveMessage()
+		raw, err := t.conn.ReadMessage()
 		if err != nil {
 			// t.messagesMux.Lock()
 			// if !t.graceful {
@@ -297,101 +292,9 @@ func (t *Twine) receive() {
 	}
 }
 
-func (t *Twine) receiveMessage() (*messageMeta, error) { // This should be moved to transport layer, sadly?
-
-	serviceBytes, err := t.conn.Read(1) // let's read more than that?
-	if err != nil {
-		return nil, err
-	}
-	service := serviceID(serviceBytes[0])
-
-	cmdBytes, err := t.conn.Read(1)
-	if err != nil {
-		return nil, err
-	}
-	cmd := commandID(cmdBytes[0])
-
-	msgIDBytes, err := t.conn.Read(1)
-	if err != nil {
-		return nil, err
-	}
-	msgID := uint8(msgIDBytes[0])
-
-	// if it's a new message referencing an old message, get the referenced message id
-	refMsgID := uint8(0)
-	if service == refRequestService {
-		msgIDBytes, err = t.conn.Read(1)
-		if err != nil {
-			return nil, err
-		}
-		refMsgID = uint8(msgIDBytes[0])
-		// check that it's not zero
-	}
-
-	sizeBytes, err := t.conn.Read(2) // two bytes for size
-	if err != nil {
-		return nil, err
-	}
-	var size int
-	sizeSmol := binary.BigEndian.Uint16(sizeBytes)
-	if sizeSmol == 0xff {
-		sizeBytesBig, err := t.conn.Read(4) // four for big ... that's 4Gigabytes!!!!!! :/
-		if err != nil {
-			return nil, err
-		}
-		size = int(binary.BigEndian.Uint32(sizeBytesBig))
-	} else {
-		size = int(sizeSmol)
-	}
-
-	payloadBytes, err := t.conn.ReadToPtr(size)
-	if err != nil {
-		return nil, err
-	}
-
-	// should probably have a closer byte, just as a check.
-
-	return &messageMeta{
-		service:  service,
-		command:  cmd,
-		msgID:    msgID,
-		refMsgID: refMsgID,
-		payload:  payloadBytes, // Should this not be a reader?
-	}, nil
-}
-
-// func (t *Twine) read(size int) ([]byte, error) {
-// 	rc := *t.conn
-// 	p := make([]byte, size)
-// 	_, err := rc.Read(p)
-// 	if err != nil {
-// 		return p, err
-// 	}
-
-// 	return p, nil
-// }
-
-// // readToPtr reads from conn but returns a pointer to byte arrray
-// func (t *Twine) readToPtr(size int) (*[]byte, error) {
-// 	rc := *t.conn
-// 	p := make([]byte, size)
-// 	_, err := rc.Read(p)
-// 	if err != nil {
-// 		return &p, err
-// 	}
-
-// 	return &p, nil
-// }
-
-/// sends
-// There are a few send possibilities:
-// - Send, initiated here with new message id
-// - Reply, as a response to a msg, using that msg id and closing it.
-// - RefSend, a new message that references an existing one
-
 // Send a new message
 // Shouldn't you get a callback, or should you pass a callback?
-func (t *Twine) Send(servInt int, cmd int, payload *[]byte) (SentMessageI, error) {
+func (t *Twine) Send(servInt int, cmd int, payload []byte) (SentMessageI, error) {
 	serviceID := serviceID(servInt)
 	newMsgID, newMsg, err := t.msgReg.newMessage(serviceID) // should maybe return an error in case no message ids left
 	if err != nil {
@@ -415,7 +318,7 @@ func (t *Twine) Send(servInt int, cmd int, payload *[]byte) (SentMessageI, error
 
 // SendBlock sends a message and waits for the response before returning
 // An error is returned iw the other side sent an error code.
-func (t *Twine) SendBlock(servInt int, cmd int, payload *[]byte) (ReceivedReplyI, error) {
+func (t *Twine) SendBlock(servInt int, cmd int, payload []byte) (ReceivedReplyI, error) {
 	serviceID := serviceID(servInt)
 	newMsgID, newMsg, err := t.msgReg.newMessage(serviceID) // should maybe return an error in case no message ids left
 	if err != nil {
@@ -441,7 +344,7 @@ func (t *Twine) SendBlock(servInt int, cmd int, payload *[]byte) (ReceivedReplyI
 }
 
 // Reply to a message
-func (t *Twine) Reply(msgID int, cmd int, payload *[]byte) error {
+func (t *Twine) Reply(msgID int, cmd int, payload []byte) error {
 	msgID8, err := t.msgReg.checkMsgIDRemote(msgID)
 	if err != nil {
 		return err
@@ -506,7 +409,7 @@ func (t *Twine) ReplyClose(msgID int, ok bool, errStr string) error {
 		payload = []byte(errStr)
 	}
 
-	err = t.send(msgID, 0, closeService, int(cmd), &payload) // cmd is 0 on ok close?
+	err = t.send(msgID, 0, closeService, int(cmd), payload) // cmd is 0 on ok close?
 	if err != nil {
 		t.ErrorChan <- err
 	}
@@ -520,7 +423,7 @@ func (t *Twine) ReplyClose(msgID int, ok bool, errStr string) error {
 }
 
 // RefRequest sneds a new message with a reference to an open message
-func (t *Twine) RefRequest(refID int, cmd int, payload *[]byte) (SentMessageI, error) {
+func (t *Twine) RefRequest(refID int, cmd int, payload []byte) (SentMessageI, error) {
 	refMsgID8, err := t.msgReg.checkMsgIDRange(refID)
 	if err != nil {
 		return nil, err
@@ -558,7 +461,7 @@ func (t *Twine) RefRequest(refID int, cmd int, payload *[]byte) (SentMessageI, e
 
 // RefRequestBlock sends a new message with a reference to an open message
 // and blocks until a reply is received
-func (t *Twine) RefRequestBlock(refID int, cmd int, payload *[]byte) (ReceivedReplyI, error) {
+func (t *Twine) RefRequestBlock(refID int, cmd int, payload []byte) (ReceivedReplyI, error) {
 	refMsgID8, err := t.msgReg.checkMsgIDRange(refID)
 	if err != nil {
 		return nil, err
@@ -632,58 +535,14 @@ func (t *Twine) sendPing() error {
 // send is the low level send function
 // But I think we established that if service is 5 or 6, that's ref-msg.
 // command gets sent, it's just ath service is 5 or 6, and ctual service will be looked up by client.
-func (t *Twine) send(msgID int, refMsgID int, service serviceID, cmd int, payload *[]byte) error {
-	// this will probably have to return an error.
-	if service < 1 || service > 0xff {
-		return fmt.Errorf("service id is out of bounds: %v", service)
+// This should be broken up into an encodeMessage, and an actual send
+func (t *Twine) send(msgID int, refMsgID int, service serviceID, cmd int, payload []byte) error {
+	enc, err := encodeMessage(msgID, refMsgID, service, commandID(cmd), payload)
+	if err != nil {
+		return err
 	}
 
-	if cmd < 0 || cmd > 0xff {
-		return fmt.Errorf("cmd id is out of bounds: %v", cmd)
-	}
-
-	if msgID < 0 || msgID > 0xff { // allow zero to send Bye
-		return fmt.Errorf("send: message id is out of bounds: %v", msgID)
-	}
-
-	// should we use a mutex to lock access to socket
-	// .. to ensure we don't have interleaved data when writing simultaneously
-
-	metaBytes := make([]byte, 0, 10)
-	metaBytes = append(metaBytes, uint8(service))
-	metaBytes = append(metaBytes, uint8(cmd))
-	metaBytes = append(metaBytes, uint8(msgID))
-
-	if service == refRequestService {
-		if refMsgID < 1 || refMsgID > 0xff {
-			return fmt.Errorf("send: ref message id is out of bounds: %v", refMsgID)
-		}
-		metaBytes = append(metaBytes, uint8(refMsgID))
-	}
-
-	// payload size
-	size := 0
-	if payload != nil {
-		size = len(*payload)
-	}
-	bSmol := make([]byte, 2)
-	if size >= 0xff {
-		binary.BigEndian.PutUint16(bSmol, 0xff)
-		metaBytes = append(metaBytes, bSmol...)
-
-		bBig := make([]byte, 4)
-		binary.BigEndian.PutUint32(bBig, uint32(size))
-		metaBytes = append(metaBytes, bBig...)
-	} else {
-		binary.BigEndian.PutUint16(bSmol, uint16(size))
-		metaBytes = append(metaBytes, bSmol...)
-	}
-
-	// I don't know that this is needed.
-	t.writerMux.Lock()
-	defer t.writerMux.Unlock()
-
-	err := t.conn.WriteMessage(metaBytes, payload)
+	err = t.conn.WriteMessage(enc, payload)
 	if err != nil {
 		return err
 	}
@@ -800,4 +659,118 @@ func (t *Twine) close() {
 		close(t.MessageChan)
 		close(t.ErrorChan)
 	}
+}
+
+/////////////
+// message meta encode/decoder
+
+func encodeMessage(msgID int, refMsgID int, service serviceID, cmd commandID, payload []byte) ([]byte, error) {
+	metaBytes := make([]byte, 3, 10)
+	if service < 1 || service > 0xff {
+		return metaBytes, fmt.Errorf("service id is out of bounds: %v", service)
+	}
+
+	if cmd < 0 || cmd > 0xff {
+		return metaBytes, fmt.Errorf("cmd id is out of bounds: %v", cmd)
+	}
+
+	if msgID < 0 || msgID > 0xff { // allow zero to send Bye
+		return metaBytes, fmt.Errorf("send: message id is out of bounds: %v", msgID)
+	}
+
+	metaBytes[0] = uint8(service)
+	metaBytes[1] = uint8(cmd)
+	metaBytes[2] = uint8(msgID)
+
+	if service == refRequestService {
+		if refMsgID < 1 || refMsgID > 0xff {
+			return metaBytes, fmt.Errorf("send: ref message id is out of bounds: %v", refMsgID)
+		}
+		metaBytes = append(metaBytes, uint8(refMsgID))
+	}
+
+	// payload size
+	size := 0
+	if payload != nil {
+		size = len(payload)
+	}
+	bSmol := make([]byte, 2)
+	if size >= 0xff {
+		binary.BigEndian.PutUint16(bSmol, 0xff)
+		metaBytes = append(metaBytes, bSmol...)
+
+		bBig := make([]byte, 4)
+		binary.BigEndian.PutUint32(bBig, uint32(size))
+		metaBytes = append(metaBytes, bBig...)
+	} else {
+		binary.BigEndian.PutUint16(bSmol, uint16(size))
+		metaBytes = append(metaBytes, bSmol...)
+	}
+
+	return metaBytes, nil
+}
+
+type decodedMessage struct {
+	service     serviceID
+	command     commandID
+	msgID       uint8
+	refMsgID    uint8
+	payloadSize int
+}
+
+var errMessageIncomplete = errors.New("Message data was not long enough")
+
+func decodeMessage(msgData []byte) (decodedMessage, []byte, error) {
+	cursor := 0
+	dataLength := len(msgData)
+
+	m := decodedMessage{}
+
+	if dataLength < 5 { // Minimum message metadata size
+		return m, msgData, errMessageIncomplete
+	}
+
+	serviceByte := msgData[0] // let's read more than that?
+	service := serviceID(serviceByte)
+
+	cmdByte := msgData[1]
+	cmd := commandID(cmdByte)
+
+	msgIDByte := msgData[2]
+	msgID := uint8(msgIDByte)
+
+	cursor = 3
+
+	// if it's a new message referencing an old message, get the referenced message id
+	refMsgID := uint8(0)
+	if service == refRequestService {
+		msgIDByte = msgData[3]
+		refMsgID = uint8(msgIDByte)
+		// check that it's not zero
+		cursor = 4
+		if dataLength < 6 {
+			return m, msgData, errMessageIncomplete
+		}
+	}
+
+	var size int
+	sizeSmol := binary.BigEndian.Uint16(msgData[cursor : cursor+2])
+	cursor += 2
+	if sizeSmol == 0xff {
+		if dataLength < cursor+4 {
+			return m, msgData, errMessageIncomplete
+		}
+		size = int(binary.BigEndian.Uint32(msgData[cursor : cursor+4])) // four for big ... that's 4Gigabytes!!!!!! :/
+		cursor += 4
+	} else {
+		size = int(sizeSmol)
+	}
+
+	return decodedMessage{
+		service:     service,
+		command:     cmd,
+		msgID:       msgID,
+		refMsgID:    refMsgID,
+		payloadSize: size,
+	}, msgData[cursor:], nil
 }

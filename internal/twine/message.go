@@ -10,7 +10,7 @@ type MessageI interface {
 	RefMsgID() int
 	CommandID() int
 	ServiceID() int
-	Payload() *[]byte
+	Payload() []byte
 }
 
 // MessageGetReplyI adds the ability to wait for the reply to a sent message
@@ -27,7 +27,7 @@ type MessageReplyOKErrI interface {
 
 // MessageReplierI adds teh ability to reply to an incoming message
 type MessageReplierI interface {
-	Reply(int, *[]byte) error
+	Reply(int, []byte) error
 }
 
 // MessageReceivedOKI adds getters for OK and Error replies
@@ -39,8 +39,8 @@ type MessageReceivedOKI interface {
 // MessageRefererI adds the abilty to send and receive new Requests
 // that reference the message
 type MessageRefererI interface {
-	RefSend(int, *[]byte) (SentMessageI, error)
-	RefSendBlock(int, *[]byte) (ReceivedReplyI, error)
+	RefSend(int, []byte) (SentMessageI, error)
+	RefSendBlock(int, []byte) (ReceivedReplyI, error)
 	GetRefRequestsChan() chan ReceivedMessageI
 }
 
@@ -76,7 +76,7 @@ type Message struct {
 	refMsgID int
 	service  int
 	command  int
-	payload  *[]byte
+	payload  []byte
 	msg      *msg
 	t        *Twine
 }
@@ -102,7 +102,7 @@ func (m *Message) ServiceID() int {
 }
 
 // Payload returns a pointer to the payload
-func (m *Message) Payload() *[]byte {
+func (m *Message) Payload() []byte {
 	return m.payload
 }
 
@@ -135,7 +135,7 @@ func (m *Message) SendError(errStr string) error {
 
 // Reply to message
 // This blocks until the other side returns OK or error
-func (m *Message) Reply(cmd int, payload *[]byte) error {
+func (m *Message) Reply(cmd int, payload []byte) error {
 	err := m.t.Reply(m.msgID, cmd, payload)
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func (m *Message) OK() bool {
 func (m *Message) Error() error {
 	if m.command == int(protocolError) {
 		if m.payload != nil {
-			return errors.New(string(*m.payload))
+			return errors.New(string(m.payload))
 		}
 		return errors.New("No error description given")
 	}
@@ -160,7 +160,7 @@ func (m *Message) Error() error {
 }
 
 // RefSend creates a new message with a reference to the current message
-func (m *Message) RefSend(cmd int, payload *[]byte) (SentMessageI, error) {
+func (m *Message) RefSend(cmd int, payload []byte) (SentMessageI, error) {
 	sent, err := m.t.RefRequest(m.msgID, cmd, payload)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (m *Message) RefSend(cmd int, payload *[]byte) (SentMessageI, error) {
 
 // RefSendBlock sends a new mssage referencing anexisting one,
 // and returns with the response or an error
-func (m *Message) RefSendBlock(cmd int, payload *[]byte) (ReceivedReplyI, error) {
+func (m *Message) RefSendBlock(cmd int, payload []byte) (ReceivedReplyI, error) {
 	sent, err := m.t.RefRequest(m.msgID, cmd, payload)
 	if err != nil {
 		return nil, err

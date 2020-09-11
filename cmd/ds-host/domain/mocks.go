@@ -209,7 +209,7 @@ func (mr *MockSandboxIMockRecorder) LastActive() *gomock.Call {
 }
 
 // SendMessage mocks base method
-func (m *MockSandboxI) SendMessage(arg0, arg1 int, arg2 *[]byte) (twine.SentMessageI, error) {
+func (m *MockSandboxI) SendMessage(arg0, arg1 int, arg2 []byte) (twine.SentMessageI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendMessage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(twine.SentMessageI)
