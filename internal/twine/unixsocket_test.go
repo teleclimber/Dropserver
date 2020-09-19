@@ -223,6 +223,7 @@ func TestDoubleMessages(t *testing.T) {
 	}
 }
 
+// This is literally not testing anything about unxsocket, but is testing the test apparatus
 func TestMeta(t *testing.T) {
 	rConn, wConn := net.Pipe()
 

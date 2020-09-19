@@ -28,6 +28,9 @@ type V0 struct {
 	Authenticator interface {
 		SetForAppspace(http.ResponseWriter, domain.UserID, domain.AppspaceID, string) (string, error)
 	}
+	RouteHitEvents interface {
+		Send(*domain.AppspaceRouteHitEvent)
+	}
 	Config *domain.RuntimeConfig
 }
 
@@ -46,6 +49,12 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if r.RouteHitEvents != nil {
+			r.RouteHitEvents.Send(&domain.AppspaceRouteHitEvent{
+				AppspaceID:  routeData.Appspace.AppspaceID,
+				Request:     req,
+				RouteConfig: routeConfig})
 		}
 		if routeConfig == nil {
 			http.Error(res, "No matching route", http.StatusNotFound)

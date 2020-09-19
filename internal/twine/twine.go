@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 )
 
@@ -49,7 +50,7 @@ type messageMeta struct {
 
 // twineConn is the common interface for the underlying transport
 type twineConn interface {
-	ReadMessage() (*messageMeta, error)
+	ReadMessage() (*messageMeta, error) //shouldn't this be a channel, or get a a channel?
 	WriteMessage(meta []byte, payload []byte) error
 	Close()
 }
@@ -145,9 +146,43 @@ func NewUnixClient(sockPath string) *Twine {
 	return t
 }
 
-// NewWebsocketServer returns a Twine instance from an upgraded connection??
-func NewWebsocketServer( /*upgraded connection?*/ ) *Twine {
-	return nil
+// NewWebsocketServer returns a Twine instance from an http request
+func NewWebsocketServer(res http.ResponseWriter, req *http.Request) (*Twine, error) {
+	t := makeNew()
+	t.isServer = true
+	t.msgReg.firstMsgID = 128
+	t.msgReg.lastMsgID = 255
+	t.msgReg.nextID = 128
+
+	wsServerConn, err := newWebsocketServer(res, req)
+	if err != nil {
+		return nil, err
+	}
+	t.conn = wsServerConn
+
+	go func() {
+		for err := range wsServerConn.ErrorChan {
+			t.ErrorChan <- fmt.Errorf("Twine Websocket Error: %v", err)
+		}
+		// when this closes, it means things are down
+		fmt.Println("websocket-twine ErrorChan closed, closing Twine")
+		t.close()
+	}()
+
+	go func() {
+		err = t.waitHi()
+		if err != nil {
+			t.ErrorChan <- err
+			go t.close()
+			return
+		}
+
+		t.ReadyChan <- struct{}{}
+
+		t.receive()
+	}()
+
+	return t, nil
 }
 
 func makeNew() *Twine {
@@ -196,6 +231,9 @@ func (t *Twine) receive() {
 			// 	t.ErrorChan <- err
 			// }
 			// t.messagesMux.Unlock()
+			break
+		}
+		if raw == nil {
 			break
 		}
 
@@ -290,6 +328,7 @@ func (t *Twine) receive() {
 			}
 		}
 	}
+	t.close() // need to shut things down if this loop exits.
 }
 
 // Send a new message

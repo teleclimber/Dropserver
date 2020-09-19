@@ -16,24 +16,22 @@
 				Schema: <span>{{baseData.appspace_schema}}</span>
 			</div>
 		</div>
-
 	</div>
 
-	<br><br><br><br><br><br><br><br>
+	<RouteHits></RouteHits>
 
-	<HelloWorld msg="Welcome to Your Vue.js + TypeScript App"/>
-	
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { baseData, fetchData } from './models/base-data';
-import HelloWorld from './components/HelloWorld.vue';
+
+import RouteHits from './components/RouteHits.vue';
 
 export default defineComponent({
 	name: 'DropserverAppDev',
 	components: {
-		HelloWorld
+		RouteHits
 	},
 	setup(props, context) {
 		fetchData();

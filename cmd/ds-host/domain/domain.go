@@ -534,6 +534,14 @@ type AppspacePausedEvent struct {
 	Paused     bool
 }
 
+// AppspaceRouteHitEvent contains the route that was matched with the request
+type AppspaceRouteHitEvent struct {
+	Timestamp   time.Time
+	AppspaceID  AppspaceID
+	Request     *http.Request
+	RouteConfig *AppspaceRouteConfig
+}
+
 // cli stuff
 
 // StdInput gives ability to read from the command line

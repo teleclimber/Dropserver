@@ -9,6 +9,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
@@ -123,11 +124,13 @@ func main() {
 		SandboxManager: devSandboxManager,
 		Metrics:        &m}
 
+	routeEvents := &events.AppspaceRouteHitEvents{}
 	appspaceRoutesV0 := &appspaceroutes.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
+		RouteHitEvents:      routeEvents,
 		//AppspaceLogin:       appspaceLogin,	// should never happen, leave nil. It will crash if we made a mistake.
 		Config: runtimeConfig}
 
@@ -145,7 +148,9 @@ func main() {
 	devSandboxManager.Services = revServices
 	//migrationSandboxMaker.ReverseServices = revServices
 
-	dsDevHandler := &DropserverDevServer{}
+	dsDevHandler := &DropserverDevServer{
+		Config:      runtimeConfig,
+		RouteEvents: routeEvents}
 	dsDevHandler.SetBaseData(BaseData{
 		AppPath:        *appDirFlag,
 		AppName:        appFilesMeta.AppName,

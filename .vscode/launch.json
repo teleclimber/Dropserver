@@ -6,13 +6,25 @@
 	"configurations": [
 		{
 			"type": "node",
-			"name": "vscode-jest-tests",
+			"name": "vscode-jest-tests-xxxx",	// remove -xxx and add also rename the one for ds-dev. Jest expectes a launch config named as such.
 			"request": "launch",
 			"program": "${workspaceFolder}/frontend/node_modules/jest/bin/jest",
 			"args": [
 				"--runInBand"
 			],
 			"cwd": "${workspaceFolder}/frontend/",
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen",
+			"disableOptimisticBPs": true
+		},{
+			"type": "node",
+			"name": "vscode-jest-tests",
+			"request": "launch",
+			"program": "${workspaceFolder}/frontend-ds-dev/node_modules/jest/bin/jest",
+			"args": [
+				"--runInBand"
+			],
+			"cwd": "${workspaceFolder}/frontend-ds-dev/",
 			"console": "integratedTerminal",
 			"internalConsoleOptions": "neverOpen",
 			"disableOptimisticBPs": true
@@ -45,6 +57,7 @@
 			"request": "launch",
 			"mode": "debug",
 			"program": "${workspaceFolder}/cmd/ds-dev",
+			"args": ["-exec-path=/Users/ollie/Documents/Code/DropServer/dist/bin/", "-app=/Users/ollie/Documents/Projects/PersonalServerApps/apps/NewDeno/0.2.0", "-appspace=/Users/ollie/Documents/Projects/PersonalServerApps/appspaces/NewDeno/"]
 
 
 		},
