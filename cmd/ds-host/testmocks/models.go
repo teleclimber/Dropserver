@@ -1,8 +1,11 @@
 package testmocks
 
-import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
+import (
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
+)
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppModel,AppspaceModel,AppspaceInfoModels
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppModel,AppspaceModel,AppspaceInfoModels,MigrationJobModel
 
 // AppModel is the interface for the app model
 type AppModel interface {
@@ -31,4 +34,15 @@ type AppspaceInfoModels interface {
 	Init()
 	Get(domain.AppspaceID) domain.AppspaceInfoModel
 	GetSchema(domain.AppspaceID) (int, error)
+}
+
+// MigrationJobModel handles writing jobs to the db
+type MigrationJobModel interface {
+	Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
+	GetJob(domain.JobID) (*domain.MigrationJob, error)
+	GetPending() ([]*domain.MigrationJob, error)
+	SetStarted(domain.JobID) (bool, error)
+	SetFinished(domain.JobID, nulltypes.NullString) error
+	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
+	// Delete(AppspaceID) Error
 }

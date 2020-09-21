@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput,MigrationJobModel
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -436,17 +436,6 @@ type MigrationJob struct {
 	Finished   nulltypes.NullTime   `db:"finished"`
 	Priority   bool                 `db:"priority"`
 	Error      nulltypes.NullString `db:"error"`
-}
-
-// MigrationJobModel handles writing jobs to the db
-type MigrationJobModel interface {
-	Create(UserID, AppspaceID, Version, bool) (*MigrationJob, Error)
-	GetJob(JobID) (*MigrationJob, Error)
-	GetPending() ([]*MigrationJob, Error)
-	SetStarted(JobID) (bool, Error)
-	SetFinished(JobID, nulltypes.NullString) Error
-	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
-	// Delete(AppspaceID) Error
 }
 
 // AppspaceRouteHandler is a JSON friendly struct

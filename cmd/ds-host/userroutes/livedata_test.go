@@ -84,7 +84,7 @@ func TestWS(t *testing.T) {
 		}
 	}).MinTimes(1)
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil)
 
 	liveDataRoutes := &LiveDataRoutes{
@@ -156,7 +156,7 @@ func TestWSRemoteStop(t *testing.T) {
 		}
 	}).MinTimes(1)
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil)
 
 	liveDataRoutes := &LiveDataRoutes{
@@ -240,7 +240,7 @@ func TestWSMultipleRemotes(t *testing.T) {
 		}
 	}).MinTimes(1)
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil).Times(2)
 
 	liveDataRoutes := &LiveDataRoutes{

@@ -5,7 +5,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
@@ -84,7 +83,7 @@ func TestCreate(t *testing.T) {
 	if err == nil {
 		t.Error("should have errored. Job should not be present")
 	}
-	if err != nil && err.Code() != dserror.NoRowsInResultSet {
+	if err != nil && err != domain.ErrNoRowsInResultSet {
 		t.Error(err)
 	}
 }
@@ -224,7 +223,7 @@ func TestSetFinished(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if err.Code() != dserror.NoRowsAffected {
+	if err != domain.ErrNoRowsAffected {
 		t.Error("expected No Rows affected error")
 	}
 

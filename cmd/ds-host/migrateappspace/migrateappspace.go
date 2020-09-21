@@ -17,8 +17,12 @@ var migrateCommand = 11
 
 // JobController handles appspace functionality
 type JobController struct {
-	MigrationJobModel domain.MigrationJobModel
-	AppModel          interface {
+	MigrationJobModel interface {
+		GetPending() ([]*domain.MigrationJob, error)
+		SetStarted(domain.JobID) (bool, error)
+		SetFinished(domain.JobID, nulltypes.NullString) error
+	}
+	AppModel interface {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
 	}
 	AppspaceModel interface {
@@ -188,8 +192,8 @@ func (c *JobController) eventManifold() { // eventBus?
 
 		// Clean up:
 		if d.status == domain.MigrationFinished {
-			dsErr := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
-			if dsErr != nil {
+			err := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
+			if err != nil {
 				//c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
 				// ^^ this is already logged by model. No need to log.
 				// But should probably warn user that something is not right.
@@ -256,8 +260,8 @@ func (c *JobController) startNext() {
 		return
 	}
 
-	jobs, dsErr := c.MigrationJobModel.GetPending()
-	if dsErr != nil {
+	jobs, err := c.MigrationJobModel.GetPending()
+	if err != nil {
 		//c.Logger.Log(domain.ERROR, nil, "Error getting pending jobs: "+dsErr.PublicString())
 		// ^^ already logged by model.
 		return

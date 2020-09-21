@@ -53,17 +53,19 @@ type LiveDataRoutes struct {
 		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
 	}
 	JobController     jobControllerI
-	MigrationJobModel domain.MigrationJobModel
-	wsConsts          *websocketConstants
-	tokens            map[string]token
-	tokenMux          sync.Mutex
-	tokenExp          time.Duration
-	tokenTicker       *time.Ticker
-	tokenTickerDone   chan struct{}
-	clients           map[string]*liveDataClient
-	clientMux         sync.Mutex
-	clientClosed      chan string
-	stop              bool
+	MigrationJobModel interface {
+		GetJob(domain.JobID) (*domain.MigrationJob, error)
+	}
+	wsConsts        *websocketConstants
+	tokens          map[string]token
+	tokenMux        sync.Mutex
+	tokenExp        time.Duration
+	tokenTicker     *time.Ticker
+	tokenTickerDone chan struct{}
+	clients         map[string]*liveDataClient
+	clientMux       sync.Mutex
+	clientClosed    chan string
+	stop            bool
 }
 
 // Init makes the maps and what not
@@ -236,7 +238,9 @@ type liveDataClient struct {
 	ticker *time.Ticker
 
 	jobController     jobControllerI
-	migrationJobModel domain.MigrationJobModel
+	migrationJobModel interface {
+		GetJob(domain.JobID) (*domain.MigrationJob, error)
+	}
 
 	updatesPipe chan updateData
 

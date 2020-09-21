@@ -25,8 +25,10 @@ type AppspaceRoutes struct {
 		Pause(domain.AppspaceID, bool) domain.Error
 		GetFromSubdomain(string) (*domain.Appspace, domain.Error)
 	}
-	AppspaceMetaDB         domain.AppspaceMetaDB
-	MigrationJobModel      domain.MigrationJobModel
+	AppspaceMetaDB    domain.AppspaceMetaDB
+	MigrationJobModel interface {
+		Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
+	}
 	MigrationJobController interface {
 		WakeUp()
 	}
@@ -181,9 +183,9 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// migrate to whatever version was selected
 	// TODO: Must block appspace from being used until migration is done
 
-	job, dsErr := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	job, err := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -246,9 +248,9 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 		return
 	}
 
-	_, dsErr = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	_, err := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

@@ -269,7 +269,7 @@ func TestStartNextNoJobs(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 
 	c := &JobController{
@@ -293,7 +293,7 @@ func TestStartNextOneJob(t *testing.T) {
 		JobID:      1,
 		AppspaceID: appspaceID}
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{j}, nil)
 	migrationJobModel.EXPECT().SetStarted(j.JobID).Return(true, nil)
 
@@ -377,7 +377,7 @@ func TestEventManifoldFinished(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
@@ -422,7 +422,7 @@ func TestFullStartStop(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 
 	c := &JobController{
@@ -436,7 +436,7 @@ func TestFullStartStopWithJob(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	migrationJobModel := domain.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
