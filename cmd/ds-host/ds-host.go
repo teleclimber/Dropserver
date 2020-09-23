@@ -160,7 +160,8 @@ func main() {
 		Config: runtimeConfig}
 
 	appspaceModel := &appspacemodel.AppspaceModel{
-		DB: db}
+		DB:            db,
+		AsPausedEvent: appspacePausedEvent}
 	appspaceModel.PrepareStatements()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{

@@ -1,6 +1,7 @@
 package events
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -40,4 +41,60 @@ func TestSendAsPaused(t *testing.T) {
 	}
 
 	e.Unsubscribe(c)
+}
+
+// test appspace status events with per-appspace subscription
+func TestSubscribeAsStatus(t *testing.T) {
+	appspaceID := domain.AppspaceID(7)
+	c := make(chan domain.AppspaceStatusEvent)
+	e := &AppspaceStatusEvents{}
+	e.Subscribe(appspaceID, c)
+
+	if len(e.subscribers) != 1 {
+		t.Error("expected subscribers length of 1")
+	}
+
+	doneCh := make(chan error)
+
+	go func() {
+		event := <-c
+		if event.AppspaceSchema != 15 {
+			doneCh <- errors.New("not 15")
+		} else {
+			close(doneCh)
+		}
+	}()
+
+	e.Send(domain.AppspaceID(13), domain.AppspaceStatusEvent{}) // no effect
+	e.Send(appspaceID, domain.AppspaceStatusEvent{AppspaceSchema: 15})
+
+	err := <-doneCh
+	if err != nil {
+		t.Error(err)
+	}
+
+	e.Unsubscribe(appspaceID, c)
+
+	if len(e.subscribers) != 0 {
+		t.Error("expected subscribers length of 0")
+	}
+}
+
+func TestMultiSubscribeAsStatus(t *testing.T) {
+	appspaceID1 := domain.AppspaceID(7)
+	appspaceID2 := domain.AppspaceID(11)
+	c := make(chan domain.AppspaceStatusEvent)
+	e := &AppspaceStatusEvents{}
+	e.Subscribe(appspaceID1, c)
+	e.Subscribe(appspaceID2, c)
+
+	if len(e.subscribers) != 2 {
+		t.Error("expected subscribers length of 2")
+	}
+
+	e.UnsubscribeChannel(c)
+
+	if len(e.subscribers) != 0 {
+		t.Error("expected subscribers length of 0")
+	}
 }

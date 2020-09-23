@@ -523,6 +523,16 @@ type AppspacePausedEvent struct {
 	Paused     bool
 }
 
+//AppspaceStatusEvent indicates readiness of appspace and the reason
+type AppspaceStatusEvent struct {
+	AppspaceID       AppspaceID
+	Paused           bool
+	Migrating        bool
+	AppspaceSchema   int
+	AppVersionSchema int
+	Problem          bool // string? To hint at the problem?
+}
+
 // AppspaceRouteHitEvent contains the route that was matched with the request
 type AppspaceRouteHitEvent struct {
 	Timestamp   time.Time

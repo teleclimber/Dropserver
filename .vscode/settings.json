@@ -10,6 +10,7 @@
 
     "go.testFlags": ["-race"],
     "go.testTimeout": "8s",
+    "go.coverMode": "atomic",
 
     "go.useLanguageServer": true,
 

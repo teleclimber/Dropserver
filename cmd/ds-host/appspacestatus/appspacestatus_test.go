@@ -101,8 +101,12 @@ func TestPauseEvent(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
+	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
+	appspaceStatusEvents.EXPECT().Send(appspaceID, domain.AppspaceStatusEvent{AppspaceID: appspaceID, Paused: true})
+
 	s := AppspaceStatus{
-		status: make(map[domain.AppspaceID]appspaceStatus),
+		AppspaceStatusEvents: appspaceStatusEvents,
+		status:               make(map[domain.AppspaceID]appspaceStatus),
 	}
 
 	pauseChan := make(chan domain.AppspacePausedEvent)
@@ -132,8 +136,26 @@ func TestMigrationEvent(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
+	status1 := appspaceStatus{
+		migrating:        false,
+		paused:           false,
+		appVersionSchema: 3,
+		dataSchema:       3,
+		problem:          false}
+	event1 := domain.AppspaceStatusEvent{
+		AppspaceID:       appspaceID,
+		AppVersionSchema: 3,
+		AppspaceSchema:   3,
+		Migrating:        true,
+		Paused:           false,
+		Problem:          false,
+	}
+	event2 := event1
+	event2.Migrating = false
+	event2.AppspaceSchema = 4
+
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{Paused: true}, nil)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
 
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
@@ -144,23 +166,23 @@ func TestMigrationEvent(t *testing.T) {
 	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
+	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
+	appspaceStatusEvents.EXPECT().Send(appspaceID, event1)
+	appspaceStatusEvents.EXPECT().Send(appspaceID, event2)
+
 	s := AppspaceStatus{
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		AppspaceInfoModels: appspaceInfoModels,
-		MigrationJobs:      migrationJobs,
-		status:             make(map[domain.AppspaceID]appspaceStatus),
+		AppspaceModel:        appspaceModel,
+		AppModel:             appModel,
+		AppspaceInfoModels:   appspaceInfoModels,
+		MigrationJobs:        migrationJobs,
+		AppspaceStatusEvents: appspaceStatusEvents,
+		status:               make(map[domain.AppspaceID]appspaceStatus),
 	}
 
 	migrateChan := make(chan domain.MigrationStatusData)
 	go s.handleMigrationJobUpdate(migrateChan)
 
-	s.status[appspaceID] = appspaceStatus{
-		migrating:        false,
-		paused:           false,
-		appVersionSchema: 3,
-		dataSchema:       3,
-		problem:          false}
+	s.status[appspaceID] = status1
 
 	migrateChan <- domain.MigrationStatusData{
 		AppspaceID: appspaceID,
