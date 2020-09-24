@@ -122,14 +122,12 @@ func (w *Websocket) readPump() {
 			//w.getLogger("readPump(), SetPongHandler(), SetReadDeadline()").Error(err)
 			// TODO how to handle errors?
 		}
-		fmt.Println("PongHandler invoked " + w.conn.LocalAddr().String() + " - " + w.conn.RemoteAddr().String())
 		return err
 	})
 
 	defer close(w.rxBytesChan)
 	for {
 		msgType, data, err := w.conn.ReadMessage()
-		fmt.Println("got message in readPump")
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				// this is an error
@@ -141,11 +139,9 @@ func (w *Websocket) readPump() {
 			break
 		}
 		if msgType != websocket.BinaryMessage {
-			fmt.Println("msg type not binary")
 			w.rxBytesChan <- rxBytes{[]byte{}, errors.New("Message not binary")}
 			break
 		}
-		fmt.Println("passing message to rx bytes")
 		w.rxBytesChan <- rxBytes{data, nil}
 	}
 }
@@ -200,7 +196,6 @@ func (w *Websocket) writePump() {
 				w.ErrorChan <- fmt.Errorf("WS SetWriteDeadline for ping error: %v", err)
 				return
 			}
-			fmt.Println("sending Ping " + w.conn.LocalAddr().String() + " - " + w.conn.RemoteAddr().String())
 			err = w.conn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
 				w.ErrorChan <- fmt.Errorf("WS WriteMessage for ping error: %v", err)
@@ -236,7 +231,7 @@ func (w *Websocket) Close() {
 	if w.closed {
 		return
 	}
-	fmt.Println("closing w")
+	fmt.Println("closing twine-websocket")
 	w.pingTicker.Stop()
 	if w.conn != nil {
 		w.conn.Close()

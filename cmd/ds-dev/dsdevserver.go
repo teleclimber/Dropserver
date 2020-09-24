@@ -12,16 +12,26 @@ import (
 )
 
 const routeEventService = 11
+const appspaceControlService = 12 // incmoing? For appspace control (pause, migrate)
+const appspaceStatusService = 13
 
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config      *domain.RuntimeConfig
-	baseData    BaseData
+	Config        *domain.RuntimeConfig
+	AppspaceModel interface {
+		Pause(appspaceID domain.AppspaceID, pause bool) domain.Error
+	}
+	AppspaceStatusEvents interface {
+		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
+		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
+	}
 	RouteEvents interface {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	}
+
+	baseData BaseData
 }
 
 func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -77,12 +87,33 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		fmt.Println("failed to start Twine")
 	}
 
-	// then subscribe to route events and push them down as new t.Send
+	// then subscribe to various events and push them down as new t.Send
+	appspaceStatusChan := make(chan domain.AppspaceStatusEvent)
+	s.AppspaceStatusEvents.Subscribe(appspaceID, appspaceStatusChan)
+	go func() {
+		for statusEvent := range appspaceStatusChan {
+			go s.sendAppspaceStatusEvent(t, statusEvent)
+		}
+	}()
+
 	routeEventsChan := make(chan *domain.AppspaceRouteHitEvent)
 	s.RouteEvents.Subscribe(routeEventsChan)
 	go func() {
 		for routeEvent := range routeEventsChan {
 			go s.sendRouteEvent(t, routeEvent)
+		}
+	}()
+
+	// need to receive messages too
+	go func() {
+		for m := range t.MessageChan {
+			switch m.ServiceID() {
+			case appspaceControlService:
+				go s.handleAppspaceMessage(m)
+			default:
+				m.SendError("Service not found")
+			}
+
 		}
 	}()
 
@@ -95,10 +126,58 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 			fmt.Println("twine error chan err " + err.Error())
 		}
 		// when ErrorChan closes, means Twine connection is down, so unsubscribe
+		s.AppspaceStatusEvents.Unsubscribe(appspaceID, appspaceStatusChan)
+		close(appspaceStatusChan)
+
 		s.RouteEvents.Unsubscribe(routeEventsChan)
 		close(routeEventsChan)
+
 		fmt.Println("unsubscribed")
 	}()
+}
+
+const pauseAppspaceCmd = 11
+const unpauseAppspaceCmd = 12
+
+func (s *DropserverDevServer) handleAppspaceMessage(m twine.ReceivedMessageI) {
+	switch m.CommandID() {
+	case pauseAppspaceCmd:
+		dsErr := s.AppspaceModel.Pause(appspaceID, true)
+		if dsErr != nil {
+			msg := "error pausing appspace " + dsErr.ToStandard().Error()
+			fmt.Println(msg)
+			m.SendError(msg)
+		} else {
+			m.SendOK()
+		}
+	case unpauseAppspaceCmd:
+		dsErr := s.AppspaceModel.Pause(appspaceID, false)
+		if dsErr != nil {
+			msg := "error unpausing appspace " + dsErr.ToStandard().Error()
+			fmt.Println(msg)
+			m.SendError(msg)
+		} else {
+			m.SendOK()
+		}
+	default:
+		m.SendError("service not found")
+	}
+}
+
+const statusEventCmd = 11
+
+func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, statusEvent domain.AppspaceStatusEvent) {
+	bytes, err := json.Marshal(statusEvent)
+	if err != nil {
+		fmt.Println("sendAppspaceStatusEvent json Marshal Error: " + err.Error())
+	}
+
+	fmt.Println("Sending status event")
+
+	_, err = twine.SendBlock(appspaceStatusService, statusEventCmd, bytes)
+	if err != nil {
+		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
+	}
 }
 
 const routeHitEventCmd = 11

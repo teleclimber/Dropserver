@@ -1,9 +1,9 @@
 <template>
-	<div class="">
-		<div class="border-l-4 border-gray-800">
-			<h4 class="bg-gray-800 px-2 text-white inline-block">Route Hits:</h4>
+	<div class="border-l-4 border-gray-800">
+		<h4 class="bg-gray-800 px-2 text-white inline-block">Route Hits:</h4>
 
-			<div v-for="r in routeEvents.hit_events">
+		<div class="overflow-y-scroll h-64 bg-gray-100">
+			<div class="my-4 px-2" v-for="r in routeEvents.hit_events">
 				<h5>{{r.request.method}} {{r.request.url}}</h5>
 				<div v-if="r.route_config">
 					<div class="flex items-center">
@@ -26,7 +26,6 @@
 					<span>No hit</span>
 				</div>
 			</div>
-
 		</div>
 	</div>
 
@@ -34,7 +33,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import { routeEvents } from '../models/live-data';
+import routeEvents from '../models/route-hits';
 
 export default defineComponent({
 	name: 'Routehits',

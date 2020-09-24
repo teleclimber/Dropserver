@@ -1,21 +1,16 @@
-import TwineWebsocketClient from '../twine-ws/index';
-import {ReceivedMessageI, ReceivedReplyI} from '../twine-ws/twine-common';
-import { reactive } from 'vue';
+import {reactive} from 'vue';
+import twineClient from './twine-client';
+import {ReceivedMessageI} from '../twine-ws/twine-common';
 
-export const services = Object.freeze({
-	routeEvent: 11
-});
-
-const ws_addr = 'ws://'+location.hostname+(location.port ? ':'+location.port: '')+'/dropserver-dev/livedata/';
-
-const twine = new TwineWebsocketClient(ws_addr);
 
 const route_commands = {
-	hit_event: 11
+	hit_event: 11,
 };
 
 // Types coming from server:
 // These should probably be extracted and reused with all ds frontends
+
+// route hit types:
 type Request = {
 	url: string,
 	method: string
@@ -44,14 +39,14 @@ type RouteHit = {
 class RouteEvents {
 	hit_events :RouteHit[];
 	constructor() {
+		twineClient.registerService(11, this);
 		this.hit_events = reactive([]);
 	}
-	newMessage(m:ReceivedMessageI) {
+	handleMessage(m:ReceivedMessageI) {
 		switch(m.command){
 			case route_commands.hit_event:
 				this.pushNewHit(m);
 			break;
-
 			default:
 				m.sendError("unrecognized service");
 		}
@@ -60,7 +55,6 @@ class RouteEvents {
 		try {
 			const hit = <RouteHit>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			this.hit_events.push(hit);
-			console.log(this.hit_events);
 		}
 		catch(e) {
 			m.sendError("error processing new hit "+e);
@@ -72,20 +66,6 @@ class RouteEvents {
 	}
 }
 
-export const routeEvents = new RouteEvents();
+const routeEvents = new RouteEvents();
 
-
-async function serviceDispatcher() {
-	for await (const m of twine.incomingMessages()) {
-		switch(m.service) {
-			case services.routeEvent:
-				routeEvents.newMessage(m);
-			break;
-		}
-	}
-	
-}
-
-serviceDispatcher();
-
-twine.startClient();
+export default routeEvents;

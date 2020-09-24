@@ -1,6 +1,9 @@
 package main
 
-import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
+import (
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+)
 
 // DevSandboxManager manages a single sandbox that can be resatrted to recompile app code
 type DevSandboxManager struct {
@@ -15,4 +18,31 @@ func (m *DevSandboxManager) GetForAppSpace(*domain.AppVersion, *domain.Appspace)
 
 	return ch
 
+}
+
+// StopAppspace is used to stop an appspace sandbox from running if there is one
+// it returns if/when no sanboxes are running for that appspace
+func (m *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
+	// s, ok := sM.sandboxes[appspaceID]
+	// if !ok {
+	// 	return
+	// }
+
+	// s.Stop() // this should work but sandbox manager may not be updated because bugg
+}
+
+////////////////////////////////////////////////////
+
+// DevSandboxMaker holds data necessary to create a new migration sandbox
+type DevSandboxMaker struct {
+	ReverseServices *domain.ReverseServices
+	Config          *domain.RuntimeConfig
+}
+
+// here we can potentially add setDebug mode to pass to NewSandbox,
+// ..which should manifest as --debug or --inspect-brk
+
+// Make a new migration sandbox
+func (m *DevSandboxMaker) Make() domain.SandboxI {
+	return sandbox.NewSandbox(0, m.ReverseServices, m.Config)
 }

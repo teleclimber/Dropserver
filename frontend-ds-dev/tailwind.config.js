@@ -3,6 +3,9 @@ module.exports = {
 		'./src/**/*.vue',
 		'*.html'
 	],
+	future: {
+		removeDeprecatedGapUtilities: true,
+	},
 	theme: {
 	  extend: {},
 	},
