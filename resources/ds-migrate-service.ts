@@ -1,6 +1,6 @@
 import * as path from "https://deno.land/std/path/mod.ts";
 
-import {ReceivedMessageI} from "./twine/twine.ts";
+import type {ReceivedMessageI} from "./twine/twine.ts";
 
 import Metadata from './ds-metadata.ts';
 

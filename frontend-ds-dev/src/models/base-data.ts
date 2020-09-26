@@ -33,6 +33,7 @@ class BaseData {
 	app_name = "";
 	app_version = "0.0.0";
 	app_version_schema = 0;
+	app_migrations :number[] = [];
 
 	paused = false;
 	migrating = false;
@@ -75,16 +76,63 @@ class BaseData {
 	
 		m.sendOK();
 	}
+
+	// TODO: this very badly needs testing!
+	get possible_migrations() {
+		const ret :number[] = [];
+		const cur_schema = this.appspace_schema;
+		let cur_i = this.app_migrations.indexOf(cur_schema);
+		if( cur_i === -1 ) return ret;
+
+		let i = 0;
+		while(true) {
+			++i;
+			if(this.app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
+			else break;
+		}
+
+		i = 0;
+		while(cur_i + i > 0) {
+			--i;
+			if(this.app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
+			else break;
+		}
+
+		return ret;
+	}
 }
 
 const baseData = reactive(new BaseData());
 baseData._start();
 export default baseData;
 
+const appspaceCmds = {
+	pause: 11,
+	unpause: 12,
+	migrate: 13
+}
+
 // Appspace controls:
 export async function  pauseAppspace(pause:boolean) {
-	const cmd = pause ? 11 : 12;
+	const cmd = pause ? appspaceCmds.pause : appspaceCmds.unpause;
 	const reply = await twineClient.twine.sendBlock(appspaceControlService, cmd, undefined);
+	if( reply.error ) {
+		throw reply.error;
+	}
+}
+
+export async function  runMigration(to_schema:number) {
+	// check if to schema is legit.
+	// - it should not be the current appspace schema
+	// - it should be a schema that is included in the app's migrations dir, along with every other migration level.
+	// Other option is to baseData produce a list of migration levels that are legit
+	// use that in the drop-down, and that's that.
+
+	let buf = new ArrayBuffer(2);
+	let view = new DataView(buf);
+	view.setUint16(0, to_schema);
+	
+	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.migrate, new Uint8Array(buf));
 	if( reply.error ) {
 		throw reply.error;
 	}

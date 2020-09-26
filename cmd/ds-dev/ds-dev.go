@@ -143,31 +143,28 @@ func main() {
 	devMigrationJobModel := &DevMigrationJobModel{}
 
 	devAppModel := &DevAppModel{}
-	devAppModel.Set(
-		domain.App{
-			OwnerID: ownerID,
-			AppID:   appID,
-			Created: time.Now(),
-			Name:    appFilesMeta.AppName},
-		domain.AppVersion{
-			AppID:       appID,
-			AppName:     appFilesMeta.AppName,
-			Version:     appFilesMeta.AppVersion,
-			Schema:      appFilesMeta.SchemaVersion,
-			Created:     time.Now(),
-			LocationKey: "",
-		})
+	devAppModel.App = domain.App{
+		OwnerID: ownerID,
+		AppID:   appID,
+		Created: time.Now(),
+		Name:    appFilesMeta.AppName}
+	devAppModel.Ver = domain.AppVersion{
+		AppID:       appID,
+		AppName:     appFilesMeta.AppName,
+		Version:     appFilesMeta.AppVersion,
+		Schema:      appFilesMeta.SchemaVersion,
+		Created:     time.Now(),
+		LocationKey: ""}
 
-	devAppspaceModel.Set(domain.Appspace{
+	devAppspaceModel.Appspace = domain.Appspace{
 		OwnerID:     ownerID,
 		AppspaceID:  appspaceID,
 		AppID:       appID,
-		AppVersion:  domain.Version("0.0.0"), // This isn't written in appspace meta. It may not matter. It's schema that makes a difference.
+		AppVersion:  appFilesMeta.AppVersion, // assume it's the all we are working on.
 		Subdomain:   "",
 		Created:     time.Now(),
 		LocationKey: "",
-		Paused:      false,
-	})
+		Paused:      false}
 
 	migrateJobController := &migrateappspace.JobController{
 		MigrationJobModel:  devMigrationJobModel,
@@ -226,16 +223,22 @@ func main() {
 
 	migrateJobController.SandboxMaker = devSandboxMaker
 
+	migrateJobController.Start()
+
 	dsDevHandler := &DropserverDevServer{
-		AppspaceModel:        devAppspaceModel,
-		Config:               runtimeConfig,
-		AppspaceStatusEvents: appspaceStatusEvents,
-		RouteEvents:          routeEvents}
+		DevAppModel:            devAppModel,
+		DevAppspaceModel:       devAppspaceModel,
+		MigrationJobModel:      devMigrationJobModel,
+		MigrationJobController: migrateJobController,
+		Config:                 runtimeConfig,
+		AppspaceStatusEvents:   appspaceStatusEvents,
+		RouteEvents:            routeEvents}
 	dsDevHandler.SetBaseData(BaseData{
 		AppPath:        *appDirFlag,
 		AppName:        appFilesMeta.AppName,
 		AppVersion:     string(appFilesMeta.AppVersion),
 		AppSchema:      appFilesMeta.SchemaVersion,
+		AppMigrations:  appFilesMeta.Migrations,
 		AppspacePath:   *appspaceDirFlag,
 		AppspaceSchema: appspaceSchema})
 

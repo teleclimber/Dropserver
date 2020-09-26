@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,9 +19,14 @@ const appspaceStatusService = 13
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config        *domain.RuntimeConfig
-	AppspaceModel interface {
-		Pause(appspaceID domain.AppspaceID, pause bool) domain.Error
+	Config            *domain.RuntimeConfig
+	DevAppModel       *DevAppModel
+	DevAppspaceModel  *DevAppspaceModel
+	MigrationJobModel interface {
+		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
+	}
+	MigrationJobController interface {
+		WakeUp()
 	}
 	AppspaceStatusEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
@@ -109,7 +115,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		for m := range t.MessageChan {
 			switch m.ServiceID() {
 			case appspaceControlService:
-				go s.handleAppspaceMessage(m)
+				go s.handleAppspaceCtrlMessage(m)
 			default:
 				m.SendError("Service not found")
 			}
@@ -138,11 +144,12 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 
 const pauseAppspaceCmd = 11
 const unpauseAppspaceCmd = 12
+const migrateAppspaceCmd = 13
 
-func (s *DropserverDevServer) handleAppspaceMessage(m twine.ReceivedMessageI) {
+func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case pauseAppspaceCmd:
-		dsErr := s.AppspaceModel.Pause(appspaceID, true)
+		dsErr := s.DevAppspaceModel.Pause(appspaceID, true)
 		if dsErr != nil {
 			msg := "error pausing appspace " + dsErr.ToStandard().Error()
 			fmt.Println(msg)
@@ -151,7 +158,7 @@ func (s *DropserverDevServer) handleAppspaceMessage(m twine.ReceivedMessageI) {
 			m.SendOK()
 		}
 	case unpauseAppspaceCmd:
-		dsErr := s.AppspaceModel.Pause(appspaceID, false)
+		dsErr := s.DevAppspaceModel.Pause(appspaceID, false)
 		if dsErr != nil {
 			msg := "error unpausing appspace " + dsErr.ToStandard().Error()
 			fmt.Println(msg)
@@ -159,6 +166,28 @@ func (s *DropserverDevServer) handleAppspaceMessage(m twine.ReceivedMessageI) {
 		} else {
 			m.SendOK()
 		}
+	case migrateAppspaceCmd:
+		// first read the payload
+		migrateTo := int(binary.BigEndian.Uint16(m.Payload()))
+
+		// If migrating up, create a app version with higher version, and to-schema,
+		// *or* create a lower version with current schema, and re-create the main app-version with new schema?
+		// but maybe this takes place automatically on observe of app code?
+
+		// If migrating down, then create dummy version with lower version, to-schema.
+		// Location key and rest is immaterial as it souldn't get used.
+
+		// Assume we are migrating down
+		if migrateTo < s.baseData.AppspaceSchema {
+			s.DevAppModel.ToVer.Version = domain.Version("0.0.1")
+			s.DevAppModel.ToVer.Schema = migrateTo
+			s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
+			s.MigrationJobController.WakeUp()
+			m.SendOK()
+		} else {
+			m.SendError(fmt.Sprintf("Could not handle this migration. To schema: %v, appspace: %v", migrateTo, s.baseData.AppspaceSchema))
+		}
+
 	default:
 		m.SendError("service not found")
 	}
