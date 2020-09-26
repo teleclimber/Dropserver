@@ -389,6 +389,7 @@ type AppFilesMetadata struct {
 	AppName       string  `json:"name"`
 	AppVersion    Version `json:"version"`
 	SchemaVersion int     `json:"schema_version"`
+	Migrations    []int   `json:"migrations"`
 }
 
 // AppspaceDBManager manages connections to appspace databases

@@ -115,6 +115,8 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 	if dsErr != nil {
 		return nil, dsErr
 	}
+	meta.Migrations = mInts
+
 	if len(mInts) == 0 {
 		meta.SchemaVersion = 0
 	} else {
