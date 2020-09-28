@@ -39,17 +39,17 @@ type JobController struct {
 	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
 	SandboxMaker   SandboxMakerI
 
+	MigrationEvents interface {
+		Send(domain.MigrationStatusData)
+	}
+
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
 	ticker      *time.Ticker
 	stop        bool
 	allStopped  chan struct{}
 
-	fanIn     chan runningJobStatus
-	ownerSubs map[domain.UserID]map[string]chan<- domain.MigrationStatusData
-
-	// TODO need subscribe mux, no?
-	subscribers []chan<- domain.MigrationStatusData
+	fanIn chan runningJobStatus
 }
 
 // Start allows jobs to run and can start the first job
@@ -59,7 +59,6 @@ func (c *JobController) Start() { // maybe pass delay before start (we want c.st
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
 	c.fanIn = make(chan runningJobStatus)
-	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
 
 	c.stop = false
 	c.allStopped = make(chan struct{})
@@ -98,68 +97,6 @@ func (c *JobController) Stop() {
 	<-c.allStopped
 
 	close(c.fanIn)
-}
-
-// Subscribe to running migration job events
-func (c *JobController) Subscribe(ch chan<- domain.MigrationStatusData) {
-	c.removeSubscriber(ch)
-	c.subscribers = append(c.subscribers, ch)
-}
-
-// Unsubscribe to running migration job events
-func (c *JobController) Unsubscribe(ch chan<- domain.MigrationStatusData) {
-	c.removeSubscriber(ch)
-}
-
-func (c *JobController) removeSubscriber(ch chan<- domain.MigrationStatusData) {
-	// get a feeling you'll need a mutex to cover subscribers?
-	for i, s := range c.subscribers {
-		if s == ch {
-			c.subscribers[i] = c.subscribers[len(c.subscribers)-1]
-			c.subscribers = c.subscribers[:len(c.subscribers)-1]
-		}
-	}
-}
-
-// SubscribeOwner returns current jobs for owner
-// and pipes all updates to the provided channel.
-// Is this currently running jobs? OR pending jobs too?
-// -> I think it has to be running jobs, otherwise this is just a proxy to jobs model
-func (c *JobController) SubscribeOwner(ownerID domain.UserID, subID string) (<-chan domain.MigrationStatusData, []domain.MigrationStatusData) {
-	// lock running jobs so we can guarantee the updates are relative to the current jobs we return.
-	c.runningMux.Lock()
-	defer c.runningMux.Unlock()
-
-	updateChan := make(chan domain.MigrationStatusData)
-	if c.ownerSubs[ownerID] == nil {
-		c.ownerSubs[ownerID] = make(map[string]chan<- domain.MigrationStatusData)
-	}
-	c.ownerSubs[ownerID][subID] = updateChan
-
-	curStatus := []domain.MigrationStatusData{}
-	for _, rj := range c.runningJobs {
-		if rj.migrationJob.OwnerID == ownerID {
-			curStatus = append(curStatus, makeMigrationStatusData(rj.getCurStatusData()))
-		}
-	}
-	return updateChan, curStatus
-}
-
-// UnsubscribeOwner deletes owner/cookie from subscribers.
-// It closes the channel too
-func (c *JobController) UnsubscribeOwner(ownerID domain.UserID, subID string) {
-	c.runningMux.Lock()
-	defer c.runningMux.Unlock()
-	subs, ok := c.ownerSubs[ownerID]
-	if !ok {
-		return
-	}
-	updateChan, ok := subs[subID]
-	if !ok {
-		return
-	}
-	close(updateChan)
-	delete(c.ownerSubs[ownerID], subID)
 }
 
 // GetRunningJobs returns an array of currently started and unfinished jobs
@@ -210,19 +147,8 @@ func (c *JobController) eventManifold() { // eventBus?
 			go c.startNext()
 		}
 
-		// Subscribers
-		migrationStatusData := makeMigrationStatusData(d)
-
-		subs, ok := c.ownerSubs[d.origJob.OwnerID]
-		if ok {
-			for _, updateChan := range subs {
-				updateChan <- migrationStatusData
-				// worried this may block or panic if we don't have all our ducks in a row
-			}
-		}
-
-		for _, ch := range c.subscribers {
-			ch <- migrationStatusData
+		if c.MigrationEvents != nil {
+			c.MigrationEvents.Send(makeMigrationStatusData(d))
 		}
 	}
 }

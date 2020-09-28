@@ -13,10 +13,6 @@ type MigrationJobController interface {
 	Start()
 	Stop()
 	WakeUp()
-	Subscribe(chan<- domain.MigrationStatusData)
-	Unsubscribe(chan<- domain.MigrationStatusData)
-	SubscribeOwner(domain.UserID, string) (<-chan domain.MigrationStatusData, []domain.MigrationStatusData) // TODO change to new event thingo?
-	UnsubscribeOwner(domain.UserID, string)
 	GetRunningJobs() []domain.MigrationStatusData
 }
 

@@ -36,10 +36,9 @@ func TestWSExpiredToken(t *testing.T) {
 	tokStr := "abc"
 	uid := domain.UserID(7)
 
-	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
+	//jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 
-	liveDataRoutes := &LiveDataRoutes{
-		JobController: jobCtl}
+	liveDataRoutes := &LiveDataRoutes{}
 	liveDataRoutes.Init()
 	liveDataRoutes.tokens[tokStr] = token{uid, time.Now().Add(-1 * time.Minute)}
 
@@ -68,27 +67,27 @@ func TestWS(t *testing.T) {
 	uid := domain.UserID(7)
 
 	jobID := domain.JobID(11)
-	curStats := []domain.MigrationStatusData{
-		{JobID: jobID, Status: domain.MigrationRunning},
-	}
+	// curStats := []domain.MigrationStatusData{
+	// 	{JobID: jobID, Status: domain.MigrationRunning},
+	// }
 
-	updateChan := make(chan domain.MigrationStatusData)
-	updateChanClosed := false
+	// updateChan := make(chan domain.MigrationStatusData)
+	// updateChanClosed := false
 
-	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
-	jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
-	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
-		if !updateChanClosed {
-			close(updateChan)
-			updateChanClosed = true
-		}
-	}).MinTimes(1)
+	// jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
+	// jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
+	// jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
+	// 	if !updateChanClosed {
+	// 		close(updateChan)
+	// 		updateChanClosed = true
+	// 	}
+	// }).MinTimes(1)
 
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil)
 
 	liveDataRoutes := &LiveDataRoutes{
-		JobController:     jobCtl,
+		//JobController:     jobCtl,
 		MigrationJobModel: migrationJobModel}
 	liveDataRoutes.Init()
 	liveDataRoutes.tokens[tokStr] = token{uid, time.Now().Add(time.Minute)}
@@ -114,10 +113,10 @@ func TestWS(t *testing.T) {
 		t.Error("expected job with correct job id")
 	}
 
-	stat := domain.MigrationStatusData{
-		JobID:  jobID,
-		Status: domain.MigrationRunning}
-	updateChan <- stat
+	// stat := domain.MigrationStatusData{
+	// 	JobID:  jobID,
+	// 	Status: domain.MigrationRunning}
+	//updateChan <- stat
 
 	var statRx MigrationStatusResp
 	conn.ReadJSON(&statRx)
@@ -140,27 +139,27 @@ func TestWSRemoteStop(t *testing.T) {
 	uid := domain.UserID(7)
 
 	jobID := domain.JobID(11)
-	curStats := []domain.MigrationStatusData{
-		{JobID: jobID, Status: domain.MigrationRunning},
-	}
+	// curStats := []domain.MigrationStatusData{
+	// 	{JobID: jobID, Status: domain.MigrationRunning},
+	// }
 
-	updateChan := make(chan domain.MigrationStatusData)
-	updateChanClosed := false
+	// updateChan := make(chan domain.MigrationStatusData)
+	// updateChanClosed := false
 
-	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
-	jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
-	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
-		if !updateChanClosed {
-			close(updateChan)
-			updateChanClosed = true
-		}
-	}).MinTimes(1)
+	// jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
+	// jobCtl.EXPECT().SubscribeOwner(uid, tokStr).Return(updateChan, curStats)
+	// jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr).Do(func(u domain.UserID, s string) {
+	// 	if !updateChanClosed {
+	// 		close(updateChan)
+	// 		updateChanClosed = true
+	// 	}
+	// }).MinTimes(1)
 
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil)
 
 	liveDataRoutes := &LiveDataRoutes{
-		JobController:     jobCtl,
+		//JobController:     jobCtl,
 		MigrationJobModel: migrationJobModel}
 	liveDataRoutes.Init()
 	liveDataRoutes.wsConsts.writeWait = time.Second
@@ -214,37 +213,37 @@ func TestWSMultipleRemotes(t *testing.T) {
 	uid := domain.UserID(7)
 
 	jobID := domain.JobID(11)
-	curStats := []domain.MigrationStatusData{
-		{JobID: jobID, Status: domain.MigrationRunning},
-	}
+	// curStats := []domain.MigrationStatusData{
+	// 	{JobID: jobID, Status: domain.MigrationRunning},
+	// }
 
-	jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
+	//jobCtl := testmocks.NewMockMigrationJobController(mockCtrl)
 
-	updateChan1 := make(chan domain.MigrationStatusData)
-	updateChan1Closed := false
-	jobCtl.EXPECT().SubscribeOwner(uid, tokStr1).Return(updateChan1, curStats)
-	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr1).Do(func(u domain.UserID, s string) {
-		if !updateChan1Closed {
-			close(updateChan1)
-			updateChan1Closed = true
-		}
-	}).MinTimes(1)
+	// updateChan1 := make(chan domain.MigrationStatusData)
+	// updateChan1Closed := false
+	// jobCtl.EXPECT().SubscribeOwner(uid, tokStr1).Return(updateChan1, curStats)
+	// jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr1).Do(func(u domain.UserID, s string) {
+	// 	if !updateChan1Closed {
+	// 		close(updateChan1)
+	// 		updateChan1Closed = true
+	// 	}
+	// }).MinTimes(1)
 
-	updateChan2 := make(chan domain.MigrationStatusData)
-	updateChan2Closed := false
-	jobCtl.EXPECT().SubscribeOwner(uid, tokStr2).Return(updateChan2, curStats)
-	jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr2).Do(func(u domain.UserID, s string) {
-		if !updateChan2Closed {
-			close(updateChan2)
-			updateChan2Closed = true
-		}
-	}).MinTimes(1)
+	//updateChan2 := make(chan domain.MigrationStatusData)
+	//updateChan2Closed := false
+	// jobCtl.EXPECT().SubscribeOwner(uid, tokStr2).Return(updateChan2, curStats)
+	// jobCtl.EXPECT().UnsubscribeOwner(uid, tokStr2).Do(func(u domain.UserID, s string) {
+	// 	if !updateChan2Closed {
+	// 		close(updateChan2)
+	// 		updateChan2Closed = true
+	// 	}
+	// }).MinTimes(1)
 
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetJob(jobID).Return(&domain.MigrationJob{JobID: jobID}, nil).Times(2)
 
 	liveDataRoutes := &LiveDataRoutes{
-		JobController:     jobCtl,
+		//JobController:     jobCtl,
 		MigrationJobModel: migrationJobModel}
 	liveDataRoutes.Init()
 
@@ -279,11 +278,11 @@ func TestWSMultipleRemotes(t *testing.T) {
 		t.Error(err)
 	}
 
-	stat := domain.MigrationStatusData{
-		JobID:  jobID,
-		Status: domain.MigrationRunning}
-	updateChan1 <- stat
-	updateChan2 <- stat
+	// stat := domain.MigrationStatusData{
+	// 	JobID:  jobID,
+	// 	Status: domain.MigrationRunning}
+	// // updateChan1 <- stat
+	// updateChan2 <- stat
 
 	var statRx MigrationStatusResp
 	conn1.ReadJSON(&statRx)

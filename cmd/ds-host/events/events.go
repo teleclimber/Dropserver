@@ -40,6 +40,41 @@ func (e *AppspacePausedEvents) removeSubscriber(ch chan<- domain.AppspacePausedE
 	}
 }
 
+/////////////////////////////////////////
+// migration job events
+
+//MigrationJobStatusEvents forwards events related to the progress of migration jobs
+type MigrationJobStatusEvents struct {
+	subscribers []chan<- domain.MigrationStatusData
+}
+
+// Send sends an appspace status event
+func (e *MigrationJobStatusEvents) Send(event domain.MigrationStatusData) {
+	for _, ch := range e.subscribers {
+		ch <- event
+	}
+}
+
+// Subscribe to an event to know when the status of an appspace has changed
+func (e *MigrationJobStatusEvents) Subscribe(ch chan<- domain.MigrationStatusData) {
+	e.removeSubscriber(ch)
+	e.subscribers = append(e.subscribers, ch)
+}
+
+// Unsubscribe to the event
+func (e *MigrationJobStatusEvents) Unsubscribe(appspaceID domain.AppspaceID, ch chan<- domain.MigrationStatusData) {
+	e.removeSubscriber(ch)
+}
+
+func (e *MigrationJobStatusEvents) removeSubscriber(ch chan<- domain.MigrationStatusData) {
+	for i, c := range e.subscribers {
+		if c == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+		}
+	}
+}
+
 ////////////////////////////////////////
 // Appspace Status events
 type appspaceStatusSubscriber struct {
@@ -94,8 +129,6 @@ func (e *AppspaceStatusEvents) removeSubscriber(appspaceID domain.AppspaceID, ch
 
 //////////////////////////////////////////
 // Appspace Route Event
-
-// Wait, how does this even work?
 // TODO: Shouldn't subscribers be for specific appspaces?
 
 // AppspaceRouteHitEvents handles appspace pause and unpause events

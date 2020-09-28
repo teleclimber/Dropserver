@@ -82,6 +82,7 @@ func main() {
 
 	// events:
 	appspacePausedEvents := &events.AppspacePausedEvents{}
+	migrationJobEvents := &events.MigrationJobStatusEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 
 	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
@@ -184,7 +185,7 @@ func main() {
 		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceRoutes:       nil, //added below
 		MigrationJobs:        migrateJobController,
-		MigrationJobsEvents:  migrateJobController,
+		MigrationJobsEvents:  migrationJobEvents,
 		AppspaceStatusEvents: appspaceStatusEvents,
 	}
 	appspaceStatus.Init()

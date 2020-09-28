@@ -72,57 +72,6 @@ func (mr *MockMigrationJobControllerMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockMigrationJobController)(nil).Stop))
 }
 
-// Subscribe mocks base method
-func (m *MockMigrationJobController) Subscribe(arg0 chan<- domain.MigrationStatusData) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Subscribe", arg0)
-}
-
-// Subscribe indicates an expected call of Subscribe
-func (mr *MockMigrationJobControllerMockRecorder) Subscribe(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockMigrationJobController)(nil).Subscribe), arg0)
-}
-
-// SubscribeOwner mocks base method
-func (m *MockMigrationJobController) SubscribeOwner(arg0 domain.UserID, arg1 string) (<-chan domain.MigrationStatusData, []domain.MigrationStatusData) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeOwner", arg0, arg1)
-	ret0, _ := ret[0].(<-chan domain.MigrationStatusData)
-	ret1, _ := ret[1].([]domain.MigrationStatusData)
-	return ret0, ret1
-}
-
-// SubscribeOwner indicates an expected call of SubscribeOwner
-func (mr *MockMigrationJobControllerMockRecorder) SubscribeOwner(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeOwner", reflect.TypeOf((*MockMigrationJobController)(nil).SubscribeOwner), arg0, arg1)
-}
-
-// Unsubscribe mocks base method
-func (m *MockMigrationJobController) Unsubscribe(arg0 chan<- domain.MigrationStatusData) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Unsubscribe", arg0)
-}
-
-// Unsubscribe indicates an expected call of Unsubscribe
-func (mr *MockMigrationJobControllerMockRecorder) Unsubscribe(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unsubscribe", reflect.TypeOf((*MockMigrationJobController)(nil).Unsubscribe), arg0)
-}
-
-// UnsubscribeOwner mocks base method
-func (m *MockMigrationJobController) UnsubscribeOwner(arg0 domain.UserID, arg1 string) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UnsubscribeOwner", arg0, arg1)
-}
-
-// UnsubscribeOwner indicates an expected call of UnsubscribeOwner
-func (mr *MockMigrationJobControllerMockRecorder) UnsubscribeOwner(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeOwner", reflect.TypeOf((*MockMigrationJobController)(nil).UnsubscribeOwner), arg0, arg1)
-}
-
 // WakeUp mocks base method
 func (m *MockMigrationJobController) WakeUp() {
 	m.ctrl.T.Helper()

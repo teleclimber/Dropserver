@@ -33,123 +33,6 @@ func TestGetRunningJobs(t *testing.T) {
 	}
 }
 
-func TestSubscribe(t *testing.T) {
-	c := &JobController{}
-	ch := make(chan<- domain.MigrationStatusData)
-
-	c.Subscribe(ch)
-	if len(c.subscribers) != 1 {
-		t.Error("expected 1 subscriber")
-	}
-
-	c.Unsubscribe(ch)
-	if len(c.subscribers) != 0 {
-		t.Error("expected no subscribers")
-	}
-}
-
-func TestSubscribeEvent(t *testing.T) {
-	c := &JobController{
-		fanIn: make(chan runningJobStatus)}
-	go c.eventManifold()
-	ch := make(chan domain.MigrationStatusData)
-	c.Subscribe(ch)
-
-	appspaceID := domain.AppspaceID(7)
-
-	go func() {
-		c.fanIn <- runningJobStatus{
-			origJob: &domain.MigrationJob{
-				AppspaceID: appspaceID,
-			},
-		}
-		close(c.fanIn)
-	}()
-
-	status := <-ch
-	if status.AppspaceID != appspaceID {
-		t.Error("expected correct appspace id")
-	}
-
-	c.Unsubscribe(ch)
-}
-
-func TestSubscribeOwner(t *testing.T) {
-	c := &JobController{}
-
-	c.runningJobs = make(map[domain.JobID]*runningJob)
-	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
-
-	ownerID := domain.UserID(7)
-	sessionID := "abc"
-	c.SubscribeOwner(ownerID, sessionID)
-	if len(c.ownerSubs[ownerID]) != 1 {
-		t.Error("expected one subscriber in there")
-	}
-	c.UnsubscribeOwner(ownerID, sessionID)
-	if len(c.ownerSubs[ownerID]) != 0 {
-		t.Error("expected no subscribers in there")
-	}
-}
-
-func TestSubscribeOwnerDouble(t *testing.T) {
-	c := &JobController{}
-
-	c.runningJobs = make(map[domain.JobID]*runningJob)
-	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
-
-	ownerID := domain.UserID(7)
-	sessionID1 := "abc"
-	sessionID2 := "def"
-	c.SubscribeOwner(ownerID, sessionID1)
-	if len(c.ownerSubs[ownerID]) != 1 {
-		t.Error("expected one subscriber in there")
-	}
-	c.SubscribeOwner(ownerID, sessionID2)
-	if len(c.ownerSubs[ownerID]) != 2 {
-		t.Error("expected two subscribers in there")
-	}
-	c.UnsubscribeOwner(ownerID, sessionID1)
-	if len(c.ownerSubs[ownerID]) != 1 {
-		t.Error("expected 1 subscribers in there")
-	}
-}
-
-func TestSubscribeOwnerWithRunningJob(t *testing.T) {
-	c := &JobController{}
-
-	c.runningJobs = make(map[domain.JobID]*runningJob)
-	c.ownerSubs = make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)
-
-	ownerID := domain.UserID(7)
-	sessionID := "abc"
-	jobID := domain.JobID(11)
-	appspaceID := domain.AppspaceID(22)
-	c.runningJobs[jobID] = &runningJob{
-		migrationJob: &domain.MigrationJob{
-			JobID:      jobID,
-			AppspaceID: appspaceID,
-			OwnerID:    ownerID,
-		},
-		status: domain.MigrationRunning,
-	}
-
-	_, stats := c.SubscribeOwner(ownerID, sessionID)
-	if len(c.ownerSubs[ownerID]) != 1 {
-		t.Error("expected one subscriber in there")
-	}
-	if len(stats) != 1 {
-		t.Error("expected one current status")
-	}
-	if stats[0].Status != domain.MigrationRunning {
-		t.Error("expected status of job to be migration running")
-	}
-	c.UnsubscribeOwner(ownerID, sessionID)
-	if len(c.ownerSubs[ownerID]) != 0 {
-		t.Error("expected no subscribers in there")
-	}
-}
-
 func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -347,8 +230,7 @@ func TestEventManifold(t *testing.T) {
 
 	c := &JobController{
 		runningJobs: make(map[domain.JobID]*runningJob),
-		fanIn:       make(chan runningJobStatus, 10),
-		ownerSubs:   make(map[domain.UserID]map[string]chan<- domain.MigrationStatusData)}
+		fanIn:       make(chan runningJobStatus, 10)}
 
 	j := &domain.MigrationJob{
 		JobID:   11,

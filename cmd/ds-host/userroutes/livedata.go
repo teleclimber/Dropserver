@@ -13,6 +13,8 @@ import (
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
+// TODO: this needs to be rethought with new twine and events paradigms.
+
 // consts borrowed from gorilla/websckets chat example
 // https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
 
@@ -52,9 +54,12 @@ type LiveDataRoutes struct {
 	Authenticator interface {
 		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
 	}
-	JobController     jobControllerI
+	//JobController     jobControllerI
 	MigrationJobModel interface {
 		GetJob(domain.JobID) (*domain.MigrationJob, error)
+	}
+	MigrationJobsEvents interface {
+		Subscribe(chan<- domain.MigrationStatusData)
 	}
 	wsConsts        *websocketConstants
 	tokens          map[string]token
@@ -192,14 +197,14 @@ func (l *LiveDataRoutes) startWsConn(res http.ResponseWriter, req *http.Request,
 	}
 
 	client := &liveDataClient{
-		userID:            tok.userID,
-		requestID:         tokStr,
-		conn:              conn,
-		wsConsts:          l.wsConsts,
-		jobController:     l.JobController,
+		userID:    tok.userID,
+		requestID: tokStr,
+		conn:      conn,
+		wsConsts:  l.wsConsts,
+		//jobController:     l.JobController,
 		migrationJobModel: l.MigrationJobModel}
 	client.start()
-	client.subscribeJobs()
+	//client.subscribeJobs()
 
 	l.clientMux.Lock()
 	l.clients[tokStr] = client
@@ -237,9 +242,12 @@ type liveDataClient struct {
 
 	ticker *time.Ticker
 
-	jobController     jobControllerI
+	//jobController     jobControllerI
 	migrationJobModel interface {
 		GetJob(domain.JobID) (*domain.MigrationJob, error)
+	}
+	MigrationJobsEvents interface {
+		Subscribe(chan<- domain.MigrationStatusData)
 	}
 
 	updatesPipe chan updateData
@@ -268,7 +276,7 @@ func (c *liveDataClient) stop() { // I suppose?
 	c.stopMux.Lock()
 	defer c.stopMux.Unlock()
 	if !c.stopped {
-		c.jobController.UnsubscribeOwner(c.userID, c.requestID)
+		//c.jobController.UnsubscribeOwner(c.userID, c.requestID)
 		c.ticker.Stop()
 		c.conn.Close()
 		close(c.stopWrites)
@@ -277,32 +285,32 @@ func (c *liveDataClient) stop() { // I suppose?
 	}
 }
 
-func (c *liveDataClient) subscribeJobs() {
-	updateChan, curStat := c.jobController.SubscribeOwner(c.userID, c.requestID)
+// func (c *liveDataClient) subscribeJobs() {
+// 	updateChan, curStat := c.jobController.SubscribeOwner(c.userID, c.requestID)
 
-	for _, cs := range curStat {
-		job, err := c.migrationJobModel.GetJob(cs.JobID)
-		if err != nil {
-			//c.logger.Log(domain.ERROR, nil, "error getting job in livedataclient subscribe "+err.ExtraMessage())
-			// logged in model
-			continue // frontend will have trouble with subsequent updates, but oh well.
-		}
-		c.updatesPipe <- updateData{
-			migrationJob: job,
-			statusData:   cs,
-		}
-	}
+// 	for _, cs := range curStat {
+// 		job, err := c.migrationJobModel.GetJob(cs.JobID)
+// 		if err != nil {
+// 			//c.logger.Log(domain.ERROR, nil, "error getting job in livedataclient subscribe "+err.ExtraMessage())
+// 			// logged in model
+// 			continue // frontend will have trouble with subsequent updates, but oh well.
+// 		}
+// 		c.updatesPipe <- updateData{
+// 			migrationJob: job,
+// 			statusData:   cs,
+// 		}
+// 	}
 
-	go func() {
-		for update := range updateChan {
-			var job *domain.MigrationJob
-			if update.Status == domain.MigrationStarted {
-				job, _ = c.migrationJobModel.GetJob(update.JobID)
-			}
-			c.updatesPipe <- updateData{job, update}
-		}
-	}()
-}
+// 	go func() {
+// 		for update := range updateChan {
+// 			var job *domain.MigrationJob
+// 			if update.Status == domain.MigrationStarted {
+// 				job, _ = c.migrationJobModel.GetJob(update.JobID)
+// 			}
+// 			c.updatesPipe <- updateData{job, update}
+// 		}
+// 	}()
+// }
 
 // what are our possible subscriptions for now?
 // - job status for account

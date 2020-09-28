@@ -102,6 +102,7 @@ func main() {
 
 	// events
 	appspacePausedEvent := &events.AppspacePausedEvents{}
+	migrationStatusEvents := &events.MigrationJobStatusEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -191,7 +192,8 @@ func main() {
 		AppspaceInfoModels: appspaceInfoModels,
 		SandboxManager:     sandboxManager,
 		SandboxMaker:       migrationSandboxMaker,
-		MigrationJobModel:  migrationJobModel}
+		MigrationJobModel:  migrationJobModel,
+		MigrationEvents:    migrationStatusEvents}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
@@ -202,7 +204,7 @@ func main() {
 	appspaceLogin.Start()
 
 	liveDataRoutes := &userroutes.LiveDataRoutes{
-		JobController:     migrationJobCtl,
+		//JobController:     migrationJobCtl,
 		MigrationJobModel: migrationJobModel,
 		Authenticator:     authenticator}
 	liveDataRoutes.Init()
@@ -254,7 +256,7 @@ func main() {
 		AppspaceInfoModels: appspaceInfoModels,
 		//AppspaceRoutes: see below
 		MigrationJobs:       migrationJobCtl,
-		MigrationJobsEvents: migrationJobCtl,
+		MigrationJobsEvents: migrationStatusEvents,
 		AppspacePausedEvent: appspacePausedEvent,
 	}
 	appspaceStatus.Init()
