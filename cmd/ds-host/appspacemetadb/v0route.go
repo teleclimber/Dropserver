@@ -18,6 +18,7 @@ import (
 
 const (
 	createCmd = 12
+	deleteCmd = 13
 )
 
 // RouteModelV0 responds to requests about appspace routes
@@ -49,6 +50,8 @@ func (m *RouteModelV0) ReverseCommand(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
 	case createCmd:
 		m.reverseCmdCreate(message)
+	case deleteCmd:
+		m.reverseCmdDelete(message)
 	default:
 		message.SendError("Command not recognized")
 	}
@@ -80,6 +83,30 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 	if err != nil {
 		m.getLogger("reverseCmdCreate, m.Create").Error(err)
 		message.SendError("db error on create")
+		return
+	}
+
+	message.SendOK()
+}
+func (m *RouteModelV0) reverseCmdDelete(message twine.ReceivedMessageI) {
+	var data struct {
+		Methods   []string `json:"methods"`
+		RoutePath string   `json:"route-path"`
+	}
+
+	payload := message.Payload()
+
+	err := json.Unmarshal(payload, &data)
+	if err != nil {
+		m.getLogger("reverseCmdDelete, json.Unmarshal").Error(err)
+		message.SendError("json unmarshall error")
+		return
+	}
+
+	err = m.Delete(data.Methods, data.RoutePath)
+	if err != nil {
+		m.getLogger("reverseCmdDelete, m.Delete").Error(err)
+		message.SendError("db error on delete")
 		return
 	}
 

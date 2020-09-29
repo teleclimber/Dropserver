@@ -1,5 +1,5 @@
 import DsServices from "./ds-services.ts";
-import Twine from "./twine/twine.ts";
+import type Twine from "./twine/twine.ts";
 
 // TODO  unfinished
 
@@ -13,7 +13,7 @@ import Twine from "./twine/twine.ts";
 const service = 14;
 
 const createCmd = 12;
-
+const deleteCmd = 13;
 
 
 type Auth = {
@@ -62,6 +62,18 @@ class Routes {
 		}
 		
 		const reply = await this.twine.sendBlock(service, createCmd, Routes.makePayload(route));
+		if(!reply.ok) {
+			throw reply.error;
+		}
+	}
+
+	async deleteRoute(methods: string[], routePath: string) {
+		const route = {
+			methods,
+			"route-path": routePath
+		};
+
+		const reply = await this.twine.sendBlock(service, deleteCmd, Routes.makePayload(route))
 		if(!reply.ok) {
 			throw reply.error;
 		}
