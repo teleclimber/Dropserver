@@ -15,18 +15,25 @@ import (
 const routeEventService = 11
 const appspaceControlService = 12 // incmoing? For appspace control (pause, migrate)
 const appspaceStatusService = 13
+const migrationStatusService = 14
 
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config            *domain.RuntimeConfig
-	DevAppModel       *DevAppModel
-	DevAppspaceModel  *DevAppspaceModel
+	Config             *domain.RuntimeConfig
+	DevAppModel        *DevAppModel
+	DevAppspaceModel   *DevAppspaceModel
+	AppspaceInfoModels interface {
+		GetSchema(domain.AppspaceID) (int, error)
+	}
 	MigrationJobModel interface {
 		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
 	}
 	MigrationJobController interface {
 		WakeUp()
+	}
+	MigrationJobsEvents interface {
+		Subscribe(chan<- domain.MigrationStatusData)
 	}
 	AppspaceStatusEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
@@ -99,6 +106,14 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go func() {
 		for statusEvent := range appspaceStatusChan {
 			go s.sendAppspaceStatusEvent(t, statusEvent)
+		}
+	}()
+
+	migrationEventsChan := make(chan domain.MigrationStatusData)
+	s.MigrationJobsEvents.Subscribe(migrationEventsChan)
+	go func() {
+		for migrationEvent := range migrationEventsChan {
+			go s.sendMigrationEvent(t, migrationEvent)
 		}
 	}()
 
@@ -177,17 +192,29 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		// If migrating down, then create dummy version with lower version, to-schema.
 		// Location key and rest is immaterial as it souldn't get used.
 
+		appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+		if err != nil {
+			fmt.Println("failed to get appspace schema: " + err.Error())
+			m.SendError("failed to get appspace schema")
+			return
+		}
+
 		// Assume we are migrating down
-		if migrateTo < s.baseData.AppspaceSchema {
+		if migrateTo < appspaceSchema {
 			s.DevAppModel.ToVer.Version = domain.Version("0.0.1")
 			s.DevAppModel.ToVer.Schema = migrateTo
 			s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
 			s.MigrationJobController.WakeUp()
 			m.SendOK()
+		} else if migrateTo > appspaceSchema {
+			s.DevAppModel.ToVer.Version = domain.Version("100.0.0")
+			s.DevAppModel.ToVer.Schema = migrateTo
+			s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
+			s.MigrationJobController.WakeUp()
+			m.SendOK()
 		} else {
-			m.SendError(fmt.Sprintf("Could not handle this migration. To schema: %v, appspace: %v", migrateTo, s.baseData.AppspaceSchema))
+			m.SendError("migrate to scehma same as current appspace schema")
 		}
-
 	default:
 		m.SendError("service not found")
 	}
@@ -206,6 +233,22 @@ func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, status
 	_, err = twine.SendBlock(appspaceStatusService, statusEventCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
+	}
+}
+
+const migrationStatusEventCmd = 11
+
+func (s *DropserverDevServer) sendMigrationEvent(twine *twine.Twine, migrationEvent domain.MigrationStatusData) {
+	bytes, err := json.Marshal(migrationEvent)
+	if err != nil {
+		fmt.Println("sendMigrationEvent json Marshal Error: " + err.Error())
+	}
+
+	fmt.Println("Sending migration job event")
+
+	_, err = twine.SendBlock(migrationStatusService, migrationStatusEventCmd, bytes)
+	if err != nil {
+		fmt.Println("sendMigrationEvent SendBlock Error: " + err.Error())
 	}
 }
 

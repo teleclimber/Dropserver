@@ -102,7 +102,8 @@ func (m *DevAppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Apps
 
 // SetVersion changes the active version of the application for tha tappspace
 func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) domain.Error {
-	m.Appspace.AppVersion = version // will bomb if no appspace is set
+	//m.Appspace.AppVersion = version // will bomb if no appspace is set
+	// no-op! this gets called after a migration, but in ds-dev we don't want it to have an effect.
 	return nil
 }
 

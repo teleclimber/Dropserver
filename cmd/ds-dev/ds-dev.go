@@ -175,7 +175,7 @@ func main() {
 		AppspaceStatus:     nil, //set below
 		SandboxMaker:       nil, // added below
 		SandboxManager:     devSandboxManager,
-	}
+		MigrationEvents:    migrationJobEvents}
 
 	//devAppspaceStatus := &DevAppspaceStatus{}
 	appspaceStatus := &appspacestatus.AppspaceStatus{
@@ -189,6 +189,7 @@ func main() {
 		AppspaceStatusEvents: appspaceStatusEvents,
 	}
 	appspaceStatus.Init()
+	appspaceStatus.Ready(appspaceID) // this puts the appspace in status map, so it gets tracked, and therefore forwards events. Not a great paradigm.
 	migrateJobController.AppspaceStatus = appspaceStatus
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
@@ -229,10 +230,12 @@ func main() {
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
 		DevAppspaceModel:       devAppspaceModel,
+		AppspaceInfoModels:     appspaceInfoModels,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
 		Config:                 runtimeConfig,
 		AppspaceStatusEvents:   appspaceStatusEvents,
+		MigrationJobsEvents:    migrationJobEvents,
 		RouteEvents:            routeEvents}
 	dsDevHandler.SetBaseData(BaseData{
 		AppPath:        *appDirFlag,

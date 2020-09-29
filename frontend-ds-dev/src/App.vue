@@ -20,6 +20,8 @@
 
 	<AppspaceControl></AppspaceControl>
 
+	<MigrationJobs></MigrationJobs>
+
 	<RouteHits></RouteHits>
 
 </template>
@@ -29,12 +31,14 @@ import { defineComponent } from 'vue';
 import baseData from './models/base-data';
 
 import AppspaceControl from './components/AppspaceControl.vue';
+import MigrationJobs from './components/MigrationJobs.vue';
 import RouteHits from './components/RouteHits.vue';
 
 export default defineComponent({
 	name: 'DropserverAppDev',
 	components: {
 		AppspaceControl,
+		MigrationJobs,
 		RouteHits,
 	},
 	setup(props, context) {
