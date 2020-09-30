@@ -37,12 +37,20 @@ func (m *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 type DevSandboxMaker struct {
 	ReverseServices *domain.ReverseServices
 	Config          *domain.RuntimeConfig
+	inspect         bool
 }
 
 // here we can potentially add setDebug mode to pass to NewSandbox,
 // ..which should manifest as --debug or --inspect-brk
 
+// SetInspect sets the inspect flag on the sandbox
+func (m *DevSandboxMaker) SetInspect(inspect bool) {
+	m.inspect = inspect
+}
+
 // Make a new migration sandbox
 func (m *DevSandboxMaker) Make() domain.SandboxI {
-	return sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s := sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s.SetInspect(m.inspect)
+	return s
 }

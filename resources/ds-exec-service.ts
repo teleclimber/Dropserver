@@ -1,4 +1,4 @@
-import { ReceivedMessageI } from "./twine/twine.ts";
+import type { ReceivedMessageI } from "./twine/twine.ts";
 
 const exec_fn_cmd = 11;
 

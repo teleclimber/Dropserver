@@ -32,6 +32,9 @@ type DropserverDevServer struct {
 	MigrationJobController interface {
 		WakeUp()
 	}
+	DevSandboxMaker interface {
+		SetInspect(bool)
+	}
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
 	}
@@ -160,6 +163,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 const pauseAppspaceCmd = 11
 const unpauseAppspaceCmd = 12
 const migrateAppspaceCmd = 13
+const setMigrationInspect = 14
 
 func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
@@ -215,6 +219,14 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		} else {
 			m.SendError("migrate to scehma same as current appspace schema")
 		}
+	case setMigrationInspect:
+		inspect := true
+		p := m.Payload()
+		if p[0] == 0x00 {
+			inspect = false
+		}
+		s.DevSandboxMaker.SetInspect(inspect)
+		m.SendOK()
 	default:
 		m.SendError("service not found")
 	}

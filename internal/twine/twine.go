@@ -93,15 +93,13 @@ func NewUnixServer(sockPath string) (*Twine, error) {
 	go func() {
 		err := unixServerConn.StartServer()
 		if err != nil {
-			t.ErrorChan <- err
-			go t.close()
+			go t.close(err)
 			return
 		}
 
 		err = t.waitHi()
 		if err != nil {
-			t.ErrorChan <- err
-			go t.close()
+			go t.close(err)
 			return
 		}
 
@@ -124,8 +122,7 @@ func NewUnixClient(sockPath string) *Twine {
 	go func() {
 		u, err := newUnixClient(sockPath)
 		if err != nil {
-			t.ErrorChan <- err
-			go t.close()
+			go t.close(err)
 			return
 		}
 		t.conn = u
@@ -134,8 +131,7 @@ func NewUnixClient(sockPath string) *Twine {
 
 		err = t.sendHi()
 		if err != nil {
-			t.ErrorChan <- err // failstart
-			go t.close()
+			go t.close(err)
 			return
 		}
 		// then wait for "OK" from server?
@@ -162,18 +158,17 @@ func NewWebsocketServer(res http.ResponseWriter, req *http.Request) (*Twine, err
 
 	go func() {
 		for err := range wsServerConn.ErrorChan {
-			t.ErrorChan <- fmt.Errorf("Twine Websocket Error: %v", err)
+			t.close(fmt.Errorf("Twine Websocket Error: %v", err))
 		}
-		// when this closes, it means things are down
 		fmt.Println("websocket-twine ErrorChan closed, closing Twine")
-		t.close()
+		t.close(nil)
+		// when this closes, it means things are down
 	}()
 
 	go func() {
 		err = t.waitHi()
 		if err != nil {
-			t.ErrorChan <- err
-			go t.close()
+			go t.close(err)
 			return
 		}
 
@@ -328,7 +323,7 @@ func (t *Twine) receive() {
 			}
 		}
 	}
-	t.close() // need to shut things down if this loop exits.
+	t.close(nil) // need to shut things down if this loop exits.
 }
 
 // Send a new message
@@ -673,7 +668,7 @@ func (t *Twine) doGraceful() (err error) { // this should return a channel so it
 
 	go func() {
 		t.msgReg.waitAllUnregistered()
-		t.close()
+		t.close(nil)
 	}()
 
 	return
@@ -681,10 +676,10 @@ func (t *Twine) doGraceful() (err error) { // this should return a channel so it
 
 // Stop kills twine without trying to be nice about it.
 func (t *Twine) Stop() {
-	t.close()
+	t.close(nil)
 }
 
-func (t *Twine) close() {
+func (t *Twine) close(err error) {
 	t.closingMux.Lock()
 	defer t.closingMux.Unlock()
 	if !t.connClosed {
@@ -696,6 +691,9 @@ func (t *Twine) close() {
 
 		close(t.ReadyChan)
 		close(t.MessageChan)
+		if err != nil {
+			t.ErrorChan <- err
+		}
 		close(t.ErrorChan)
 	}
 }

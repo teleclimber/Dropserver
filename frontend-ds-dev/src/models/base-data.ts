@@ -109,7 +109,8 @@ export default baseData;
 const appspaceCmds = {
 	pause: 11,
 	unpause: 12,
-	migrate: 13
+	migrate: 13,
+	setMigrationInspect: 14,
 }
 
 // Appspace controls:
@@ -133,6 +134,17 @@ export async function  runMigration(to_schema:number) {
 	view.setUint16(0, to_schema);
 	
 	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.migrate, new Uint8Array(buf));
+	if( reply.error ) {
+		throw reply.error;
+	}
+}
+
+export async function setMigrationInspect(inspect:boolean) {
+	let buf = new ArrayBuffer(1);
+	let view = new DataView(buf);
+	view.setUint8(0, inspect ? 99 : 0);
+	
+	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.setMigrationInspect, new Uint8Array(buf));
 	if( reply.error ) {
 		throw reply.error;
 	}

@@ -233,6 +233,7 @@ func main() {
 		AppspaceInfoModels:     appspaceInfoModels,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
+		DevSandboxMaker:        devSandboxMaker,
 		Config:                 runtimeConfig,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		MigrationJobsEvents:    migrationJobEvents,

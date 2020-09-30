@@ -69,6 +69,7 @@ type Sandbox struct {
 	transport       http.RoundTripper
 	appSpaceSession appSpaceSession // put a getter for that?
 	killScore       float64         // this should not be here.
+	inspect         bool
 	Config          *domain.RuntimeConfig
 }
 
@@ -82,6 +83,11 @@ func NewSandbox(sandboxID int, services *domain.ReverseServices, config *domain.
 		Config:    config}
 
 	return newSandbox
+}
+
+// SetInspect sets the inspect flag which will cause the sandbox to start with --inspect-brk
+func (s *Sandbox) SetInspect(inspect bool) {
+	s.inspect = inspect
 }
 
 // Start Should start() return a channel or something?
@@ -124,36 +130,39 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 		return err // return user-centered error
 	}
 
-	// Give deno's current sandboxing ideas,
 	// Probably need to think more about flags we pass, such as --no-remote?
-	cmd := exec.Command(
-		"deno",
-		"run",
-		"--unstable", // needed for unix domain sockets
-		"--importmap="+s.getImportPathFile(),
+	denoArgs := make([]string, 0, 10)
+	denoArgs = append(denoArgs, "run", "--unstable")
+	if s.inspect {
+		denoArgs = append(denoArgs, "--inspect-brk")
+	}
+	runArgs := []string{
+		"--importmap=" + s.getImportPathFile(),
 		"--allow-read",  // TODO app dir and appspace dir, and sockets
 		"--allow-write", // TODO appspace dir, sockets
 		s.Config.Exec.SandboxRunnerPath,
 		s.socketsDir,
 		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
 		filepath.Join(s.Config.Exec.AppspacesPath, appspace.LocationKey, "files"),
-	)
-	s.cmd = cmd
+	}
+	denoArgs = append(denoArgs, runArgs...)
+	s.cmd = exec.Command("deno", denoArgs...)
+
 	// Note that ultimately we need to stick this in a Cgroup
 
-	stdout, err := cmd.StdoutPipe()
+	stdout, err := s.cmd.StdoutPipe()
 	if err != nil {
 		logger.AddNote("cmd.StdoutPipe()").Error(err)
 		return err // user centered error
 	}
 
-	stderr, err := cmd.StderrPipe()
+	stderr, err := s.cmd.StderrPipe()
 	if err != nil {
 		logger.AddNote("cmd.StderrPipe()").Error(err)
 		return err
 	}
 
-	err = cmd.Start() // returns right away
+	err = s.cmd.Start() // returns right away
 	if err != nil {
 		logger.AddNote("cmd.Start()").Error(err)
 		return err
