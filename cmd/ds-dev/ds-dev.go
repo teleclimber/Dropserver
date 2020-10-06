@@ -10,6 +10,7 @@ import (
 
 	"github.com/otiai10/copy"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
@@ -82,12 +83,13 @@ func main() {
 
 	// events:
 	appspacePausedEvents := &events.AppspacePausedEvents{}
+	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobStatusEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 
 	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
 
-	appFilesModel := appfilesmodel.AppFilesModel{
+	appFilesModel := &appfilesmodel.AppFilesModel{
 		Config: runtimeConfig,
 	}
 
@@ -123,28 +125,17 @@ func main() {
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
-	appspaceSchema, err := appspaceInfoModels.GetSchema(appspaceID)
-	if err != nil {
-		fmt.Println("failed to get appspace schema: " + err.Error())
-	}
-
-	if appspaceSchema != appFilesMeta.SchemaVersion {
-		// TODO: here we are in some sort of migration mode.
-		fmt.Printf("Schema mismatch: app: %v <> appspace: %v \n", appFilesMeta.SchemaVersion, appspaceSchema)
-	}
-
 	devAuth := &DevAuthenticator{}
 	devAuth.Set(domain.Authentication{
 		HasUserID:  true,
 		UserID:     ownerID,
 		AppspaceID: appspaceID,
 	})
-	devSandboxManager := &DevSandboxManager{}
 
 	devMigrationJobModel := &DevMigrationJobModel{}
 
 	devAppModel := &DevAppModel{}
-	devAppModel.App = domain.App{
+	devAppModel.App = domain.App{ // TODO: when we start watching app files, we'll have to make this part of a separate self-updating thing
 		OwnerID: ownerID,
 		AppID:   appID,
 		Created: time.Now(),
@@ -166,6 +157,16 @@ func main() {
 		Created:     time.Now(),
 		LocationKey: "",
 		Paused:      false}
+
+	appspaceLogger := &appspacelogger.AppspaceLogger{
+		AppspaceLogEvents: appspaceLogEvents,
+		AppspaceModel:     devAppspaceModel,
+		Config:            runtimeConfig}
+	appspaceLogger.Init()
+
+	devSandboxManager := &DevSandboxManager{
+		AppspaceLogger: appspaceLogger,
+	}
 
 	migrateJobController := &migrateappspace.JobController{
 		MigrationJobModel:  devMigrationJobModel,
@@ -220,6 +221,7 @@ func main() {
 	devSandboxManager.Services = revServices
 
 	devSandboxMaker := &DevSandboxMaker{
+		AppspaceLogger:  appspaceLogger,
 		ReverseServices: revServices,
 		Config:          runtimeConfig}
 
@@ -229,6 +231,7 @@ func main() {
 
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
+		AppFilesModel:          appFilesModel,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceInfoModels:     appspaceInfoModels,
 		MigrationJobModel:      devMigrationJobModel,
@@ -236,16 +239,10 @@ func main() {
 		DevSandboxMaker:        devSandboxMaker,
 		Config:                 runtimeConfig,
 		AppspaceStatusEvents:   appspaceStatusEvents,
+		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents,
 		RouteEvents:            routeEvents}
-	dsDevHandler.SetBaseData(BaseData{
-		AppPath:        *appDirFlag,
-		AppName:        appFilesMeta.AppName,
-		AppVersion:     string(appFilesMeta.AppVersion),
-		AppSchema:      appFilesMeta.SchemaVersion,
-		AppMigrations:  appFilesMeta.Migrations,
-		AppspacePath:   *appspaceDirFlag,
-		AppspaceSchema: appspaceSchema})
+	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
 
 	// Create server.
 	server := &Server{

@@ -27,7 +27,6 @@ export class DsServices {
 	private async listenMessages() {
 		if(this.twine === undefined) throw new Error("twine should not be undefined at this point.")
 		for await (const message of this.twine.incomingMessages() ) {
-			console.log("got a message");
 			switch (message.service) {
 				case executeService:
 					const exec_mod = await import("./ds-exec-service.ts");

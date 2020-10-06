@@ -12,6 +12,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -107,12 +108,18 @@ func TestSandboxCreateRoute(t *testing.T) {
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 
+	appspaceID := domain.AppspaceID(13)
+
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
+
 	v := &validator.Validator{}
 	v.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		Config:    cfg,
-		Validator: v}
+		AppspaceModel: appspaceModel,
+		Config:        cfg,
+		Validator:     v}
 	appspaceMetaDb.Init()
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         cfg,
@@ -131,7 +138,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	appVersion := domain.AppVersion{
 		LocationKey: "app-location"}
 	appspace := domain.Appspace{
-		AppspaceID:  13,
+		AppspaceID:  appspaceID,
 		LocationKey: "appspace-location"}
 
 	appspaceMetaDb.Create(appspace.AppspaceID, 0)

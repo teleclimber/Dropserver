@@ -534,6 +534,15 @@ type AppspaceStatusEvent struct {
 	Problem          bool       `json:"problem"` // string? To hint at the problem?
 }
 
+//AppspaceLogEvent is a log entry
+type AppspaceLogEvent struct {
+	Time       time.Time  `json:"time"`
+	AppspaceID AppspaceID `json:"appspace_id"`
+	Source     string     `json:"source"`
+	Data       string     `json:"data"` // TODO: or interface? Stirng may be better because it is written in the log as json encoded string.
+	Message    string     `json:"message"`
+}
+
 // AppspaceRouteHitEvent contains the route that was matched with the request
 type AppspaceRouteHitEvent struct {
 	Timestamp   time.Time

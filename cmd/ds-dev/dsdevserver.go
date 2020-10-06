@@ -16,12 +16,16 @@ const routeEventService = 11
 const appspaceControlService = 12 // incmoing? For appspace control (pause, migrate)
 const appspaceStatusService = 13
 const migrationStatusService = 14
+const appspaceLogService = 15
 
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config             *domain.RuntimeConfig
-	DevAppModel        *DevAppModel
+	Config        *domain.RuntimeConfig
+	DevAppModel   *DevAppModel
+	AppFilesModel interface {
+		ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error)
+	}
 	DevAppspaceModel   *DevAppspaceModel
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
@@ -38,6 +42,10 @@ type DropserverDevServer struct {
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
 	}
+	AppspaceLogEvents interface {
+		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
+		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
+	}
 	AppspaceStatusEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
@@ -47,7 +55,8 @@ type DropserverDevServer struct {
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	}
 
-	baseData BaseData
+	appPath      string
+	appspacePath string
 }
 
 func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -75,9 +84,31 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 	switch head {
 
 	case "base-data": // temporary
+		appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
+		if dsErr != nil {
+			fmt.Println("Failed to read app metadata: " + dsErr.PublicString())
+		}
+
+		appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+		if err != nil {
+			fmt.Println("failed to get appspace schema: " + err.Error())
+		}
+
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusOK)
-		json.NewEncoder(res).Encode(s.baseData)
+
+		baseData := BaseData{
+			AppPath:      s.appPath,
+			AppspacePath: s.appspacePath,
+
+			AppName:       appFilesMeta.AppName,
+			AppVersion:    string(appFilesMeta.AppVersion),
+			AppSchema:     appFilesMeta.SchemaVersion,
+			AppMigrations: appFilesMeta.Migrations,
+
+			AppspaceSchema: appspaceSchema}
+
+		json.NewEncoder(res).Encode(baseData)
 
 	case "livedata":
 		s.StartLivedata(res, req)
@@ -109,6 +140,14 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go func() {
 		for statusEvent := range appspaceStatusChan {
 			go s.sendAppspaceStatusEvent(t, statusEvent)
+		}
+	}()
+
+	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
+	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)
+	go func() {
+		for logEvent := range appspaceLogEventChan {
+			go s.sendAppspaceLogEvent(t, logEvent)
 		}
 	}()
 
@@ -152,6 +191,9 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		// when ErrorChan closes, means Twine connection is down, so unsubscribe
 		s.AppspaceStatusEvents.Unsubscribe(appspaceID, appspaceStatusChan)
 		close(appspaceStatusChan)
+
+		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
+		close(appspaceLogEventChan)
 
 		s.RouteEvents.Unsubscribe(routeEventsChan)
 		close(routeEventsChan)
@@ -217,7 +259,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			s.MigrationJobController.WakeUp()
 			m.SendOK()
 		} else {
-			m.SendError("migrate to scehma same as current appspace schema")
+			m.SendError(fmt.Sprintf("migrate to scehma same as current appspace schema: to: %v, current: %v", migrateTo, appspaceSchema))
 		}
 	case setMigrationInspect:
 		inspect := true
@@ -245,6 +287,20 @@ func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, status
 	_, err = twine.SendBlock(appspaceStatusService, statusEventCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
+	}
+}
+
+const sandboxLogEventCmd = 11
+
+func (s *DropserverDevServer) sendAppspaceLogEvent(twine *twine.Twine, statusEvent domain.AppspaceLogEvent) {
+	bytes, err := json.Marshal(statusEvent)
+	if err != nil {
+		fmt.Println("sendAppspaceLogEvent json Marshal Error: " + err.Error())
+	}
+
+	_, err = twine.SendBlock(appspaceLogService, sandboxLogEventCmd, bytes)
+	if err != nil {
+		fmt.Println("sendAppspaceLogEvent SendBlock Error: " + err.Error())
 	}
 }
 
@@ -300,7 +356,8 @@ func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *dom
 
 }
 
-// SetBaseData sets the base data that the server will return.
-func (s *DropserverDevServer) SetBaseData(bd BaseData) {
-	s.baseData = bd
+// SetPaths sets the paths of the ppa nd appspace so it can be reported on the frontend
+func (s *DropserverDevServer) SetPaths(appPath, appspacePath string) {
+	s.appPath = appPath
+	s.appspacePath = s.appspacePath
 }

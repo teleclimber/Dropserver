@@ -7,6 +7,9 @@ import (
 
 // DevSandboxManager manages a single sandbox that can be resatrted to recompile app code
 type DevSandboxManager struct {
+	AppspaceLogger interface {
+		Log(domain.AppspaceID, string, string)
+	}
 	Services *domain.ReverseServices
 }
 
@@ -35,6 +38,9 @@ func (m *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 
 // DevSandboxMaker holds data necessary to create a new migration sandbox
 type DevSandboxMaker struct {
+	AppspaceLogger interface {
+		Log(domain.AppspaceID, string, string)
+	}
 	ReverseServices *domain.ReverseServices
 	Config          *domain.RuntimeConfig
 	inspect         bool
@@ -51,6 +57,7 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 // Make a new migration sandbox
 func (m *DevSandboxMaker) Make() domain.SandboxI {
 	s := sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s.AppspaceLogger = m.AppspaceLogger
 	s.SetInspect(m.inspect)
 	return s
 }

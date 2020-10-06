@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -56,9 +57,12 @@ const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id              int // getter only (const), unexported
-	appVersion      *domain.AppVersion
-	appspace        *domain.Appspace
+	id             int // getter only (const), unexported
+	appVersion     *domain.AppVersion
+	appspace       *domain.Appspace
+	AppspaceLogger interface {
+		Log(domain.AppspaceID, string, string)
+	}
 	status          domain.SandboxStatus // getter/setter, so make it unexported.
 	socketsDir      string
 	cmd             *exec.Cmd
@@ -99,6 +103,12 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	s.appspace = appspace
 
 	logger := s.getLogger("Start()")
+
+	logString := "Sandbox starting"
+	if s.inspect {
+		logString += " with --inspect-brk"
+	}
+	s.appspaceLog(logString)
 
 	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
 	if err != nil {
@@ -206,16 +216,14 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 	wg.Add(2)
 
 	go func() {
-		defer wg.Done()
-		printLogs(stdout)
+		s.handleLog(stdout, "stdout")
+		wg.Done()
 	}()
 
 	go func() {
-		defer wg.Done()
-		printLogs(stderr)
+		s.handleLog(stderr, "stderr")
+		wg.Done()
 	}()
-
-	//wg.Wait()
 
 	err := s.cmd.Wait()
 	if err != nil {
@@ -233,8 +241,39 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 	// -> it may have crashed.
 	// TODO ..should probably call regular shutdown procdure to clean everything up.
 
+	s.appspaceLog("Sandbox terminated")
+
 	// now kill the reverse channel? Otherwise we risk killing it shile it could still provide valuable data?
 }
+
+func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
+	logSource := fmt.Sprintf("sandbox-%v-%v", s.id, source)
+	buf := make([]byte, 1000)
+	for {
+		n, err := rc.Read(buf)
+		if n > 0 {
+			logString := string(buf[0:n])
+			if s.AppspaceLogger != nil {
+				go s.AppspaceLogger.Log(s.appspace.AppspaceID, logSource, logString)
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
+// Need to change this to be realtime
+// And to be processed externally.
+// Who are the consumers?
+// - a log recorder, writes the messages to a log file somewhere
+// - potential realtime log viewers, on the frontend.
+// Q: should sandbox logs be independent of other appspace logs?
+// web rquests, db logs, other stuff that is bound to get added?
+// -> probably.
+// ..I think one single text log with leaders: SANDBOX34: ..., so different parts can log to the same log
+// For more fine-grained stuff, user a set of realtime events?
+// This, as we know, will eventually tie-in to logging for the sake of billing. (or not, really.)
 
 func printLogs(r io.ReadCloser) {
 	buf := make([]byte, 80)
@@ -308,6 +347,9 @@ func (s *Sandbox) Stop() {
 }
 
 func (s *Sandbox) pidAlive() bool {
+	if s.cmd == nil {
+		return false
+	}
 	process := s.cmd.Process
 
 	if process == nil {
@@ -326,11 +368,10 @@ func (s *Sandbox) pidAlive() bool {
 // kill sandbox, which means send it the kill sig
 // This should get picked up internally and it should shut itself down.
 func (s *Sandbox) kill(force bool) error {
-	process := s.cmd.Process
-
-	if process == nil {
+	if s.cmd == nil || s.cmd.Process == nil {
 		return nil
 	}
+	process := s.cmd.Process
 
 	sig := unix.SIGTERM
 	if force {
@@ -519,6 +560,12 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	s.statusMux.Unlock()
 
 	<-statusMet
+}
+
+func (s *Sandbox) appspaceLog(logString string) {
+	if s.AppspaceLogger != nil {
+		go s.AppspaceLogger.Log(s.appspace.AppspaceID, "sandbox-"+strconv.Itoa(s.id), logString)
+	}
 }
 
 // ImportPaths defines a type for creating imopsts.json for Deno

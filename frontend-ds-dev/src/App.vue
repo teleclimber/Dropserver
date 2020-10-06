@@ -20,6 +20,8 @@
 
 	<AppspaceControl></AppspaceControl>
 
+	<SandboxLog></SandboxLog>
+
 	<MigrationJobs></MigrationJobs>
 
 	<RouteHits></RouteHits>
@@ -31,6 +33,7 @@ import { defineComponent } from 'vue';
 import baseData from './models/base-data';
 
 import AppspaceControl from './components/AppspaceControl.vue';
+import SandboxLog from './components/AppspaceLog.vue';
 import MigrationJobs from './components/MigrationJobs.vue';
 import RouteHits from './components/RouteHits.vue';
 
@@ -38,12 +41,13 @@ export default defineComponent({
 	name: 'DropserverAppDev',
 	components: {
 		AppspaceControl,
+		SandboxLog,
 		MigrationJobs,
 		RouteHits,
 	},
 	setup(props, context) {
 		return {
-			baseData
+			baseData,
 		};
 	}
 });

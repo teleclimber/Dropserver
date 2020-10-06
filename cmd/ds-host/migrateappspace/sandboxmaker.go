@@ -14,11 +14,16 @@ type SandboxMakerI interface {
 
 // SandboxMaker holds data necessary to create a new migration sandbox
 type SandboxMaker struct {
+	AppspaceLogger interface {
+		Log(domain.AppspaceID, string, string)
+	}
 	ReverseServices *domain.ReverseServices
 	Config          *domain.RuntimeConfig
 }
 
 // Make a new migration sandbox
 func (m *SandboxMaker) Make() domain.SandboxI {
-	return sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s := sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s.AppspaceLogger = m.AppspaceLogger
+	return s
 }

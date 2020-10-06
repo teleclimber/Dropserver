@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
@@ -102,6 +103,7 @@ func main() {
 
 	// events
 	appspacePausedEvent := &events.AppspacePausedEvents{}
+	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationStatusEvents := &events.MigrationJobStatusEvents{}
 
 	// models
@@ -165,6 +167,12 @@ func main() {
 		AsPausedEvent: appspacePausedEvent}
 	appspaceModel.PrepareStatements()
 
+	appspaceLogger := &appspacelogger.AppspaceLogger{
+		AppspaceModel:     appspaceModel,
+		AppspaceLogEvents: appspaceLogEvents,
+		Config:            runtimeConfig,
+	}
+
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		Config:        runtimeConfig,
 		Validator:     validator,
@@ -181,10 +189,12 @@ func main() {
 	migrationJobModel.PrepareStatements()
 
 	sandboxManager := &sandbox.Manager{
-		Config: runtimeConfig}
+		AppspaceLogger: appspaceLogger,
+		Config:         runtimeConfig}
 
 	migrationSandboxMaker := &migrateappspace.SandboxMaker{
-		Config: runtimeConfig}
+		AppspaceLogger: appspaceLogger,
+		Config:         runtimeConfig}
 
 	migrationJobCtl := &migrateappspace.JobController{
 		AppspaceModel:      appspaceModel,

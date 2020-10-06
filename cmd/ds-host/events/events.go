@@ -127,6 +127,60 @@ func (e *AppspaceStatusEvents) removeSubscriber(appspaceID domain.AppspaceID, ch
 	}
 }
 
+////////////////////////////////////////
+// Appspace Log events
+type appspaceLogSubscriber struct {
+	appspaceID domain.AppspaceID
+	ch         chan<- domain.AppspaceLogEvent
+}
+
+// AppspaceLogEvents handles appspace pause and unpause events
+type AppspaceLogEvents struct {
+	subscribers []appspaceLogSubscriber
+}
+
+// Send sends an appspace status event
+// Should this send arrays of events (for buffeing?)
+// .. or should the channel do the buffering?
+func (e *AppspaceLogEvents) Send(event domain.AppspaceLogEvent) {
+	for _, sub := range e.subscribers {
+		if sub.appspaceID == event.AppspaceID {
+			sub.ch <- event
+		}
+	}
+}
+
+// Subscribe to an event to know when the status of an appspace has changed
+func (e *AppspaceLogEvents) Subscribe(appspaceID domain.AppspaceID, ch chan<- domain.AppspaceLogEvent) {
+	e.removeSubscriber(appspaceID, ch)
+	e.subscribers = append(e.subscribers, appspaceLogSubscriber{appspaceID, ch})
+}
+
+// Unsubscribe to the event
+func (e *AppspaceLogEvents) Unsubscribe(appspaceID domain.AppspaceID, ch chan<- domain.AppspaceLogEvent) {
+	e.removeSubscriber(appspaceID, ch)
+}
+
+// UnsubscribeChannel removes the channel from all subscriptions
+func (e *AppspaceLogEvents) UnsubscribeChannel(ch chan<- domain.AppspaceLogEvent) {
+	for i := len(e.subscribers) - 1; i >= 0; i-- {
+		if e.subscribers[i].ch == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+		}
+	}
+}
+
+func (e *AppspaceLogEvents) removeSubscriber(appspaceID domain.AppspaceID, ch chan<- domain.AppspaceLogEvent) {
+	// get a feeling you'll need a mutex to cover subscribers?
+	for i, sub := range e.subscribers {
+		if sub.appspaceID == appspaceID && sub.ch == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+		}
+	}
+}
+
 //////////////////////////////////////////
 // Appspace Route Event
 // TODO: Shouldn't subscribers be for specific appspaces?

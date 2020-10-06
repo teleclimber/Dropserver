@@ -62,8 +62,8 @@ export default defineComponent({
 		return {
 			migrate_to_schema: 0,
 			migrate_inspect: false,
-			paused: false
-		}
+			paused: false,
+		};
 	},
 	components: {
 	},
