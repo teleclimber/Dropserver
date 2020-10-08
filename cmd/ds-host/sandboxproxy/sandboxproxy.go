@@ -1,7 +1,6 @@
 package sandboxproxy
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -23,9 +22,7 @@ type SandboxProxy struct {
 func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, routeData *domain.AppspaceRouteData) {
 	defer s.Metrics.HostHandleReq(time.Now())
 
-	// Not clear where responsibility lies for not starting a sandbox for a paused appsapce?
-	// for literally paused, it's in appspaceroutes
-	// for waiting on a ongoing migration, I'd guess it's in sandbox manager?
+	// The responsibiility for knowing whether an appspace is ready or not, is upstream (in appspaceroutes)
 
 	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
@@ -36,8 +33,6 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 		return
 	}
 
-	//sbName := sb.GetName()       // Get ID instead of Name, only used for logging / debugging.
-	sbAddress := fmt.Sprintf("http://127.0.0.1") // TODO: is this unix+http?
 	sbTransport := sb.GetTransport()
 
 	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
@@ -45,11 +40,10 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	reqTaskCh := sb.TaskBegin()
 
 	header := cloneHeader(oReq.Header)
-	//header["ds-user-id"] = []string{"teleclimber"}
-	header["app-space-script"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
-	header["app-space-fn"] = []string{routeData.RouteConfig.Handler.Function}
+	header["appspace-module"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
+	header["appspace-fn"] = []string{routeData.RouteConfig.Handler.Function}
 
-	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)
+	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)
 	if err != nil {
 		s.getLogger("ServeHTTP(), http.NewRequest()").Error(err)
 		// Maybe add app id and appspace id?

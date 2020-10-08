@@ -14,7 +14,8 @@
 
     "go.useLanguageServer": true,
 
-    "deno.enable": false,
+    "deno.enable": true,
+    "deno.unstable": true,
 
     "jest.rootPath": "frontend/",
     

@@ -4,11 +4,13 @@ package sandbox
 // have it just manage deno processes?
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -189,9 +191,6 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 
 	go s.listenMessages()
 
-	s.transport = http.DefaultTransport // really not sure what this means or what it's for anymore....
-	s.SetStatus(domain.SandboxReady)
-
 	return nil
 }
 
@@ -291,12 +290,28 @@ func printLogs(r io.ReadCloser) {
 func (s *Sandbox) listenMessages() {
 	for message := range s.twine.MessageChan {
 		switch message.ServiceID() {
+		case sandboxService:
+			s.handleMessage(message)
 		case routesService:
 			s.services.Routes.Command(s.appspace, message)
 		default:
 			s.getLogger("listenMessages()").Log(fmt.Sprintf("Service not recognized: %v", message.ServiceID()))
 			message.SendError("service not recognized")
 		}
+	}
+}
+
+// incoming commands on sandboxService
+const sandboxServerReady = 11
+
+func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
+	switch m.CommandID() {
+	case sandboxServerReady:
+		s.SetStatus(domain.SandboxReady)
+		m.SendOK()
+	default:
+		s.getLogger("handleMessage()").Log(fmt.Sprintf("Command not recognized: %v", m.CommandID()))
+		m.SendError("command not recognized")
 	}
 }
 
@@ -466,6 +481,13 @@ func (s *Sandbox) SendMessage(serviceID int, commandID int, payload []byte) (twi
 
 // GetTransport gets the http transport of the sandbox
 func (s *Sandbox) GetTransport() http.RoundTripper {
+	if s.transport == nil {
+		s.transport = &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", filepath.Join(s.socketsDir, "server.sock"))
+			},
+		}
+	}
 	return s.transport
 }
 

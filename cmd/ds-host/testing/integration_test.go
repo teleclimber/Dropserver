@@ -24,15 +24,9 @@ import (
 // - runner (JS)
 // ..by sending a request to proxy (server?) that should trickle all the way to app code and back.
 
-// TODO this needs fixing up after deno can serve http over unix sockets.
 func TestIntegration1(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	// I think we need a data dir too?
-	// This is actually something we haven't touched yet.
-	// We need a place to put app code and appspace data.
-	// specified in config, but we'll make temp dirs and we will write files there directly.
 
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -56,8 +50,12 @@ func TestIntegration1(t *testing.T) {
 	metrics := domain.NewMockMetricsI(mockCtrl)
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 
+	tl := &testLogger{
+		t: t}
+
 	sM := sandbox.Manager{
-		Config: cfg} //create with convenient data
+		AppspaceLogger: tl,
+		Config:         cfg} //create with convenient data
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
@@ -73,23 +71,15 @@ func TestIntegration1(t *testing.T) {
 		Appspace:   &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
 		RouteConfig: &domain.AppspaceRouteConfig{
 			Handler: domain.AppspaceRouteHandler{
-				File:     "hello.js",
+				File:     "@app/hello.js",
 				Function: "hello",
 			}}}
 
 	// So now we need to put a hello.js file at dataDir/apps/loc123/hello.js
 
 	js := []byte(`
-	function hello(req, res) {
-		str = 'Hello World';
-		res.writeHead(200, {
-			'Content-Length': Buffer.byteLength(str),
-			'Content-Type': 'text/plain' 
-		});
-		res.end(str)
-	}
-	module.exports = {
-		hello
+	export function hello(req) {
+		req.respond({status: 200, body: 'Hello World'})
 	}
 	`)
 
@@ -126,7 +116,6 @@ func TestIntegration1(t *testing.T) {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
 	}
 
-	// Then kill the sandbox so you don't have a running node process
 	sM.StopAll()
 }
 
@@ -136,7 +125,15 @@ func getJSRuntimePath() string {
 		log.Fatal(err)
 	}
 
-	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.js")
+	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.ts")
 
 	return jsRuntime
+}
+
+type testLogger struct {
+	t *testing.T
+}
+
+func (l *testLogger) Log(_ domain.AppspaceID, source string, message string) {
+	l.t.Logf("%v: %v\n", source, message)
 }

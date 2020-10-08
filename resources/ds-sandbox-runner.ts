@@ -1,9 +1,9 @@
-import * as path from "https://deno.land/std/path/mod.ts";
-
 import DsServices from "./ds-services.ts";
+import DsRouteServer from "./ds-route-server.ts";
 
 async function run() {
-	await DsServices.initTwine();
+	DsServices.initTwine();
+	DsRouteServer.startServer();
 }
 
 run();
