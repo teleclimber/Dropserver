@@ -32,6 +32,8 @@ type messageMeta = {
 
 
 export default class Twine {
+
+	private pre_conn_messages: Uint8Array[] = [];
 	
 	//private ln         *net.Listener // consider making that a ReadWriter so we can adapt anything there.
 	private server_listener: Deno.Listener | undefined
@@ -74,6 +76,8 @@ export default class Twine {
 		this._send(raw.msgID,0, closeService, protocolOK, undefined);
 
 		this.receive();
+
+		this.flushPreConnMessages();
 	}
 	async startClient() {	// maybe this is a generator function that yields incoming messages?
 		// warning unstable API in Deno. Use "--unstable"
@@ -83,6 +87,14 @@ export default class Twine {
 
 		await this.sendHi();
 		// catch errors with this
+
+		this.flushPreConnMessages();
+	}
+	async flushPreConnMessages() {
+		this.pre_conn_messages.forEach(m => {
+			if( this.conn === undefined ) throw new Error("expected a conn to flush messages to");
+			this.conn.write(m);
+		});
 	}
 	async * incomingMessages() : AsyncGenerator<ReceivedMessageI, void, void> {
 		for await (const m of this.incomingQueue) {
@@ -395,18 +407,20 @@ export default class Twine {
 
 	// ooook. This is where we need to smarten up
 	private async _send(msgID: number, refMsgID: number, service: number, cmd: number, payload: Uint8Array|undefined){
-		if( !this.conn ) throw new Error("can't send: conn undefined");
-
 		const meta_data = Twine.encodeMessageMeta(msgID, refMsgID, service, cmd, payload);
-
-		let written = await this.conn.write(meta_data);
-		// written should be cur offset obvs.
-
-		// TODO: write both meta and payload in one shot! or you'll get interleaved data?
-		if( payload !== undefined ) {
-			written = await this.conn.write(payload);
+		let full = meta_data;
+		if( payload ) {
+			full = new Uint8Array(meta_data.length+ (payload?payload.length:0) );
+			full.set(meta_data, 0);
+			full.set(payload, meta_data.length)
 		}
 
+		if( this.conn ) {
+			await this.conn.write(full);
+		}
+		else {
+			this.pre_conn_messages.push(full);
+		}
 	}
 
 	makeMessage(raw :messageMeta, ref: Msg|undefined) :Message {

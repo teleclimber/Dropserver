@@ -227,3 +227,41 @@ Deno.test({
 		await Deno.remove(temp_dir, {recursive: true});
 	}
 });
+
+Deno.test({
+	name: "pre-conn message, graceful",
+	//ignore: true,
+	fn: async () => {
+		const temp_dir = await Deno.makeTempDir();
+		const sock_path = path.join(temp_dir, "test.sock");
+
+		const twine_client = new Twine(sock_path, false);
+		const twine_server = new Twine(sock_path, true);
+
+		const sent = await twine_client.send(7, 11, undefined);
+		//assert(reply.ok);
+
+		const server_start = twine_server.startServer();
+		await twine_client.startClient();
+		await server_start;
+
+		(async function() {
+			for await (const message of twine_server.incomingMessages()) {
+				console.log("got message");
+				assertEquals(7, message.service);
+				message.sendOK();
+			}
+		})();
+
+		console.log("after start client");
+
+		const reply = await sent.waitReply();
+		assert(reply.ok);
+
+		console.log("got OK");
+
+		await twine_client.graceful();
+
+		await Deno.remove(temp_dir, {recursive: true});
+	}
+});
