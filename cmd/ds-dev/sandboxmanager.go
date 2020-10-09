@@ -11,27 +11,59 @@ type DevSandboxManager struct {
 		Log(domain.AppspaceID, string, string)
 	}
 	Services *domain.ReverseServices
+	Config   *domain.RuntimeConfig
+
+	nextID int
+	sb     domain.SandboxI
 }
 
 // need Start/Stop/Restart functions
 
 // GetForAppSpace always returns the crrent sandbox
-func (m *DevSandboxManager) GetForAppSpace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI {
+func (sM *DevSandboxManager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
+
+	if sM.sb != nil {
+		go func() {
+			sM.sb.WaitFor(domain.SandboxReady)
+			ch <- sM.sb
+		}()
+	} else {
+		sM.startSandbox(appVersion, appspace, ch)
+	}
 
 	return ch
 
 }
 
+func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
+	sandboxID := sM.nextID
+	sM.nextID++
+
+	newSandbox := sandbox.NewSandbox(sandboxID, sM.Services, sM.Config)
+	newSandbox.AppspaceLogger = sM.AppspaceLogger
+	sM.sb = newSandbox
+
+	go func() {
+		err := newSandbox.Start(appVersion, appspace)
+		if err != nil {
+			close(ch)
+			newSandbox.Stop()
+			return
+		}
+		newSandbox.WaitFor(domain.SandboxReady)
+		// sandbox may not be ready if it failed to start.
+		// check status? Or maybe status ought to be checked by proxy for each request anyways?
+		ch <- newSandbox
+	}()
+}
+
 // StopAppspace is used to stop an appspace sandbox from running if there is one
 // it returns if/when no sanboxes are running for that appspace
-func (m *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
-	// s, ok := sM.sandboxes[appspaceID]
-	// if !ok {
-	// 	return
-	// }
-
-	// s.Stop() // this should work but sandbox manager may not be updated because bugg
+func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
+	if sM.sb != nil {
+		sM.sb.Stop()
+	}
 }
 
 ////////////////////////////////////////////////////

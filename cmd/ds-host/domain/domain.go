@@ -444,7 +444,7 @@ type MigrationJob struct {
 type AppspaceRouteHandler struct {
 	Type     string `json:"type"`           // how can we validate that "type" is entered corrently?
 	File     string `json:"file,omitempty"` // this is called "location" downstream. (but why?)
-	Function string `json:"fn,omitempty"`
+	Function string `json:"function,omitempty"`
 	Path     string `json:"path,omitempty"`
 }
 

@@ -41,7 +41,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 
 	header := cloneHeader(oReq.Header)
 	header["appspace-module"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
-	header["appspace-fn"] = []string{routeData.RouteConfig.Handler.Function}
+	header["appspace-function"] = []string{routeData.RouteConfig.Handler.Function}
 
 	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)
 	if err != nil {

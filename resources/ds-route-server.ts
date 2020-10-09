@@ -35,7 +35,7 @@ export class DsRouteServer {
 			const headers = request.headers;
 			const mod_file = headers.get('appspace-module');
 
-			const fn = headers.get('appspace-fn');
+			const fn = headers.get('appspace-function');
 
 			console.log( 'RUNNER:', mod_file, fn );
 

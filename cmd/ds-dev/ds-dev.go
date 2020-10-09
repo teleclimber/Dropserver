@@ -166,7 +166,7 @@ func main() {
 
 	devSandboxManager := &DevSandboxManager{
 		AppspaceLogger: appspaceLogger,
-	}
+		Config:         runtimeConfig}
 
 	migrateJobController := &migrateappspace.JobController{
 		MigrationJobModel:  devMigrationJobModel,
