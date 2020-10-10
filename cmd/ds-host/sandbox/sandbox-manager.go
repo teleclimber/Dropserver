@@ -131,12 +131,19 @@ func (sM *Manager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domai
 // StopAppspace is used to stop an appspace sandbox from running if there is one
 // it returns if/when no sanboxes are running for that appspace
 func (sM *Manager) StopAppspace(appspaceID domain.AppspaceID) {
+	sM.poolMux.Lock()
 	s, ok := sM.sandboxes[appspaceID]
 	if !ok {
+		sM.poolMux.Unlock()
 		return
 	}
 
+	delete(sM.sandboxes, appspaceID)
+	sM.poolMux.Unlock()
+
 	s.Stop() // this should work but sandbox manager may not be updated because bugg
+
+	s.WaitFor(domain.SandboxDead)
 }
 
 // TODO: have a graceful stop for appspaces?
@@ -172,7 +179,9 @@ func (sM *Manager) killPool() {
 		})
 
 		for i := 0; i < numKill && i < len(sortedKillable); i++ {
-			sandbox := sM.sandboxes[sortedKillable[i].appspaceID]
+			appspaceID := sortedKillable[i].appspaceID
+			sandbox := sM.sandboxes[appspaceID]
+			delete(sM.sandboxes, appspaceID)
 			sandbox.SetStatus(domain.SandboxKilling) // have to set it here to prevent other requests being dispatched to it before it actually starts shutting down.
 			go sandbox.Stop()
 		}

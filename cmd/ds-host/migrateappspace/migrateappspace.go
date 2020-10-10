@@ -244,7 +244,7 @@ func (c *JobController) runJob(job *runningJob) {
 
 	c.AppspaceStatus.WaitStopped(appspaceID)
 
-	c.SandboxManager.StopAppspace(appspaceID) // Even if there is no code to run for the migration the sandbox has to be restarted with new app version.
+	c.SandboxManager.StopAppspace(appspaceID)
 
 	var dsErr domain.Error
 

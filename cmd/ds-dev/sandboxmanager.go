@@ -5,6 +5,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 )
 
+var sandboxID = 0
+
 // DevSandboxManager manages a single sandbox that can be resatrted to recompile app code
 type DevSandboxManager struct {
 	AppspaceLogger interface {
@@ -13,8 +15,7 @@ type DevSandboxManager struct {
 	Services *domain.ReverseServices
 	Config   *domain.RuntimeConfig
 
-	nextID int
-	sb     domain.SandboxI
+	sb domain.SandboxI
 }
 
 // need Start/Stop/Restart functions
@@ -37,9 +38,6 @@ func (sM *DevSandboxManager) GetForAppSpace(appVersion *domain.AppVersion, appsp
 }
 
 func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
-	sandboxID := sM.nextID
-	sM.nextID++
-
 	newSandbox := sandbox.NewSandbox(sandboxID, sM.Services, sM.Config)
 	newSandbox.AppspaceLogger = sM.AppspaceLogger
 	sM.sb = newSandbox
@@ -56,6 +54,8 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
 		ch <- newSandbox
 	}()
+
+	sandboxID++
 }
 
 // StopAppspace is used to stop an appspace sandbox from running if there is one
@@ -63,6 +63,8 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 	if sM.sb != nil {
 		sM.sb.Stop()
+		sM.sb.WaitFor(domain.SandboxDead)
+		sM.sb = nil
 	}
 }
 
@@ -88,7 +90,8 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 
 // Make a new migration sandbox
 func (m *DevSandboxMaker) Make() domain.SandboxI {
-	s := sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+	s := sandbox.NewSandbox(sandboxID, m.ReverseServices, m.Config)
+	sandboxID++
 	s.AppspaceLogger = m.AppspaceLogger
 	s.SetInspect(m.inspect)
 	return s
