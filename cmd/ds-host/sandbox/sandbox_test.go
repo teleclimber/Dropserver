@@ -200,6 +200,8 @@ func TestRunnerScriptError(t *testing.T) {
 	}
 
 	s.Stop()
+
+	s.WaitFor(domain.SandboxDead)
 }
 
 func TestStart(t *testing.T) {
@@ -225,18 +227,24 @@ func TestStart(t *testing.T) {
 		AppspaceID:  domain.AppspaceID(13),
 		LocationKey: "appspace-loc"}
 
+	log := &testLogger{t}
+
 	s := &Sandbox{
-		id:         7,
-		appspace:   appspace,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		Config:     cfg}
+		id:             7,
+		appspace:       appspace,
+		appVersion:     appVersion,
+		status:         domain.SandboxStarting,
+		Config:         cfg,
+		AppspaceLogger: log,
+		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start(appVersion, appspace)
 	if err != nil {
-		s.Stop()
 		t.Error(err)
+		s.Stop()
 	}
+
+	s.WaitFor(domain.SandboxReady)
 
 	if s.Status() != domain.SandboxReady {
 		t.Error("sandbox status should be ready")
@@ -284,17 +292,21 @@ func TestExecFn(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &Sandbox{
-		id:         7,
-		appspace:   appspace,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		Config:     cfg}
+		id:             7,
+		appspace:       appspace,
+		appVersion:     appVersion,
+		status:         domain.SandboxStarting,
+		Config:         cfg,
+		AppspaceLogger: &testLogger{t},
+		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start(appVersion, appspace)
 	if err != nil {
 		s.Stop()
 		t.Error(err)
 	}
+
+	s.WaitFor(domain.SandboxReady)
 
 	if s.Status() != domain.SandboxReady {
 		t.Error("sandbox status should be ready")
@@ -348,13 +360,16 @@ func TestExecForbiddenImport(t *testing.T) {
 		appspace:   appspace,
 		appVersion: appVersion,
 		status:     domain.SandboxStarting,
-		Config:     cfg}
+		Config:     cfg,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start(appVersion, appspace)
 	if err != nil {
 		s.Stop()
 		t.Error(err)
 	}
+
+	s.WaitFor(domain.SandboxReady)
 
 	if s.Status() != domain.SandboxReady {
 		t.Error("sandbox status should be ready")
@@ -380,4 +395,12 @@ func getSandboxCodePath() string {
 }
 func getSandboxRunnerPath() string {
 	return filepath.Join(getSandboxCodePath(), "ds-sandbox-runner.ts")
+}
+
+type testLogger struct {
+	t *testing.T
+}
+
+func (l *testLogger) Log(_ domain.AppspaceID, source string, message string) {
+	l.t.Logf("%v: %v\n", source, message)
 }

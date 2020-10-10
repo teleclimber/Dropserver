@@ -4,7 +4,7 @@ const exec_fn_cmd = 11;
 
 type ExecFnData = {
 	file: string,
-	fn?: string
+	function?: string
 }
 
 export async function handleMessage(message: ReceivedMessageI) {
@@ -40,11 +40,11 @@ async function execFnHandler(message: ReceivedMessageI) {
 	// ..import a function? or a an obect with a method? What?
 
 	let fn : () => void;
-	if( data.fn === undefined ) fn = mod.default;
-	else fn = mod[data.fn];
+	if( data.function === undefined ) fn = mod.default;
+	else fn = mod[data.function];
 
 	if(typeof fn !== "function") {
-		await message.sendError("Not a function: "+data.fn);
+		await message.sendError("Not a function: "+data.function);
 		return;
 	}
 
