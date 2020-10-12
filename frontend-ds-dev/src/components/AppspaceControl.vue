@@ -1,5 +1,5 @@
 <template>
-	<div class="flex my-4 items-baseline">
+	<div class="flex my-4 items-stretch">
 		<span v-if="statusString === 'problem'" class="bg-orange-300 py-1 px-3">Problem</span>
 		<span v-if="statusString === 'migrating'" class="bg-yellow-400 py-1 px-3">
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -33,15 +33,17 @@
 			</svg>
 			{{paused ? "Unpause" : "Pause"}}
 		</button>
+
+		<label class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 mr-4 rounded" :class="{'bg-red-900': migrate_inspect}">
+			<input type="checkbox" @change="setMigrateInspect()">
+			Inspect
+		</label>
+
 		<span class="flex bg-gray-200 items-baseline">
 			<span class="px-2">Migrate:</span>
 			<select class="rounded-l border-2 text-lg" v-model="migrate_to_schema">
 				<option v-for="m in baseData.possible_migrations" :value="m">{{m}}</option>
 			</select>
-			<label class="bg-gray-200 px-2">
-				<input type="checkbox" @change="setMigrateInspect()">
-				debug
-			</label>
 			<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 rounded" type="submit" @click.stop.prevent="runMigration()">
 				<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 					<path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
@@ -54,7 +56,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import baseData, { pauseAppspace, runMigration, setMigrationInspect } from '../models/base-data';
+import baseData, { pauseAppspace, runMigration, setInspect } from '../models/base-data';
 
 export default defineComponent({
 	name: 'AppspaceControl',
@@ -88,7 +90,7 @@ export default defineComponent({
 		},
 		setMigrateInspect() {
 			this.migrate_inspect = !this.migrate_inspect;
-			setMigrationInspect(this.migrate_inspect);
+			setInspect(this.migrate_inspect);
 		},
 		runMigration() {
 			runMigration(this.migrate_to_schema);

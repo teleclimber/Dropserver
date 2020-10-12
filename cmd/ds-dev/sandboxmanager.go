@@ -15,7 +15,8 @@ type DevSandboxManager struct {
 	Services *domain.ReverseServices
 	Config   *domain.RuntimeConfig
 
-	sb domain.SandboxI
+	sb      domain.SandboxI
+	inspect bool
 }
 
 // need Start/Stop/Restart functions
@@ -40,6 +41,7 @@ func (sM *DevSandboxManager) GetForAppSpace(appVersion *domain.AppVersion, appsp
 func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
 	newSandbox := sandbox.NewSandbox(sandboxID, sM.Services, sM.Config)
 	newSandbox.AppspaceLogger = sM.AppspaceLogger
+	newSandbox.SetInspect(sM.inspect)
 	sM.sb = newSandbox
 
 	go func() {
@@ -66,6 +68,11 @@ func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 		sM.sb.WaitFor(domain.SandboxDead)
 		sM.sb = nil
 	}
+}
+
+//SetInspect sets the inspect flag which makes the sandbox wait for a debugger to attach
+func (sM *DevSandboxManager) SetInspect(inspect bool) {
+	sM.inspect = inspect
 }
 
 ////////////////////////////////////////////////////

@@ -234,6 +234,7 @@ func main() {
 		AppFilesModel:          appFilesModel,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceInfoModels:     appspaceInfoModels,
+		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
 		DevSandboxMaker:        devSandboxMaker,

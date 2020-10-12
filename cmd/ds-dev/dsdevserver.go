@@ -30,6 +30,10 @@ type DropserverDevServer struct {
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	}
+	DevSandboxManager interface {
+		StopAppspace(domain.AppspaceID)
+		SetInspect(bool)
+	}
 	MigrationJobModel interface {
 		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
 	}
@@ -205,7 +209,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 const pauseAppspaceCmd = 11
 const unpauseAppspaceCmd = 12
 const migrateAppspaceCmd = 13
-const setMigrationInspect = 14
+const setInspect = 14
 
 func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
@@ -261,13 +265,15 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		} else {
 			m.SendError(fmt.Sprintf("migrate to scehma same as current appspace schema: to: %v, current: %v", migrateTo, appspaceSchema))
 		}
-	case setMigrationInspect:
+	case setInspect: // this should really be inspect for everything.
 		inspect := true
 		p := m.Payload()
 		if p[0] == 0x00 {
 			inspect = false
 		}
 		s.DevSandboxMaker.SetInspect(inspect)
+		s.DevSandboxManager.StopAppspace(appspaceID)
+		s.DevSandboxManager.SetInspect(inspect)
 		m.SendOK()
 	default:
 		m.SendError("service not found")
@@ -359,5 +365,5 @@ func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *dom
 // SetPaths sets the paths of the ppa nd appspace so it can be reported on the frontend
 func (s *DropserverDevServer) SetPaths(appPath, appspacePath string) {
 	s.appPath = appPath
-	s.appspacePath = s.appspacePath
+	s.appspacePath = appspacePath
 }

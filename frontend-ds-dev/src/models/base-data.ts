@@ -139,10 +139,10 @@ export async function  runMigration(to_schema:number) {
 	}
 }
 
-export async function setMigrationInspect(inspect:boolean) {
+export async function setInspect(inspect:boolean) {
 	let buf = new ArrayBuffer(1);
 	let view = new DataView(buf);
-	view.setUint8(0, inspect ? 99 : 0);
+	view.setUint8(0, inspect ? 1 : 0);
 	
 	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.setMigrationInspect, new Uint8Array(buf));
 	if( reply.error ) {
