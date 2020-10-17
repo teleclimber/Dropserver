@@ -65,6 +65,7 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"app_id" INTEGER,
 		"version" TEXT,
 		"schema" INTEGER,
+		"api" INTEGER,
 		"location_key" TEXT,
 		"created" DATETIME
 	)`)

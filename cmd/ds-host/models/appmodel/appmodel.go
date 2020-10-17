@@ -72,7 +72,7 @@ func (m *AppModel) PrepareStatements() {
 	m.stmt.selectAppVerions = p.exec(`SELECT * FROM app_versions WHERE app_id = ?`)
 
 	m.stmt.insertVersion = p.exec(`INSERT INTO app_versions
-		("app_id", "version", "schema", "location_key", created) VALUES (?, ?, ?, ?, datetime("now"))`)
+		("app_id", "version", "schema", "api", "location_key", created) VALUES (?, ?, ?, ?, ?, datetime("now"))`)
 
 	m.stmt.deleteVersion = p.exec(`DELETE FROM app_versions WHERE app_id = ? AND version = ?`)
 
@@ -181,11 +181,11 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 // has appid, version, location key, create date
 // use appid and version as primary keys
 // index on appid as well
-func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, schema int, locationKey string) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, schema int, api domain.APIVersion, locationKey string) (*domain.AppVersion, domain.Error) {
 	// TODO: this should fail if version exists
 	// .. but that should be caught by the route first.
 
-	_, err := m.stmt.insertVersion.Exec(appID, version, schema, locationKey)
+	_, err := m.stmt.insertVersion.Exec(appID, version, schema, api, locationKey)
 	if err != nil {
 		m.getLogger("CreateVersion(), insertVersion").AppID(appID).AppVersion(version).Error(err)
 		return nil, dserror.FromStandard(err)

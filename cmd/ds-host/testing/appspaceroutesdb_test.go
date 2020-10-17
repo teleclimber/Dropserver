@@ -57,7 +57,7 @@ func TestSandboxExecFn(t *testing.T) {
 		LocationKey: "appspace-location"}
 
 	services := testmocks.NewMockVXServices(mockCtrl)
-	services.EXPECT().Get(&appspace, 0)
+	services.EXPECT().Get(&appspace, domain.APIVersion(0))
 
 	sM := sandbox.Manager{
 		Services: services,

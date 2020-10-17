@@ -23,7 +23,7 @@ type ApplicationRoutes struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, domain.Error)
 		Create(domain.UserID, string) (*domain.App, domain.Error)
-		CreateVersion(domain.AppID, domain.Version, int, string) (*domain.AppVersion, domain.Error)
+		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, domain.Error)
 		DeleteVersion(domain.AppID, domain.Version) domain.Error
 	}
 	AppspaceModel interface {
@@ -173,7 +173,7 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 			return
 		}
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, locationKey)
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)
@@ -231,7 +231,7 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 		// "version exists" is enforced at DB level with an index.
 		// so just check versions and schemas.
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, locationKey)
+		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
 		if dsErr != nil {
 			fmt.Println(dsErr, dsErr.ExtraMessage())
 			dsErr.HTTPError(res)

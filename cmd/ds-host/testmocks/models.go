@@ -14,7 +14,7 @@ type AppModel interface {
 	Create(domain.UserID, string) (*domain.App, domain.Error)
 	GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
 	GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, domain.Error)
-	CreateVersion(domain.AppID, domain.Version, int, string) (*domain.AppVersion, domain.Error)
+	CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, domain.Error)
 	DeleteVersion(domain.AppID, domain.Version) domain.Error
 }
 

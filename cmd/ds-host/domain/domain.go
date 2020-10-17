@@ -366,7 +366,7 @@ type AppVersion struct {
 	AppID       AppID  `db:"app_id"`
 	AppName     string `db:"app_name"`
 	Version     Version
-	APIVersion  APIVersion `db:"api_version"`
+	APIVersion  APIVersion `db:"api"`
 	Schema      int        `db:"schema"` // that is the schema for the app's own data
 	Created     time.Time
 	LocationKey string `db:"location_key"`

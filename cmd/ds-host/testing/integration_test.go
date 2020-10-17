@@ -58,7 +58,7 @@ func TestIntegration1(t *testing.T) {
 		t: t}
 
 	services := testmocks.NewMockVXServices(mockCtrl)
-	services.EXPECT().Get(appspace, 0)
+	services.EXPECT().Get(appspace, domain.APIVersion(0))
 	sM := sandbox.Manager{
 		Services:       services,
 		AppspaceLogger: tl,

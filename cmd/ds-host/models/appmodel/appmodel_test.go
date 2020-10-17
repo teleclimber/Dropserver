@@ -145,7 +145,7 @@ func TestVersion(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", 7, "foo-location")
+	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", 7, 1, "foo-location")
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
@@ -155,6 +155,9 @@ func TestVersion(t *testing.T) {
 	}
 	if appVersion.Schema != 7 {
 		t.Error("input schema does not match output schema", appVersion)
+	}
+	if appVersion.APIVersion != 1 {
+		t.Error("input does not match output api version", appVersion)
 	}
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
@@ -179,7 +182,7 @@ func TestVersion(t *testing.T) {
 	}
 
 	// then test inserting a duplicate version
-	_, dsErr = appModel.CreateVersion(1, "0.0.1", 7, "bar-location")
+	_, dsErr = appModel.CreateVersion(1, "0.0.1", 7, 1, "bar-location")
 	if dsErr == nil {
 		t.Error("expected error on inserting duplicate")
 	}
@@ -211,7 +214,7 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.schema, i.location)
+		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.schema, 1, i.location)
 		if dsErr != nil {
 			t.Error(dsErr)
 		}
@@ -249,7 +252,7 @@ func TestDeleteVersion(t *testing.T) {
 	appID := domain.AppID(7)
 	version := domain.Version("0.0.2")
 
-	_, dsErr := appModel.CreateVersion(appID, version, 4, "foobar")
+	_, dsErr := appModel.CreateVersion(appID, version, 4, 1, "foobar")
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
