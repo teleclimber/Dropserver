@@ -23,8 +23,11 @@ type Manager struct {
 	poolMux   sync.Mutex
 	sandboxes map[domain.AppspaceID]domain.SandboxI // all sandboxes are always committed
 
-	Services *domain.ReverseServices
-	Config   *domain.RuntimeConfig
+	Services interface {
+		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	}
+
+	Config *domain.RuntimeConfig
 }
 
 type request struct {
@@ -68,17 +71,17 @@ func (sM *Manager) StopAll() {
 // Problem is if it takes too long, would like to independently send timout as response to request.
 func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
 	sandboxID := sM.nextID
-	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a service to lock!
+	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a mutex to lock!
 	// .. or trust that it only gets called with poolMux locked by caller.
 
-	newSandbox := NewSandbox(sandboxID, sM.Services, sM.Config)
+	newSandbox := NewSandbox(sandboxID, appVersion, appspace, sM.Services.Get(appspace, appVersion.APIVersion), sM.Config)
 	newSandbox.AppspaceLogger = sM.AppspaceLogger
 	sM.sandboxes[appspace.AppspaceID] = newSandbox
 
 	sM.recordSandboxStatusMetric()
 
 	go func() {
-		err := newSandbox.Start(appVersion, appspace)
+		err := newSandbox.Start()
 		if err != nil {
 			close(ch)
 			newSandbox.Stop()

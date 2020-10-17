@@ -89,6 +89,9 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 			r.SandboxProxy.ServeHTTP(res, req, routeData)
 		case "file":
 			r.serveFile(res, req, routeData)
+		//case "db":
+		// call to appspacedb.
+		// Since this is v0appspaceroutes, then the call will be to v0appspacedb
 		default:
 			r.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
 			http.Error(res, "route type not implemented", http.StatusInternalServerError)

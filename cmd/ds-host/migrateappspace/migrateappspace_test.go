@@ -37,11 +37,8 @@ func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-	sandboxMaker.EXPECT().Make()
+	controller := &JobController{}
 
-	controller := &JobController{
-		SandboxMaker: sandboxMaker}
 	job := &domain.MigrationJob{}
 	rj := controller.createRunningJob(job)
 
@@ -113,13 +110,13 @@ func TestRunJob(t *testing.T) {
 	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
-	sandbox.EXPECT().Start(gomock.Any(), gomock.Any()).Return(nil)
+	sandbox.EXPECT().Start().Return(nil)
 	sandbox.EXPECT().WaitFor(gomock.Any())
 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
 	sandbox.EXPECT().Stop()
 
 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-	sandboxMaker.EXPECT().Make().Return(sandbox)
+	sandboxMaker.EXPECT().Make(gomock.Any(), gomock.Any()).Return(sandbox)
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitStopped(appspaceID)
@@ -186,9 +183,6 @@ func TestStartNextOneJob(t *testing.T) {
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitStopped(appspaceID)
 
-	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-	sandboxMaker.EXPECT().Make()
-
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
 	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()
 
@@ -197,7 +191,6 @@ func TestStartNextOneJob(t *testing.T) {
 		AppspaceModel:     appspaceModel,
 		AppspaceStatus:    appspaceStatus,
 		SandboxManager:    sandboxManager,
-		SandboxMaker:      sandboxMaker,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
 	}
@@ -262,12 +255,8 @@ func TestEventManifoldFinished(t *testing.T) {
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
-	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-	sandboxMaker.EXPECT().Make()
-
 	c := &JobController{
 		MigrationJobModel: migrationJobModel,
-		SandboxMaker:      sandboxMaker,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
 		stop:              true, // prevents startNext from running again
@@ -324,12 +313,8 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
-	sandboxMaker.EXPECT().Make()
-
 	c := &JobController{
-		MigrationJobModel: migrationJobModel,
-		SandboxMaker:      sandboxMaker}
+		MigrationJobModel: migrationJobModel}
 
 	rj := c.createRunningJob(&domain.MigrationJob{
 		JobID:      1,
@@ -338,6 +323,7 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	c.Start()
 
+	// I don't get what this test is doing?
 	c.runningJobs[rj.migrationJob.JobID] = rj
 
 	go func() {

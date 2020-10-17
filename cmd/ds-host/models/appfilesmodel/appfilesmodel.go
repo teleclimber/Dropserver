@@ -81,7 +81,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 
 // ReadMeta reads metadata from the files at location key
 func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error) {
-	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "application.json")
+	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "drop-app.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
 		// here the error might be that application.json is not in app?
@@ -162,9 +162,6 @@ func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
 	if meta.AppVersion == "" {
 		return dserror.New(dserror.AppConfigProblem, "Version can not be blank")
 	}
-
-	//TODO: validate what comes out of JSON against valid values
-	// auth keywords, routes can be empty strings, handler type is enum...
 
 	return nil
 }

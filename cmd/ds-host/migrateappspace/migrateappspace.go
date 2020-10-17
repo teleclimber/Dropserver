@@ -232,9 +232,10 @@ func (c *JobController) startNext() {
 // - tell appspace to gracefully shutdown, and wait til it does to actually start job (blocking appspace)
 
 func (c *JobController) createRunningJob(job *domain.MigrationJob) *runningJob {
+
 	return &runningJob{
 		migrationJob: job,
-		sandbox:      c.SandboxMaker.Make(),
+		sandboxMaker: c.SandboxMaker,
 		statusSubs:   make([]chan<- runningJobStatus, 0)}
 }
 func (c *JobController) runJob(job *runningJob) {
@@ -356,6 +357,7 @@ type runningJob struct {
 	toSchema     int
 	curSchema    int // not sure about this one
 	migrateDown  bool
+	sandboxMaker SandboxMakerI
 	sandbox      domain.SandboxI
 	status       domain.MigrationJobStatus
 	errStr       nulltypes.NullString
@@ -380,8 +382,10 @@ func (r *runningJob) runMigration() error {
 
 	r.getLogger("runMigration()").Debug("about to start migration")
 
+	r.sandbox = r.sandboxMaker.Make(r.useVersion, r.appspace)
+
 	defer r.sandbox.Stop()
-	err := r.sandbox.Start(r.useVersion, r.appspace)
+	err := r.sandbox.Start()
 	if err != nil {
 		// host level error? log it
 		r.getLogger("runMigration, sandbox.Start()").Error(err)

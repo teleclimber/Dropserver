@@ -9,7 +9,7 @@ import (
 
 // SandboxMakerI interface decouples sandbox implementation from its use for migration
 type SandboxMakerI interface {
-	Make() domain.SandboxI
+	Make(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI
 }
 
 // SandboxMaker holds data necessary to create a new migration sandbox
@@ -17,13 +17,15 @@ type SandboxMaker struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
 	}
-	ReverseServices *domain.ReverseServices
-	Config          *domain.RuntimeConfig
+	Services interface {
+		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	}
+	Config *domain.RuntimeConfig
 }
 
 // Make a new migration sandbox
-func (m *SandboxMaker) Make() domain.SandboxI {
-	s := sandbox.NewSandbox(0, m.ReverseServices, m.Config)
+func (m *SandboxMaker) Make(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
+	s := sandbox.NewSandbox(0, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
 	s.AppspaceLogger = m.AppspaceLogger
 	return s
 }

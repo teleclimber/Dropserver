@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
@@ -16,7 +17,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
@@ -36,6 +36,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
+	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/stdinput"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -322,13 +323,18 @@ func main() {
 		Views:             views,
 		Validator:         validator}
 
+	appspaceDB := &appspacedb.AppspaceDB{
+		Config: runtimeConfig,
+	}
+	appspaceDB.Init()
+
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb,
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
-	appspaceRoutesV0 := &appspaceroutes.V0{
+	v0appspaceRoutes := &appspaceroutes.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
@@ -340,15 +346,15 @@ func main() {
 		AppModel:       appModel,
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: appspaceStatus,
-		V0:             appspaceRoutesV0}
+		V0:             v0appspaceRoutes}
 	appspaceRoutes.Init()
 	appspaceStatus.AppspaceRoutes = appspaceRoutes
 
-	revServices := &domain.ReverseServices{
-		Routes: appspaceRouteModels,
-	}
-	sandboxManager.Services = revServices
-	migrationSandboxMaker.ReverseServices = revServices
+	services := &vxservices.VXServices{
+		RouteModels:  appspaceRouteModels,
+		V0AppspaceDB: appspaceDB.V0}
+	sandboxManager.Services = services
+	migrationSandboxMaker.Services = services
 
 	// Create server.
 	server := &server.Server{

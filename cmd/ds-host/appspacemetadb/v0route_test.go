@@ -152,7 +152,7 @@ func TestV0RouteMatch(t *testing.T) {
 	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
 	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
-	r := &RouteModelV0{
+	r := &V0RouteModel{
 		AppspaceMetaDB: appspaceMetaDb,
 		appspaceID:     appspaceID,
 	}
@@ -251,7 +251,7 @@ func TestV0GetMethodsFromBits(t *testing.T) {
 
 //////////////////////////////////////////////////
 
-func v0RoutesGetModel(t *testing.T, mockCtrl *gomock.Controller) *RouteModelV0 {
+func v0RoutesGetModel(t *testing.T, mockCtrl *gomock.Controller) *V0RouteModel {
 	appspaceID := domain.AppspaceID(7)
 
 	db := v0RoutesGetTestDBHandle(t)
@@ -260,7 +260,7 @@ func v0RoutesGetModel(t *testing.T, mockCtrl *gomock.Controller) *RouteModelV0 {
 	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
 	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
-	r := &RouteModelV0{
+	r := &V0RouteModel{
 		AppspaceMetaDB: appspaceMetaDb,
 		appspaceID:     appspaceID,
 	}

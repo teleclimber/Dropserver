@@ -10,6 +10,7 @@ import (
 
 	"github.com/otiai10/copy"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
@@ -20,6 +21,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -215,15 +217,21 @@ func main() {
 	appspaceRoutes.Init()
 	appspaceStatus.AppspaceRoutes = appspaceRoutes
 
-	revServices := &domain.ReverseServices{
-		Routes: appspaceRouteModels,
+	appspaceDB := &appspacedb.AppspaceDB{
+		Config: runtimeConfig,
 	}
-	devSandboxManager.Services = revServices
+	appspaceDB.Init()
+
+	services := &vxservices.VXServices{
+		RouteModels:  appspaceRouteModels,
+		V0AppspaceDB: appspaceDB.V0}
+
+	devSandboxManager.Services = services
 
 	devSandboxMaker := &DevSandboxMaker{
-		AppspaceLogger:  appspaceLogger,
-		ReverseServices: revServices,
-		Config:          runtimeConfig}
+		AppspaceLogger: appspaceLogger,
+		Services:       services,
+		Config:         runtimeConfig}
 
 	migrateJobController.SandboxMaker = devSandboxMaker
 

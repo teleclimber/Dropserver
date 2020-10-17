@@ -47,13 +47,15 @@ type Task struct {
 	Finished bool //build up with start time, elapsed and any other metadata
 }
 
+// local sandbox service:
 const sandboxService = 11
+
+// remote exec fn service
 const executeService = 12
 
 // MigrateService is for appspace migration
+// presumably remote?
 const MigrateService = 13 // hmm...
-
-const routesService = 14
 
 const execFnCommand = 11
 
@@ -69,7 +71,7 @@ type Sandbox struct {
 	socketsDir      string
 	cmd             *exec.Cmd
 	twine           *twine.Twine
-	services        *domain.ReverseServices
+	services        domain.ReverseServiceI
 	statusMux       sync.Mutex
 	statusSub       map[domain.SandboxStatus][]chan domain.SandboxStatus
 	transport       http.RoundTripper
@@ -80,13 +82,15 @@ type Sandbox struct {
 }
 
 // NewSandbox creates a new sandbox with the passed parameters
-func NewSandbox(sandboxID int, services *domain.ReverseServices, config *domain.RuntimeConfig) *Sandbox {
+func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.Appspace, services domain.ReverseServiceI, config *domain.RuntimeConfig) *Sandbox {
 	newSandbox := &Sandbox{ // <-- this really needs a maker fn of some sort??
-		id:        sandboxID,
-		services:  services,
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:    config}
+		id:         sandboxID,
+		appVersion: appVersion,
+		appspace:   appspace,
+		services:   services,
+		status:     domain.SandboxStarting,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:     config}
 
 	return newSandbox
 }
@@ -98,11 +102,8 @@ func (s *Sandbox) SetInspect(inspect bool) {
 
 // Start Should start() return a channel or something?
 // or should callers just do go start()?
-func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace) error { // TODO: return an error, presumably?
+func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	s.getLogger("Start()").Debug("starting...")
-
-	s.appVersion = appVersion
-	s.appspace = appspace
 
 	logger := s.getLogger("Start()")
 
@@ -112,7 +113,7 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	}
 	s.appspaceLog(logString)
 
-	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, appspace.AppspaceID)
+	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, s.appspace.AppspaceID)
 	if err != nil {
 		s.getLogger(fmt.Sprintf("Start(), makeSocketsDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
@@ -150,12 +151,12 @@ func (s *Sandbox) Start(appVersion *domain.AppVersion, appspace *domain.Appspace
 	}
 	runArgs := []string{
 		"--importmap=" + s.getImportPathFile(),
-		"--allow-read",  // TODO app dir and appspace dir, and sockets
-		"--allow-write", // TODO appspace dir, sockets
-		s.Config.Exec.SandboxRunnerPath,
+		"--allow-read",                  // TODO app dir and appspace dir, and sockets
+		"--allow-write",                 // TODO appspace dir, sockets
+		s.Config.Exec.SandboxRunnerPath, // TODO This should be versioned according to Dropserver API version
 		s.socketsDir,
-		filepath.Join(s.Config.Exec.AppsPath, appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
-		filepath.Join(s.Config.Exec.AppspacesPath, appspace.LocationKey, "files"),
+		filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
+		filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "files"),
 	}
 	denoArgs = append(denoArgs, runArgs...)
 	s.cmd = exec.Command("deno", denoArgs...)
@@ -292,11 +293,8 @@ func (s *Sandbox) listenMessages() {
 		switch message.ServiceID() {
 		case sandboxService:
 			s.handleMessage(message)
-		case routesService:
-			s.services.Routes.Command(s.appspace, message)
 		default:
-			s.getLogger("listenMessages()").Log(fmt.Sprintf("Service not recognized: %v", message.ServiceID()))
-			message.SendError("service not recognized")
+			s.services.HandleMessage(message)
 		}
 	}
 }

@@ -106,7 +106,7 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 
 // Need a stop conn, or some way to automatically shut things off if idle?
 
-func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) {
+func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) { //maybe just pass location key instead of appspace id?
 	appspace, dsErr := mdb.AppspaceModel.GetFromID(appspaceID)
 	if dsErr != nil {
 		setConnError(conn, dsErr.ToStandard())

@@ -12,8 +12,10 @@ type DevSandboxManager struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
 	}
-	Services *domain.ReverseServices
-	Config   *domain.RuntimeConfig
+	Services interface {
+		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	}
+	Config *domain.RuntimeConfig
 
 	sb      domain.SandboxI
 	inspect bool
@@ -39,13 +41,13 @@ func (sM *DevSandboxManager) GetForAppSpace(appVersion *domain.AppVersion, appsp
 }
 
 func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
-	newSandbox := sandbox.NewSandbox(sandboxID, sM.Services, sM.Config)
+	newSandbox := sandbox.NewSandbox(sandboxID, appVersion, appspace, sM.Services.Get(appspace, 0), sM.Config)
 	newSandbox.AppspaceLogger = sM.AppspaceLogger
 	newSandbox.SetInspect(sM.inspect)
 	sM.sb = newSandbox
 
 	go func() {
-		err := newSandbox.Start(appVersion, appspace)
+		err := newSandbox.Start()
 		if err != nil {
 			close(ch)
 			newSandbox.Stop()
@@ -82,9 +84,11 @@ type DevSandboxMaker struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
 	}
-	ReverseServices *domain.ReverseServices
-	Config          *domain.RuntimeConfig
-	inspect         bool
+	Services interface {
+		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	}
+	Config  *domain.RuntimeConfig
+	inspect bool
 }
 
 // here we can potentially add setDebug mode to pass to NewSandbox,
@@ -96,8 +100,8 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 }
 
 // Make a new migration sandbox
-func (m *DevSandboxMaker) Make() domain.SandboxI {
-	s := sandbox.NewSandbox(sandboxID, m.ReverseServices, m.Config)
+func (m *DevSandboxMaker) Make(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
+	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
 	sandboxID++
 	s.AppspaceLogger = m.AppspaceLogger
 	s.SetInspect(m.inspect)

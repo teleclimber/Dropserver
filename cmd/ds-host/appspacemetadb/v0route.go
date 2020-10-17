@@ -21,12 +21,14 @@ const (
 	deleteCmd = 13
 )
 
-// RouteModelV0 responds to requests about appspace routes
+// V0RouteModel responds to requests about appspace routes for an appspace
 // It can cache results (eventually) for rapid reponse times without hitting the DB.
-type RouteModelV0 struct {
+type V0RouteModel struct {
 	Validator      domain.Validator
-	AppspaceMetaDB domain.AppspaceMetaDB
-	appspaceID     domain.AppspaceID
+	AppspaceMetaDB interface {
+		GetConn(domain.AppspaceID) (domain.DbConn, error)
+	}
+	appspaceID domain.AppspaceID
 	//do we need stmts? (I think these should be in the DB obj)
 }
 
@@ -37,16 +39,16 @@ type routeRow struct {
 	Handler string
 }
 
-func (m *RouteModelV0) getDB() (*sqlx.DB, error) {
-	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID)
+func (m *V0RouteModel) getDB() (*sqlx.DB, error) {
+	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID) // pass location key instaed of appspace id
 	if err != nil {
 		return nil, err
 	}
 	return dbConn.GetHandle(), err
 }
 
-// ReverseCommand processes a command and payload from the reverse listener
-func (m *RouteModelV0) ReverseCommand(message twine.ReceivedMessageI) {
+// HandleMessage processes a command and payload from the reverse listener
+func (m *V0RouteModel) HandleMessage(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
 	case createCmd:
 		m.reverseCmdCreate(message)
@@ -62,7 +64,7 @@ func (m *RouteModelV0) ReverseCommand(message twine.ReceivedMessageI) {
 // Generally speaking I think errors should be logged
 // And errors returned might be generic "something bad happened, logged."
 
-func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
+func (m *V0RouteModel) reverseCmdCreate(message twine.ReceivedMessageI) {
 	var data struct {
 		Methods   []string                    `json:"methods"`
 		RoutePath string                      `json:"route-path"`
@@ -88,7 +90,7 @@ func (m *RouteModelV0) reverseCmdCreate(message twine.ReceivedMessageI) {
 
 	message.SendOK()
 }
-func (m *RouteModelV0) reverseCmdDelete(message twine.ReceivedMessageI) {
+func (m *V0RouteModel) reverseCmdDelete(message twine.ReceivedMessageI) {
 	var data struct {
 		Methods   []string `json:"methods"`
 		RoutePath string   `json:"route-path"`
@@ -115,7 +117,7 @@ func (m *RouteModelV0) reverseCmdDelete(message twine.ReceivedMessageI) {
 
 // Create adds a new route to the DB
 // Wonder if I need an "overwrite" flag?
-func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) error { // and more stuff...
+func (m *V0RouteModel) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) error { // and more stuff...
 	rr, err := m.Get(methods, routePath)
 	if err != nil {
 		return err
@@ -175,7 +177,7 @@ func (m *RouteModelV0) Create(methods []string, routePath string, auth domain.Ap
 // Get returns all routes that
 // - match one of the methods passed, and
 // - matches the routePath exactly (no interpolation is done to match sub-paths)
-func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.AppspaceRouteConfig, error) {
+func (m *V0RouteModel) Get(methods []string, routePath string) (*[]domain.AppspaceRouteConfig, error) {
 	var rr []domain.AppspaceRouteConfig //may not work, may need to have interim type to egt from db row, then parse the json columsn
 
 	var mBitz uint16 = 0
@@ -220,7 +222,7 @@ func (m *RouteModelV0) Get(methods []string, routePath string) (*[]domain.Appspa
 // Delete each route that matches a method, and the routePath exactly
 // If a row has multiple methods, the method is removed from the row.
 // If no methods remain, the row is deleted.
-func (m *RouteModelV0) Delete(methods []string, routePath string) error {
+func (m *V0RouteModel) Delete(methods []string, routePath string) error {
 	// To remove methods from existing route
 	// add up all possible method bits
 	// then remove the methods from that.
@@ -265,13 +267,13 @@ func (m *RouteModelV0) Delete(methods []string, routePath string) error {
 // GetAll returns all routes that match parameters passed
 // Not sure of the form of these params yet.
 // Maybe rename to Select or Find
-func (m *RouteModelV0) GetAll() {
+func (m *V0RouteModel) GetAll() {
 
 }
 
 // Match finds the route that should handle the request
 // The path will be broken into parts to find the subset path that matches.
-func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceRouteConfig, error) {
+func (m *V0RouteModel) Match(method string, routePath string) (*domain.AppspaceRouteConfig, error) {
 	mBit, err := v0normalizeMethod(method)
 	if err != nil {
 		return nil, err
@@ -324,8 +326,8 @@ func (m *RouteModelV0) Match(method string, routePath string) (*domain.AppspaceR
 	return &routeConfig, nil
 }
 
-func (m *RouteModelV0) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("RouteModelV0")
+func (m *V0RouteModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("V0RouteModel")
 	if note != "" {
 		r.AddNote(note)
 	}

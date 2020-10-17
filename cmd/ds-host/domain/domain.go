@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,RouteModelV0,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -59,6 +59,9 @@ type RuntimeConfig struct {
 		AppspacesPath       string
 	}
 }
+
+// APIVersion is the Dropserver API version that a dropserver app interacts with
+type APIVersion int
 
 // DB is the global host database handler
 // OK, but it does not need to be wrapped in a struct!
@@ -137,7 +140,7 @@ type SandboxI interface {
 	Status() SandboxStatus
 	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
-	Start(appVersion *AppVersion, appspace *Appspace) error
+	Start() error
 	Stop()
 }
 
@@ -359,12 +362,12 @@ type App struct {
 }
 
 // AppVersion represents a set of app files with a version
-// we also need a DropServerAPI version, that indicates the api the ap is expecting to use to interact with the system.
 type AppVersion struct {
 	AppID       AppID  `db:"app_id"`
 	AppName     string `db:"app_name"`
 	Version     Version
-	Schema      int `db:"schema"` // that is the schema for the app's own data
+	APIVersion  APIVersion `db:"api_version"`
+	Schema      int        `db:"schema"` // that is the schema for the app's own data
 	Created     time.Time
 	LocationKey string `db:"location_key"`
 }
@@ -386,10 +389,11 @@ type Appspace struct {
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName       string  `json:"name"`
-	AppVersion    Version `json:"version"`
-	SchemaVersion int     `json:"schema_version"`
-	Migrations    []int   `json:"migrations"`
+	AppName       string     `json:"name"`
+	AppVersion    Version    `json:"version"`
+	SchemaVersion int        `json:"schema"`
+	APIVersion    APIVersion `json:"api"`
+	Migrations    []int      `json:"migrations"`
 }
 
 // AppspaceDBManager manages connections to appspace databases
@@ -479,9 +483,10 @@ type AppspaceInfoModel interface {
 	SetSchema(int) error
 }
 
-// RouteModelV0 serves route data queries at version 0
-type RouteModelV0 interface {
-	ReverseCommand(message twine.ReceivedMessageI)
+// V0RouteModel serves route data queries at version 0
+type V0RouteModel interface {
+	ReverseServiceI
+
 	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) error
 
 	// Get returns all routes that
@@ -499,21 +504,12 @@ type RouteModelV0 interface {
 
 // AppspaceRouteModels returns models of the desired version
 type AppspaceRouteModels interface {
-	GetV0(AppspaceID) RouteModelV0
-	//HandleRevCmd(appspace *Appspace, cmd uint8, payload *[]byte) // it might be that this needs to be a separarte interface?
+	GetV0(AppspaceID) V0RouteModel
 }
 
-// ReverseServices is a collection of services that an appspace
-// might communicate with while running in a sandbox.
-type ReverseServices struct {
-	Routes ReverseService
-}
-
-// ReverseService is the standard interface called by reverse protocol
-// .. to pass commands on to services.
-type ReverseService interface {
-	Command(appspace *Appspace, message twine.ReceivedMessageI) // pass message id too? Maybe a way to id the sandbox?
-	// also probably Addendum or whatever you want to call it when the message is reused
+// ReverseServiceI is a common interface for reverse services of all versions
+type ReverseServiceI interface {
+	HandleMessage(twine.ReceivedMessageI)
 }
 
 // Events...

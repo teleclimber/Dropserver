@@ -14,6 +14,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 // want to try to test
@@ -47,15 +48,21 @@ func TestIntegration1(t *testing.T) {
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
 
+	appspace := &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}
+	appVersion := &domain.AppVersion{LocationKey: "loc123"}
+
 	metrics := domain.NewMockMetricsI(mockCtrl)
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 
 	tl := &testLogger{
 		t: t}
 
+	services := testmocks.NewMockVXServices(mockCtrl)
+	services.EXPECT().Get(appspace, 0)
 	sM := sandbox.Manager{
+		Services:       services,
 		AppspaceLogger: tl,
-		Config:         cfg} //create with convenient data
+		Config:         cfg}
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: &sM,
@@ -67,8 +74,8 @@ func TestIntegration1(t *testing.T) {
 		URLTail:    "/abc",           // parametrize
 		Subdomains: &[]string{"as1"}, // parametrize, or override in test fn.
 		App:        &domain.App{Name: "app1"},
-		AppVersion: &domain.AppVersion{LocationKey: "loc123"},
-		Appspace:   &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
+		AppVersion: appVersion,
+		Appspace:   appspace,
 		RouteConfig: &domain.AppspaceRouteConfig{
 			Handler: domain.AppspaceRouteHandler{
 				File:     "@app/hello.js",

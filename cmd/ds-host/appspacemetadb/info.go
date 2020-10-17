@@ -64,7 +64,7 @@ type InfoModel struct {
 func (m *InfoModel) getDB() (*sqlx.DB, error) {
 	// should probably cache that? Maybe?
 	// -> OK, but need to contend with possibility that the conn gets shut down.
-	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID)
+	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID) // use location key instead of apspace id
 	if err != nil {
 		return nil, err
 	}

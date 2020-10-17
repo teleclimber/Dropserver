@@ -10,28 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
-
-func TestMakeArgs(t *testing.T) {
-	args := make([]interface{}, 1)
-	//param := interface{}(float64(7))
-	param := float64(7)
-
-	dsErr := makeArg(&args, 0, param, "")
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	val := (args[0]).(sql.NamedArg).Value
-	if float, ok := (val).(float64); !ok {
-		t.Error("expected float 64")
-	} else if float != 7 {
-		t.Errorf("expected value of 7, got %v", float)
-	}
-
-	// TODO test more types
-}
 
 func TestScanRows(t *testing.T) {
 	handle, err := sql.Open("sqlite3", ":memory:")
@@ -85,9 +65,9 @@ func TestScanRows(t *testing.T) {
 		t.Error(err)
 	}
 
-	scanned, dsErr := scanRows(rows)
-	if dsErr != nil {
-		t.Error(dsErr)
+	scanned, err := scanRows(rows)
+	if err != nil {
+		t.Error(err)
 	}
 	rows.Close()
 
@@ -123,22 +103,22 @@ func TestExec(t *testing.T) {
 		statements: make(map[string]*sql.Stmt),
 	}
 
-	stmt, dsErr := dbc.getStatement(`CREATE TABLE "apps" (
+	stmt, err := dbc.getStatement(`CREATE TABLE "apps" (
 		"owner_id" INTEGER,
 		"app_id" INTEGER PRIMARY KEY ASC,
 		"name" TEXT,
 		"created" DATETIME,
 		"usage" REAL
 	)`)
-	if dsErr != nil {
-		t.Error(dsErr)
+	if err != nil {
+		t.Error(err)
 	}
 
 	args := make([]interface{}, 0)
 
-	jsonBytes, dsErr := dbc.exec(stmt, &args)
-	if dsErr != nil {
-		t.Error(dsErr)
+	jsonBytes, err := dbc.exec(stmt, &args)
+	if err != nil {
+		t.Error(err)
 	}
 
 	var createResults results
@@ -147,9 +127,9 @@ func TestExec(t *testing.T) {
 		t.Error(err)
 	}
 
-	stmt, dsErr = dbc.getStatement(`INSERT INTO apps VALUES (?, ?, ?, datetime("now"), ?)`)
-	if dsErr != nil {
-		t.Error(dsErr)
+	stmt, err = dbc.getStatement(`INSERT INTO apps VALUES (?, ?, ?, datetime("now"), ?)`)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// TODO: test row insert
@@ -158,9 +138,9 @@ func TestExec(t *testing.T) {
 		sql.Named("", float64(7)),
 		sql.Named("", "some app"),
 		sql.Named("", float64(999.9))}
-	jsonBytes, dsErr = dbc.exec(stmt, &args)
-	if dsErr != nil {
-		t.Error(dsErr)
+	jsonBytes, err = dbc.exec(stmt, &args)
+	if err != nil {
+		t.Error(err)
 	}
 
 	var insResults results
@@ -206,14 +186,14 @@ func TestQuery(t *testing.T) {
 		statements: make(map[string]*sql.Stmt),
 	}
 
-	stmt, dsErr := dbc.getStatement("SELECT * FROM apps WHERE app_id = ? ORDER BY owner_id ")
-	if dsErr != nil {
-		t.Error(dsErr)
+	stmt, err := dbc.getStatement("SELECT * FROM apps WHERE app_id = ? ORDER BY owner_id ")
+	if err != nil {
+		t.Error(err)
 	}
 
-	jsonBytes, dsErr := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
-	if dsErr != nil {
-		t.Error(dsErr)
+	jsonBytes, err := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
+	if err != nil {
+		t.Error(err)
 	}
 
 	jsonStr := string(jsonBytes[:])
@@ -234,53 +214,53 @@ func TestNamedParams(t *testing.T) {
 		statements: make(map[string]*sql.Stmt),
 	}
 
-	stmt, dsErr := dbc.getStatement(`CREATE TABLE "apps" (
+	stmt, err := dbc.getStatement(`CREATE TABLE "apps" (
 		"owner_id" INTEGER,
 		"app_id" INTEGER PRIMARY KEY ASC,
 		"name" TEXT,
 		"created" DATETIME,
 		"usage" REAL
 	)`)
-	if dsErr != nil {
-		t.Error(dsErr)
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = dbc.exec(stmt, &[]interface{}{})
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err = dbc.exec(stmt, &[]interface{}{})
+	if err != nil {
+		t.Error(err)
 	}
 
-	insStmt, dsErr := dbc.getStatement(`INSERT INTO apps VALUES (:owner_id, :app_id, :name, datetime("now"), :usage)`)
-	if dsErr != nil {
-		t.Error(dsErr)
+	insStmt, err := dbc.getStatement(`INSERT INTO apps VALUES (:owner_id, :app_id, :name, datetime("now"), :usage)`)
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, &[]interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		sql.Named("name", "some app"),
 		sql.Named("owner_id", 1)})
-	if dsErr != nil {
-		t.Error(dsErr)
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, &[]interface{}{
 		sql.Named("app_id", 11),
 		sql.Named("usage", 77.77),
 		sql.Named("name", "another app"),
 		sql.Named("owner_id", 2)})
-	if dsErr != nil {
-		t.Error(dsErr)
+	if err != nil {
+		t.Error(err)
 	}
 
-	stmt, dsErr = dbc.getStatement("SELECT * FROM apps WHERE app_id = ? ORDER BY owner_id ")
-	if dsErr != nil {
-		t.Error(dsErr)
+	stmt, err = dbc.getStatement("SELECT * FROM apps WHERE app_id = ? ORDER BY owner_id ")
+	if err != nil {
+		t.Error(err)
 	}
 
-	jsonBytes, dsErr := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
-	if dsErr != nil {
-		t.Error(dsErr)
+	jsonBytes, err := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
+	if err != nil {
+		t.Error(err)
 	}
 
 	jsonStr := string(jsonBytes[:])
@@ -290,89 +270,31 @@ func TestNamedParams(t *testing.T) {
 	}
 
 	// test bad param lists
-	_, dsErr = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, &[]interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		//sql.Named("name", "some app"),
 		sql.Named("owner_id", 1)})
-	if dsErr == nil {
+	if err == nil {
 		t.Error("expected an error for missing a parameter")
 	}
 
-	_, dsErr = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, &[]interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		sql.Named("nameZZZ", "some app"),
 		sql.Named("owner_id", 1)})
-	if dsErr == nil {
+	if err == nil {
 		t.Error("expected an error for non-existent nameZZZ parameter")
 	}
 
-	_, dsErr = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, &[]interface{}{
 		sql.Named("app_id", "foo"), // string as number
 		sql.Named("usage", 999.9),
 		sql.Named("name", "some app"),
 		sql.Named("owner_id", 1)})
-	if dsErr == nil {
+	if err == nil {
 		t.Error("expected an error for wrong type parameter")
-	}
-}
-
-func TestRun(t *testing.T) {
-	handle, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		panic("Failed to open in-memory DB " + err.Error())
-	}
-
-	dbc := &dbConn{
-		handle:     handle,
-		statements: make(map[string]*sql.Stmt),
-	}
-
-	qd := QueryData{
-		SQL: `CREATE TABLE "apps" (
-			"owner_id" INTEGER,
-			"app_id" INTEGER PRIMARY KEY ASC,
-			"name" TEXT,
-			"created" DATETIME,
-			"usage" REAL
-		)`,
-		Type: "exec"}
-
-	_, dsErr := dbc.run(&qd)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	qd = QueryData{
-		SQL:    `INSERT INTO apps VALUES (?, ?, ?, datetime("now"),?)`,
-		Type:   "exec",
-		Params: []interface{}{float64(1), float64(7), "some app", 77.77}}
-	_, dsErr = dbc.run(&qd)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	qd.Params = []interface{}{float64(1), float64(11), "some other app", 999.9}
-	_, dsErr = dbc.run(&qd)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	np := make(map[string]interface{})
-	np["app_id"] = float64(11)
-	qd = QueryData{
-		SQL:         `SELECT * FROM apps WHERE app_id = :app_id`,
-		Type:        "query",
-		NamedParams: np}
-	jsonBytes, dsErr := dbc.run(&qd)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	jsonStr := string(jsonBytes[:])
-	if !strings.Contains(jsonStr, `"usage":999.9`) {
-		t.Errorf("json should contain substring. json: %v", jsonStr)
 	}
 }
 
@@ -384,8 +306,8 @@ func TestOpenNoDB(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	_, dsErr := openConn(dir, "test", false)
-	if dsErr == nil { // actually it should error!
+	_, err = openConn(dir, "test", false)
+	if err == nil { // actually it should error!
 		t.Error("Should have failed to open non existent DB")
 	}
 }
@@ -397,9 +319,9 @@ func TestCreate(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	dsc, dsErr := openConn(dir, "test", true)
-	if dsErr != nil {
-		t.Error(dsErr)
+	dsc, err := openConn(dir, "test", true)
+	if err != nil {
+		t.Error(err)
 	}
 	defer dsc.close()
 }
@@ -417,12 +339,150 @@ func TestCreateExists(t *testing.T) {
 	}
 	emptyFile.Close()
 
-	_, dsErr := openConn(dir, "test", true)
-	if dsErr == nil {
+	_, err = openConn(dir, "test", true)
+	if err == nil {
 		t.Error("should have errored trying to create pre-existing file")
-	} else if dsErr.Code() != dserror.AppspaceDBFileExists {
-		t.Error("wrong error")
 	}
+	// else if err.Code() != error.AppspaceDBFileExists { //TODO create sentinel error?
+	// 	t.Error("wrong error")
+	// }
+}
+
+// copie dfrom appspace db tests:
+
+func TestStartConn(t *testing.T) {
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
+	defer os.RemoveAll(dir)
+
+	appspaceID := domain.AppspaceID(13)
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	key := connsKey{
+		appspaceID: appspaceID,
+		dbName:     "test",
+	}
+
+	readyChan := make(chan struct{})
+	c := &connsVal{
+		readySub: []chan struct{}{readyChan},
+	}
+
+	go m.startConn(key, loc, c, false)
+
+	_ = <-readyChan
+
+	if c.connError != nil {
+		t.Error(c.connError)
+	}
+	if c.dbConn == nil {
+		t.Error("there should be a dbConn")
+	}
+
+	c.dbConn.close()
+}
+
+// also do a startConn that triggers an error
+
+func TestGetConn(t *testing.T) {
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
+	defer os.RemoveAll(dir)
+
+	appspaceID := domain.AppspaceID(13)
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	c := m.getConn(appspaceID, loc, "test")
+
+	if c.connError != nil {
+		t.Error(c.connError)
+	}
+	if c.dbConn == nil {
+		t.Error("there should be a dbConn")
+	}
+
+	c.dbConn.close()
+}
+
+// TODO: do a TestGetConnError
+
+// Test that a second request for DB that comes in before the DB is ready
+// works OK by receivng the conn when it's ready
+func TestGetConnSecondOverlap(t *testing.T) {
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
+
+	defer os.RemoveAll(dir)
+
+	appspaceID := domain.AppspaceID(13)
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	key := connsKey{
+		appspaceID: appspaceID,
+		dbName:     "test",
+	}
+
+	readyChan := make(chan struct{})
+	c1 := &connsVal{
+		liveRequests: 10,
+		readySub:     []chan struct{}{readyChan},
+	}
+	m.connsMux.Lock()
+	m.conns[key] = c1
+	m.connsMux.Unlock()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		c1.statusMux.Lock()
+		for _, ch := range c1.readySub {
+			close(ch)
+		}
+		c1.statusMux.Unlock()
+	}()
+
+	c := m.getConn(appspaceID, loc, "test")
+
+	// test that live requests was incremented to 11,
+	// which indicates both attempts to get conn return the same conn
+	if c.liveRequests != 11 {
+		t.Error("expected live requests to be 11")
+	}
+
+}
+
+func TestGetConnSecond(t *testing.T) {
+	loc := "abc"
+	dir := makeAppspaceDB(t, loc)
+	defer os.RemoveAll(dir)
+
+	appspaceID := domain.AppspaceID(13)
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	c1 := m.getConn(appspaceID, loc, "test")
+
+	c2 := m.getConn(appspaceID, loc, "test")
+
+	if c1 != c2 {
+		t.Error("should be the same conn")
+	}
+	if c1.connError != nil {
+		t.Error("should not be an error")
+	}
+	if c1.dbConn == nil {
+		t.Error("there should be a db conn")
+	}
+	if c2.liveRequests != 2 {
+		t.Error("expected live requests to be 2")
+	}
+
 }
 
 // TODO: need a test open when there is a DB
@@ -479,4 +539,35 @@ func dateType(t *testing.T, val interface{}) {
 	if s == zero {
 		t.Errorf("Got zero value for time")
 	}
+}
+
+func makeAppspaceDB(t *testing.T, locationKey string) string {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	asDir := filepath.Join(dir, locationKey)
+
+	err = os.Mkdir(asDir, 0700)
+	if err != nil {
+		t.Error(err)
+	}
+
+	dsn := filepath.Join(asDir, "test.db?mode=rwc")
+
+	handle, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Error(err)
+	}
+	err = handle.Ping()
+	if err != nil {
+		t.Error(err)
+	}
+	err = handle.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	return dir
 }

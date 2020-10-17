@@ -34,15 +34,15 @@ func (m *MockSandboxMakerI) EXPECT() *MockSandboxMakerIMockRecorder {
 }
 
 // Make mocks base method
-func (m *MockSandboxMakerI) Make() domain.SandboxI {
+func (m *MockSandboxMakerI) Make(arg0 *domain.AppVersion, arg1 *domain.Appspace) domain.SandboxI {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Make")
+	ret := m.ctrl.Call(m, "Make", arg0, arg1)
 	ret0, _ := ret[0].(domain.SandboxI)
 	return ret0
 }
 
 // Make indicates an expected call of Make
-func (mr *MockSandboxMakerIMockRecorder) Make() *gomock.Call {
+func (mr *MockSandboxMakerIMockRecorder) Make(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Make", reflect.TypeOf((*MockSandboxMakerI)(nil).Make))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Make", reflect.TypeOf((*MockSandboxMakerI)(nil).Make), arg0, arg1)
 }

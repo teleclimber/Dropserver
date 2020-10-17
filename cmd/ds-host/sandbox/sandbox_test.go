@@ -180,15 +180,14 @@ func TestRunnerScriptError(t *testing.T) {
 	cfg.Exec.AppspacesPath = dir
 
 	s := &Sandbox{
-		id:        7,
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:    cfg}
+		id:         7,
+		appVersion: &domain.AppVersion{},
+		appspace:   &domain.Appspace{},
+		status:     domain.SandboxStarting,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:     cfg}
 
-	appVersion := &domain.AppVersion{}
-	appspace := &domain.Appspace{}
-
-	err = s.Start(appVersion, appspace)
+	err = s.Start()
 	if err == nil {
 		t.Error("expected error from sandbox")
 	}
@@ -238,7 +237,7 @@ func TestStart(t *testing.T) {
 		AppspaceLogger: log,
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start(appVersion, appspace)
+	err = s.Start()
 	if err != nil {
 		t.Error(err)
 		s.Stop()
@@ -300,7 +299,7 @@ func TestExecFn(t *testing.T) {
 		AppspaceLogger: &testLogger{t},
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start(appVersion, appspace)
+	err = s.Start()
 	if err != nil {
 		s.Stop()
 		t.Error(err)
@@ -363,7 +362,7 @@ func TestExecForbiddenImport(t *testing.T) {
 		Config:     cfg,
 		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start(appVersion, appspace)
+	err = s.Start()
 	if err != nil {
 		s.Stop()
 		t.Error(err)

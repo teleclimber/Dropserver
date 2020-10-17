@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
+	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -54,8 +56,12 @@ func TestSandboxExecFn(t *testing.T) {
 		AppspaceID:  13,
 		LocationKey: "appspace-location"}
 
+	services := testmocks.NewMockVXServices(mockCtrl)
+	services.EXPECT().Get(&appspace, 0)
+
 	sM := sandbox.Manager{
-		Config: cfg}
+		Services: services,
+		Config:   cfg}
 
 	sM.Init()
 
@@ -127,12 +133,16 @@ func TestSandboxCreateRoute(t *testing.T) {
 		Validator:      v}
 	appspaceRouteModels.Init()
 
-	revServices := &domain.ReverseServices{
-		Routes: appspaceRouteModels,
-	}
+	appspaceDB := &appspacedb.AppspaceDB{
+		Config: cfg}
+	appspaceDB.Init()
+
+	services := &vxservices.VXServices{
+		RouteModels:  appspaceRouteModels,
+		V0AppspaceDB: appspaceDB.V0}
 
 	sM := sandbox.Manager{
-		Services: revServices,
+		Services: services,
 		Config:   cfg}
 
 	appVersion := domain.AppVersion{
