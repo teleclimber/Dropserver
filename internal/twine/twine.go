@@ -403,8 +403,9 @@ func (t *Twine) Reply(msgID int, cmd int, payload []byte) error {
 		return errors.New("reply channel closed before reply")
 	}
 
+	// TODO: should this not unregister the message?
+
 	// TODO: check reply for errors
-	//reply.
 
 	return nil
 }

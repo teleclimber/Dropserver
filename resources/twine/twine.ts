@@ -299,7 +299,7 @@ export default class Twine {
 	}
 
 	async replyOKClose(msgID :number) {
-		this.msgReg.assertMsgIDRemote(msgID);
+		this.msgReg.assertMsgIDRange(msgID);
 			
 		const msgData = this.msgReg.getMessageData(msgID);
 
@@ -319,7 +319,7 @@ export default class Twine {
 	}
 
 	async replyErrorClose(msgID :number, err_str:string) {
-		this.msgReg.assertMsgIDRemote(msgID);
+		this.msgReg.assertMsgIDRange(msgID);
 			
 		const msgData = this.msgReg.getMessageData(msgID);
 

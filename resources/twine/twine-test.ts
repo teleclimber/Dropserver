@@ -164,11 +164,59 @@ Deno.test({
 
 		console.log("after start client");
 
-		let reply = await twine_server.sendBlock(7, 11, new TextEncoder().encode("test payload numero uno"));
+		const replyP1 = twine_server.sendBlock(7, 11, new TextEncoder().encode("test payload numero uno"));
+		const replyP2 = twine_server.sendBlock(7, 12, new TextEncoder().encode("test payload numero dos"));
+
+		let reply = await replyP1;
+		assert(reply.ok);
+		reply = await replyP2;
 		assert(reply.ok);
 
-		reply = await twine_server.sendBlock(7, 12, new TextEncoder().encode("test payload numero dos"));
-		assert(reply.ok);
+		console.log("got OK");
+
+		await twine_server.graceful();
+
+		await Deno.remove(temp_dir, {recursive: true});
+	}
+});
+
+
+Deno.test({
+	name: "hi, messages with reply and ok, from server, graceful",
+	//ignore: true,
+	fn: async () => {
+		const temp_dir = await Deno.makeTempDir();
+		const sock_path = path.join(temp_dir, "test.sock");
+
+		const twine_client = new Twine(sock_path, false);
+		const twine_server = new Twine(sock_path, true);
+
+		const server_start = twine_server.startServer();
+		await twine_client.startClient();
+		await server_start;
+
+		(async function() {
+			for await (const message of twine_client.incomingMessages()) {
+				console.log("got message");
+				assertEquals(7, message.service);
+				message.reply(77, undefined);
+			}
+		})();
+
+		console.log("after start client");
+
+		const replyP1 = twine_server.sendBlock(7, 11, new TextEncoder().encode("test payload numero uno"));
+		const replyP2 = twine_server.sendBlock(7, 12, new TextEncoder().encode("test payload numero dos"));
+
+		let reply = await replyP1;
+		//assert(reply.ok);
+		assertEquals(reply.command, 77);
+		reply.sendOK();
+
+		reply = await replyP2;
+		//assert(reply.ok);
+		assertEquals(reply.command, 77);
+		reply.sendOK();
 
 		console.log("got OK");
 
