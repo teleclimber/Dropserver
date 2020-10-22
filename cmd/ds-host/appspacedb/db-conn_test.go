@@ -116,7 +116,7 @@ func TestExec(t *testing.T) {
 
 	args := make([]interface{}, 0)
 
-	jsonBytes, err := dbc.exec(stmt, &args)
+	jsonBytes, err := dbc.exec(stmt, args)
 	if err != nil {
 		t.Error(err)
 	}
@@ -138,7 +138,7 @@ func TestExec(t *testing.T) {
 		sql.Named("", float64(7)),
 		sql.Named("", "some app"),
 		sql.Named("", float64(999.9))}
-	jsonBytes, err = dbc.exec(stmt, &args)
+	jsonBytes, err = dbc.exec(stmt, args)
 	if err != nil {
 		t.Error(err)
 	}
@@ -191,7 +191,7 @@ func TestQuery(t *testing.T) {
 		t.Error(err)
 	}
 
-	jsonBytes, err := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
+	jsonBytes, err := dbc.query(stmt, []interface{}{sql.Named("", float64(11))})
 	if err != nil {
 		t.Error(err)
 	}
@@ -225,7 +225,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = dbc.exec(stmt, &[]interface{}{})
+	_, err = dbc.exec(stmt, []interface{}{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -235,7 +235,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, []interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		sql.Named("name", "some app"),
@@ -244,7 +244,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, []interface{}{
 		sql.Named("app_id", 11),
 		sql.Named("usage", 77.77),
 		sql.Named("name", "another app"),
@@ -258,7 +258,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error(err)
 	}
 
-	jsonBytes, err := dbc.query(stmt, &[]interface{}{sql.Named("", float64(11))})
+	jsonBytes, err := dbc.query(stmt, []interface{}{sql.Named("", float64(11))})
 	if err != nil {
 		t.Error(err)
 	}
@@ -270,7 +270,7 @@ func TestNamedParams(t *testing.T) {
 	}
 
 	// test bad param lists
-	_, err = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, []interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		//sql.Named("name", "some app"),
@@ -279,7 +279,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error("expected an error for missing a parameter")
 	}
 
-	_, err = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, []interface{}{
 		sql.Named("app_id", 7),
 		sql.Named("usage", 999.9),
 		sql.Named("nameZZZ", "some app"),
@@ -288,7 +288,7 @@ func TestNamedParams(t *testing.T) {
 		t.Error("expected an error for non-existent nameZZZ parameter")
 	}
 
-	_, err = dbc.exec(insStmt, &[]interface{}{
+	_, err = dbc.exec(insStmt, []interface{}{
 		sql.Named("app_id", "foo"), // string as number
 		sql.Named("usage", 999.9),
 		sql.Named("name", "some app"),
@@ -348,7 +348,27 @@ func TestCreateExists(t *testing.T) {
 	// }
 }
 
-// copie dfrom appspace db tests:
+func TestCreateDB(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	err = os.MkdirAll(filepath.Join(dir, "abc-loc"), 0700)
+	if err != nil {
+		t.Error(err)
+	}
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	_, err = m.createDB(domain.AppspaceID(7), "abc-loc", "test-db")
+	if err != nil {
+		t.Error(err)
+	}
+
+}
 
 func TestStartConn(t *testing.T) {
 	loc := "abc"

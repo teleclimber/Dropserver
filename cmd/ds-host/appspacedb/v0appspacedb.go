@@ -4,28 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
-
-// Wonder if this should be entirely functional?
-// pass a conn and a packaged request to a handler
-
-// But what about Twine handler?
-
-//
-
-// V0QueryData is the structure expected when Posting a DB request
-// TODO This probably needs to go in domain?
-type V0QueryData struct {
-	// AppspaceID  domain.AppspaceID      `json:"appspace_id`
-	// DBName      string                 `json:"db_name"`
-	Type        string                 `json:"type"` // "query" or "exec"
-	SQL         string                 `json:"sql"`
-	Params      []interface{}          `json:"params"`
-	NamedParams map[string]interface{} `json:"named_params"`
-}
 
 type results struct { // this is vX api-specific stuff
 	LastInsertID int64 `json:"last_insert_id"`
@@ -35,6 +19,7 @@ type results struct { // this is vX api-specific stuff
 // V0 is the appspace db interface at dropserver API version 0
 type V0 struct {
 	connManager interface {
+		createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error)
 		getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal
 	}
 }
@@ -43,8 +28,7 @@ type V0 struct {
 func (v *V0) GetService(appspace *domain.Appspace) domain.ReverseServiceI {
 	service := &V0Service{
 		connManager: v.connManager,
-		appspace:    appspace,
-		dbs:         make(map[string]*dbConn)}
+		appspace:    appspace}
 
 	return service
 }
@@ -54,7 +38,7 @@ func (v *V0) GetService(appspace *domain.Appspace) domain.ReverseServiceI {
 // How do we enable sending back a series of row datas, or something like that?
 // Returning a []byte seems a bit contrived.
 // Maybe an additional parameter? Or....?
-func (v *V0) Run(appspace *domain.Appspace, dbName string, qData V0QueryData) ([]byte, error) {
+func (v *V0) Run(appspace *domain.Appspace, dbName string, qData domain.V0AppspaceDBQuery) ([]byte, error) {
 	conn, err := v.getConn(appspace, dbName)
 	if err != nil {
 		return nil, err
@@ -65,8 +49,128 @@ func (v *V0) Run(appspace *domain.Appspace, dbName string, qData V0QueryData) ([
 		return nil, err
 	}
 
-	var args []interface{}
-	var makeArgErr error
+	args, err := v0makeArgs(qData)
+	if err != nil {
+		return nil, err
+	}
+
+	if qData.Type == "query" {
+		return conn.query(stmt, args)
+	}
+	return conn.exec(stmt, args)
+}
+
+func (v *V0) getConn(appspace *domain.Appspace, dbName string) (*dbConn, error) {
+	connVal := v.connManager.getConn(appspace.AppspaceID, appspace.LocationKey, dbName)
+	if connVal.connError != nil {
+		return nil, connVal.connError
+	}
+	return connVal.dbConn, nil
+}
+
+// V0Service is a twine service for a given appspace.
+type V0Service struct {
+	connManager interface {
+		createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error)
+		getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal
+	}
+	appspace *domain.Appspace
+}
+
+const v0createDBCommand = 11
+const v0queryDBCommand = 12
+
+// HandleMessage takes a twine message and performs the desired op
+func (s *V0Service) HandleMessage(message twine.ReceivedMessageI) {
+	switch message.CommandID() {
+	case v0createDBCommand:
+		s.handleCreateDB(message)
+	case v0queryDBCommand:
+		s.handleQueryDB(message)
+	default:
+		message.SendError("appspace db command not recognized")
+	}
+}
+
+// createDbData is the daata structure for creating a new database file
+// add type for db type (sql, kv, ...)
+type createDbData struct {
+	DBName string `json:"db_name"`
+}
+
+func (s *V0Service) handleCreateDB(message twine.ReceivedMessageI) {
+	var data createDbData
+	err := json.Unmarshal(message.Payload(), &data)
+	if err != nil {
+		message.SendError("failed to decode query data json: " + err.Error())
+		return
+	}
+
+	validator := &validator.Validator{}
+	validator.Init()
+
+	dbName := strings.ToLower(data.DBName)
+	dsErr := validator.DBName(dbName)
+	if dsErr != nil {
+		message.SendError("failed to decode query data json: " + dsErr.PublicString())
+		return
+	}
+
+	_, err = s.connManager.createDB(s.appspace.AppspaceID, s.appspace.LocationKey, dbName)
+	if err != nil {
+		message.SendError(fmt.Sprintf("failed to create DB: %s", err.Error()))
+		return
+	}
+
+	message.SendOK()
+}
+
+func (s *V0Service) handleQueryDB(message twine.ReceivedMessageI) {
+	var qData domain.V0AppspaceDBQuery
+	err := json.Unmarshal(message.Payload(), &qData)
+	if err != nil {
+		message.SendError("failed to decode query data json: " + err.Error())
+		return
+	}
+
+	connVal := s.connManager.getConn(s.appspace.AppspaceID, s.appspace.LocationKey, qData.DBName)
+	if connVal.connError != nil {
+		message.SendError(fmt.Sprintf("failed to get appspace db connection for db name %s: %s", qData.DBName, err.Error()))
+		return
+	}
+
+	stmt, err := connVal.dbConn.getStatement(qData.SQL)
+	if err != nil {
+		message.SendError(fmt.Sprintf("failed to prepare statement \"%s\": %s", qData.SQL, err.Error()))
+		return
+	}
+
+	args, err := v0makeArgs(qData)
+	if err != nil {
+		message.SendError(fmt.Sprintf("failed to make args %s", err.Error()))
+		return
+	}
+
+	var result []byte
+	if qData.Type == "query" {
+		result, err = connVal.dbConn.query(stmt, args)
+	} else if qData.Type == "exec" {
+		result, err = connVal.dbConn.exec(stmt, args)
+	} else {
+		message.SendError(fmt.Sprintf("bad appspace query data type: %s", qData.Type))
+		return
+	}
+	if err != nil {
+		message.SendError(fmt.Sprintf("failed to %s on appspace DB %s: %s", qData.Type, qData.DBName, err.Error()))
+		return
+	}
+
+	message.Reply(0, result)
+
+	fmt.Println("message.Reply(0, result) has returned")
+}
+
+func v0makeArgs(qData domain.V0AppspaceDBQuery) (args []interface{}, makeArgErr error) {
 	if qData.NamedParams != nil {
 		args = make([]interface{}, len(qData.NamedParams))
 		index := 0
@@ -87,7 +191,7 @@ func (v *V0) Run(appspace *domain.Appspace, dbName string, qData V0QueryData) ([
 		}
 	}
 	if makeArgErr != nil {
-		return nil, makeArgErr
+		return
 	}
 
 	ifs := make([]interface{}, len(args))
@@ -95,35 +199,7 @@ func (v *V0) Run(appspace *domain.Appspace, dbName string, qData V0QueryData) ([
 		ifs[i] = args[i]
 	}
 
-	if qData.Type == "query" {
-		return conn.query(stmt, &ifs)
-	}
-	return conn.exec(stmt, &ifs)
-}
-
-func (v *V0) getConn(appspace *domain.Appspace, dbName string) (*dbConn, error) {
-	connVal := v.connManager.getConn(appspace.AppspaceID, appspace.LocationKey, dbName)
-	if connVal.connError != nil {
-		return nil, connVal.connError
-	}
-	return connVal.dbConn, nil
-}
-
-// V0Service is a twine service for a given appspace.
-type V0Service struct {
-	connManager interface {
-		getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal
-	}
-	appspace *domain.Appspace
-	dbs      map[string]*dbConn // need one per DB
-}
-
-// HandleMessage takes a twine message and performs the desired op
-func (s *V0Service) HandleMessage(message twine.ReceivedMessageI) {
-
-	// message should include db name
-	// .. so check if it's in map or get it and stash it.
-
+	return
 }
 
 func v0makeArg(args *[]interface{}, index int, param interface{}, name string) error {
@@ -147,8 +223,8 @@ func v0makeArg(args *[]interface{}, index int, param interface{}, name string) e
 	return nil
 }
 
-func v0queryDataFromJSON(jsonBytes []byte) (*V0QueryData, error) {
-	var data V0QueryData
+func v0queryDataFromJSON(jsonBytes []byte) (*domain.V0AppspaceDBQuery, error) {
+	var data domain.V0AppspaceDBQuery
 	err := json.Unmarshal(jsonBytes, &data)
 	if err != nil {
 		return nil, fmt.Errorf("Appspace DB Query Error: Failed to parse JSON query data: %s", err.Error())

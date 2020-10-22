@@ -83,6 +83,12 @@ func main() {
 		panic(err)
 	}
 
+	socketsDir := filepath.Join(tempDir, "sockets")
+	err = os.MkdirAll(appspaceWorkingDir, 0744)
+	if err != nil {
+		panic(err)
+	}
+
 	// events:
 	appspacePausedEvents := &events.AppspacePausedEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
@@ -90,6 +96,7 @@ func main() {
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 
 	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
+	runtimeConfig.Sandbox.SocketsDir = socketsDir
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
 		Config: runtimeConfig,

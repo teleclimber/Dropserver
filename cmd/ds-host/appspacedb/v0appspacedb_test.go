@@ -2,10 +2,17 @@ package appspacedb
 
 import (
 	"database/sql"
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	matchers "github.com/Storytel/gomock-matchers"
+	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 func TestMakeArgs(t *testing.T) {
@@ -162,7 +169,7 @@ func TestRun(t *testing.T) {
 		connManager: &singleConnManager{},
 	}
 
-	qd := V0QueryData{
+	qd := domain.V0AppspaceDBQuery{
 		SQL: `CREATE TABLE "apps" (
 			"owner_id" INTEGER,
 			"app_id" INTEGER PRIMARY KEY ASC,
@@ -177,7 +184,7 @@ func TestRun(t *testing.T) {
 		t.Error(err)
 	}
 
-	qd = V0QueryData{
+	qd = domain.V0AppspaceDBQuery{
 		SQL:    `INSERT INTO apps VALUES (?, ?, ?, datetime("now"),?)`,
 		Type:   "exec",
 		Params: []interface{}{float64(1), float64(7), "some app", 77.77}}
@@ -194,7 +201,7 @@ func TestRun(t *testing.T) {
 
 	np := make(map[string]interface{})
 	np["app_id"] = float64(11)
-	qd = V0QueryData{
+	qd = domain.V0AppspaceDBQuery{
 		SQL:         `SELECT * FROM apps WHERE app_id = :app_id`,
 		Type:        "query",
 		NamedParams: np}
@@ -209,11 +216,128 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestTwineCreateDBHandler(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	locationKey := "abc-loc"
+
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	err = os.MkdirAll(filepath.Join(dir, locationKey), 0700)
+	if err != nil {
+		t.Error(err)
+	}
+
+	m := &ConnManager{}
+	m.Init(dir)
+
+	v0 := &V0{
+		connManager: m}
+
+	appspace := &domain.Appspace{}
+
+	service := v0.GetService(appspace)
+
+	payload, err := json.Marshal(createDbData{DBName: "testdb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := twine.NewMockReceivedMessageI(mockCtrl)
+	message.EXPECT().CommandID().Return(v0createDBCommand)
+	message.EXPECT().Payload().Return(payload)
+	message.EXPECT().SendOK()
+
+	service.HandleMessage(message)
+
+	// now you should be able to operate on the DB:
+	payload, err = json.Marshal(domain.V0AppspaceDBQuery{
+		DBName: "testdb",
+		SQL: `CREATE TABLE "clients" (
+			"client_id" INTEGER PRIMARY KEY ASC,
+			"name" TEXT,
+			"created" DATETIME
+		)`,
+		Type: "exec"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payloadMatcher := matchers.Record(gomock.Any())
+
+	message = twine.NewMockReceivedMessageI(mockCtrl)
+	message.EXPECT().CommandID().Return(v0queryDBCommand)
+	message.EXPECT().Payload().Return(payload)
+	message.EXPECT().Reply(0, payloadMatcher)
+
+	service.HandleMessage(message)
+
+	p := payloadMatcher.Get().([]byte)
+	payloadStr := string(p[:])
+	if !strings.Contains(payloadStr, "rows_affected") {
+		t.Error("payload should contain oscar")
+	}
+
+}
+
+func TestTwineQueryHandler(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspace := &domain.Appspace{}
+
+	connManager := &singleConnManager{}
+
+	v0 := &V0{
+		connManager: connManager}
+
+	connManager.prepExec(`CREATE TABLE "clients" (
+		"client_id" INTEGER PRIMARY KEY ASC,
+		"name" TEXT,
+		"created" DATETIME
+	)`)
+	connManager.prepExec(`INSERT INTO clients (name, created) VALUES ("oscar", datetime("now"))`)
+
+	service := v0.GetService(appspace)
+
+	payload, err := json.Marshal(domain.V0AppspaceDBQuery{
+		SQL:  `SELECT * FROM clients`,
+		Type: "query"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payloadMatcher := matchers.Record(gomock.Any())
+
+	message := twine.NewMockReceivedMessageI(mockCtrl)
+	message.EXPECT().CommandID().Return(v0queryDBCommand)
+	message.EXPECT().Payload().Return(payload)
+	message.EXPECT().Reply(0, payloadMatcher)
+
+	service.HandleMessage(message)
+
+	p := payloadMatcher.Get().([]byte)
+	payloadStr := string(p[:])
+	if !strings.Contains(payloadStr, "oscar") {
+		t.Error("payload should contain oscar")
+	}
+
+}
+
 // singleConnManager is a dummy manager that creates a single in-memory db and alwasy returns it
 type singleConnManager struct {
 	conn *connsVal
 }
 
+// Dummy for now to satisfy interface
+func (m *singleConnManager) createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error) {
+	return nil, nil
+}
 func (m *singleConnManager) getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal {
 	if m.conn != nil {
 		return m.conn
@@ -241,4 +365,17 @@ func (m *singleConnManager) getConn(appspaceID domain.AppspaceID, locationKey st
 	}
 
 	return m.conn
+}
+
+func (m *singleConnManager) prepExec(sql string) {
+	connVal := m.getConn(11, "", "")
+	conn := connVal.dbConn
+	stmt, err := conn.getStatement(sql)
+	if err != nil {
+		panic(err)
+	}
+	_, err = conn.exec(stmt, nil)
+	if err != nil {
+		panic(err)
+	}
 }

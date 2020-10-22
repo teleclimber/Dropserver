@@ -292,9 +292,9 @@ func (s *Sandbox) listenMessages() {
 	for message := range s.twine.MessageChan {
 		switch message.ServiceID() {
 		case sandboxService:
-			s.handleMessage(message)
+			go s.handleMessage(message)
 		default:
-			s.services.HandleMessage(message)
+			go s.services.HandleMessage(message)
 		}
 	}
 }

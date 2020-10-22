@@ -396,10 +396,13 @@ type AppFilesMetadata struct {
 	Migrations    []int      `json:"migrations"`
 }
 
-// AppspaceDBManager manages connections to appspace databases
-type AppspaceDBManager interface {
-	ServeHTTP(http.ResponseWriter, *http.Request, string, AppspaceID)
-	// TODO: add Command for rev listener
+// V0AppspaceDBQuery is the structure expected when Posting a DB request
+type V0AppspaceDBQuery struct {
+	DBName      string                 `json:"db_name"`
+	Type        string                 `json:"type"` // "query" or "exec"
+	SQL         string                 `json:"sql"`
+	Params      []interface{}          `json:"params"`
+	NamedParams map[string]interface{} `json:"named_params"`
 }
 
 // MigrationJobStatus represents the Status of an appspace's migration to a different version

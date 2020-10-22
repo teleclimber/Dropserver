@@ -39,9 +39,41 @@ func (m *ConnManager) Init(appspacesPath string) {
 	m.conns = make(map[connsKey]*connsVal)
 }
 
-// CreateDB creates a new database
-func (m *ConnManager) CreateDB(appspace *domain.Appspace, dbName string) {
+// createDB creates a new database
+func (m *ConnManager) createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error) {
+	key := connsKey{
+		appspaceID: appspaceID,
+		dbName:     dbName}
 
+	connVal, err := m.create(key)
+	if err != nil {
+		return nil, err
+	}
+
+	connVal.liveRequests++
+
+	m.startConn(key, locationKey, connVal, true)
+
+	connVal.liveRequests--
+
+	if connVal.connError != nil {
+		return nil, connVal.connError
+	}
+	return connVal, nil
+}
+func (m *ConnManager) create(key connsKey) (*connsVal, error) {
+	m.connsMux.Lock()
+	defer m.connsMux.Unlock()
+
+	if _, ok := m.conns[key]; ok {
+		return nil, fmt.Errorf("Can't create DB %s: already in cached keys", key.dbName)
+	}
+
+	m.conns[key] = &connsVal{
+		readySub: []chan struct{}{},
+	}
+
+	return m.conns[key], nil
 }
 
 // getConn should open a conn and return the dbconn
@@ -139,8 +171,8 @@ type dbConn struct {
 }
 
 // placeholder so we can an idea what is needed.
-func (dbc *dbConn) query(stmt *sql.Stmt, args *[]interface{}) ([]byte, error) {
-	rows, err := stmt.Query(*args...)
+func (dbc *dbConn) query(stmt *sql.Stmt, args []interface{}) ([]byte, error) {
+	rows, err := stmt.Query(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +195,8 @@ func (dbc *dbConn) query(stmt *sql.Stmt, args *[]interface{}) ([]byte, error) {
 	return json, nil
 }
 
-func (dbc *dbConn) exec(stmt *sql.Stmt, args *[]interface{}) ([]byte, error) {
-	r, err := stmt.Exec(*args...)
+func (dbc *dbConn) exec(stmt *sql.Stmt, args []interface{}) ([]byte, error) {
+	r, err := stmt.Exec(args...)
 	if err != nil {
 		return nil, err
 	}
