@@ -63,7 +63,7 @@ class Routes {
 		
 		const reply = await this.twine.sendBlock(service, createCmd, Routes.makePayload(route));
 		if(!reply.ok) {
-			throw reply.error;
+			throw new Error(reply.error);
 		}
 	}
 
@@ -75,7 +75,7 @@ class Routes {
 
 		const reply = await this.twine.sendBlock(service, deleteCmd, Routes.makePayload(route))
 		if(!reply.ok) {
-			throw reply.error;
+			throw new Error(reply.error);
 		}
 	}
 

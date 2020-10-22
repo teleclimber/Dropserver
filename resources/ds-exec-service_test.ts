@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.3.0/stub.ts";
+import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import Twine, { Message } from "./twine/twine.ts";
 import {handleMessage} from "./ds-exec-service.ts";
@@ -51,7 +51,7 @@ Deno.test({
 
 		const twine = new Twine("", false);
 
-		const send_data = {	file: full_path, fn: "testFn" };
+		const send_data = {	file: full_path, function: "testFn" };
 
 		const m = new Message({
 			service: 12,

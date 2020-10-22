@@ -38,6 +38,9 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
 
 	reqTaskCh := sb.TaskBegin()
+	defer func() {
+		reqTaskCh <- true
+	}()
 
 	header := cloneHeader(oReq.Header)
 	header["appspace-module"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
@@ -47,7 +50,8 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	if err != nil {
 		s.getLogger("ServeHTTP(), http.NewRequest()").Error(err)
 		// Maybe add app id and appspace id?
-		// probably need to bail if we can't create a requst
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	cReq.Header = header
@@ -55,6 +59,8 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	cRes, err := sbTransport.RoundTrip(cReq)
 	if err != nil {
 		s.getLogger("ServeHTTP(), sbTransport.RoundTrip()").Error(err)
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	// futz around with headers
@@ -65,8 +71,6 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	io.Copy(oRes, cRes.Body)
 
 	cRes.Body.Close()
-
-	reqTaskCh <- true
 }
 
 func (s *SandboxProxy) getLogger(note string) *record.DsLogger {

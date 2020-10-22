@@ -696,7 +696,7 @@ interface MessageReplierI {
 
 interface MessageReceivedOKI {
 	ok: boolean,
-	error: Error | undefined
+	error: string | undefined
 }
 
 interface MessageRefererI {
@@ -746,12 +746,12 @@ export class Message {
 	}
 	
 	// Error returns an error if the reply was an error
-	get error(): Error| undefined {
+	get error(): string| undefined {
 		if( this.command === protocolError) {
 			if( this.payload !== undefined ) {
-				return new Error(new TextDecoder("utf-8").decode(this.payload));
+				return new TextDecoder("utf-8").decode(this.payload);
 			}
-			return new Error("No error description given");
+			return "Error sent with no description";
 		}
 		return undefined;
 	}

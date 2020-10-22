@@ -521,7 +521,7 @@ func (s *Sandbox) TaskBegin() chan bool {
 	s.appSpaceSession.lastActive = time.Now()
 	s.appSpaceSession.tiedUp = true
 
-	ch := make(chan bool)
+	ch := make(chan bool) // this should just be struct{} instead of bool
 
 	// go func here that blocks on chanel.
 	go func() {

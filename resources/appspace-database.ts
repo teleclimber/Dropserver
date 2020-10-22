@@ -14,7 +14,7 @@ export type ExecResults = {
 }
 
 export type QueryResults = {
-	results: any[]
+	rows: any[]
 }
 
 type QueryData = {
@@ -31,7 +31,7 @@ export async function createDatabase(db_name: string) :Promise<Database> {
 
 	const reply = await twine.sendBlock(service, createCmd, makePayload({db_name}));
 	if(reply.error) {
-		throw reply.error;
+		throw new Error(reply.error);
 	}
 
 	return new Database(db_name);
@@ -57,7 +57,7 @@ export default class Database {
 
 		const reply = await twine.sendBlock(service, queryCmd, makePayload(q_data));
 		if(reply.error) {
-			throw reply.error;
+			throw new Error(reply.error);
 		}
 
 		const results = <ExecResults>decodePayload(reply.payload);
@@ -84,7 +84,7 @@ export default class Database {
 
 		const reply = await twine.sendBlock(service, queryCmd, makePayload(q_data));
 		if(reply.error) {
-			throw reply.error;
+			throw new Error(reply.error);
 		}
 
 		const results = <QueryResults>decodePayload(reply.payload);

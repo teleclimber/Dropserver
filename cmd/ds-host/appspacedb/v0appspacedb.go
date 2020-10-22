@@ -166,8 +166,6 @@ func (s *V0Service) handleQueryDB(message twine.ReceivedMessageI) {
 	}
 
 	message.Reply(0, result)
-
-	fmt.Println("message.Reply(0, result) has returned")
 }
 
 func v0makeArgs(qData domain.V0AppspaceDBQuery) (args []interface{}, makeArgErr error) {

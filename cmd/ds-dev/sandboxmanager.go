@@ -59,6 +59,11 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 		ch <- newSandbox
 	}()
 
+	go func() {
+		newSandbox.WaitFor(domain.SandboxKilling)
+		sM.sb = nil
+	}()
+
 	sandboxID++
 }
 

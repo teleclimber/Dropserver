@@ -184,7 +184,7 @@ func (dbc *dbConn) query(stmt *sql.Stmt, args []interface{}) ([]byte, error) {
 	}
 
 	results := map[string]interface{}{
-		"results": scanned,
+		"rows": scanned,
 	}
 
 	json, err := json.Marshal(results)
