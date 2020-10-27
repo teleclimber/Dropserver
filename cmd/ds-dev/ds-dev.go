@@ -66,10 +66,6 @@ func main() {
 		fmt.Println("Please specify app dir")
 		os.Exit(1)
 	}
-	if *appspaceDirFlag == "" {
-		fmt.Println("Please specify appspace dir")
-		os.Exit(1)
-	}
 
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -107,12 +103,6 @@ func main() {
 		fmt.Println("Failed to read app metadata: " + dsErr.PublicString())
 	}
 
-	// Copy appspace files
-	err = copy.Copy(*appspaceDirFlag, appspaceWorkingDir)
-	if err != nil {
-		panic(err)
-	}
-
 	// Now read appspace metadata.
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
@@ -122,6 +112,25 @@ func main() {
 		Config:        runtimeConfig,
 		Validator:     validator}
 	appspaceMetaDb.Init()
+
+	if *appspaceDirFlag != "" {
+		// Copy appspace files
+		err = copy.Copy(*appspaceDirFlag, appspaceWorkingDir)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// create empty appspace: directory structure and meta db
+		err = os.MkdirAll(filepath.Join(appspaceWorkingDir, "files"), 0766)
+		if err != nil {
+			panic(err)
+		}
+
+		err = appspaceMetaDb.Create(appspaceID, 0)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
 		Config:         runtimeConfig,

@@ -20,6 +20,7 @@ type AppspaceFilesModel struct {
 // Probably need a create location
 
 // CreateLocation creates a new location for an appspace
+// This will need more subtlety when we import appspace files ( don't create "files", for ex)
 func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
 	err := os.MkdirAll(a.Config.Exec.AppspacesPath, 0766) // This base dir for all appspaces should probably be created at ds-host migration time
 	if err != nil {
