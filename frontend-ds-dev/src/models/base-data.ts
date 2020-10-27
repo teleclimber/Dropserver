@@ -81,20 +81,21 @@ class BaseData {
 	get possible_migrations() {
 		const ret :number[] = [];
 		const cur_schema = this.appspace_schema;
-		let cur_i = this.app_migrations.indexOf(cur_schema);
+		const app_migrations = [0, ...this.app_migrations];
+		let cur_i = app_migrations.indexOf(cur_schema);
 		if( cur_i === -1 ) return ret;
 
 		let i = 0;
 		while(true) {
 			++i;
-			if(this.app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
+			if(app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
 			else break;
 		}
 
 		i = 0;
 		while(cur_i + i > 0) {
 			--i;
-			if(this.app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
+			if(app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
 			else break;
 		}
 
