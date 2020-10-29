@@ -14,7 +14,7 @@ import (
 
 const routeEventService = 11
 const appspaceControlService = 12 // incmoing? For appspace control (pause, migrate)
-const appspaceStatusService = 13
+const baseDataService = 13
 const migrationStatusService = 14
 const appspaceLogService = 15
 
@@ -42,6 +42,9 @@ type DropserverDevServer struct {
 	}
 	DevSandboxMaker interface {
 		SetInspect(bool)
+	}
+	AppVersionEvents interface {
+		Subscribe(chan<- domain.AppID)
 	}
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
@@ -87,12 +90,7 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 	head, _ := shiftpath.ShiftPath(req.URL.Path)
 	switch head {
 
-	case "base-data": // temporary
-		appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
-		if dsErr != nil {
-			fmt.Println("Failed to read app metadata: " + dsErr.PublicString())
-		}
-
+	case "base-data":
 		appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
 		if err != nil {
 			fmt.Println("failed to get appspace schema: " + err.Error())
@@ -102,15 +100,10 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 		res.WriteHeader(http.StatusOK)
 
 		baseData := BaseData{
-			AppPath:      s.appPath,
+			AppPath:      s.appPath, // these don't change
 			AppspacePath: s.appspacePath,
 
-			AppName:       appFilesMeta.AppName,
-			AppVersion:    string(appFilesMeta.AppVersion),
-			AppSchema:     appFilesMeta.SchemaVersion,
-			AppMigrations: appFilesMeta.Migrations,
-
-			AppspaceSchema: appspaceSchema}
+			AppspaceSchema: appspaceSchema} // this is appspace-related, and should be sent via a different command? Like appspace status event?
 
 		json.NewEncoder(res).Encode(baseData)
 
@@ -139,6 +132,16 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	}
 
 	// then subscribe to various events and push them down as new t.Send
+	appVersionEvent := make(chan domain.AppID)
+	s.AppVersionEvents.Subscribe(appVersionEvent)
+	go func() {
+		for range appVersionEvent {
+			go s.sendAppData(t)
+		}
+	}()
+	// push initial app data:
+	s.sendAppData(t)
+
 	appspaceStatusChan := make(chan domain.AppspaceStatusEvent)
 	s.AppspaceStatusEvents.Subscribe(appspaceID, appspaceStatusChan)
 	go func() {
@@ -210,6 +213,8 @@ const pauseAppspaceCmd = 11
 const unpauseAppspaceCmd = 12
 const migrateAppspaceCmd = 13
 const setInspect = 14
+const stopSandbox = 15
+const importAndMigrate = 16
 
 func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
@@ -275,12 +280,54 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		s.DevSandboxManager.StopAppspace(appspaceID)
 		s.DevSandboxManager.SetInspect(inspect)
 		m.SendOK()
+	case stopSandbox:
+		s.DevSandboxManager.StopAppspace(appspaceID)
+		m.SendOK()
+	case importAndMigrate:
+		// shut things down,
+		// wait til it's "dead" or actually "ejected"
+		// copy appspace files over again
+		// reload the data as needed (appspace schema)
+		// run migration to latest
 	default:
 		m.SendError("service not found")
 	}
 }
 
+type AppData struct {
+	AppName       string `json:"app_name"`
+	AppVersion    string `json:"app_version"`
+	AppMigrations []int  `json:"app_migrations"`
+	AppSchema     int    `json:"app_version_schema"`
+}
+
+// base data service:
 const statusEventCmd = 11
+const appDataCmd = 12
+
+func (s *DropserverDevServer) sendAppData(twine *twine.Twine) {
+	appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
+	if dsErr != nil {
+		panic(dsErr.ToStandard().Error())
+	}
+	appData := AppData{
+		AppName:       appFilesMeta.AppName, // these are app-related, should be re-sent when app is changed
+		AppVersion:    string(appFilesMeta.AppVersion),
+		AppSchema:     appFilesMeta.SchemaVersion,
+		AppMigrations: appFilesMeta.Migrations,
+	}
+	bytes, err := json.Marshal(appData)
+	if err != nil {
+		fmt.Println("sendAppData json Marshal Error: " + err.Error())
+	}
+
+	fmt.Println("Sending app data")
+
+	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes)
+	if err != nil {
+		fmt.Println("sendAppData SendBlock Error: " + err.Error())
+	}
+}
 
 func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, statusEvent domain.AppspaceStatusEvent) {
 	bytes, err := json.Marshal(statusEvent)
@@ -290,7 +337,7 @@ func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, status
 
 	fmt.Println("Sending status event")
 
-	_, err = twine.SendBlock(appspaceStatusService, statusEventCmd, bytes)
+	_, err = twine.SendBlock(baseDataService, statusEventCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
 	}

@@ -57,7 +57,12 @@
 			"request": "launch",
 			"mode": "debug",
 			"program": "${workspaceFolder}/cmd/ds-dev",
-			"args": ["-exec-path=/Users/ollie/Documents/Code/DropServer/dist/bin/", "-app=/Users/ollie/Documents/Projects/PersonalServerApps/apps/NewDeno/0.3.0", "-appspace=/Users/ollie/Documents/Projects/PersonalServerApps/appspaces/NewDeno/"]
+			"args": [
+				"-exec-path=/Users/ollie/Documents/Code/DropServer/dist/bin/",
+				//"-app=/Users/ollie/Documents/Projects/PersonalServerApps/apps/NewDeno/0.3.0",
+				"-app=/Users/ollie/Documents/Code/Leftovers/",
+				//"-appspace=/Users/ollie/Documents/Projects/PersonalServerApps/appspaces/NewDeno/",
+			]
 
 
 		},

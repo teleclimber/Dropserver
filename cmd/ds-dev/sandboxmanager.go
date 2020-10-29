@@ -15,10 +15,24 @@ type DevSandboxManager struct {
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	}
+	AppVersionEvents interface {
+		Subscribe(chan<- domain.AppID)
+	}
 	Config *domain.RuntimeConfig
 
 	sb      domain.SandboxI
 	inspect bool
+}
+
+// Init sets up app version events loop
+func (sM *DevSandboxManager) Init() {
+	appVersionEvent := make(chan domain.AppID)
+	sM.AppVersionEvents.Subscribe(appVersionEvent)
+	go func() {
+		for range appVersionEvent {
+			go sM.StopAppspace(appspaceID)
+		}
+	}()
 }
 
 // need Start/Stop/Restart functions
@@ -72,8 +86,6 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 	if sM.sb != nil {
 		sM.sb.Stop()
-		sM.sb.WaitFor(domain.SandboxDead)
-		sM.sb = nil
 	}
 }
 

@@ -73,6 +73,8 @@ func main() {
 	}
 	defer os.RemoveAll(tempDir)
 
+	fmt.Println("Temp dir: " + tempDir)
+
 	appspaceWorkingDir := filepath.Join(tempDir, "appspace")
 	err = os.MkdirAll(appspaceWorkingDir, 0744)
 	if err != nil {
@@ -86,6 +88,7 @@ func main() {
 	}
 
 	// events:
+	appVersionEvents := &AppVersionEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobStatusEvents{}
@@ -97,16 +100,20 @@ func main() {
 	appFilesModel := &appfilesmodel.AppFilesModel{
 		Config: runtimeConfig,
 	}
+	devAppModel := &DevAppModel{}
 
-	appFilesMeta, dsErr := appFilesModel.ReadMeta("")
-	if dsErr != nil {
-		fmt.Println("Failed to read app metadata: " + dsErr.PublicString())
-	}
-
-	// Now read appspace metadata.
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
 
+	devAppWatcher := &DevAppWatcher{
+		AppFilesModel:    appFilesModel,
+		DevAppModel:      devAppModel,
+		DevAppspaceModel: devAppspaceModel,
+		AppVersionEvents: appVersionEvents,
+	}
+	devAppWatcher.Start(*appDirFlag)
+
+	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		AppspaceModel: devAppspaceModel,
 		Config:        runtimeConfig,
@@ -152,25 +159,11 @@ func main() {
 
 	devMigrationJobModel := &DevMigrationJobModel{}
 
-	devAppModel := &DevAppModel{}
-	devAppModel.App = domain.App{ // TODO: when we start watching app files, we'll have to make this part of a separate self-updating thing
-		OwnerID: ownerID,
-		AppID:   appID,
-		Created: time.Now(),
-		Name:    appFilesMeta.AppName}
-	devAppModel.Ver = domain.AppVersion{
-		AppID:       appID,
-		AppName:     appFilesMeta.AppName,
-		Version:     appFilesMeta.AppVersion,
-		Schema:      appFilesMeta.SchemaVersion,
-		Created:     time.Now(),
-		LocationKey: ""}
-
 	devAppspaceModel.Appspace = domain.Appspace{
 		OwnerID:     ownerID,
 		AppspaceID:  appspaceID,
 		AppID:       appID,
-		AppVersion:  appFilesMeta.AppVersion, // assume it's the all we are working on.
+		AppVersion:  devAppModel.Ver.Version,
 		Subdomain:   "",
 		Created:     time.Now(),
 		LocationKey: "",
@@ -183,8 +176,11 @@ func main() {
 	appspaceLogger.Init()
 
 	devSandboxManager := &DevSandboxManager{
-		AppspaceLogger: appspaceLogger,
-		Config:         runtimeConfig}
+		AppspaceLogger:   appspaceLogger,
+		Config:           runtimeConfig,
+		AppVersionEvents: appVersionEvents,
+	}
+	devSandboxManager.Init()
 
 	migrateJobController := &migrateappspace.JobController{
 		MigrationJobModel:  devMigrationJobModel,
@@ -206,6 +202,7 @@ func main() {
 		MigrationJobs:        migrateJobController,
 		MigrationJobsEvents:  migrationJobEvents,
 		AppspaceStatusEvents: appspaceStatusEvents,
+		AppVersionEvents:     appVersionEvents,
 	}
 	appspaceStatus.Init()
 	appspaceStatus.Ready(appspaceID) // this puts the appspace in status map, so it gets tracked, and therefore forwards events. Not a great paradigm.
@@ -263,6 +260,7 @@ func main() {
 		MigrationJobController: migrateJobController,
 		DevSandboxMaker:        devSandboxMaker,
 		Config:                 runtimeConfig,
+		AppVersionEvents:       appVersionEvents,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents,

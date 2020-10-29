@@ -24,6 +24,13 @@ type AppspaceStatus = {
 	problem: boolean
 }
 
+type AppData = {
+	app_name: string,
+	app_version: string,
+	app_migrations: number[],
+	app_version_schema: number
+}
+
 class BaseData {
 	loaded = false;
 
@@ -63,6 +70,21 @@ class BaseData {
 
 	handleMessage(m:ReceivedMessageI) {
 		// should really read command and act on that.
+		switch (m.command) {
+			case 11:
+				this.handleAppspaceStatusMessage(m);
+				break;
+		
+			case 12:
+				this.handleAppDataMessage(m);
+				break;
+			default:
+				break;
+		}
+		
+	}
+
+	handleAppspaceStatusMessage(m:ReceivedMessageI) {
 		try {
 			const new_status = <AppspaceStatus>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			console.log(new_status);
@@ -70,6 +92,21 @@ class BaseData {
 		}
 		catch(e) {
 			m.sendError("error processing appspace status "+e);
+			console.error(e);
+			return;
+		}
+	
+		m.sendOK();
+	}
+	handleAppDataMessage(m:ReceivedMessageI) {
+		try {
+			const new_app_data = <AppData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+			console.log(new_app_data);
+
+			Object.assign(this, new_app_data);
+		}
+		catch(e) {
+			m.sendError("error processing app version data "+e);
 			console.error(e);
 			return;
 		}
@@ -112,6 +149,8 @@ const appspaceCmds = {
 	unpause: 12,
 	migrate: 13,
 	setMigrationInspect: 14,
+	stopSandbox: 15,
+	importAndMigrate: 16,
 }
 
 // Appspace controls:
@@ -151,5 +190,18 @@ export async function setInspect(inspect:boolean) {
 	}
 }
 
+export async function stopSandbox() {
+	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.stopSandbox, undefined);
+	if( reply.error ) {
+		throw reply.error;
+	}
+}
+
+export async function importAndMigrate() {
+	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.importAndMigrate, undefined);
+	if( reply.error ) {
+		throw reply.error;
+	}
+}
 
 
