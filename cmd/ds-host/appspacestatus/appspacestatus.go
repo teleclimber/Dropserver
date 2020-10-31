@@ -26,14 +26,52 @@ import (
 // It caches the status so it can respond quickly to numerous queries
 // And it also allows subscriptions for realtime queries
 
-type appspaceStatus struct {
-	// add a mux to protect all these values on a per-appspace basis?
-	paused           bool
-	migrating        bool
-	dataSchema       int
-	appVersionSchema int
-	problem          bool
+// I'd like to add an ejected status too. Signals:
+// - it's paused (maybe? maybe not? Want to eject to make backups without writing in DB tath it's paused.)
+// - all requests have finished
+// - any cron function call has finished running
+// - sandbox is terminated
+// - not migrating (and migration system needs to check to see if we're trying to eject appspace)
+// - appspace meta db file closed
+// - all appspace db files closed
+
+// We should deepend the status object,
+// and give it a more fine-grained protection against race conditions
+// -> a top level statusMux for getting the status object a
+// .. and a per-appspace mux to fiddle with the status
+
+type status struct {
+	data statusData
+	lock sync.Mutex
 }
+
+type statusData struct {
+	paused           bool // paused status is set in appspace DB
+	tempPaused       bool // set via a function call to make it so the system knows we're trying to eject
+	dataSchema       int  // from appspace metadata
+	appVersionSchema int  // from app files
+	migrating        bool // when a migration job starts
+	problem          bool // Something went wrong, appsapce can't be used
+}
+
+// live jobs and requests should be booleans.
+// Otherwise the "status" will fire constantly?
+// Also posible we need a sceond "level" to status
+// ..because even if bool, each request could switch status from false to true and back.
+// Yeah very questionable that we want liveRequests and live Jobs in status
+// Just look at the other fields: they only change raraley, hhile live* can change many times per second.
+
+// I think the rigth way to do this is:
+// - remove live* from status data
+// - have a WaitStopped function that subscribes to jobs and requests
+//   ..and can tell anybody who aslked for WaitStopped when it goes to zero.
+//   ..then it unsubscribes to the live* events.
+
+// possible flags to add:
+// - sandbox status
+// - metadb file open
+// - appspace db files open ?
+// - file pointers from appspace files??? We can't, but it's the logical step after, and is a clue we should not go crazy here
 
 // AppspaceStatus determines the status of an appspace
 type AppspaceStatus struct {
@@ -76,12 +114,12 @@ type AppspaceStatus struct {
 	hostStop    bool
 
 	statusMux sync.Mutex
-	status    map[domain.AppspaceID]appspaceStatus
+	status    map[domain.AppspaceID]*status
 }
 
 // Init creates data structures and subscribes to events
 func (s *AppspaceStatus) Init() {
-	s.status = make(map[domain.AppspaceID]appspaceStatus)
+	s.status = make(map[domain.AppspaceID]*status)
 
 	asPausedCh := make(chan domain.AppspacePausedEvent)
 	go s.handleAppspacePause(asPausedCh)
@@ -120,63 +158,76 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 	}
 
 	status := s.getStatus(appspaceID)
+	status.lock.Lock()
+	defer status.lock.Unlock()
 
-	// TODO lock status mux
-	if status.problem || status.paused || status.migrating {
+	if status.data.problem || status.data.paused || status.data.tempPaused || status.data.migrating {
 		return false
 	}
-	if status.appVersionSchema != status.dataSchema {
+	if status.data.appVersionSchema != status.data.dataSchema {
 		return false
 	}
 
 	return true
 }
 
-// Wonder if there should be a ReadyLock() func
-// ..that sets a lock on ready state if appspace is ready
-// ..so that the caller can be sure that if it is ready, it remains ready
-// ..until it has a chance to perform some op that causes it to be non-stopped?
-// The problem: appspace routes gets a request, checks Ready(), gets true
-// At the same time a migration job starts and checks "Stopped()", gets true because nothing is "active"
-// (the job starting cause Ready() to return false)
-// The request proceeds but fails because job has shut down sandbox.
-// -> perhaps the solution is for appspaceRoutes to register the route
-//    ..then ask if it can proceed.
+// SetTempPause sets the tempPaused flag on appspace status
+func (s *AppspaceStatus) SetTempPause(appspaceID domain.AppspaceID, paused bool) {
+	status := s.getStatus(appspaceID)
 
-func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) appspaceStatus {
+	status.lock.Lock()
+	defer status.lock.Unlock()
+	status.data.tempPaused = paused
+}
+
+func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) *status {
+	s.statusMux.Lock()
+	defer s.statusMux.Unlock()
+
+	stat, ok := s.status[appspaceID]
+	if !ok {
+		stat = &status{
+			data: s.getData(appspaceID)}
+		s.status[appspaceID] = stat
+	}
+	return stat
+}
+
+func (s *AppspaceStatus) getTrackedStatus(appspaceID domain.AppspaceID) *status {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
 	status, ok := s.status[appspaceID]
-	if !ok {
-		status = s.loadStatus(appspaceID)
-		s.status[appspaceID] = status
+	if ok {
+		return status
 	}
-	return status
+	return nil
 }
 
-func (s *AppspaceStatus) loadStatus(appspaceID domain.AppspaceID) (status appspaceStatus) {
+func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
+	data := statusData{}
+
 	appspace, dsErr := s.AppspaceModel.GetFromID(appspaceID)
 	if dsErr != nil {
-		status.problem = true
-		return
+		data.problem = true
+		return data
 	}
-	status.paused = appspace.Paused
+	data.paused = appspace.Paused
 
 	jobs := s.MigrationJobs.GetRunningJobs()
 	for _, job := range jobs {
 		if job.AppspaceID == appspaceID && !job.Finished.Valid {
-			status.migrating = true
+			data.migrating = true
 		}
 	}
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
 	appVersion, dsErr := s.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
 	if dsErr != nil {
-		status.problem = true
-		return
+		data.problem = true
+		return data
 	}
-	status.appVersionSchema = appVersion.Schema
+	data.appVersionSchema = appVersion.Schema
 
 	// load data schema
 	// Head's up: there is a chance that the meta db isn't created yet
@@ -185,51 +236,42 @@ func (s *AppspaceStatus) loadStatus(appspaceID domain.AppspaceID) (status appspa
 	// Note that you don't need to subscribe, since change should only be possible via migration.
 	schema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
 	if err != nil {
-		status.problem = true
+		data.problem = true
 	}
-	status.dataSchema = schema
+	data.dataSchema = schema
 
-	return
+	return data
 }
-
-// What would need to happen to make appspace status fully event-driven?
-// ..meaning that it could emit a ready/ stopped/ whatever event that accounts for all possible changes?
-// - We have pause event from the appspace model
-// - Migration events should tell you whether it is currently migrating (what about if it's about to migrate? I think that's covered)
-// - App version schema is a constant, unless you are in ds-dev where it can change at any time
-// - appspace schema can only change on conclusion of migration, so migration events cover that.
-
-// So we mostly just need to rig something up for app version changes.
-// .. which will only be used by ds-dev
-
-// Also need to become and event emitter
 
 func (s *AppspaceStatus) handleAppspacePause(ch <-chan domain.AppspacePausedEvent) {
 	for p := range ch {
-		s.statusMux.Lock()
-
-		status, ok := s.status[p.AppspaceID]
-		if ok {
-			status.paused = p.Paused
-			s.updateStatus(p.AppspaceID, status)
+		status := s.getTrackedStatus(p.AppspaceID)
+		if status != nil {
+			status.lock.Lock()
+			if status.data.paused != p.Paused {
+				status.data.paused = p.Paused
+				s.sendChangedEvent(p.AppspaceID, status.data)
+			}
+			status.lock.Unlock()
 		}
-		s.statusMux.Unlock()
 	}
 }
 
 func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationStatusData) {
 	for d := range ch {
-		s.statusMux.Lock()
-		status, ok := s.status[d.AppspaceID]
-		if ok {
+		status := s.getTrackedStatus(d.AppspaceID)
+		if status != nil {
 			if d.Finished.Valid {
-				s.updateStatus(d.AppspaceID, s.loadStatus(d.AppspaceID)) // reload everything because migration finished and might have changed a bunch of things.
+				s.updateStatus(d.AppspaceID, status) //reload whole status because migration might have changed many things
 			} else {
-				status.migrating = true
-				s.updateStatus(d.AppspaceID, status)
+				status.lock.Lock()
+				if !status.data.migrating {
+					status.data.migrating = true
+					s.sendChangedEvent(d.AppspaceID, status.data)
+				}
+				status.lock.Unlock()
 			}
 		}
-		s.statusMux.Unlock()
 	}
 }
 
@@ -237,65 +279,65 @@ func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationStat
 func (s *AppspaceStatus) handleAppVersionEvent(ch <-chan domain.AppID) {
 	for range ch {
 		s.statusMux.Lock()
-		for appspaceID := range s.status {
-			s.updateStatus(appspaceID, s.loadStatus(appspaceID))
+		for appspaceID, status := range s.status {
+			s.updateStatus(appspaceID, status) // reload everything
 		}
 		s.statusMux.Unlock()
 	}
 }
 
-func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, newStatus appspaceStatus) {
-	status, ok := s.status[appspaceID]
-	if ok && statusChanged(status, newStatus) {
-		s.status[appspaceID] = newStatus
-		go s.AppspaceStatusEvents.Send(appspaceID, domain.AppspaceStatusEvent{
-			AppspaceID:       appspaceID,
-			AppVersionSchema: newStatus.appVersionSchema,
-			AppspaceSchema:   newStatus.dataSchema,
-			Migrating:        newStatus.migrating,
-			Paused:           newStatus.paused,
-			Problem:          newStatus.problem})
+func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, curStatus *status) {
+	curStatus.lock.Lock()
+	defer curStatus.lock.Unlock()
+	cur := curStatus.data
+
+	new := s.getData(appspaceID)
+	changed := false
+
+	if cur.paused != new.paused {
+		curStatus.data.paused = new.paused
+		changed = true
+	}
+	// skip tempPaused because it's not determined by getData. It can only change via SetTempPaused fn above.
+	if cur.appVersionSchema != new.appVersionSchema {
+		curStatus.data.appVersionSchema = new.appVersionSchema
+		changed = true
+	}
+	if cur.dataSchema != new.dataSchema {
+		curStatus.data.dataSchema = new.dataSchema
+		changed = true
+	}
+	if cur.migrating != new.migrating {
+		curStatus.data.migrating = new.migrating
+		changed = true
+	}
+	if cur.problem != new.problem {
+		curStatus.data.problem = new.problem
+		changed = true
+	}
+
+	if changed {
+		s.sendChangedEvent(appspaceID, curStatus.data)
 	}
 }
 
-func statusChanged(old, new appspaceStatus) bool {
-	if old.paused != new.paused {
-		return true
-	}
-	if old.migrating != new.migrating {
-		return true
-	}
-	if old.appVersionSchema != new.appVersionSchema {
-		return true
-	}
-	if old.dataSchema != new.dataSchema {
-		return true
-	}
-	if old.problem != new.problem {
-		return true
-	}
-
-	return false
+func (s *AppspaceStatus) sendChangedEvent(appspaceID domain.AppspaceID, status statusData) {
+	go s.AppspaceStatusEvents.Send(appspaceID, domain.AppspaceStatusEvent{
+		AppspaceID:       appspaceID,
+		Paused:           status.paused,
+		TempPaused:       status.tempPaused,
+		AppVersionSchema: status.appVersionSchema,
+		AppspaceSchema:   status.dataSchema,
+		Migrating:        status.migrating,
+		Problem:          status.problem})
 }
-
-// Oh dear, I can see it now: we will want to subscribe to any change in Ready() and Stopped()
-// .. to keep the frontend up to date for ex.
-// Which mean appspace status will also be its own event emitter?
-// -> yes probably.
-
-// not sure how to handle the stopping / ejecting transients.
-// A constant subscription to live route count doesn't seem right (potential for many events)
-// Could maybe have ZeroActivity event, that only fires from route when there are no more routes.
-// The idea would be to subscribe when you are expecting a shutdown, and just wait for the signal
-// The appspace routes handler would send 0 immediately on subscription if current count is zero.
-// (the count shouldn't go up if route handler knows that the appspace is closing down).
-
-// If yo do want more details, there are route hit events too.
 
 // WaitStopped returns when an appspace has stopped
+// Meant to be used in conjunction with an appspace blocking function (pause, tempPause, migrate, etc...)
+// If you want more details, there are route hit events too.
 func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 
-	// check with cron
+	// check with cron jobs too when we have them
 
 	ch := make(chan int)
 	count := s.AppspaceRoutes.SubscribeLiveCount(appspaceID, ch)

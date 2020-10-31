@@ -527,6 +527,7 @@ type AppspacePausedEvent struct {
 type AppspaceStatusEvent struct {
 	AppspaceID       AppspaceID `json:"appspace_id"`
 	Paused           bool       `json:"paused"`
+	TempPaused       bool       `json:"temp_paused"`
 	Migrating        bool       `json:"migrating"`
 	AppspaceSchema   int        `json:"appspace_schema"`
 	AppVersionSchema int        `json:"app_version_schema"`

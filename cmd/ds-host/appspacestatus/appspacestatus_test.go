@@ -35,7 +35,7 @@ func TestLoadStatus(t *testing.T) {
 		AppspaceInfoModels: appspaceInfoModels,
 	}
 
-	status := s.loadStatus(appspaceID)
+	status := s.getData(appspaceID)
 	if status.paused != true {
 		t.Error("paused should be true")
 	}
@@ -57,24 +57,24 @@ func TestReady(t *testing.T) {
 	appspaceID := domain.AppspaceID(7)
 
 	cases := []struct {
-		status appspaceStatus
+		status statusData
 		ready  bool
 	}{{
-		status: appspaceStatus{
+		status: statusData{
 			migrating:        false,
 			paused:           false,
 			appVersionSchema: 3,
 			dataSchema:       3,
 			problem:          false},
 		ready: true}, {
-		status: appspaceStatus{
+		status: statusData{
 			migrating:        true, //migrating
 			paused:           false,
 			appVersionSchema: 3,
 			dataSchema:       3,
 			problem:          false},
 		ready: false}, {
-		status: appspaceStatus{
+		status: statusData{
 			migrating:        false,
 			paused:           false,
 			appVersionSchema: 3,
@@ -84,10 +84,10 @@ func TestReady(t *testing.T) {
 	}
 
 	s := AppspaceStatus{}
-	s.status = make(map[domain.AppspaceID]appspaceStatus)
+	s.status = make(map[domain.AppspaceID]*status)
 
 	for _, c := range cases {
-		s.status[appspaceID] = c.status
+		s.status[appspaceID] = &status{data: c.status}
 		ready := s.Ready(appspaceID)
 		if ready != c.ready {
 			t.Errorf("Expected %v", c.ready)
@@ -106,7 +106,7 @@ func TestPauseEvent(t *testing.T) {
 
 	s := AppspaceStatus{
 		AppspaceStatusEvents: appspaceStatusEvents,
-		status:               make(map[domain.AppspaceID]appspaceStatus),
+		status:               make(map[domain.AppspaceID]*status),
 	}
 
 	pauseChan := make(chan domain.AppspacePausedEvent)
@@ -115,8 +115,9 @@ func TestPauseEvent(t *testing.T) {
 	migrateChan := make(chan domain.MigrationStatusData)
 	go s.handleMigrationJobUpdate(migrateChan)
 
-	s.status[appspaceID] = appspaceStatus{
-		paused: false}
+	s.status[appspaceID] = &status{
+		data: statusData{
+			paused: false}}
 
 	pauseChan <- domain.AppspacePausedEvent{
 		AppspaceID: appspaceID,
@@ -125,9 +126,11 @@ func TestPauseEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
 
 	status := s.getStatus(appspaceID)
-	if !status.paused {
+	status.lock.Lock()
+	if !status.data.paused {
 		t.Error("expected paused")
 	}
+	status.lock.Unlock()
 }
 
 func TestMigrationEvent(t *testing.T) {
@@ -136,7 +139,7 @@ func TestMigrationEvent(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	status1 := appspaceStatus{
+	status1 := statusData{
 		migrating:        false,
 		paused:           false,
 		appVersionSchema: 3,
@@ -176,13 +179,13 @@ func TestMigrationEvent(t *testing.T) {
 		AppspaceInfoModels:   appspaceInfoModels,
 		MigrationJobs:        migrationJobs,
 		AppspaceStatusEvents: appspaceStatusEvents,
-		status:               make(map[domain.AppspaceID]appspaceStatus),
+		status:               make(map[domain.AppspaceID]*status),
 	}
 
 	migrateChan := make(chan domain.MigrationStatusData)
 	go s.handleMigrationJobUpdate(migrateChan)
 
-	s.status[appspaceID] = status1
+	s.status[appspaceID] = &status{data: status1}
 
 	migrateChan <- domain.MigrationStatusData{
 		AppspaceID: appspaceID,
@@ -191,9 +194,11 @@ func TestMigrationEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
 
 	status := s.getStatus(appspaceID)
-	if !status.migrating {
+	status.lock.Lock()
+	if !status.data.migrating {
 		t.Error("expected migrating")
 	}
+	status.lock.Unlock()
 
 	migrateChan <- domain.MigrationStatusData{
 		AppspaceID: appspaceID,
@@ -203,9 +208,11 @@ func TestMigrationEvent(t *testing.T) {
 	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
 
 	status = s.getStatus(appspaceID)
-	if status.migrating {
+	status.lock.Lock()
+	if status.data.migrating {
 		t.Error("expected not migrating anymore")
 	}
+	status.lock.Unlock()
 }
 
 func TestWaitStopped(t *testing.T) {

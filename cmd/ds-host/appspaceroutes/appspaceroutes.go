@@ -61,6 +61,9 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		return
 	}
 
+	r.incrementLiveCount(appspace.AppspaceID)
+	defer r.decrementLiveCount(appspace.AppspaceID)
+
 	routeData.Appspace = appspace
 
 	app, dsErr := r.AppModel.GetFromID(appspace.AppID)
@@ -78,9 +81,6 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		return
 	}
 	routeData.AppVersion = appVersion
-
-	r.incrementLiveCount(appspace.AppspaceID)
-	defer r.decrementLiveCount(appspace.AppspaceID)
 
 	// This is where we branch off into different API versions for serving appspace traffic
 	r.V0.ServeHTTP(res, req, routeData)
