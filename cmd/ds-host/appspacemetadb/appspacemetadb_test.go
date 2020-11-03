@@ -43,6 +43,12 @@ func TestStartConn(t *testing.T) {
 	_ = <-readyChan
 
 	// test shutdown too
+	err = mdb.CloseConn(domain.AppspaceID(13))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// find out if file is actually closed?
 }
 
 // More tests needed.

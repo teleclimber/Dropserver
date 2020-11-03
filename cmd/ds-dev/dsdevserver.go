@@ -26,7 +26,16 @@ type DropserverDevServer struct {
 	AppFilesModel interface {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error)
 	}
-	DevAppspaceModel   *DevAppspaceModel
+	AppspaceFiles interface {
+		Reset()
+	}
+	DevAppspaceModel *DevAppspaceModel
+	AppspaceMetaDB   interface {
+		CloseConn(domain.AppspaceID) error
+	}
+	AppspaceDB interface {
+		CloseAppspace(domain.AppspaceID)
+	}
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	}
@@ -42,6 +51,10 @@ type DropserverDevServer struct {
 	}
 	DevSandboxMaker interface {
 		SetInspect(bool)
+	}
+	AppspaceStatus interface {
+		SetTempPause(domain.AppspaceID, bool)
+		WaitStopped(domain.AppspaceID)
 	}
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
@@ -237,39 +250,14 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			m.SendOK()
 		}
 	case migrateAppspaceCmd:
-		// first read the payload
 		migrateTo := int(binary.BigEndian.Uint16(m.Payload()))
-
-		// If migrating up, create a app version with higher version, and to-schema,
-		// *or* create a lower version with current schema, and re-create the main app-version with new schema?
-		// but maybe this takes place automatically on observe of app code?
-
-		// If migrating down, then create dummy version with lower version, to-schema.
-		// Location key and rest is immaterial as it souldn't get used.
-
-		appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+		err := s.migrate(migrateTo)
 		if err != nil {
-			fmt.Println("failed to get appspace schema: " + err.Error())
-			m.SendError("failed to get appspace schema")
-			return
+			m.SendError("error migrating: " + err.Error())
+		} else {
+			m.SendOK()
 		}
 
-		// Assume we are migrating down
-		if migrateTo < appspaceSchema {
-			s.DevAppModel.ToVer.Version = domain.Version("0.0.1")
-			s.DevAppModel.ToVer.Schema = migrateTo
-			s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
-			s.MigrationJobController.WakeUp()
-			m.SendOK()
-		} else if migrateTo > appspaceSchema {
-			s.DevAppModel.ToVer.Version = domain.Version("100.0.0")
-			s.DevAppModel.ToVer.Schema = migrateTo
-			s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
-			s.MigrationJobController.WakeUp()
-			m.SendOK()
-		} else {
-			m.SendError(fmt.Sprintf("migrate to scehma same as current appspace schema: to: %v, current: %v", migrateTo, appspaceSchema))
-		}
 	case setInspect: // this should really be inspect for everything.
 		inspect := true
 		p := m.Payload()
@@ -281,17 +269,74 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		s.DevSandboxManager.SetInspect(inspect)
 		m.SendOK()
 	case stopSandbox:
+		// force-kill for unruly scripts?
 		s.DevSandboxManager.StopAppspace(appspaceID)
 		m.SendOK()
 	case importAndMigrate:
-		// shut things down,
-		// wait til it's "dead" or actually "ejected"
-		// copy appspace files over again
-		// reload the data as needed (appspace schema)
+		schema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+		if err != nil {
+			m.SendError(err.Error())
+			return
+		}
+		fmt.Println(schema)
+
+		m.RefSendBlock(11, []byte("Stopping..."))
+		s.AppspaceStatus.SetTempPause(appspaceID, true)
+		s.AppspaceStatus.WaitStopped(appspaceID)
+		s.DevSandboxManager.StopAppspace(appspaceID)
+
+		m.RefSendBlock(11, []byte("Closing..."))
+		err = s.AppspaceMetaDB.CloseConn(appspaceID)
+		if err != nil {
+			m.SendError(err.Error())
+			return
+		}
+
+		s.AppspaceDB.CloseAppspace(appspaceID)
+
+		m.RefSendBlock(11, []byte("Copying Files..."))
+		s.AppspaceFiles.Reset()
+
 		// run migration to latest
+		m.RefSendBlock(11, []byte("Migrating..."))
+		err = s.migrate(schema)
+		if err != nil {
+			m.SendError("error migrating: " + err.Error())
+			return
+		}
+
+		s.AppspaceStatus.SetTempPause(appspaceID, false)
+		m.SendOK()
 	default:
 		m.SendError("service not found")
 	}
+}
+
+// If migrating up, create a app version with higher version, and to-schema,
+// *or* create a lower version with current schema, and re-create the main app-version with new schema?
+// but maybe this takes place automatically on observe of app code?
+
+// If migrating down, then create dummy version with lower version, to-schema.
+// Location key and rest is immaterial as it souldn't get used.
+func (s *DropserverDevServer) migrate(migrateTo int) error {
+	appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+	if err != nil {
+		return err
+	}
+	if migrateTo < appspaceSchema {
+		s.DevAppModel.ToVer.Version = domain.Version("0.0.1")
+		s.DevAppModel.ToVer.Schema = migrateTo
+		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
+		s.MigrationJobController.WakeUp()
+	} else if migrateTo > appspaceSchema {
+		s.DevAppModel.ToVer.Version = domain.Version("100.0.0")
+		s.DevAppModel.ToVer.Schema = migrateTo
+		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
+		s.MigrationJobController.WakeUp()
+	} else {
+		return fmt.Errorf("migrate to scehma same as current appspace schema: to: %v, current: %v", migrateTo, appspaceSchema)
+	}
+	return nil
 }
 
 type AppData struct {

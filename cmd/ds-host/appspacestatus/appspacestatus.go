@@ -89,6 +89,9 @@ type AppspaceStatus struct {
 		GetSchema(domain.AppspaceID) (int, error)
 	}
 
+	AppspaceFilesEvents interface {
+		Subscribe(chan<- domain.AppspaceID)
+	}
 	AppspaceRoutes interface {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
@@ -124,6 +127,10 @@ func (s *AppspaceStatus) Init() {
 	asPausedCh := make(chan domain.AppspacePausedEvent)
 	go s.handleAppspacePause(asPausedCh)
 	s.AppspacePausedEvent.Subscribe(asPausedCh)
+
+	asFilesCh := make(chan domain.AppspaceID)
+	go s.handleAppspaceFiles(asFilesCh)
+	s.AppspaceFilesEvents.Subscribe(asFilesCh)
 
 	migrationJobsCh := make(chan domain.MigrationStatusData)
 	go s.handleMigrationJobUpdate(migrationJobsCh)
@@ -177,7 +184,10 @@ func (s *AppspaceStatus) SetTempPause(appspaceID domain.AppspaceID, paused bool)
 
 	status.lock.Lock()
 	defer status.lock.Unlock()
-	status.data.tempPaused = paused
+	if status.data.tempPaused != paused {
+		status.data.tempPaused = paused
+		s.sendChangedEvent(appspaceID, status.data)
+	}
 }
 
 func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) *status {
@@ -253,6 +263,15 @@ func (s *AppspaceStatus) handleAppspacePause(ch <-chan domain.AppspacePausedEven
 				s.sendChangedEvent(p.AppspaceID, status.data)
 			}
 			status.lock.Unlock()
+		}
+	}
+}
+
+func (s *AppspaceStatus) handleAppspaceFiles(ch <-chan domain.AppspaceID) {
+	for appspaceID := range ch {
+		status := s.getTrackedStatus(appspaceID)
+		if status != nil {
+			s.updateStatus(appspaceID, status)
 		}
 	}
 }

@@ -104,7 +104,25 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 	return conn, conn.connError
 }
 
-// Need a stop conn, or some way to automatically shut things off if idle?
+// CloseConn closes the db file and removes connection from conns
+// The expectation is that this is called after the appspace has been confirmed stopped
+func (mdb *AppspaceMetaDB) CloseConn(appspaceID domain.AppspaceID) error {
+
+	mdb.connsMux.Lock()
+	conn, ok := mdb.conns[appspaceID]
+	if ok {
+		delete(mdb.conns, appspaceID)
+	}
+	mdb.connsMux.Unlock()
+
+	if ok {
+		err := conn.handle.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) { //maybe just pass location key instead of appspace id?
 	appspace, dsErr := mdb.AppspaceModel.GetFromID(appspaceID)

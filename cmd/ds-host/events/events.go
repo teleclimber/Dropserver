@@ -75,6 +75,43 @@ func (e *MigrationJobStatusEvents) removeSubscriber(ch chan<- domain.MigrationSt
 	}
 }
 
+////// Apppsace Files Event
+
+// AppspaceFilesEvents notify subscribers that appsapce files
+// have been written to outside of normal appspace use.
+// Usually this means they were imported, or a backup restored
+type AppspaceFilesEvents struct {
+	subscribers []chan<- domain.AppspaceID
+}
+
+// Send sends an appspace paused or unpaused event
+func (e *AppspaceFilesEvents) Send(appspaceID domain.AppspaceID) {
+	for _, ch := range e.subscribers {
+		ch <- appspaceID
+	}
+}
+
+// Subscribe to an event for when an appspace is paused or unpaused
+func (e *AppspaceFilesEvents) Subscribe(ch chan<- domain.AppspaceID) {
+	e.removeSubscriber(ch)
+	e.subscribers = append(e.subscribers, ch)
+}
+
+// Unsubscribe to an event for when an appspace is paused or unpaused
+func (e *AppspaceFilesEvents) Unsubscribe(ch chan<- domain.AppspaceID) {
+	e.removeSubscriber(ch)
+}
+
+func (e *AppspaceFilesEvents) removeSubscriber(ch chan<- domain.AppspaceID) {
+	// get a feeling you'll need a mutex to cover subscribers?
+	for i, c := range e.subscribers {
+		if c == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+		}
+	}
+}
+
 ////////////////////////////////////////
 // Appspace Status events
 type appspaceStatusSubscriber struct {

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/otiai10/copy"
-
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
@@ -88,6 +86,7 @@ func main() {
 	}
 
 	// events:
+	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appVersionEvents := &AppVersionEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
@@ -120,24 +119,13 @@ func main() {
 		Validator:     validator}
 	appspaceMetaDb.Init()
 
-	if *appspaceDirFlag != "" {
-		// Copy appspace files
-		err = copy.Copy(*appspaceDirFlag, appspaceWorkingDir)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		// create empty appspace: directory structure and meta db
-		err = os.MkdirAll(filepath.Join(appspaceWorkingDir, "files"), 0766)
-		if err != nil {
-			panic(err)
-		}
-
-		err = appspaceMetaDb.Create(appspaceID, 0)
-		if err != nil {
-			panic(err)
-		}
+	appspaceFiles := &DevAppspaceFiles{
+		AppspaceMetaDb:      appspaceMetaDb,
+		AppspaceFilesEvents: appspaceFilesEvents,
+		sourceDir:           *appspaceDirFlag,
+		destDir:             appspaceWorkingDir,
 	}
+	appspaceFiles.Reset()
 
 	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
 		Config:         runtimeConfig,
@@ -198,6 +186,7 @@ func main() {
 		AppModel:             devAppModel,
 		AppspaceInfoModels:   appspaceInfoModels,
 		AppspacePausedEvent:  appspacePausedEvents,
+		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspaceRoutes:       nil, //added below
 		MigrationJobs:        migrateJobController,
 		MigrationJobsEvents:  migrationJobEvents,
@@ -253,12 +242,16 @@ func main() {
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
 		AppFilesModel:          appFilesModel,
+		AppspaceFiles:          appspaceFiles,
 		DevAppspaceModel:       devAppspaceModel,
+		AppspaceMetaDB:         appspaceMetaDb,
+		AppspaceDB:             appspaceDB,
 		AppspaceInfoModels:     appspaceInfoModels,
 		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
 		DevSandboxMaker:        devSandboxMaker,
+		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
 		AppVersionEvents:       appVersionEvents,
 		AppspaceStatusEvents:   appspaceStatusEvents,

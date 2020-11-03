@@ -2,7 +2,7 @@ import {reactive} from 'vue';
 
 import twineClient from './twine-client';
 
-import {ReceivedMessageI} from '../twine-ws/twine-common';
+import {ReceivedMessageI, SentMessageI} from '../twine-ws/twine-common';
 
 const appspaceControlService = 12;
 
@@ -43,6 +43,7 @@ class BaseData {
 	app_migrations :number[] = [];
 
 	paused = false;
+	temp_paused = false;
 	migrating = false;
 	appspace_schema = 0;
 	problem = false;
@@ -197,10 +198,43 @@ export async function stopSandbox() {
 	}
 }
 
-export async function importAndMigrate() {
-	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.importAndMigrate, undefined);
-	if( reply.error ) {
-		throw reply.error;
+export class ImportAndMigrate {
+	public cur_state:string = "";
+
+	reset() {
+		this.cur_state = "Import and Migrate"
+	}
+	start() {
+		this.cur_state = "Working...";
+		this._run();
+	}
+	async _run() {
+		const sent = await twineClient.twine.send(appspaceControlService, appspaceCmds.importAndMigrate, undefined);
+
+		for await (const m of sent.incomingMessages()) {
+			switch (m.command) {
+				case 11:	//cur_state
+					this.cur_state = new TextDecoder('utf-8').decode(m.payload);
+					m.sendOK();
+					break;
+			
+				default:
+					m.sendError("What is this command?");
+					throw new Error("what is this command? "+m.command);
+			}
+		}
+
+		const reply = await sent.waitReply();
+		if( reply.error != undefined ) {
+			throw reply.error;	// TODO investigate: I think we changed error to be a string so you can throw it from the right place.
+		}
+
+		this.cur_state = 'All done!';
+
+		setTimeout(() => {
+			this.reset();
+		}, 1000);
+		
 	}
 }
 

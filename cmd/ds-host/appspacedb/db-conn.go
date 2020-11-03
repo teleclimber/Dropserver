@@ -39,6 +39,17 @@ func (m *ConnManager) Init(appspacesPath string) {
 	m.conns = make(map[connsKey]*connsVal)
 }
 
+func (m *ConnManager) closeAppspaceDBs(appspaceID domain.AppspaceID) {
+	m.connsMux.Lock()
+	defer m.connsMux.Unlock()
+	for key, val := range m.conns {
+		if key.appspaceID == appspaceID {
+			go val.dbConn.close()
+			delete(m.conns, key)
+		}
+	}
+}
+
 // createDB creates a new database
 func (m *ConnManager) createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error) {
 	key := connsKey{
