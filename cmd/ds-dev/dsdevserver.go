@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -273,20 +274,13 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		s.DevSandboxManager.StopAppspace(appspaceID)
 		m.SendOK()
 	case importAndMigrate:
-		schema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
-		if err != nil {
-			m.SendError(err.Error())
-			return
-		}
-		fmt.Println(schema)
-
 		m.RefSendBlock(11, []byte("Stopping..."))
 		s.AppspaceStatus.SetTempPause(appspaceID, true)
 		s.AppspaceStatus.WaitStopped(appspaceID)
 		s.DevSandboxManager.StopAppspace(appspaceID)
 
 		m.RefSendBlock(11, []byte("Closing..."))
-		err = s.AppspaceMetaDB.CloseConn(appspaceID)
+		err := s.AppspaceMetaDB.CloseConn(appspaceID)
 		if err != nil {
 			m.SendError(err.Error())
 			return
@@ -298,9 +292,19 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		s.AppspaceFiles.Reset()
 
 		// run migration to latest
+		//  First get highest migration level
+		appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
+		if dsErr != nil {
+			panic(dsErr.ToStandard().Error())
+		}
+		schema := 0
+		if len(appFilesMeta.Migrations) > 0 {
+			ms := appFilesMeta.Migrations
+			schema = ms[len(ms)-1]
+		}
 		m.RefSendBlock(11, []byte("Migrating..."))
 		err = s.migrate(schema)
-		if err != nil {
+		if err != nil && err != errNoMigrationNeeded {
 			m.SendError("error migrating: " + err.Error())
 			return
 		}
@@ -315,6 +319,8 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 // If migrating up, create a app version with higher version, and to-schema,
 // *or* create a lower version with current schema, and re-create the main app-version with new schema?
 // but maybe this takes place automatically on observe of app code?
+
+var errNoMigrationNeeded = errors.New("No migration needed")
 
 // If migrating down, then create dummy version with lower version, to-schema.
 // Location key and rest is immaterial as it souldn't get used.
@@ -334,7 +340,7 @@ func (s *DropserverDevServer) migrate(migrateTo int) error {
 		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
 		s.MigrationJobController.WakeUp()
 	} else {
-		return fmt.Errorf("migrate to scehma same as current appspace schema: to: %v, current: %v", migrateTo, appspaceSchema)
+		return errNoMigrationNeeded
 	}
 	return nil
 }
@@ -366,8 +372,6 @@ func (s *DropserverDevServer) sendAppData(twine *twine.Twine) {
 		fmt.Println("sendAppData json Marshal Error: " + err.Error())
 	}
 
-	fmt.Println("Sending app data")
-
 	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppData SendBlock Error: " + err.Error())
@@ -379,8 +383,6 @@ func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, status
 	if err != nil {
 		fmt.Println("sendAppspaceStatusEvent json Marshal Error: " + err.Error())
 	}
-
-	fmt.Println("Sending status event")
 
 	_, err = twine.SendBlock(baseDataService, statusEventCmd, bytes)
 	if err != nil {
@@ -409,8 +411,6 @@ func (s *DropserverDevServer) sendMigrationEvent(twine *twine.Twine, migrationEv
 	if err != nil {
 		fmt.Println("sendMigrationEvent json Marshal Error: " + err.Error())
 	}
-
-	fmt.Println("Sending migration job event")
 
 	_, err = twine.SendBlock(migrationStatusService, migrationStatusEventCmd, bytes)
 	if err != nil {
@@ -443,8 +443,6 @@ func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *dom
 		// meh
 		fmt.Println("sendRouteEvent json Marshal Error: " + err.Error())
 	}
-
-	fmt.Println("Sending route event")
 
 	_, err = twine.SendBlock(routeEventService, routeHitEventCmd, bytes)
 	if err != nil {
