@@ -32,6 +32,7 @@ export async function createDatabase(db_name: string) :Promise<Database> {
 
 	const reply = await twine.sendBlock(service, createCmd, makePayload({db_name}));
 	if(reply.error) {
+		console.error(reply.error);
 		throw new Error(reply.error);
 	}
 
@@ -43,6 +44,7 @@ export async function deleteDatabase(db_name: string) {
 
 	const reply = await twine.sendBlock(service, deleteCmd, makePayload({db_name}));
 	if(reply.error) {
+		console.error(reply.error);
 		throw new Error(reply.error);
 	}
 }
@@ -67,6 +69,7 @@ export default class Database {
 
 		const reply = await twine.sendBlock(service, queryCmd, makePayload(q_data));
 		if(reply.error) {
+			console.error(reply.error);
 			throw new Error(reply.error);
 		}
 
@@ -94,6 +97,7 @@ export default class Database {
 
 		const reply = await twine.sendBlock(service, queryCmd, makePayload(q_data));
 		if(reply.error) {
+			console.error(reply.error);
 			throw new Error(reply.error);
 		}
 

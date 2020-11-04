@@ -84,7 +84,9 @@ func (m *V0RouteModel) reverseCmdCreate(message twine.ReceivedMessageI) {
 	err = m.Create(data.Methods, data.RoutePath, data.Auth, data.Handler)
 	if err != nil {
 		m.getLogger("reverseCmdCreate, m.Create").Error(err)
-		message.SendError("db error on create")
+		if err != nil {
+			message.SendError("db error on route create: " + err.Error())
+		}
 		return
 	}
 
@@ -115,6 +117,8 @@ func (m *V0RouteModel) reverseCmdDelete(message twine.ReceivedMessageI) {
 	message.SendOK()
 }
 
+var errRouteExists = errors.New("Appspace route already exists")
+
 // Create adds a new route to the DB
 // Wonder if I need an "overwrite" flag?
 func (m *V0RouteModel) Create(methods []string, routePath string, auth domain.AppspaceRouteAuth, handler domain.AppspaceRouteHandler) error { // and more stuff...
@@ -123,7 +127,7 @@ func (m *V0RouteModel) Create(methods []string, routePath string, auth domain.Ap
 		return err
 	}
 	if rr != nil && len(*rr) > 0 {
-		return errors.New("Appspace route already exists")
+		return errRouteExists
 	}
 
 	var mBitz uint16 = 0

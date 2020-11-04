@@ -63,6 +63,7 @@ class Routes {
 		
 		const reply = await this.twine.sendBlock(service, createCmd, Routes.makePayload(route));
 		if(!reply.ok) {
+			console.error("Failed to create route "+routePath+": "+reply.error);
 			throw new Error(reply.error);
 		}
 	}
@@ -75,6 +76,7 @@ class Routes {
 
 		const reply = await this.twine.sendBlock(service, deleteCmd, Routes.makePayload(route))
 		if(!reply.ok) {
+			console.error(reply.error);
 			throw new Error(reply.error);
 		}
 	}
