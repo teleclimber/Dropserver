@@ -113,9 +113,9 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	}
 	s.appspaceLog(logString)
 
-	socketsDir, err := makeSocketsDir(s.Config.Sandbox.SocketsDir, s.appspace.AppspaceID)
+	socketsDir, err := ioutil.TempDir(s.Config.Sandbox.SocketsDir, "sock")
 	if err != nil {
-		s.getLogger(fmt.Sprintf("Start(), makeSocketsDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
+		s.getLogger(fmt.Sprintf("Start(), ioutil.TempDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
 	}
 	s.socketsDir = socketsDir
@@ -124,8 +124,6 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	if err != nil {
 		return err
 	}
-
-	//fwdSock := path.Join(socketsDir, "fwd.sock") // forward socket is where the ds runner will create the sandbox server
 
 	// Here start should take necessary data about appspace
 	// ..in order to pass in the right permissions to deno.
@@ -153,6 +151,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		"--importmap=" + s.getImportPathFile(),
 		"--allow-read",                  // TODO app dir and appspace dir, and sockets
 		"--allow-write",                 // TODO appspace dir, sockets
+		"--allow-net",                   // TODO needed to import remote modules until Deno gives me more options
 		s.Config.Exec.SandboxRunnerPath, // TODO This should be versioned according to Dropserver API version
 		s.socketsDir,
 		filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
@@ -353,9 +352,8 @@ func (s *Sandbox) Stop() {
 	// If had to forcekill then quarantine the
 
 	// Not sure if we can do this now, or have to wait til dead...
-	err = cleanSocketsDir(s.socketsDir)
-	if err != nil {
-		s.getLogger("Stop(), cleanSocketDir()").Error(err)
+	if err := os.RemoveAll(s.socketsDir); err != nil {
+		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
 	}
 }
 
@@ -648,30 +646,4 @@ func (s *Sandbox) writeImportMap() error {
 }
 func (s *Sandbox) getImportPathFile() string {
 	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
-}
-
-/////////////
-func cleanSocketsDir(sockDir string) error {
-	if err := os.RemoveAll(sockDir); err != nil {
-		return err
-	}
-	return nil
-}
-func makeSocketsDir(baseDir string, appspaceID domain.AppspaceID) (string, error) {
-	sockDir := getSocketsDir(baseDir, appspaceID)
-
-	err := cleanSocketsDir(sockDir)
-	if err != nil {
-		return "", err
-	}
-
-	if err := os.MkdirAll(sockDir, 0700); err != nil {
-		return "", err
-	}
-
-	return sockDir, nil
-}
-
-func getSocketsDir(baseDir string, appspaceID domain.AppspaceID) string {
-	return path.Join(baseDir, fmt.Sprintf("as-%d", appspaceID))
 }

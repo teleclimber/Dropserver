@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 )
@@ -26,6 +28,10 @@ type DevSandboxManager struct {
 
 // Init sets up app version events loop
 func (sM *DevSandboxManager) Init() {
+	err := os.MkdirAll(sM.Config.Sandbox.SocketsDir, 0700)
+	if err != nil {
+		panic(err)
+	}
 	appVersionEvent := make(chan domain.AppID)
 	sM.AppVersionEvents.Subscribe(appVersionEvent)
 	go func() {

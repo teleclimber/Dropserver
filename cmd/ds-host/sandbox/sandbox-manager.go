@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -36,17 +37,14 @@ type request struct {
 	sandboxChannels []chan domain.SandboxI
 }
 
-// Init [used to] zaps existing sandboxes and creates fresh ones
-// Now it just cleans up possible earlier sandboxes
-// It does not create new ones until a request comes in.
-// Hmm, it's possible host crashes while sandboxes stay up.
-// How to deal?
-// -> at least start with clean set up:
-// - no deno processes running
-// - no unix domain sockets
-// - probably need a host session ID, and only talk to those who have that session.
+// Init creates maps
 func (sM *Manager) Init() {
 	sM.sandboxes = make(map[domain.AppspaceID]domain.SandboxI)
+
+	err := os.MkdirAll(sM.Config.Sandbox.SocketsDir, 0700)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // StopAll takes all known sandboxes and stops them
