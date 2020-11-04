@@ -6,7 +6,8 @@ const service = 15;
 
 // remote commands:
 const createCmd = 11;
-const queryCmd = 12;
+const deleteCmd = 13;
+const queryCmd = 20;
 
 export type ExecResults = {
 	last_insert_id: number,
@@ -35,6 +36,15 @@ export async function createDatabase(db_name: string) :Promise<Database> {
 	}
 
 	return new Database(db_name);
+}
+
+export async function deleteDatabase(db_name: string) {
+	const twine = DsServices.getTwine();
+
+	const reply = await twine.sendBlock(service, deleteCmd, makePayload({db_name}));
+	if(reply.error) {
+		throw new Error(reply.error);
+	}
 }
 
 export default class Database { 

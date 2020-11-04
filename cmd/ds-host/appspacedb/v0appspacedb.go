@@ -20,6 +20,7 @@ type results struct { // this is vX api-specific stuff
 type V0 struct {
 	connManager interface {
 		createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error)
+		deleteDB(appspaceID domain.AppspaceID, locationKey string, dbName string) error
 		getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal
 	}
 }
@@ -72,19 +73,23 @@ func (v *V0) getConn(appspace *domain.Appspace, dbName string) (*dbConn, error) 
 type V0Service struct {
 	connManager interface {
 		createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error)
+		deleteDB(appspaceID domain.AppspaceID, locationKey string, dbName string) error
 		getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal
 	}
 	appspace *domain.Appspace
 }
 
 const v0createDBCommand = 11
-const v0queryDBCommand = 12
+const v0deleteDBCommand = 13
+const v0queryDBCommand = 20
 
 // HandleMessage takes a twine message and performs the desired op
 func (s *V0Service) HandleMessage(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
 	case v0createDBCommand:
 		s.handleCreateDB(message)
+	case v0deleteDBCommand:
+		s.handleDeleteDB(message)
 	case v0queryDBCommand:
 		s.handleQueryDB(message)
 	default:
@@ -119,6 +124,33 @@ func (s *V0Service) handleCreateDB(message twine.ReceivedMessageI) {
 	_, err = s.connManager.createDB(s.appspace.AppspaceID, s.appspace.LocationKey, dbName)
 	if err != nil {
 		message.SendError(fmt.Sprintf("failed to create DB: %s", err.Error()))
+		return
+	}
+
+	message.SendOK()
+}
+
+func (s *V0Service) handleDeleteDB(message twine.ReceivedMessageI) {
+	var data createDbData // same data structure for delete
+	err := json.Unmarshal(message.Payload(), &data)
+	if err != nil {
+		message.SendError("failed to decode query data json: " + err.Error())
+		return
+	}
+
+	validator := &validator.Validator{}
+	validator.Init()
+
+	dbName := strings.ToLower(data.DBName)
+	dsErr := validator.DBName(dbName)
+	if dsErr != nil {
+		message.SendError("failed to decode query data json: " + dsErr.PublicString())
+		return
+	}
+
+	err = s.connManager.deleteDB(s.appspace.AppspaceID, s.appspace.LocationKey, dbName)
+	if err != nil {
+		message.SendError(fmt.Sprintf("failed to delete DB: %s", err.Error()))
 		return
 	}
 

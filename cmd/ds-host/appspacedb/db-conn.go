@@ -40,14 +40,21 @@ func (m *ConnManager) Init(appspacesPath string) {
 }
 
 func (m *ConnManager) closeAppspaceDBs(appspaceID domain.AppspaceID) {
+	var wg sync.WaitGroup
 	m.connsMux.Lock()
-	defer m.connsMux.Unlock()
 	for key, val := range m.conns {
 		if key.appspaceID == appspaceID {
-			go val.dbConn.close()
+			go func(v *connsVal) {
+				wg.Add(1)
+				v.dbConn.close()
+				wg.Done()
+			}(val)
 			delete(m.conns, key)
 		}
 	}
+	m.connsMux.Unlock()
+
+	wg.Wait()
 }
 
 // createDB creates a new database
@@ -87,6 +94,32 @@ func (m *ConnManager) create(key connsKey) (*connsVal, error) {
 	return m.conns[key], nil
 }
 
+func (m *ConnManager) deleteDB(appspaceID domain.AppspaceID, locationKey string, dbName string) error {
+	key := connsKey{
+		appspaceID: appspaceID,
+		dbName:     dbName}
+
+	m.connsMux.Lock()
+	conn, ok := m.conns[key]
+	if ok {
+		delete(m.conns, key)
+	}
+	defer m.connsMux.Unlock()
+
+	if conn != nil && conn.dbConn != nil && conn.dbConn.handle != nil {
+		conn.dbConn.handle.Close()
+	}
+
+	// then delete the file.
+	filePath := filepath.Join(m.appspacesPath, locationKey, dbName+".db")
+	err := os.Remove(filePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // getConn should open a conn and return the dbconn
 // or return the existing dbconn, after waiting for it to be ready
 // OR, if there was an error condition, return or mitigate....
@@ -123,8 +156,8 @@ func (m *ConnManager) getConn(appspaceID domain.AppspaceID, locationKey string, 
 }
 
 func (m *ConnManager) startConn(key connsKey, locationKey string, c *connsVal, create bool) {
-	dbPath := filepath.Join(m.appspacesPath, locationKey)
-	dbConn, err := openConn(dbPath, key.dbName, create)
+	filePath := filepath.Join(m.appspacesPath, locationKey, key.dbName+".db")
+	dbConn, err := openConn(filePath, create)
 	c.statusMux.Lock()
 	if err != nil {
 		c.connError = err
@@ -146,14 +179,13 @@ func (m *ConnManager) startConn(key connsKey, locationKey string, c *connsVal, c
 // Copy from host db
 
 // this is generic db fopen, so can live outside vX
-func openConn(dbPath string, dbName string, create bool) (*dbConn, error) {
-	dbFile := filepath.Join(dbPath, dbName+".db")
-	dsn := "file:" + dbFile + "?mode=rw"
+func openConn(filePath string, create bool) (*dbConn, error) {
+	dsn := "file:" + filePath + "?mode=rw"
 
 	if create {
-		_, err := os.Stat(dbFile)
+		_, err := os.Stat(filePath)
 		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("Appspace DB File Exists: %s", dbFile)
+			return nil, fmt.Errorf("Appspace DB File Exists: %s", filePath)
 		}
 		dsn += "c"
 

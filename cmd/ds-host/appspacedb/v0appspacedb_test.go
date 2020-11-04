@@ -338,6 +338,9 @@ type singleConnManager struct {
 func (m *singleConnManager) createDB(appspaceID domain.AppspaceID, locationKey string, dbName string) (*connsVal, error) {
 	return nil, nil
 }
+func (m *singleConnManager) deleteDB(appspaceID domain.AppspaceID, locationKey string, dbName string) error {
+	return nil
+}
 func (m *singleConnManager) getConn(appspaceID domain.AppspaceID, locationKey string, dbName string) *connsVal {
 	if m.conn != nil {
 		return m.conn

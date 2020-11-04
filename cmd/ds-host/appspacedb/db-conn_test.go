@@ -306,7 +306,7 @@ func TestOpenNoDB(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	_, err = openConn(dir, "test", false)
+	_, err = openConn(filepath.Join(dir, "test.db"), false)
 	if err == nil { // actually it should error!
 		t.Error("Should have failed to open non existent DB")
 	}
@@ -319,7 +319,7 @@ func TestCreate(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	dsc, err := openConn(dir, "test", true)
+	dsc, err := openConn(filepath.Join(dir, "test.db"), true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -333,13 +333,14 @@ func TestCreateExists(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	emptyFile, err := os.Create(filepath.Join(dir, "test.db"))
+	file := filepath.Join(dir, "test.db")
+	emptyFile, err := os.Create(file)
 	if err != nil {
 		t.Error(err)
 	}
 	emptyFile.Close()
 
-	_, err = openConn(dir, "test", true)
+	_, err = openConn(file, true)
 	if err == nil {
 		t.Error("should have errored trying to create pre-existing file")
 	}
@@ -355,7 +356,10 @@ func TestCreateDB(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	err = os.MkdirAll(filepath.Join(dir, "abc-loc"), 0700)
+	loc := "abc-loc"
+	dbName := "test-db"
+
+	err = os.MkdirAll(filepath.Join(dir, loc), 0700)
 	if err != nil {
 		t.Error(err)
 	}
@@ -363,11 +367,22 @@ func TestCreateDB(t *testing.T) {
 	m := &ConnManager{}
 	m.Init(dir)
 
-	_, err = m.createDB(domain.AppspaceID(7), "abc-loc", "test-db")
+	_, err = m.createDB(domain.AppspaceID(7), loc, dbName)
 	if err != nil {
 		t.Error(err)
 	}
 
+	// then test delete
+	err = m.deleteDB(domain.AppspaceID(7), loc, dbName)
+	if err != nil {
+		t.Error(err)
+	}
+
+	filePath := filepath.Join(m.appspacesPath, loc, dbName+".db")
+	_, err = os.Stat(filePath)
+	if err == nil || !os.IsNotExist(err) {
+		t.Error("Expect file to not exist")
+	}
 }
 
 func TestStartConn(t *testing.T) {

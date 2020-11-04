@@ -77,6 +77,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 		AppModel:       appModel,
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: appspaceStatus}
+	appspaceRoutes.Init()
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc",
