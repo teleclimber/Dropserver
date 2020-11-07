@@ -7,6 +7,9 @@
 
 import Twine from "./twine/twine.ts";
 import Metadata from "./ds-metadata.ts";
+import DsRouteServer from "./ds-route-server.ts";
+
+import type {ReceivedMessageI} from './twine/twine.ts';
 
 const sandboxService = 11;
 const executeService = 12;
@@ -28,6 +31,9 @@ export class DsServices {
 		if(this.twine === undefined) throw new Error("twine should not be undefined at this point.")
 		for await (const message of this.twine.incomingMessages() ) {
 			switch (message.service) {
+				case sandboxService:
+					this.handleMessage(message);
+					break
 				case executeService:
 					const exec_mod = await import("./ds-exec-service.ts");
 					exec_mod.handleMessage(message);
@@ -48,6 +54,10 @@ export class DsServices {
 		return this.twine;
 	}
 
+	private async handleMessage(message:ReceivedMessageI) {
+		// For now just pipe straight to route server.
+		DsRouteServer.handleServiceMessage(message);
+	}
 }
 
 const sym = Symbol.for("DropServer DsServices class singleton");

@@ -62,7 +62,10 @@ export default class Twine {
 		// messageChan... I think this is an itera** thing.
 
 	}
+	// this should really just be "start", and branch off based on isServer
 	async startServer() {
+		if( !this.isServer ) throw new Error("starting server on non-server");
+
 		this.server_listener = await Deno.listen({path: this.sock_path, transport:"unix"});
 		this.conn = await this.server_listener.accept();
 
@@ -80,6 +83,8 @@ export default class Twine {
 		this.flushPreConnMessages();
 	}
 	async startClient() {	// maybe this is a generator function that yields incoming messages?
+		if( this.isServer ) throw new Error("starting client on server");
+
 		// warning unstable API in Deno. Use "--unstable"
 		this.conn = await Deno.connect({ path: this.sock_path, transport: "unix" });
 
