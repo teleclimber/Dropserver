@@ -384,7 +384,7 @@ func (r *runningJob) runMigration() error {
 
 	r.sandbox = r.sandboxMaker.Make(r.useVersion, r.appspace)
 
-	defer r.sandbox.Stop()
+	defer r.sandbox.Graceful()
 	err := r.sandbox.Start()
 	if err != nil {
 		// host level error? log it

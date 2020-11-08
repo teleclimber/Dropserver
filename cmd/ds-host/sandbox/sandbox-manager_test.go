@@ -21,16 +21,15 @@ func TestKillPool(t *testing.T) {
 	cfg.Sandbox.Num = 1
 
 	m := &Manager{
-		Config: cfg}
-
-	m.Init()
+		sandboxes: make(map[domain.AppspaceID]domain.SandboxI),
+		Config:    cfg}
 
 	s1 := domain.NewMockSandboxI(mockCtrl)
 	s1.EXPECT().Status().Return(domain.SandboxReady)
 	s1.EXPECT().TiedUp().Return(false)
 	s1.EXPECT().LastActive().Return(time.Now().Add(-1 * time.Second))
 	s1.EXPECT().SetStatus(domain.SandboxKilling)
-	s1.EXPECT().Stop()
+	s1.EXPECT().Graceful()
 	m.sandboxes[domain.AppspaceID(1)] = s1
 
 	s2 := domain.NewMockSandboxI(mockCtrl)
@@ -44,7 +43,7 @@ func TestKillPool(t *testing.T) {
 	s3.EXPECT().TiedUp().Return(false)
 	s3.EXPECT().LastActive().Return(time.Now().Add(-2 * time.Second))
 	s3.EXPECT().SetStatus(domain.SandboxKilling)
-	s3.EXPECT().Stop()
+	s3.EXPECT().Graceful()
 	m.sandboxes[domain.AppspaceID(3)] = s3
 
 	// not clear what the behavior of killPool will be when we have sandboxes in transition (starting / killing)

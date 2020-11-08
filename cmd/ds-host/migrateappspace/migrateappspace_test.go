@@ -113,7 +113,7 @@ func TestRunJob(t *testing.T) {
 	sandbox.EXPECT().Start().Return(nil)
 	sandbox.EXPECT().WaitFor(gomock.Any())
 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
-	sandbox.EXPECT().Stop()
+	sandbox.EXPECT().Graceful()
 
 	sandboxMaker := NewMockSandboxMakerI(mockCtrl)
 	sandboxMaker.EXPECT().Make(gomock.Any(), gomock.Any()).Return(sandbox)

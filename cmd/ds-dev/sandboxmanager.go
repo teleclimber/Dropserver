@@ -70,7 +70,7 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 		err := newSandbox.Start()
 		if err != nil {
 			close(ch)
-			newSandbox.Stop()
+			newSandbox.Kill()
 			return
 		}
 		newSandbox.WaitFor(domain.SandboxReady)
@@ -91,7 +91,7 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 // it returns if/when no sanboxes are running for that appspace
 func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
 	if sM.sb != nil {
-		sM.sb.Stop()
+		sM.sb.Graceful()
 	}
 }
 

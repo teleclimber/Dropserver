@@ -179,6 +179,18 @@ func (mr *MockSandboxIMockRecorder) GetTransport() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransport", reflect.TypeOf((*MockSandboxI)(nil).GetTransport))
 }
 
+// Graceful mocks base method
+func (m *MockSandboxI) Graceful() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Graceful")
+}
+
+// Graceful indicates an expected call of Graceful
+func (mr *MockSandboxIMockRecorder) Graceful() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Graceful", reflect.TypeOf((*MockSandboxI)(nil).Graceful))
+}
+
 // ID mocks base method
 func (m *MockSandboxI) ID() int {
 	m.ctrl.T.Helper()
@@ -191,6 +203,18 @@ func (m *MockSandboxI) ID() int {
 func (mr *MockSandboxIMockRecorder) ID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockSandboxI)(nil).ID))
+}
+
+// Kill mocks base method
+func (m *MockSandboxI) Kill() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Kill")
+}
+
+// Kill indicates an expected call of Kill
+func (mr *MockSandboxIMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockSandboxI)(nil).Kill))
 }
 
 // LastActive mocks base method
@@ -260,18 +284,6 @@ func (m *MockSandboxI) Status() SandboxStatus {
 func (mr *MockSandboxIMockRecorder) Status() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockSandboxI)(nil).Status))
-}
-
-// Stop mocks base method
-func (m *MockSandboxI) Stop() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Stop")
-}
-
-// Stop indicates an expected call of Stop
-func (mr *MockSandboxIMockRecorder) Stop() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockSandboxI)(nil).Stop))
 }
 
 // TaskBegin mocks base method

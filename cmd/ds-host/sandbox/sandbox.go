@@ -185,7 +185,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	_, ok := <-s.twine.ReadyChan
 	if !ok {
 		logger.Log("Apparent failed start. ReadyChan closed")
-		s.Stop()
+		s.Kill()
 		return errors.New("Failed to start sandbox")
 	}
 
@@ -204,7 +204,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 			if err != nil {
 				s.getLogger("ErrorChan").Error(err)
 				// We may want to stash a message on s. to enlighten user as to what happened?
-				s.Stop()
+				s.Kill()
 			} else {
 				break // errorChan was closed, so exit loop
 			}
@@ -228,7 +228,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 	if err != nil {
 		// TODO check error type (see Wait comment)
 		s.getLogger("monitor(), s.cmd.Wait()").Error(err)
-		s.Stop()
+		s.Kill()
 		// Here we should kill off reverse listener?
 		// This is where we want to log things for the benefit of the dropapp user.
 		// Also somehow whoever started the sandbox needs to know it exited with error
@@ -239,6 +239,8 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 	s.SetStatus(domain.SandboxDead)
 	// -> it may have crashed.
 	// TODO ..should probably call regular shutdown procdure to clean everything up.
+
+	s.cleanup()
 
 	s.appspaceLog("Sandbox terminated")
 
@@ -312,8 +314,32 @@ func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 	}
 }
 
-// Stop stops the sandbox and its associated open connections
-func (s *Sandbox) Stop() {
+// Graceful politely asks the sandbox to shut itself down
+func (s *Sandbox) Graceful() {
+	s.getLogger("Graceful()").Log("starting shutdown")
+
+	// need to send signal to other side via twine to say it can shut itself down.
+	// .. which means closing all the loops so that the script exits.
+	// This might mean that it is the other side that initiates Twine.Graceful()?
+	// OR it's part of this call here.
+
+	// TODO: Bug in Deno causes this to never work.
+	// reply, err := s.twine.SendBlock(sandboxService, 13, nil)
+	// if err != nil {
+	// 	// ???
+	// 	s.getLogger("Graceful() twine.SendBlock()").Error(err)
+	// }
+	// if !reply.OK() {
+	// 	s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
+	// }
+
+	// So for now just call kill:
+	s.Kill()
+
+}
+
+// Kill the sandbox. No mercy.
+func (s *Sandbox) Kill() {
 	// reverse listener...
 
 	// get state and then send kill signal?
@@ -343,16 +369,28 @@ func (s *Sandbox) Stop() {
 		}
 	}
 
-	s.twine.Stop()
 	// the shutdown command sent to via twine should automatically call graceful shutdown on this side.
 	// But still ned to handle the case that the Twine server never got going because it never got "hi" because client died prior to sending it.
 
 	// after you kill, whether successful or not,
 	// sandbox manager ought to remove the sandbox from sandboxes.
-	// If had to forcekill then quarantine the
+}
+
+// Cleanup socket paths, and listeners, etc...
+// After the sandbox has terminated
+func (s *Sandbox) cleanup() {
+	s.getLogger("cleanup()").Log("starting cleanup")
+
+	// maybe twine needs a checkConn()? or something?
+	// or maybe graceful itself should do it, so it can act accordingly
+	//s.twine.Graceful() // not sure this will work because we probably have messages in limbo?
+	// sandbox is already dead. Who are you sendign graceful to?
+	s.twine.Stop()
 
 	// Not sure if we can do this now, or have to wait til dead...
-	if err := os.RemoveAll(s.socketsDir); err != nil {
+	err := os.RemoveAll(s.socketsDir)
+	if err != nil {
+		// might ignore err?
 		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
 	}
 }

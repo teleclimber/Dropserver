@@ -56,7 +56,7 @@ func (sM *Manager) StopAll() {
 		// ..barring anything "waiting for"...
 		go func(sb domain.SandboxI) {
 			stopWg.Add(1)
-			sb.Stop()
+			sb.Graceful()
 			stopWg.Done()
 		}(c)
 	}
@@ -82,7 +82,7 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 		err := newSandbox.Start()
 		if err != nil {
 			close(ch)
-			newSandbox.Stop()
+			newSandbox.Kill()
 			return
 		}
 		newSandbox.WaitFor(domain.SandboxReady)
@@ -142,12 +142,11 @@ func (sM *Manager) StopAppspace(appspaceID domain.AppspaceID) {
 	delete(sM.sandboxes, appspaceID)
 	sM.poolMux.Unlock()
 
-	s.Stop() // this should work but sandbox manager may not be updated because bugg
+	s.Graceful()
 
 	s.WaitFor(domain.SandboxDead)
 }
 
-// TODO: have a graceful stop for appspaces?
 // TODO: lots of likely problems with sandbox manager due to lack of tests?
 
 type killable struct {
@@ -184,7 +183,7 @@ func (sM *Manager) killPool() {
 			sandbox := sM.sandboxes[appspaceID]
 			delete(sM.sandboxes, appspaceID)
 			sandbox.SetStatus(domain.SandboxKilling) // have to set it here to prevent other requests being dispatched to it before it actually starts shutting down.
-			go sandbox.Stop()
+			go sandbox.Graceful()
 		}
 	}
 

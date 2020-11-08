@@ -70,7 +70,7 @@ func TestSandboxExecFn(t *testing.T) {
 	if sb == nil {
 		t.Error("Sandbox channel closed")
 	}
-	defer sb.Stop()
+	defer sb.Graceful()
 
 	data := []byte("export default function testFn() { console.log(\"testFn running\"); };")
 	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "test-file.ts"), data, 0600)
@@ -156,7 +156,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 
 	sandboxChan := sM.GetForAppSpace(&appVersion, &appspace)
 	sb := <-sandboxChan
-	defer sb.Stop()
+	defer sb.Graceful()
 
 	ts := `
 	import Routes from "@dropserver/appspace-routes-db.ts";

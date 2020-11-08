@@ -198,7 +198,7 @@ func TestRunnerScriptError(t *testing.T) {
 		t.Error("sandbox status should be killing or dead")
 	}
 
-	s.Stop()
+	s.Graceful()
 
 	s.WaitFor(domain.SandboxDead)
 }
@@ -226,7 +226,10 @@ func TestStart(t *testing.T) {
 		AppspaceID:  domain.AppspaceID(13),
 		LocationKey: "appspace-loc"}
 
-	log := &testLogger{t}
+	log := &testLogger2{
+		log: func(source, message string) {
+			t.Log("log: " + message)
+		}}
 
 	s := &Sandbox{
 		id:             7,
@@ -239,17 +242,21 @@ func TestStart(t *testing.T) {
 
 	err = s.Start()
 	if err != nil {
-		t.Error(err)
-		s.Stop()
+		t.Fatal(err)
+		s.Kill()
 	}
 
 	s.WaitFor(domain.SandboxReady)
 
 	if s.Status() != domain.SandboxReady {
-		t.Error("sandbox status should be ready")
+		t.Fatal("sandbox status should be ready")
 	}
 
-	s.Stop()
+	time.Sleep(time.Second)
+
+	s.Graceful()
+
+	s.WaitFor(domain.SandboxDead)
 }
 
 func TestExecFn(t *testing.T) {
@@ -290,18 +297,24 @@ func TestExecFn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	log := &testLogger2{
+		log: func(source, message string) {
+			t.Log("log: " + message)
+		}}
+
 	s := &Sandbox{
 		id:             7,
 		appspace:       appspace,
 		appVersion:     appVersion,
 		status:         domain.SandboxStarting,
 		Config:         cfg,
-		AppspaceLogger: &testLogger{t},
+		AppspaceLogger: log,
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
-		s.Stop()
+		s.Kill()
 		t.Error(err)
 	}
 
@@ -319,7 +332,7 @@ func TestExecFn(t *testing.T) {
 		t.Error(err)
 	}
 
-	s.Stop()
+	s.Graceful()
 }
 
 func TestExecForbiddenImport(t *testing.T) {
@@ -364,7 +377,7 @@ func TestExecForbiddenImport(t *testing.T) {
 
 	err = s.Start()
 	if err != nil {
-		s.Stop()
+		s.Kill()
 		t.Error(err)
 	}
 
@@ -382,7 +395,7 @@ func TestExecForbiddenImport(t *testing.T) {
 		t.Error("Expected an error")
 	}
 
-	s.Stop()
+	s.Graceful()
 }
 
 func getSandboxCodePath() string {
@@ -396,10 +409,11 @@ func getSandboxRunnerPath() string {
 	return filepath.Join(getSandboxCodePath(), "ds-sandbox-runner.ts")
 }
 
-type testLogger struct {
-	t *testing.T
+// test logger
+type testLogger2 struct {
+	log func(source string, message string)
 }
 
-func (l *testLogger) Log(_ domain.AppspaceID, source string, message string) {
-	l.t.Logf("%v: %v\n", source, message)
+func (l *testLogger2) Log(_ domain.AppspaceID, source string, message string) {
+	l.log(source, message)
 }

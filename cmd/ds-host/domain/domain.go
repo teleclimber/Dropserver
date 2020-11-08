@@ -141,7 +141,8 @@ type SandboxI interface {
 	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
 	Start() error
-	Stop()
+	Graceful()
+	Kill()
 }
 
 // Server describes the web server
