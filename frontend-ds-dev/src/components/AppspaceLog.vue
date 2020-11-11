@@ -22,7 +22,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref } from 'vue';
+import { defineComponent, ref } from 'vue';
 import appspaceLogData from '../models/appspace-log-data';
 import type {AppspaceLogEvent} from '../models/appspace-log-data';
 

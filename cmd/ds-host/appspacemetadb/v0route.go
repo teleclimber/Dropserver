@@ -28,6 +28,9 @@ type V0RouteModel struct {
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
+	RouteEvents interface {
+		Send(domain.AppspaceID, domain.AppspaceRouteEvent)
+	}
 	appspaceID domain.AppspaceID
 	//do we need stmts? (I think these should be in the DB obj)
 }
@@ -175,6 +178,12 @@ func (m *V0RouteModel) Create(methods []string, routePath string, auth domain.Ap
 		return err
 	}
 
+	if m.RouteEvents != nil {
+		m.RouteEvents.Send(m.appspaceID, domain.AppspaceRouteEvent{
+			AppspaceID: m.appspaceID,
+			Path:       routePath})
+	}
+
 	return nil
 }
 
@@ -265,14 +274,76 @@ func (m *V0RouteModel) Delete(methods []string, routePath string) error {
 		return err
 	}
 
+	if m.RouteEvents != nil {
+		m.RouteEvents.Send(m.appspaceID, domain.AppspaceRouteEvent{
+			AppspaceID: m.appspaceID,
+			Path:       routePath})
+	}
+
 	return nil
 }
 
-// GetAll returns all routes that match parameters passed
-// Not sure of the form of these params yet.
-// Maybe rename to Select or Find
-func (m *V0RouteModel) GetAll() {
+// GetAll returns all routes
+func (m *V0RouteModel) GetAll() (*[]domain.AppspaceRouteConfig, error) {
+	var rr []domain.AppspaceRouteConfig //may not work, may need to have interim type to egt from db row, then parse the json columsn
 
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var rowz []routeRow
+
+	err = db.Select(&rowz, `SELECT * FROM routes`)
+	if err != nil {
+		return nil, err
+	}
+
+	// if no error expand routeRows into AppspaceRouteConfig
+	rr = make([]domain.AppspaceRouteConfig, len(rowz))
+	for i, r := range rowz {
+		routeConfig, err := v0appspaceRouteFromRow(r)
+		if err != nil {
+			return nil, err
+		}
+		rr[i] = routeConfig
+	}
+
+	return &rr, nil
+}
+
+// GetPath returns all routes with that exact path
+func (m *V0RouteModel) GetPath(routePath string) (*[]domain.AppspaceRouteConfig, error) {
+	var rr []domain.AppspaceRouteConfig //may not work, may need to have interim type to egt from db row, then parse the json columsn
+
+	routePath, err := v0normalizePath(routePath)
+	if err != nil {
+		return &rr, err
+	}
+
+	db, err := m.getDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var rowz []routeRow
+
+	err = db.Select(&rowz, `SELECT * FROM routes WHERE path = ?`, routePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// if no error expand routeRows into AppspaceRouteConfig
+	rr = make([]domain.AppspaceRouteConfig, len(rowz))
+	for i, r := range rowz {
+		routeConfig, err := v0appspaceRouteFromRow(r)
+		if err != nil {
+			return nil, err
+		}
+		rr[i] = routeConfig
+	}
+
+	return &rr, nil
 }
 
 // Match finds the route that should handle the request
@@ -372,10 +443,6 @@ var v0methodBits = map[string]uint16{
 	"options": 64,
 	"trace":   128,
 	"patch":   256}
-
-// func v0getMethodBits(methods []string) ([]uint16, domain.Error) {
-
-// }
 
 func v0normalizeMethod(method string) (uint16, error) {
 	method = strings.ToLower(method)

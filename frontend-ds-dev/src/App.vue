@@ -26,6 +26,8 @@
 
 	<RouteHits></RouteHits>
 
+	<AppspaceRoutes></AppspaceRoutes>
+
 </template>
 
 <script lang="ts">
@@ -36,6 +38,7 @@ import AppspaceControl from './components/AppspaceControl.vue';
 import SandboxLog from './components/AppspaceLog.vue';
 import MigrationJobs from './components/MigrationJobs.vue';
 import RouteHits from './components/RouteHits.vue';
+import AppspaceRoutes from './components/AppspaceRoutes.vue';
 
 export default defineComponent({
 	name: 'DropserverAppDev',
@@ -44,6 +47,7 @@ export default defineComponent({
 		SandboxLog,
 		MigrationJobs,
 		RouteHits,
+		AppspaceRoutes,
 	},
 	setup(props, context) {
 		return {

@@ -113,6 +113,75 @@ func TestV0RouteGet(t *testing.T) {
 	}
 }
 
+func TestV0RouteGetAll(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	r := v0RoutesGetModel(t, mockCtrl)
+
+	rr, err := r.GetAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*rr) != 0 {
+		t.Error("expected no rows")
+	}
+
+	err = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = r.Create([]string{"post", "patch"}, "/def/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/def"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr, err = r.GetAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*rr) != 2 {
+		t.Error("expected 2 rows")
+	}
+}
+
+func TestV0RouteGetPath(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	r := v0RoutesGetModel(t, mockCtrl)
+
+	err := r.Create([]string{"get"}, "/def/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr, err := r.GetPath("/abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*rr) != 0 {
+		t.Error("expected no rows")
+	}
+
+	err = r.Create([]string{"get"}, "/abc/", domain.AppspaceRouteAuth{Type: "public"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Type: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr, err = r.GetPath("/abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*rr) != 2 {
+		t.Error("expected 2 row")
+	}
+}
 func TestV0Delete(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

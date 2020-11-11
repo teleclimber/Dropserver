@@ -14,6 +14,10 @@ type AppspaceRouteModels struct {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
 
+	RouteEvents interface {
+		Send(domain.AppspaceID, domain.AppspaceRouteEvent)
+	}
+
 	modelsMux sync.Mutex
 	modelsV0  map[domain.AppspaceID]*V0RouteModel // maybe make that an interface for testing purposes.
 }
@@ -37,6 +41,7 @@ func (g *AppspaceRouteModels) GetV0(appspaceID domain.AppspaceID) domain.V0Route
 		rm = &V0RouteModel{
 			Validator:      g.Validator,
 			AppspaceMetaDB: g.AppspaceMetaDB,
+			RouteEvents:    g.RouteEvents,
 			appspaceID:     appspaceID,
 		}
 		g.modelsV0[appspaceID] = rm

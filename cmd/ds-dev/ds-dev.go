@@ -89,6 +89,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appVersionEvents := &AppVersionEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
+	appspaceRouteEvents := &AppspaceRouteEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobStatusEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
@@ -135,6 +136,7 @@ func main() {
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb,
+		RouteEvents:    appspaceRouteEvents,
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
@@ -245,6 +247,7 @@ func main() {
 		AppspaceFiles:          appspaceFiles,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
+		AppspaceRouteModels:    appspaceRouteModels,
 		AppspaceDB:             appspaceDB,
 		AppspaceInfoModels:     appspaceInfoModels,
 		DevSandboxManager:      devSandboxManager,
@@ -254,6 +257,7 @@ func main() {
 		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
 		AppVersionEvents:       appVersionEvents,
+		AppspaceRouteEvents:    appspaceRouteEvents, // need to also send all routes on appspace files event, but will do that when we have this as a separate service.
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents,

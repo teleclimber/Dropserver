@@ -1,6 +1,7 @@
 import {reactive} from 'vue';
 import twineClient from './twine-client';
 import {ReceivedMessageI} from '../twine-ws/twine-common';
+import type {RouteConfig, RouteAuth, RouteHandler} from './appspace-routes-data';
 
 
 const route_commands = {
@@ -15,21 +16,7 @@ type Request = {
 	url: string,
 	method: string
 }
-type RouteAuth = {
-	type: string
-}
-type RouteHandler = {
-	type: string,
-	file?: string,
-	function?: string,
-	path?: string
-}
-type RouteConfig = {
-	methods: string[],
-	path: string,
-	auth: RouteAuth,
-	handler: RouteHandler
-}
+
 type RouteHit = {
 	timestamp: Date,
 	request: Request,

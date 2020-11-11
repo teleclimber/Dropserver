@@ -70,17 +70,15 @@ class BaseData {
 	}
 
 	handleMessage(m:ReceivedMessageI) {
-		// should really read command and act on that.
 		switch (m.command) {
 			case 11:
 				this.handleAppspaceStatusMessage(m);
 				break;
-		
 			case 12:
 				this.handleAppDataMessage(m);
 				break;
 			default:
-				break;
+				m.sendError("command not recognized: "+m.command);
 		}
 		
 	}

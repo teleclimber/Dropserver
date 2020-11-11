@@ -18,10 +18,12 @@ import (
 
 // V0 handles routes for appspaces.
 type V0 struct {
-	AppspaceRouteModels domain.AppspaceRouteModels
-	DropserverRoutes    domain.RouteHandler // versioned
-	SandboxProxy        domain.RouteHandler // versioned?
-	AppspaceLogin       interface {
+	AppspaceRouteModels interface {
+		GetV0(domain.AppspaceID) domain.V0RouteModel
+	}
+	DropserverRoutes domain.RouteHandler // versioned
+	SandboxProxy     domain.RouteHandler // versioned?
+	AppspaceLogin    interface {
 		Create(domain.AppspaceID, url.URL) domain.AppspaceLoginToken
 		CheckRedirectToken(string) (domain.AppspaceLoginToken, error)
 	}

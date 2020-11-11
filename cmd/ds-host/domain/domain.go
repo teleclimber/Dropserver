@@ -497,7 +497,9 @@ type V0RouteModel interface {
 	// - match one of the methods passed, and
 	// - matches the routePath exactly (no interpolation is done to match sub-paths)
 	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, error)
-	GetAll()
+	GetAll() (*[]AppspaceRouteConfig, error)
+	GetPath(string) (*[]AppspaceRouteConfig, error)
+
 	Delete(methods []string, url string) error
 
 	// Match finds the route that should handle the request
@@ -522,6 +524,12 @@ type ReverseServiceI interface {
 type AppspacePausedEvent struct {
 	AppspaceID AppspaceID
 	Paused     bool
+}
+
+// AppspaceRouteEvent carries information about a change in an appspace's routes
+type AppspaceRouteEvent struct {
+	AppspaceID AppspaceID `json:"appspace_id"`
+	Path       string     `json:"path"`
 }
 
 //AppspaceStatusEvent indicates readiness of appspace and the reason
