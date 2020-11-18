@@ -10,8 +10,8 @@
 		<span class="border-b border-gray-400 font-mono pl-2 ">{{route.handler.path}}</span>
 	</template>
 	<template v-else-if="route.handler.type === 'function'">
-		<span class="border-b border-gray-400 px-1 text-sm italic text-right bg-orange-200">Call function:</span>
-		<div class="border-b border-gray-400 bg-orange-200">
+		<span class="border-b border-gray-400 px-1 text-sm italic text-right bg-orange-100">Call function:</span>
+		<div class="border-b border-gray-400 bg-orange-100">
 			<span class="font-mono pl-2">{{route.handler.file}}</span>
 			<span class="italic font-mono pl-2 text-yellow-800">{{route.handler.function}}()</span>
 		</div>

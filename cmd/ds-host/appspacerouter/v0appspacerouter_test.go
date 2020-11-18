@@ -299,6 +299,56 @@ func TestServeFile(t *testing.T) {
 	}
 }
 
+func TestServeFileOverlapPath(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	config := &domain.RuntimeConfig{}
+	config.Exec.AppsPath = dir
+	routeData := &domain.AppspaceRouteData{
+		AppVersion: &domain.AppVersion{
+			LocationKey: "app-version-123",
+		},
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Path: "/",
+			Handler: domain.AppspaceRouteHandler{
+				Type: "file",
+				Path: "@app/static-files/index.html",
+			},
+		},
+		URLTail: "/favicon.ico",
+	}
+
+	v0 := &V0{
+		Config: config,
+	}
+
+	p := filepath.Join(dir, "app-version-123", "static-files")
+	t.Log("writing html to: " + p)
+	err = os.MkdirAll(p, 0755)
+	if err != nil {
+		t.Error(err)
+	}
+	fileData := []byte("<h1>hello world</h1")
+	ioutil.WriteFile(filepath.Join(p, "index.html"), fileData, 0644)
+
+	req, err := http.NewRequest("GET", "/favicon.ico", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	v0.serveFile(rr, req, routeData)
+
+	if rr.Result().StatusCode != http.StatusNotFound {
+		t.Error("expected 404")
+	}
+}
+
 // path is dropserver, does it forward to dropserver route?
 func TestServeHTTPDropserverRoute(t *testing.T) {
 

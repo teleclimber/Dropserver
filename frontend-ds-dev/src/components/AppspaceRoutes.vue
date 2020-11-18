@@ -6,7 +6,7 @@
 </style>
 
 <template>
-	<div class="border-l-4 border-gray-800">
+	<div class="border-l-4 border-gray-800  my-8">
 		<h4 class="bg-gray-800 px-2 text-white inline-block">Appspace Routes:</h4>
 		<div class="overflow-y-scroll h-64 bg-gray-100">
 			<div class="log-grid">

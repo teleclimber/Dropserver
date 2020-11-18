@@ -93,6 +93,7 @@ func main() {
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobStatusEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	routeHitEvents := &events.AppspaceRouteHitEvents{}
 
 	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
 	runtimeConfig.Sandbox.SocketsDir = socketsDir
@@ -203,13 +204,12 @@ func main() {
 		SandboxManager: devSandboxManager,
 		Metrics:        &m}
 
-	routeEvents := &events.AppspaceRouteHitEvents{}
 	appspaceRouterV0 := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
-		RouteHitEvents:      routeEvents,
+		RouteHitEvents:      routeHitEvents,
 		//AppspaceLogin:       appspaceLogin,	// should never happen, leave nil. It will crash if we made a mistake.
 		Config: runtimeConfig}
 
@@ -266,7 +266,7 @@ func main() {
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents,
-		RouteEvents:            routeEvents}
+		RouteHitEvents:         routeHitEvents}
 	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
 
 	// Create server.

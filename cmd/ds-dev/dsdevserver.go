@@ -77,7 +77,7 @@ type DropserverDevServer struct {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 	}
-	RouteEvents interface {
+	RouteHitEvents interface {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	}
@@ -192,7 +192,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	}()
 
 	routeEventsChan := make(chan *domain.AppspaceRouteHitEvent)
-	s.RouteEvents.Subscribe(routeEventsChan)
+	s.RouteHitEvents.Subscribe(routeEventsChan)
 	go func() {
 		for routeEvent := range routeEventsChan {
 			go s.sendRouteEvent(t, routeEvent)
@@ -227,7 +227,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
 		close(appspaceLogEventChan)
 
-		s.RouteEvents.Unsubscribe(routeEventsChan)
+		s.RouteHitEvents.Unsubscribe(routeEventsChan)
 		close(routeEventsChan)
 
 		fmt.Println("unsubscribed")
@@ -439,6 +439,7 @@ type RouteHitEventJSON struct {
 	Timestamp   time.Time                   `json:"timestamp"`
 	Request     RequestJSON                 `json:"request"`
 	RouteConfig *domain.AppspaceRouteConfig `json:"route_config"` // this might be nil.OK?
+	Status      int                         `json:"status"`
 }
 
 func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *domain.AppspaceRouteHitEvent) {
@@ -447,7 +448,8 @@ func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *dom
 		Request: RequestJSON{
 			URL:    routeEvent.Request.URL.String(),
 			Method: routeEvent.Request.Method},
-		RouteConfig: routeEvent.RouteConfig}
+		RouteConfig: routeEvent.RouteConfig,
+		Status:      routeEvent.Status}
 
 	bytes, err := json.Marshal(send)
 	if err != nil {

@@ -20,7 +20,8 @@ type Request = {
 type RouteHit = {
 	timestamp: Date,
 	request: Request,
-	route_config: RouteConfig
+	route_config: RouteConfig,
+	status: Number
 }
 
 class RouteEvents {

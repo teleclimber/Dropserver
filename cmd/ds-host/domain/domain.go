@@ -558,6 +558,7 @@ type AppspaceRouteHitEvent struct {
 	AppspaceID  AppspaceID
 	Request     *http.Request
 	RouteConfig *AppspaceRouteConfig
+	Status      int
 }
 
 // cli stuff

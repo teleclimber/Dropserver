@@ -38,42 +38,48 @@ type V0 struct {
 
 // ServeHTTP handles http traffic to the appspace
 func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	statusRes := statusRecorder{res, 0}
+
+	defer func() {
+		if r.RouteHitEvents != nil {
+			r.RouteHitEvents.Send(&domain.AppspaceRouteHitEvent{
+				AppspaceID:  routeData.Appspace.AppspaceID,
+				Request:     req,
+				RouteConfig: routeData.RouteConfig,
+				Status:      statusRes.status})
+		}
+	}()
 
 	//... now shift path to get the first param and see if it is dropserver
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	if head == "dropserver" {
 		// handle with dropserver routes handler
 		routeData.URLTail = tail
-		r.DropserverRoutes.ServeHTTP(res, req, routeData)
+		r.DropserverRoutes.ServeHTTP(&statusRes, req, routeData)
 	} else {
 		routeModel := r.AppspaceRouteModels.GetV0(routeData.Appspace.AppspaceID)
 		routeConfig, err := routeModel.Match(req.Method, routeData.URLTail)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if r.RouteHitEvents != nil {
-			r.RouteHitEvents.Send(&domain.AppspaceRouteHitEvent{
-				AppspaceID:  routeData.Appspace.AppspaceID,
-				Request:     req,
-				RouteConfig: routeConfig})
-		}
+
 		if routeConfig == nil {
-			http.Error(res, "No matching route", http.StatusNotFound)
+			http.Error(&statusRes, "No matching route", http.StatusNotFound)
 			return
 		}
 		routeData.RouteConfig = routeConfig
 
-		auth, err := r.processLoginToken(res, req, routeData)
+		auth, err := r.processLoginToken(&statusRes, req, routeData)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if auth != nil {
 			if !r.authorize(routeData, auth) {
 				// If requester just logged in with a token but is not authroized, then just show as such.
 				// Here we do not redirect because that would cause a redirect loop.
-				http.Error(res, "Route unauthorized for user", http.StatusUnauthorized)
+				http.Error(&statusRes, "Route unauthorized for user", http.StatusUnauthorized)
 				return
 			}
 		} else {
@@ -81,22 +87,21 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				u := *req.URL
 				u.Host = req.Host // is this OK?
 				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
-				http.Redirect(res, req, r.Config.Exec.UserRoutesAddress+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
+				http.Redirect(&statusRes, req, r.Config.Exec.UserRoutesAddress+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
 				return
 			}
 		}
 
 		switch routeConfig.Handler.Type {
 		case "function":
-			r.SandboxProxy.ServeHTTP(res, req, routeData)
+			r.SandboxProxy.ServeHTTP(&statusRes, req, routeData)
 		case "file":
-			r.serveFile(res, req, routeData)
-		//case "db":
-		// call to appspacedb.
-		// Since this is v0appspaceroutes, then the call will be to v0appspacedb
+			r.serveFile(&statusRes, req, routeData)
+		// case "db":
+		// call to appspacedb. Since this is v0appspaceroutes, then the call will be to v0appspacedb
 		default:
 			r.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
-			http.Error(res, "route type not implemented", http.StatusInternalServerError)
+			http.Error(&statusRes, "route type not implemented", http.StatusInternalServerError)
 		}
 	}
 }
@@ -167,12 +172,7 @@ func (r *V0) serveFile(res http.ResponseWriter, req *http.Request, routeData *do
 	// check if p is a directory? If so handle as either dir listing or index.html?
 	fileinfo, err := os.Stat(p)
 	if err != nil {
-		if os.IsNotExist(err) {
-			http.Error(res, "file does not exist", http.StatusNotFound)
-			return
-		}
-		// consider logging
-		http.Error(res, "file stat error", http.StatusInternalServerError)
+		http.Error(res, "file does not exist", http.StatusNotFound)
 		return
 	}
 
@@ -240,4 +240,16 @@ func (r *V0) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
+}
+
+// See https://upgear.io/blog/golang-tip-wrapping-http-response-writer-for-middleware/
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rec *statusRecorder) WriteHeader(code int) {
+	rec.status = code
+	rec.ResponseWriter.WriteHeader(code)
 }
