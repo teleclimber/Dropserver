@@ -66,6 +66,7 @@ type Twine struct {
 	ErrorChan   chan error
 
 	closingMux sync.Mutex
+	closeSubs  []chan struct{}
 	graceful   bool
 	connClosed bool
 
@@ -188,6 +189,7 @@ func makeNew() *Twine {
 		msgReg: &messageRegistry{
 			messages: make(map[uint8]*msg),
 		},
+		closeSubs: make([]chan struct{}, 0, 10),
 	}
 	return t
 }
@@ -627,9 +629,39 @@ func (t *Twine) handleProtocolCmd(raw *messageMeta) {
 	return
 }
 
+// WaitClose blocks until the twine connection closes
+func (t *Twine) WaitClose() {
+	t.closingMux.Lock()
+	if t.connClosed {
+		t.closingMux.Unlock()
+		return
+	}
+
+	ch := make(chan struct{})
+	t.closeSubs = append(t.closeSubs, ch)
+
+	t.closingMux.Unlock()
+
+	<-ch
+}
+
+func (t *Twine) releaseCloseChans() {
+	t.closingMux.Lock()
+	defer t.closingMux.Unlock()
+
+	for _, ch := range t.closeSubs {
+		close(ch)
+	}
+
+	t.closeSubs = t.closeSubs[:0]
+}
+
 // Graceful stops new incoming requests and
 // waits for all messages to terminate before shutting down.
 func (t *Twine) Graceful() {
+	// first signal to local handlers that it is closing
+	t.releaseCloseChans()
+
 	_, err := t.SendBlock(int(protocolService), int(protocolGraceful), nil)
 	if err != nil {
 		t.ErrorChan <- err
@@ -646,6 +678,9 @@ func (t *Twine) Graceful() {
 
 }
 func (t *Twine) receivedGraceful(received ReceivedMessageI) {
+	// first signal to local handlers that it is closing
+	t.releaseCloseChans()
+
 	// maybe check to make sure we're not already closing?
 	err := t.doGraceful()
 	if err != nil {
@@ -681,6 +716,8 @@ func (t *Twine) Stop() {
 }
 
 func (t *Twine) close(err error) {
+	t.releaseCloseChans()
+
 	t.closingMux.Lock()
 	defer t.closingMux.Unlock()
 	if !t.connClosed {
