@@ -11,7 +11,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
+	appspaceroutes "github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
