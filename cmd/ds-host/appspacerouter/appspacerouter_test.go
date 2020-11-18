@@ -1,4 +1,4 @@
-package appspaceroutes
+package appspacerouter
 
 import (
 	"net/http"
@@ -34,7 +34,7 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
-	appspaceRoutes := &AppspaceRoutes{
+	appspaceRoutes := &AppspaceRouter{
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel}
 
@@ -73,7 +73,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 
-	appspaceRoutes := &AppspaceRoutes{
+	appspaceRoutes := &AppspaceRouter{
 		AppModel:       appModel,
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: appspaceStatus}
@@ -109,7 +109,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 // then need to test a successful route call.
 func TestEmitLiveCountNoop(t *testing.T) {
-	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes := &AppspaceRouter{}
 	appspaceRoutes.Init()
 
 	appspaceID := domain.AppspaceID(7)
@@ -118,7 +118,7 @@ func TestEmitLiveCountNoop(t *testing.T) {
 }
 
 func TestEmitLiveCount(t *testing.T) {
-	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes := &AppspaceRouter{}
 	appspaceRoutes.Init()
 
 	appspaceID := domain.AppspaceID(7)
@@ -137,7 +137,7 @@ func TestEmitLiveCount(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes := &AppspaceRouter{}
 	appspaceRoutes.Init()
 
 	appspaceID := domain.AppspaceID(7)
@@ -165,7 +165,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestIncrement(t *testing.T) {
-	appspaceRoutes := &AppspaceRoutes{}
+	appspaceRoutes := &AppspaceRouter{}
 	appspaceRoutes.Init()
 
 	appspaceID := domain.AppspaceID(7)
@@ -192,11 +192,11 @@ func TestIncrement(t *testing.T) {
 	}
 }
 
-func getASR(mockCtrl *gomock.Controller) *AppspaceRoutes {
+func getASR(mockCtrl *gomock.Controller) *AppspaceRouter {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
-	return &AppspaceRoutes{
+	return &AppspaceRouter{
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel}
 }

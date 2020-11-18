@@ -92,7 +92,7 @@ type AppspaceStatus struct {
 	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
 	}
-	AppspaceRoutes interface {
+	AppspaceRouter interface {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
 	}
@@ -359,13 +359,13 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 	// check with cron jobs too when we have them
 
 	ch := make(chan int)
-	count := s.AppspaceRoutes.SubscribeLiveCount(appspaceID, ch)
+	count := s.AppspaceRouter.SubscribeLiveCount(appspaceID, ch)
 	if count == 0 {
 		return
 	}
 	for count = range ch {
 		if count == 0 {
-			s.AppspaceRoutes.UnsubscribeLiveCount(appspaceID, ch)
+			s.AppspaceRouter.UnsubscribeLiveCount(appspaceID, ch)
 			close(ch)
 		}
 	}

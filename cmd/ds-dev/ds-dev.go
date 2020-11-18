@@ -11,7 +11,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
-	appspaceroutes "github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
@@ -189,7 +189,7 @@ func main() {
 		AppspaceInfoModels:   appspaceInfoModels,
 		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
-		AppspaceRoutes:       nil, //added below
+		AppspaceRouter:       nil, //added below
 		MigrationJobs:        migrateJobController,
 		MigrationJobsEvents:  migrationJobEvents,
 		AppspaceStatusEvents: appspaceStatusEvents,
@@ -204,22 +204,22 @@ func main() {
 		Metrics:        &m}
 
 	routeEvents := &events.AppspaceRouteHitEvents{}
-	appspaceRoutesV0 := &appspaceroutes.V0{
+	appspaceRouterV0 := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
-		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
+		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
 		RouteHitEvents:      routeEvents,
 		//AppspaceLogin:       appspaceLogin,	// should never happen, leave nil. It will crash if we made a mistake.
 		Config: runtimeConfig}
 
-	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
+	appspaceRouter := &appspacerouter.AppspaceRouter{
 		AppModel:       devAppModel,
 		AppspaceModel:  devAppspaceModel,
 		AppspaceStatus: appspaceStatus,
-		V0:             appspaceRoutesV0}
-	appspaceRoutes.Init()
-	appspaceStatus.AppspaceRoutes = appspaceRoutes
+		V0:             appspaceRouterV0}
+	appspaceRouter.Init()
+	appspaceStatus.AppspaceRouter = appspaceRouter
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,
@@ -274,7 +274,7 @@ func main() {
 		Authenticator:        devAuth,
 		Config:               runtimeConfig,
 		DropserverDevHandler: dsDevHandler,
-		AppspaceRoutes:       appspaceRoutes}
+		AppspaceRouter:       appspaceRouter}
 
 	fmt.Println("starting server")
 

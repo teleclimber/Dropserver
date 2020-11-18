@@ -22,7 +22,7 @@ type Server struct {
 	}
 	DropserverDevHandler http.Handler
 
-	AppspaceRoutes domain.RouteHandler
+	AppspaceRouter domain.RouteHandler
 }
 
 // Start starts up the server so it listens for connections
@@ -78,6 +78,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		req.URL.Path = tail // shouldnt' modify request
 		s.DropserverDevHandler.ServeHTTP(res, req)
 	default:
-		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		s.AppspaceRouter.ServeHTTP(res, req, routeData)
 	}
 }

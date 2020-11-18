@@ -12,7 +12,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
-	appspaceroutes "github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
@@ -265,7 +265,7 @@ func main() {
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: appspaceInfoModels,
-		//AppspaceRoutes: see below
+		//AppspaceRouter: see below
 		MigrationJobs:       migrationJobCtl,
 		MigrationJobsEvents: migrationStatusEvents,
 		AppspacePausedEvent: appspacePausedEvent,
@@ -334,21 +334,21 @@ func main() {
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
-	v0appspaceRoutes := &appspaceroutes.V0{
+	v0appspaceRouter := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
-		DropserverRoutes:    &appspaceroutes.DropserverRoutesV0{},
+		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       authenticator,
 		AppspaceLogin:       appspaceLogin,
 		Config:              runtimeConfig}
 
-	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
+	appspaceRouter := &appspacerouter.AppspaceRouter{
 		AppModel:       appModel,
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: appspaceStatus,
-		V0:             v0appspaceRoutes}
-	appspaceRoutes.Init()
-	appspaceStatus.AppspaceRoutes = appspaceRoutes
+		V0:             v0appspaceRouter}
+	appspaceRouter.Init()
+	appspaceStatus.AppspaceRouter = appspaceRouter
 
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
@@ -361,7 +361,7 @@ func main() {
 		Authenticator:  authenticator,
 		Config:         runtimeConfig,
 		UserRoutes:     userRoutes,
-		AppspaceRoutes: appspaceRoutes,
+		AppspaceRouter: appspaceRouter,
 		Metrics:        &m}
 
 	fmt.Println("starting server")

@@ -6,7 +6,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks MigrationJobController,AppspaceStatus,AppspaceRoutes
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks MigrationJobController,AppspaceStatus,AppspaceRouter
 
 // MigrationJobController controls and tracks appspace migration jobs
 type MigrationJobController interface {
@@ -23,9 +23,9 @@ type AppspaceStatus interface {
 	WaitStopped(appspaceID domain.AppspaceID)
 }
 
-// AppspaceRoutes is a route handler that also tracks ongoing requests
+// AppspaceRouter is a route handler that also tracks ongoing requests
 // for each appspace ID.
-type AppspaceRoutes interface {
+type AppspaceRouter interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, *domain.AppspaceRouteData)
 	SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 	UnsubscribeLiveCount(domain.AppspaceID, chan<- int)

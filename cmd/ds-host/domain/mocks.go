@@ -1290,15 +1290,33 @@ func (mr *MockV0RouteModelMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call
 }
 
 // GetAll mocks base method
-func (m *MockV0RouteModel) GetAll() {
+func (m *MockV0RouteModel) GetAll() (*[]AppspaceRouteConfig, error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "GetAll")
+	ret := m.ctrl.Call(m, "GetAll")
+	ret0, _ := ret[0].(*[]AppspaceRouteConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetAll indicates an expected call of GetAll
 func (mr *MockV0RouteModelMockRecorder) GetAll() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockV0RouteModel)(nil).GetAll))
+}
+
+// GetPath mocks base method
+func (m *MockV0RouteModel) GetPath(arg0 string) (*[]AppspaceRouteConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPath", arg0)
+	ret0, _ := ret[0].(*[]AppspaceRouteConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPath indicates an expected call of GetPath
+func (mr *MockV0RouteModelMockRecorder) GetPath(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPath", reflect.TypeOf((*MockV0RouteModel)(nil).GetPath), arg0)
 }
 
 // HandleMessage mocks base method

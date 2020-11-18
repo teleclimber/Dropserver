@@ -221,8 +221,8 @@ func TestWaitStopped(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	appspaceRoutes := testmocks.NewMockAppspaceRoutes(mockCtrl)
-	appspaceRoutes.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any()).Do(
+	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
+	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any()).Do(
 		func(asID domain.AppspaceID, ch chan<- int) {
 			go func() {
 				time.Sleep(time.Millisecond * 50)
@@ -231,10 +231,10 @@ func TestWaitStopped(t *testing.T) {
 				ch <- 0
 			}()
 		}).Return(2)
-	appspaceRoutes.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any())
+	appspaceRouter.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any())
 
 	s := AppspaceStatus{
-		AppspaceRoutes: appspaceRoutes}
+		AppspaceRouter: appspaceRouter}
 
 	s.WaitStopped(appspaceID)
 }

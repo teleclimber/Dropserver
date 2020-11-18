@@ -20,7 +20,7 @@ type Server struct {
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     domain.RouteHandler
-	AppspaceRoutes domain.RouteHandler
+	AppspaceRouter domain.RouteHandler
 
 	Metrics domain.MetricsI
 
@@ -125,7 +125,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		// It's an appspace subdomain
 		// first filter through blacklist of subdomains
 		// ..though probably do that in appspace routes handler, not here.
-		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		s.AppspaceRouter.ServeHTTP(res, req, routeData)
 	}
 }
 

@@ -1,4 +1,4 @@
-package appspaceroutes
+package appspacerouter
 
 import (
 	"net/http"
@@ -12,8 +12,8 @@ import (
 // route handler for when we know the route is for an app-space.
 // Could be proxied to sandbox, or static file, or crud or whatever
 
-// AppspaceRoutes handles routes for appspaces.
-type AppspaceRoutes struct {
+// AppspaceRouter handles routes for appspaces.
+type AppspaceRouter struct {
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, domain.Error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
@@ -35,7 +35,7 @@ type AppspaceRoutes struct {
 }
 
 // Init initializes data structures
-func (r *AppspaceRoutes) Init() {
+func (r *AppspaceRouter) Init() {
 	r.liveCounter = make(map[domain.AppspaceID]int)
 	r.subscribers = make(map[domain.AppspaceID][]chan<- int)
 }
@@ -43,7 +43,7 @@ func (r *AppspaceRoutes) Init() {
 // ^^ Also need access to sessions
 
 // ServeHTTP handles http traffic to the appspace
-func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	subdomains := *routeData.Subdomains
 	appspaceSubdomain := subdomains[len(subdomains)-1]
 
@@ -86,7 +86,7 @@ func (r *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	r.V0.ServeHTTP(res, req, routeData)
 }
 
-func (r *AppspaceRoutes) incrementLiveCount(appspaceID domain.AppspaceID) {
+func (r *AppspaceRouter) incrementLiveCount(appspaceID domain.AppspaceID) {
 	r.liveCounterMux.Lock()
 	defer r.liveCounterMux.Unlock()
 	if _, ok := r.liveCounter[appspaceID]; !ok {
@@ -95,7 +95,7 @@ func (r *AppspaceRoutes) incrementLiveCount(appspaceID domain.AppspaceID) {
 	r.liveCounter[appspaceID]++
 	go r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
 }
-func (r *AppspaceRoutes) decrementLiveCount(appspaceID domain.AppspaceID) {
+func (r *AppspaceRouter) decrementLiveCount(appspaceID domain.AppspaceID) {
 	r.liveCounterMux.Lock()
 	defer r.liveCounterMux.Unlock()
 	if _, ok := r.liveCounter[appspaceID]; ok {
@@ -109,7 +109,7 @@ func (r *AppspaceRoutes) decrementLiveCount(appspaceID domain.AppspaceID) {
 
 // SubscribeLiveCount pushes the number of live requests for an appspace each time it changes
 // It returns the current count
-func (r *AppspaceRoutes) SubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) int {
+func (r *AppspaceRouter) SubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) int {
 	r.UnsubscribeLiveCount(appspaceID, ch)
 	r.subscribersMux.Lock()
 	defer r.subscribersMux.Unlock()
@@ -130,7 +130,7 @@ func (r *AppspaceRoutes) SubscribeLiveCount(appspaceID domain.AppspaceID, ch cha
 }
 
 // UnsubscribeLiveCount unsubscribes
-func (r *AppspaceRoutes) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) {
+func (r *AppspaceRouter) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) {
 	r.subscribersMux.Lock()
 	defer r.subscribersMux.Unlock()
 	subscribers, ok := r.subscribers[appspaceID]
@@ -145,7 +145,7 @@ func (r *AppspaceRoutes) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch c
 	}
 }
 
-func (r *AppspaceRoutes) emitLiveCount(appspaceID domain.AppspaceID, count int) {
+func (r *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) {
 	r.subscribersMux.Lock()
 	defer r.subscribersMux.Unlock()
 	subscribers, ok := r.subscribers[appspaceID]
@@ -164,6 +164,6 @@ func (r *AppspaceRoutes) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 //  -> no, make generic not specific to some other package's needs.
 // Consider that future features might be ability to view live requests in owner frontend, etc...
 
-func (r *AppspaceRoutes) getLogger(appspace *domain.Appspace) *record.DsLogger {
-	return record.NewDsLogger().AppID(appspace.AppID).AppVersion(appspace.AppVersion).AppspaceID(appspace.AppspaceID).AddNote("AppspaceRoutes")
+func (r *AppspaceRouter) getLogger(appspace *domain.Appspace) *record.DsLogger {
+	return record.NewDsLogger().AppID(appspace.AppID).AppVersion(appspace.AppVersion).AppspaceID(appspace.AppspaceID).AddNote("AppspaceRouter")
 }

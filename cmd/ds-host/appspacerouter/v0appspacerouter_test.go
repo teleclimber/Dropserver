@@ -1,4 +1,4 @@
-package appspaceroutes
+package appspacerouter
 
 import (
 	"errors"
