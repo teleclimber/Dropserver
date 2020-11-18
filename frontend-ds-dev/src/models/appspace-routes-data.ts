@@ -51,7 +51,6 @@ class AppspaceRoutesData {
 	loadAllRoutes(m:ReceivedMessageI) {
 		try {
 			const data = <RoutesData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			console.log(data.routes);
 			this.routes = data.routes;
 		}
 		catch(e) {
@@ -66,7 +65,6 @@ class AppspaceRoutesData {
 		let data :RoutesData;
 		try {
 			data = <RoutesData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			console.log(data);
 		}
 		catch(e) {
 			m.sendError("error processing appspace routes "+e);

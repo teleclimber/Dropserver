@@ -241,13 +241,18 @@ func main() {
 
 	migrateJobController.Start()
 
+	// twine services:
+	routesService := &RoutesService{
+		AppspaceRouteModels: appspaceRouteModels,
+		AppspaceRouteEvents: appspaceRouteEvents,
+		AppspaceFilesEvents: appspaceFilesEvents}
+
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
 		AppFilesModel:          appFilesModel,
 		AppspaceFiles:          appspaceFiles,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
-		AppspaceRouteModels:    appspaceRouteModels,
 		AppspaceDB:             appspaceDB,
 		AppspaceInfoModels:     appspaceInfoModels,
 		DevSandboxManager:      devSandboxManager,
@@ -256,8 +261,8 @@ func main() {
 		DevSandboxMaker:        devSandboxMaker,
 		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
+		RoutesService:          routesService,
 		AppVersionEvents:       appVersionEvents,
-		AppspaceRouteEvents:    appspaceRouteEvents, // need to also send all routes on appspace files event, but will do that when we have this as a separate service.
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents,

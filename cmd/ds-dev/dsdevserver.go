@@ -20,6 +20,10 @@ const migrationStatusService = 14
 const appspaceLogService = 15
 const appspaceRouteService = 16 // keeps a live list of appspace routes from appspace meta db
 
+type twineService interface {
+	Start(*twine.Twine)
+}
+
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
@@ -41,9 +45,6 @@ type DropserverDevServer struct {
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	}
-	AppspaceRouteModels interface {
-		GetV0(domain.AppspaceID) domain.V0RouteModel
-	}
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 		SetInspect(bool)
@@ -64,10 +65,7 @@ type DropserverDevServer struct {
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
 	}
-	AppspaceRouteEvents interface {
-		Subscribe(domain.AppspaceID, chan<- domain.AppspaceRouteEvent)
-		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceRouteEvent)
-	}
+
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
 	}
@@ -83,6 +81,9 @@ type DropserverDevServer struct {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	}
+
+	// Services:
+	RoutesService twineService
 
 	appPath      string
 	appspacePath string
@@ -172,15 +173,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		}
 	}()
 
-	appspaceRouteEvent := make(chan domain.AppspaceRouteEvent)
-	s.AppspaceRouteEvents.Subscribe(appspaceID, appspaceRouteEvent)
-	go func() {
-		for routeEvent := range appspaceRouteEvent {
-			go s.sendAppspaceRoutesPatch(t, routeEvent)
-		}
-	}()
-	// push current routes:
-	s.sendAppspaceRoutes(t)
+	go s.RoutesService.Start(t)
 
 	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
 	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)
@@ -405,58 +398,6 @@ func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, status
 	_, err = twine.SendBlock(baseDataService, statusEventCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
-	}
-}
-
-const loadAllCmd = 11
-const patchCmd = 12
-
-type appspaceRoutes struct {
-	Path   string                        `json:"path"`
-	Routes *[]domain.AppspaceRouteConfig `json:"routes"`
-}
-
-func (s *DropserverDevServer) sendAppspaceRoutes(twine *twine.Twine) {
-	v0routeModel := s.AppspaceRouteModels.GetV0(appspaceID)
-	routes, err := v0routeModel.GetAll()
-	if err != nil {
-		fmt.Println("sendAppspaceRoutes error getting routes: " + err.Error())
-	}
-
-	data := appspaceRoutes{
-		Path:   "",
-		Routes: routes}
-
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("sendAppspaceRoutes json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(appspaceRouteService, patchCmd, bytes)
-	if err != nil {
-		fmt.Println("sendAppspaceRoutes SendBlock Error: " + err.Error())
-	}
-}
-
-func (s *DropserverDevServer) sendAppspaceRoutesPatch(twine *twine.Twine, routeEvent domain.AppspaceRouteEvent) {
-	v0routeModel := s.AppspaceRouteModels.GetV0(appspaceID)
-	routes, err := v0routeModel.GetPath(routeEvent.Path)
-	if err != nil {
-		fmt.Println("sendAppspaceRoutesPatch error getting routes: " + err.Error())
-	}
-
-	data := appspaceRoutes{
-		Path:   routeEvent.Path,
-		Routes: routes}
-
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println("sendAppspaceRoutesPatch json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(appspaceRouteService, patchCmd, bytes)
-	if err != nil {
-		fmt.Println("sendAppspaceRoutesPatch SendBlock Error: " + err.Error())
 	}
 }
 

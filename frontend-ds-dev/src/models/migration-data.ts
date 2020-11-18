@@ -47,8 +47,6 @@ class MigrationData {
 		}
 
 		m.sendOK();
-
-		console.log("jobs", this.jobs);
 	}
 }
 

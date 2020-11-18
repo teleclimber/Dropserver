@@ -86,7 +86,6 @@ class BaseData {
 	handleAppspaceStatusMessage(m:ReceivedMessageI) {
 		try {
 			const new_status = <AppspaceStatus>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			console.log(new_status);
 			Object.assign(this, new_status);
 		}
 		catch(e) {
@@ -100,7 +99,6 @@ class BaseData {
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
 			const new_app_data = <AppData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			console.log(new_app_data);
 
 			Object.assign(this, new_app_data);
 		}
