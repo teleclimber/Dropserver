@@ -10,9 +10,9 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/go-version v1.2.1
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/leodido/go-urn v1.2.0 // indirect
+	github.com/markbates/pkger v0.17.1
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/otiai10/copy v1.2.0
 	github.com/posener/wstest v1.2.0

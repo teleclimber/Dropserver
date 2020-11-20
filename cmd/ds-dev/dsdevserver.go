@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/markbates/pkger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/twine"
@@ -108,7 +109,7 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 	// - live sandbox status (stopped starting, running; debug mode)
 	// - live http hits
 
-	staticHandler := http.FileServer(http.Dir(s.Config.Exec.StaticAssetsDir))
+	staticHandler := http.FileServer(pkger.Dir("/frontend-ds-dev/dist/"))
 
 	head, _ := shiftpath.ShiftPath(req.URL.Path)
 	switch head {

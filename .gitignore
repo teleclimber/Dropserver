@@ -26,6 +26,9 @@ node_modules
 frontend/dist
 frontend/coverage
 
+# packaged static assets
+pkged.go
+
 # local env files
 .env.local
 .env.*.local

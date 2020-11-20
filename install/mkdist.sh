@@ -15,9 +15,3 @@ cp -r public-static/* dist/static/
 
 cp -r frontend/dist/resources/* dist/resources/webpack-html/
 cp -r frontend/dist/static/* dist/static/
-
-# let's do ds-dev stuff here too
-mkdir -p dist/static/ds-dev/
-
-cp -r frontend-ds-dev/dist/* dist/static/ds-dev/
-
