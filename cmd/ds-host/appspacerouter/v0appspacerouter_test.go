@@ -372,7 +372,7 @@ func TestServeHTTPDropserverRoute(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	dropserverRoutes.EXPECT().ServeHTTP(rr, req, routeData)
+	dropserverRoutes.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
 
 	v0.ServeHTTP(rr, req, routeData)
 }
@@ -414,7 +414,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	sandboxProxy.EXPECT().ServeHTTP(rr, req, routeData)
+	sandboxProxy.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
 
 	// ^^ here we are checking against routeData, which is a pointer
 	// so it's not testing whether the call populated routeData correctly.
