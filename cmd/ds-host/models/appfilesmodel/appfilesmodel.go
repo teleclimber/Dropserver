@@ -81,7 +81,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 
 // ReadMeta reads metadata from the files at location key
 func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error) {
-	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "drop-app.json")
+	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "dropapp.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
 		// here the error might be that application.json is not in app?

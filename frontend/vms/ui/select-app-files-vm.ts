@@ -9,7 +9,8 @@ export default class SelectAppFilesVM {
 	@observable metadata: {
 		app_name: string,
 		version: string,
-		schema: number
+		schema: number,
+		api: number
 	} | undefined;
 	@observable app_meta_error: string = '';
 
@@ -27,7 +28,7 @@ export default class SelectAppFilesVM {
 
 		const schema_version:number = this.getSchemaVersion();
 
-		const app_json_file = this.app_files.find( (s:SelectedFile) => s.rel_path === 'application.json');
+		const app_json_file = this.app_files.find( (s:SelectedFile) => s.rel_path === 'dropapp.json');
 
 		if( !app_json_file ) {
 			this.metadata = undefined;	// not sure this will set correctly
@@ -39,7 +40,7 @@ export default class SelectAppFilesVM {
 		reader.onerror = (event) => {
 			runInAction( () => {
 				this.metadata = undefined;
-				this.app_meta_error = 'Failed to read application.json';
+				this.app_meta_error = 'Failed to read dropapp.json';
 			});
 		}
 		reader.onload = () => {
@@ -50,7 +51,7 @@ export default class SelectAppFilesVM {
 			catch(e) {
 				runInAction( () => {
 					this.metadata = undefined;
-					this.app_meta_error = 'Failed to parse application.json';
+					this.app_meta_error = 'Failed to parse dropapp.json';
 				});
 			}
 
@@ -61,7 +62,8 @@ export default class SelectAppFilesVM {
 					this.metadata = {
 						app_name: app_data.name,
 						version: app_data.version,
-						schema: schema_version
+						schema: schema_version,
+						api: app_data.api
 					};
 					
 				});

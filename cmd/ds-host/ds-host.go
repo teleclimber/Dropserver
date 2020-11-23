@@ -103,7 +103,9 @@ func main() {
 	stdInput := &stdinput.StdInput{}
 
 	// events
+	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspacePausedEvent := &events.AppspacePausedEvents{}
+	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationStatusEvents := &events.MigrationJobStatusEvents{}
 
@@ -171,8 +173,8 @@ func main() {
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel:     appspaceModel,
 		AppspaceLogEvents: appspaceLogEvents,
-		Config:            runtimeConfig,
-	}
+		Config:            runtimeConfig}
+	appspaceLogger.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		Config:        runtimeConfig,
@@ -266,9 +268,11 @@ func main() {
 		AppModel:           appModel,
 		AppspaceInfoModels: appspaceInfoModels,
 		//AppspaceRouter: see below
-		MigrationJobs:       migrationJobCtl,
-		MigrationJobsEvents: migrationStatusEvents,
-		AppspacePausedEvent: appspacePausedEvent,
+		MigrationJobs:        migrationJobCtl,
+		MigrationJobsEvents:  migrationStatusEvents,
+		AppspaceFilesEvents:  appspaceFilesEvents,
+		AppspacePausedEvent:  appspacePausedEvent,
+		AppspaceStatusEvents: appspaceStatusEvents,
 	}
 	appspaceStatus.Init()
 

@@ -110,6 +110,14 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	if rtc.DataDir == "" {
 		panic("You need to specify a data directory")
 	}
+	_, err := os.Stat(rtc.DataDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			panic("data directory does not exist: " + rtc.DataDir)
+		} else {
+			panic(err)
+		}
+	}
 
 	// Server:
 	if rtc.Server.Port == 0 {
