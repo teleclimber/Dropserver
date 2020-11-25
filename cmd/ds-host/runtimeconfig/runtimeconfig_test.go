@@ -2,6 +2,8 @@ package runtimeconfig
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -42,10 +44,16 @@ func TestSetExecValues(t *testing.T) {
 }
 
 func TestValidateHost(t *testing.T) {
-	rtc := getPassingDefault()
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	rtc := getPassingDefault(dir)
 	tv(t, rtc, "default", false)
 
-	rtc = getPassingDefault()
+	rtc = getPassingDefault(dir)
 	cases := []struct {
 		host        string
 		shouldPanic bool
@@ -69,7 +77,13 @@ func TestValidateHost(t *testing.T) {
 	// because it impacts a lot of things.
 }
 func TestValidateSsl(t *testing.T) {
-	rtc := getPassingDefault()
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	rtc := getPassingDefault(dir)
 	tv(t, rtc, "default", false)
 
 	rtc.Server.NoSsl = false
@@ -79,9 +93,9 @@ func TestValidateSsl(t *testing.T) {
 	rtc.Server.SslKey = "the.key"
 	tv(t, rtc, "ssl with cert and key", false)
 }
-func getPassingDefault() *domain.RuntimeConfig {
+func getPassingDefault(dir string) *domain.RuntimeConfig {
 	rtc := loadDefault()
-	rtc.DataDir = "/abc/def"
+	rtc.DataDir = dir
 	rtc.Sandbox.SocketsDir = "blah"
 	rtc.Server.NoSsl = true
 	return rtc
