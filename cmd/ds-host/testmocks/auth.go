@@ -14,7 +14,7 @@ import (
 type Authenticator interface {
 	Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
 	SetForAccount(http.ResponseWriter, domain.UserID) error
-	SetForAppspace(http.ResponseWriter, domain.UserID, domain.AppspaceID, string) (string, error)
+	SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	UnsetForAccount(http.ResponseWriter, *http.Request)
 }
 

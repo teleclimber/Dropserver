@@ -107,6 +107,29 @@ func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version doma
 	return nil
 }
 
+// DevAppspaceUserModel manages appspace contacts
+type DevAppspaceUserModel struct {
+	noUser  bool
+	curUser domain.AppspaceUser
+}
+
+func (m *DevAppspaceUserModel) SetNoUser() {
+	m.noUser = true
+}
+
+func (m *DevAppspaceUserModel) SetUser(u domain.AppspaceUser) {
+	m.noUser = false
+	m.curUser = u
+}
+
+//GetByProxy returns the contact
+func (m *DevAppspaceUserModel) GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
+	if m.noUser {
+		return domain.AppspaceUser{}, errors.New("no user")
+	}
+	return m.curUser, nil
+}
+
 ////////
 // MigrationJobModel handles writing jobs to the db
 // type MigrationJobModel interface {

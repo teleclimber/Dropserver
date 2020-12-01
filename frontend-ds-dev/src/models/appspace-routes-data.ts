@@ -7,7 +7,8 @@ import {ReceivedMessageI} from '../twine-ws/twine-common';
 const appspaceRoutesService = 16;
 
 export type RouteAuth = {
-	type: string
+	allow: string,	// actually an enum
+	permission?: string
 }
 export type RouteHandler = {
 	type: string,

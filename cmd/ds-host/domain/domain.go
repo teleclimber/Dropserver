@@ -167,22 +167,34 @@ type SandboxI interface {
 // we'll see what that means when we start doing composable routes. Will we need server then?
 
 // Authentication provides the authenticated data for a request
+// OK, but this is confusing when you have auth for user admin stuff and auth for appspaces
+// Proably need to separate those out, along with separate cookie tables, etc...
+// Thinkn about the meaning of authentication...
+// You're either a ds-host user (user id),
+// or an appspace user proxy id
+// or you have an api key
+//...which is all fine, but it means cookies have to be tweaked as well
 type Authentication struct {
-	HasUserID   bool
 	UserID      UserID
-	AppspaceID  AppspaceID // if appspace ids start at 1, we can say that 0 is a non-existent id
-	UserAccount bool       // we're less sure of this one
-	CookieID    string     // if there is a cookie
+	AppspaceID  AppspaceID
+	ProxyID     ProxyID // for appspace users (including owner)
+	UserAccount bool    // Tells whether this is for user account auth. Otherwise it's for appspace
+	CookieID    string  // if there is a cookie
 }
+
+// ^^ this should be changed to reflect that User IDs are appspace user ids? (?)
+// Maybe this should be AppspaceAuth, because it's quite specific to appspaces and not account admin.
 
 type TimedToken struct {
 	Token   string
 	Created time.Time
 }
+
+//AppspaceLoginToken carries user auth data corresponding to a login token
 type AppspaceLoginToken struct {
 	AppspaceID    AppspaceID
 	AppspaceURL   url.URL
-	UserID        UserID
+	ProxyID       ProxyID
 	LoginToken    TimedToken
 	RedirectToken TimedToken
 }
@@ -272,10 +284,16 @@ type AppID uint32
 // Version is a version string like 0.0.1
 type Version string
 
-// AppspaceID is a nique ID for an appspace
+// AppspaceID is a unique ID for an appspace
 type AppspaceID uint32
 
-// User is basic representation of User
+// ContactID is an ID for a user's contact
+type ContactID uint32
+
+// ProxyID is an appspace user's id as seen from the appspace
+type ProxyID string
+
+// User is basic representation of a DropServer User
 type User struct {
 	UserID UserID `db:"user_id"`
 	Email  string
@@ -294,16 +312,24 @@ type CookieModel interface {
 // Might be called DBCookie to differentiate from thing that came from client?
 type Cookie struct {
 	CookieID string    `db:"cookie_id"`
-	UserID   UserID    `db:"user_id"`
 	Expires  time.Time `db:"expires"`
 
+	// UserID is confusing. is it contact id in case of appspace?
+	// what is it for owner of appspace?
+	UserID UserID `db:"user_id"`
+
 	// UserAccount indicates whether this cookie is for the user's account management
-	// possibly superfluous. cookie issue on user subdomain is for account management. It can't be for anything else?
 	UserAccount bool `db:"user_account"`
 
 	// AppspaceID is the appspace that the cookie can authorize
 	// It's mutually exclusive with UserAccount.
 	AppspaceID AppspaceID `db:"appspace_id"`
+
+	// ProxyID is for appspace users (including owner id)
+	ProxyID ProxyID `db:"proxy_id"`
+
+	// Maybe we need an IsOwner flag? Or might be able to use UserID for now, since it's there.
+	// I think "is owner" comes from appspace users table
 }
 
 // SettingsModel is used to get and set settings
@@ -460,7 +486,11 @@ type AppspaceRouteHandler struct {
 // description of auth paradigm for a route
 // Will need a lot more than just type in the long run.
 type AppspaceRouteAuth struct {
-	Type string `json:"type"`
+	//Allow is either "public", "authorized", or "owner"
+	Allow string `json:"allow"`
+	// Permission that is required to access this route
+	// An empty string means no specifc permission needed
+	Permission string `json:"permission"`
 }
 
 // AppspaceRouteConfig gives necessary data to handle an appspace route
@@ -469,6 +499,18 @@ type AppspaceRouteConfig struct {
 	Path    string               `json:"path"`
 	Auth    AppspaceRouteAuth    `json:"auth"`
 	Handler AppspaceRouteHandler `json:"handler"`
+}
+
+// AppspaceUser is a user of an appspace
+// Need to have an IsOwner
+// dont' we need a DisplayName?
+type AppspaceUser struct {
+	AppspaceID  AppspaceID
+	ContactID   ContactID
+	ProxyID     ProxyID
+	IsOwner     bool
+	Permissions []string
+	DisplayName string
 }
 
 type DbConn interface {
@@ -554,11 +596,12 @@ type AppspaceLogEvent struct {
 
 // AppspaceRouteHitEvent contains the route that was matched with the request
 type AppspaceRouteHitEvent struct {
-	Timestamp   time.Time
-	AppspaceID  AppspaceID
-	Request     *http.Request
-	RouteConfig *AppspaceRouteConfig
-	Status      int
+	Timestamp    time.Time
+	AppspaceID   AppspaceID
+	Request      *http.Request
+	RouteConfig  *AppspaceRouteConfig
+	AppspaceUser AppspaceUser
+	Status       int
 }
 
 // cli stuff

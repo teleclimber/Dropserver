@@ -487,16 +487,11 @@ func v0appspaceRouteFromRow(r routeRow) (domain.AppspaceRouteConfig, error) {
 }
 
 func v0validateAuth(auth domain.AppspaceRouteAuth) error {
-	switch auth.Type {
-	case "owner":
-		// no need for anything else. all other fields shoudl be zero-value
-		return nil
-	case "public":
-		// no need for anything else
-		return nil
-	default:
-		return errors.New("Unrecognized Auth type: " + auth.Type)
-	}
+	// TODO update this
+	// how tovalidate?
+	// Depends what we allow for permission string (characters allowd, max length)
+	// what is meaning of empty permission string?
+	return nil
 }
 
 var v0validPaths = [3]string{"@dropserver/", "@app/", "@appspace/"}

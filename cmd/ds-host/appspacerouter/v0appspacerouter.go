@@ -21,6 +21,9 @@ type V0 struct {
 	AppspaceRouteModels interface {
 		GetV0(domain.AppspaceID) domain.V0RouteModel
 	}
+	AppspaceUserModel interface {
+		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceUser, error)
+	}
 	DropserverRoutes domain.RouteHandler // versioned
 	SandboxProxy     domain.RouteHandler // versioned?
 	AppspaceLogin    interface {
@@ -28,7 +31,7 @@ type V0 struct {
 		CheckRedirectToken(string) (domain.AppspaceLoginToken, error)
 	}
 	Authenticator interface {
-		SetForAppspace(http.ResponseWriter, domain.UserID, domain.AppspaceID, string) (string, error)
+		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	}
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
@@ -84,6 +87,8 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 			}
 		} else {
 			if !r.authorize(routeData, routeData.Authentication) {
+				// if request is for html, then redirect
+				// if it's for json response then send an error code?
 				u := *req.URL
 				u.Host = req.Host // is this OK?
 				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
@@ -128,36 +133,67 @@ func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, route
 		return nil, errors.New("wrong appspace")
 	}
 
-	cookieID, err := r.Authenticator.SetForAppspace(res, token.UserID, token.AppspaceID, routeData.Appspace.Subdomain)
+	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.Subdomain)
 	if err != nil {
 		return nil, err
 	}
 
 	return &domain.Authentication{
-		HasUserID:  true,
-		UserID:     token.UserID,
+		ProxyID:    token.ProxyID,
 		AppspaceID: token.AppspaceID,
 		CookieID:   cookieID}, nil
 }
 
 func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authentication) bool {
-	switch routeData.RouteConfig.Auth.Type {
-	case "owner":
-		if auth == nil {
-			return false
-		}
-		if auth.UserID != routeData.Appspace.OwnerID {
-			return false
-		}
-		if auth.AppspaceID != routeData.Appspace.AppspaceID {
-			return false
-		}
-		return true
-	case "public":
+	// And we'll have a bunch of attached creds for request:
+	// - userID / contact ID
+	// - API key (probably included in header)
+	//   -> API key grants permissions
+	// - secret link (or not, the secret link is the auth, that's it)
+
+	// [if no user but api key, repeat for api key (look it up, get permissions, find match)]
+
+	if routeData.RouteConfig.Auth.Allow == "public" {
 		return true
 	}
 
-	r.getLogger("authorize").Log("Unrecognized route config auth type: " + routeData.RouteConfig.Auth.Type)
+	if auth == nil || auth.UserAccount || auth.AppspaceID != routeData.Appspace.AppspaceID {
+		return false
+	}
+
+	if routeData.RouteConfig.Auth.Allow == "authorized" {
+		// retrieve the appspace user
+		appspaceUser, err := r.AppspaceUserModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
+		if err != nil {
+			// GetContact has to return err if no contact found!
+			// does this get logged at model level? If so, just return false here
+			return false
+		}
+
+		requiredPermission := routeData.RouteConfig.Auth.Permission
+		if requiredPermission == "" {
+			// no specific permission required.
+			return true
+		}
+		for _, p := range appspaceUser.Permissions {
+			if p == requiredPermission {
+				return true
+			}
+		}
+	}
+
+	if routeData.RouteConfig.Auth.Allow == "owner" {
+		appspaceUser, err := r.AppspaceUserModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
+		if err != nil {
+			// GetContact has to return err if no contact found!
+			// does this get logged at model level? If so, just return false here
+			return false
+		}
+
+		if appspaceUser.IsOwner {
+			return true // owner has access to all routes
+		}
+	}
 
 	return false
 }

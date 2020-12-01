@@ -58,7 +58,7 @@ func (m *CookieModel) PrepareStatements() {
 	p := prepper{handle: m.DB.Handle}
 
 	m.stmt.selectCookieID = p.prep(`SELECT * FROM cookies WHERE cookie_id = ?`)
-	m.stmt.create = p.prep(`INSERT INTO cookies VALUES (?, ?, ?, ?, ?)`)
+	m.stmt.create = p.prep(`INSERT INTO cookies VALUES (?, ?, ?, ?, ?, ?)`)
 	m.stmt.refresh = p.prep(`UPDATE cookies SET expires = ? WHERE cookie_id = ?`)
 	m.stmt.delete = p.prep(`DELETE FROM cookies WHERE cookie_id = ?`)
 
@@ -67,6 +67,10 @@ func (m *CookieModel) PrepareStatements() {
 
 // Create adds the cookie to the DB and returns the UUID
 func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we shouldn't pass cookie obj?
+	if cookie.UserID != 0 && cookie.ProxyID != "" {
+		return "", errors.New("Both user id and proxy id cant be non-zero")
+	}
+
 	/// genrate cookie_id
 	UUID, err := uuid.NewRandom()
 	if err != nil {
@@ -75,7 +79,7 @@ func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we
 	}
 	cookieID := UUID.String()
 
-	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID)
+	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID, cookie.ProxyID)
 	if err != nil {
 		m.getLogger("Create()").Error(err)
 		return "", err

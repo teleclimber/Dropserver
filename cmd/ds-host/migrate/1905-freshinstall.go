@@ -47,10 +47,13 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"user_id" INTEGER,
 		"expires" DATETIME,
 		"user_account" INTEGER,
-		"appspace_id" INTEGER
+		"appspace_id" INTEGER,
+		"proxy_id" TEXT
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX cookies_cookie_id ON cookies (cookie_id)`)
 	// could index on user_id and appspace_id too
+	// Might need two separate cookie tables: one for admin and one for appspaces?
+	// What is meaning of user_account?
 
 	args.dbExec(`CREATE TABLE "apps" (
 		"owner_id" INTEGER,
@@ -86,6 +89,30 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	// probably index owner_id. and maybe app_id?
 	// should put a unique key constraint on location key?
 
+	// contacts:
+	args.dbExec(`CREATE TABLE "contacts" (
+		"user_id" INTEGER,
+		"contact_id" INTEGER,
+		"username" TEXT,
+		"url" TEXT,
+		"token" TEXT,
+		"display_name" TEXT
+	)`)
+	// TODO indices: user_id; contact_id;
+
+	args.dbExec(`CREATE TABLE "appspace-users" (
+		"appspace_id" INTEGER,
+		"contact_id" INTEGER,
+		"proxy_id" TEXT,
+		"permissions" TEXT
+	)`)
+	// TODO indices: appspace_id; ...
+	// Might need to add owner as user somehow?
+	// Thinking it might be good for display name to be settable at appspace level
+
+	// Also need a "mutual_contacts" or something like that? For when a contact is an actual user's contact.
+
+	// migration jobs
 	args.dbExec(`CREATE TABLE "migrationjobs" (
 		"job_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 		"owner_id" INTEGER NOT NULL,

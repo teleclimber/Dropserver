@@ -161,7 +161,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	ts := `
 	import Routes from "@dropserver/appspace-routes-db.ts";
 	export default async function createRoute() {
-		await Routes.createRoute(["get", "post"], "/some/path", {type:"owner"}, {file:"file.ts", function:"handleRoute", type:"function"});
+		await Routes.createRoute(["get", "post"], "/some/path", {allow:"owner"}, {file:"file.ts", function:"handleRoute", type:"function"});
 	}`
 
 	data := []byte(ts)

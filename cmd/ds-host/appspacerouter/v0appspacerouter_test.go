@@ -15,15 +15,23 @@ import (
 )
 
 func TestAuthorize(t *testing.T) {
-	v0 := &V0{}
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
 	ownerID := domain.UserID(7)
+	proxyID := domain.ProxyID("abc")
 	appspaceID := domain.AppspaceID(11)
+
+	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
+	appspaceUserModel.EXPECT().GetByProxy(appspaceID, proxyID).Return(domain.AppspaceUser{IsOwner: true}, nil)
+
+	v0 := &V0{
+		AppspaceUserModel: appspaceUserModel}
 
 	routeData := domain.AppspaceRouteData{
 		RouteConfig: &domain.AppspaceRouteConfig{
 			Auth: domain.AppspaceRouteAuth{
-				Type: "public",
+				Allow: "public",
 			},
 		},
 	}
@@ -32,7 +40,7 @@ func TestAuthorize(t *testing.T) {
 		t.Error("expected public route authorized")
 	}
 
-	routeData.RouteConfig.Auth.Type = "owner"
+	routeData.RouteConfig.Auth.Allow = "owner"
 	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
 	a = v0.authorize(&routeData, &domain.Authentication{})
 	if a {
@@ -40,8 +48,9 @@ func TestAuthorize(t *testing.T) {
 	}
 
 	auth := &domain.Authentication{
-		UserID: domain.UserID(13),
-	}
+		UserID:  domain.UserID(13),
+		ProxyID: proxyID}
+
 	a = v0.authorize(&routeData, auth)
 	if a {
 		t.Error("expected unauthorized because wrong user for auth")
@@ -151,16 +160,16 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	proxyID := domain.ProxyID("proxy-ideee")
 	appspaceID := domain.AppspaceID(7)
-	userID := domain.UserID(11)
 
 	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
 	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{
-		AppspaceID: appspaceID,
-		UserID:     userID}, nil)
+		ProxyID:    proxyID,
+		AppspaceID: appspaceID}, nil)
 
 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
-	authenticator.EXPECT().SetForAppspace(gomock.Any(), userID, appspaceID, "some.host").Return("somecookie", nil)
+	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, "some.host").Return("somecookie", nil)
 
 	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
 	if err != nil {
@@ -192,8 +201,8 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	if auth.UserAccount {
 		t.Error("should not be for user account")
 	}
-	if auth.UserID != userID {
-		t.Error("wrong user id")
+	if auth.ProxyID != proxyID {
+		t.Error("wrong proxy id")
 	}
 }
 
@@ -389,7 +398,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	routesV0 := domain.NewMockV0RouteModel(mockCtrl)
 	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
 		Handler: domain.AppspaceRouteHandler{Type: "function"},
-		Auth:    domain.AppspaceRouteAuth{Type: "public"},
+		Auth:    domain.AppspaceRouteAuth{Allow: "public"},
 	}, nil)
 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)

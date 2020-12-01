@@ -17,7 +17,8 @@ const deleteCmd = 13;
 
 
 type Auth = {
-	type: string
+	allow: string,	// actually an enum
+	permission?: string
 }
 
 export type FunctionHandler = {	// is that how we want to do this? Would it be better to have several types and overload it?

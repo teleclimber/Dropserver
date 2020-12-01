@@ -85,7 +85,6 @@ func (a *AppspaceLogin) LogIn(loginToken string, userID domain.UserID) (domain.A
 		return domain.AppspaceLoginToken{}, errors.New("token already used")
 	}
 
-	t.UserID = userID
 	t.RedirectToken = domain.TimedToken{
 		Token:   randomString(),
 		Created: time.Now()}

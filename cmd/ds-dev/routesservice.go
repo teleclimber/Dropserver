@@ -56,8 +56,14 @@ func (s *RoutesService) Start(t *twine.Twine) {
 	close(asFilesCh)
 }
 
-const loadAllCmd = 11
-const patchCmd = 12
+// HandleMessage handles incoming mesages for this service.
+func (s *RoutesService) HandleMessage(m twine.ReceivedMessageI) {
+	// we don't expect an imcping message, so return an error
+	m.SendError("did not expect an incoming message on routes service")
+}
+
+const loadAllRoutesCmd = 11
+const patchRoutesCmd = 12
 
 type appspaceRoutes struct {
 	Path   string                        `json:"path"`
@@ -80,7 +86,7 @@ func (s *RoutesService) sendAppspaceRoutes(twine *twine.Twine) {
 		fmt.Println("sendAppspaceRoutes json Marshal Error: " + err.Error())
 	}
 
-	_, err = twine.SendBlock(appspaceRouteService, loadAllCmd, bytes)
+	_, err = twine.SendBlock(appspaceRouteService, loadAllRoutesCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceRoutes SendBlock Error: " + err.Error())
 	}
@@ -102,7 +108,7 @@ func (s *RoutesService) sendAppspaceRoutesPatch(twine *twine.Twine, routeEvent d
 		fmt.Println("sendAppspaceRoutesPatch json Marshal Error: " + err.Error())
 	}
 
-	_, err = twine.SendBlock(appspaceRouteService, patchCmd, bytes)
+	_, err = twine.SendBlock(appspaceRouteService, patchRoutesCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceRoutesPatch SendBlock Error: " + err.Error())
 	}

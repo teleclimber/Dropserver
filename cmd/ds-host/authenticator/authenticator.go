@@ -35,13 +35,13 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 
 // SetForAppspace creates a cookie and sends it down
 // It is for access to the appspace only
-func (a *Authenticator) SetForAppspace(res http.ResponseWriter, userID domain.UserID, appspaceID domain.AppspaceID, subdomain string) (string, error) {
+func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.ProxyID, appspaceID domain.AppspaceID, subdomain string) (string, error) {
 	if subdomain == "" {
 		return "", errors.New("subdomain can't be blank")
 	}
 
 	cookie := domain.Cookie{
-		UserID:      userID,
+		ProxyID:     proxyID,
 		AppspaceID:  appspaceID,
 		UserAccount: false,
 		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
@@ -70,15 +70,16 @@ func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request)
 	// ^ commenting out until we can sort this out better.
 
 	auth := &domain.Authentication{
-		HasUserID:   true,
 		UserID:      cookie.UserID,
 		AppspaceID:  cookie.AppspaceID,
 		CookieID:    cookie.CookieID,
 		UserAccount: cookie.UserAccount,
-	}
+		ProxyID:     cookie.ProxyID}
 
 	return auth, nil
 }
+
+// Also need to auth via API key eventually
 
 // UnsetForAccount is the opposite of SetForAccount
 // deletes cookie, wipes cookie from DB?

@@ -65,7 +65,7 @@ func (mr *MockAuthenticatorMockRecorder) SetForAccount(arg0, arg1 interface{}) *
 }
 
 // SetForAppspace mocks base method
-func (m *MockAuthenticator) SetForAppspace(arg0 http.ResponseWriter, arg1 domain.UserID, arg2 domain.AppspaceID, arg3 string) (string, error) {
+func (m *MockAuthenticator) SetForAppspace(arg0 http.ResponseWriter, arg1 domain.ProxyID, arg2 domain.AppspaceID, arg3 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetForAppspace", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)

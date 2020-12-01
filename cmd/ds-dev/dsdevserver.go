@@ -20,9 +20,11 @@ const baseDataService = 13
 const migrationStatusService = 14
 const appspaceLogService = 15
 const appspaceRouteService = 16 // keeps a live list of appspace routes from appspace meta db
+const userControlService = 17   //incoming / outgoing
 
 type twineService interface {
 	Start(*twine.Twine)
+	HandleMessage(twine.ReceivedMessageI)
 }
 
 // DropserverDevServer serves routes at dropserver-dev which control
@@ -85,6 +87,7 @@ type DropserverDevServer struct {
 
 	// Services:
 	RoutesService twineService
+	UserService   twineService
 
 	appPath      string
 	appspacePath string
@@ -134,12 +137,21 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 	case "livedata":
 		s.StartLivedata(res, req)
 
+	case "appspacelogin":
+		s.appspaceLogin(res, req)
+
 	default:
 		// file serve the frontend dist dir
 		//http.Error(res, "dropserver-dev route not found", http.StatusNotFound)
 		staticHandler.ServeHTTP(res, req)
 	}
 
+}
+
+func (s *DropserverDevServer) appspaceLogin(res http.ResponseWriter, req *http.Request) {
+	// Here we can get the token, retrieve the corresponding data,
+
+	res.Write([]byte(fmt.Sprintf("try again:")))
 }
 
 func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.Request) {
@@ -206,6 +218,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 			switch m.ServiceID() {
 			case appspaceControlService:
 				go s.handleAppspaceCtrlMessage(m)
+			case userControlService:
+				go s.UserService.HandleMessage(m)
 			default:
 				m.SendError("Service not found")
 			}

@@ -1,7 +1,12 @@
 <template>
-	<span class="border-b border-gray-400 text-sm bold pl-2" 
-		:class="{'bg-teal-200':route.auth.type === 'owner', 'bg-orange-300': route.auth.type === 'public'}"
-		style="font-variant-caps: all-small-caps">{{route.auth.type}}</span>
+	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-orange-300" 
+		style="font-variant-caps: all-small-caps">public</span>
+	<span v-else-if="route.auth.allow === 'authorized'"  class="border-b border-gray-400 text-sm bold pl-2 bg-teal-200" 
+		style="font-variant-caps: all-small-caps">auth:{{route.auth.permission}}</span>
+	<span v-else-if="route.auth.allow === 'owner'" class="border-b border-gray-400 text-sm bold pl-2 bg-teal-300" 
+		style="font-variant-caps: all-small-caps">owner</span>
+	<span v-else>???</span>
+
 	<span class="border-b border-gray-400 pl-2" style="font-variant-caps: all-small-caps">{{route.methods.join(' ')}}</span>
 	<span class="bg-gray-200 text-gray-900 pl-2 text-sm font-bold border-b border-gray-400">{{route.path}}</span>
 	

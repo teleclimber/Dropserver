@@ -10,6 +10,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
@@ -141,12 +142,11 @@ func main() {
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
-	devAuth := &DevAuthenticator{}
-	devAuth.Set(domain.Authentication{
-		HasUserID:  true,
-		UserID:     ownerID,
-		AppspaceID: appspaceID,
-	})
+	devAppspaceUserModel := &DevAppspaceUserModel{
+		noUser: true}
+
+	devAuth := &DevAuthenticator{
+		noAuth: true} // start as public
 
 	devMigrationJobModel := &DevMigrationJobModel{}
 
@@ -204,14 +204,18 @@ func main() {
 		SandboxManager: devSandboxManager,
 		Metrics:        &m}
 
+	appspaceLogin := &appspacelogin.AppspaceLogin{}
+	appspaceLogin.Start()
+
 	appspaceRouterV0 := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
+		AppspaceUserModel:   devAppspaceUserModel,
 		RouteHitEvents:      routeHitEvents,
-		//AppspaceLogin:       appspaceLogin,	// should never happen, leave nil. It will crash if we made a mistake.
-		Config: runtimeConfig}
+		AppspaceLogin:       appspaceLogin,
+		Config:              runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
 		AppModel:       devAppModel,
@@ -247,6 +251,10 @@ func main() {
 		AppspaceRouteEvents: appspaceRouteEvents,
 		AppspaceFilesEvents: appspaceFilesEvents}
 
+	userService := &UserService{
+		DevAuthenticator:     devAuth,
+		DevAppspaceUserModel: devAppspaceUserModel}
+
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
 		AppFilesModel:          appFilesModel,
@@ -262,6 +270,7 @@ func main() {
 		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
 		RoutesService:          routesService,
+		UserService:            userService,
 		AppVersionEvents:       appVersionEvents,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,

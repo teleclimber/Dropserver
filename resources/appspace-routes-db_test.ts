@@ -16,7 +16,7 @@ Deno.test({
 
 		const routes_module = await import("./appspace-routes-db.ts");	// import after stubbing
 		const Routes = routes_module.default;
-		await Routes.createRoute(["get", "post"], "/abc/def", {type:"owner"}, {file:"file.ts", function:"handleRoute", type:"function"});
+		await Routes.createRoute(["get", "post"], "/abc/def", {allow:"owner"}, {file:"file.ts", function:"handleRoute", type:"function"});
 		
 		const calls = stubbed_sendBlock.calls;
 		assertEquals(calls.length, 1);
