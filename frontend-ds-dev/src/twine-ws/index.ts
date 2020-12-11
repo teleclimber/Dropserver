@@ -16,7 +16,7 @@ export default class TwineWebsocketClient {
 		this.msgReg = new MessageRegistry(1, 127);
 	}
 	async startClient() {
-		return new Promise((resolve, reject) => {
+		return new Promise<void>((resolve, reject) => {
 			this.ws = new WebSocket(this.address);
 			this.ws.onerror = (err) => {
 				console.error('ws error', err);
