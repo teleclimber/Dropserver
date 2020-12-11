@@ -187,6 +187,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	}()
 
 	go s.RoutesService.Start(t)
+	go s.UserService.Start(t)
 
 	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
 	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)

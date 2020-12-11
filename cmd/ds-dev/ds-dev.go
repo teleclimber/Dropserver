@@ -107,6 +107,8 @@ func main() {
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
 
+	devAppspaceContactModel := &DevAppspaceContactModel{}
+
 	devAppWatcher := &DevAppWatcher{
 		AppFilesModel:    appFilesModel,
 		DevAppModel:      devAppModel,
@@ -142,8 +144,12 @@ func main() {
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
-	devAppspaceUserModel := &DevAppspaceUserModel{
-		noUser: true}
+	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
+		// apparently config and validator are unused
+		AppspaceMetaDB:       appspaceMetaDb,
+		AppspaceContactModel: devAppspaceContactModel,
+	}
+	appspaceUserModels.Init()
 
 	devAuth := &DevAuthenticator{
 		noAuth: true} // start as public
@@ -212,7 +218,7 @@ func main() {
 		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
-		AppspaceUserModel:   devAppspaceUserModel,
+		VxUserModels:        appspaceUserModels,
 		RouteHitEvents:      routeHitEvents,
 		AppspaceLogin:       appspaceLogin,
 		Config:              runtimeConfig}
@@ -232,6 +238,7 @@ func main() {
 
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
+		UserModels:   appspaceUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 
 	devSandboxManager.Services = services
@@ -252,8 +259,9 @@ func main() {
 		AppspaceFilesEvents: appspaceFilesEvents}
 
 	userService := &UserService{
-		DevAuthenticator:     devAuth,
-		DevAppspaceUserModel: devAppspaceUserModel}
+		DevAuthenticator:        devAuth,
+		AppspaceUserModels:      appspaceUserModels,
+		DevAppspaceContactModel: devAppspaceContactModel}
 
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,

@@ -22,11 +22,11 @@ func TestAuthorize(t *testing.T) {
 	proxyID := domain.ProxyID("abc")
 	appspaceID := domain.AppspaceID(11)
 
-	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
-	appspaceUserModel.EXPECT().GetByProxy(appspaceID, proxyID).Return(domain.AppspaceUser{IsOwner: true}, nil)
+	appspaceContactModel := testmocks.NewMockAppspaceContactModel(mockCtrl)
+	appspaceContactModel.EXPECT().GetByProxy(appspaceID, proxyID).Return(domain.AppspaceContact{IsOwner: true}, nil)
 
 	v0 := &V0{
-		AppspaceUserModel: appspaceUserModel}
+		AppspaceContactModel: appspaceContactModel}
 
 	routeData := domain.AppspaceRouteData{
 		RouteConfig: &domain.AppspaceRouteConfig{

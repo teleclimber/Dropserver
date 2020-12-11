@@ -215,7 +215,7 @@ func TestV0RouteMatch(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	db := v0RoutesGetTestDBHandle(t)
+	db := v0GetTestDBHandle(t)
 
 	dbc := domain.NewMockDbConn(mockCtrl)
 	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
@@ -323,21 +323,26 @@ func TestV0GetMethodsFromBits(t *testing.T) {
 func v0RoutesGetModel(t *testing.T, mockCtrl *gomock.Controller) *V0RouteModel {
 	appspaceID := domain.AppspaceID(7)
 
-	db := v0RoutesGetTestDBHandle(t)
-
-	dbc := domain.NewMockDbConn(mockCtrl)
-	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
-	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
 	r := &V0RouteModel{
-		AppspaceMetaDB: appspaceMetaDb,
+		AppspaceMetaDB: v0GetTestAppspaceMetaDB(t, mockCtrl, appspaceID),
 		appspaceID:     appspaceID,
 	}
 
 	return r
 }
 
-func v0RoutesGetTestDBHandle(t *testing.T) *sqlx.DB {
+func v0GetTestAppspaceMetaDB(t *testing.T, mockCtrl *gomock.Controller, appspaceID domain.AppspaceID) *domain.MockAppspaceMetaDB {
+	db := v0GetTestDBHandle(t)
+
+	dbc := domain.NewMockDbConn(mockCtrl)
+	dbc.EXPECT().GetHandle().Return(db).AnyTimes()
+	appspaceMetaDb := domain.NewMockAppspaceMetaDB(mockCtrl)
+	appspaceMetaDb.EXPECT().GetConn(appspaceID).Return(dbc, nil).AnyTimes()
+
+	return appspaceMetaDb
+}
+
+func v0GetTestDBHandle(t *testing.T) *sqlx.DB {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?
 	// See: https://github.com/jmoiron/sqlx/issues/164

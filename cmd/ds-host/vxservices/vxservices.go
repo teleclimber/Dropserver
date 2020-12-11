@@ -11,6 +11,9 @@ type VXServices struct {
 	RouteModels interface {
 		GetV0(appspaceID domain.AppspaceID) domain.V0RouteModel
 	}
+	UserModels interface {
+		GetV0(appspaceID domain.AppspaceID) domain.V0UserModel
+	}
 	V0AppspaceDB serviceGetter
 }
 
@@ -20,6 +23,7 @@ func (x *VXServices) Get(appspace *domain.Appspace, api domain.APIVersion) (serv
 	case 0:
 		service = &V0Services{
 			RouteModel: x.RouteModels.GetV0(appspace.AppspaceID),
+			UserModel:  x.UserModels.GetV0(appspace.AppspaceID),
 			AppspaceDB: x.V0AppspaceDB.GetService(appspace),
 		}
 	}

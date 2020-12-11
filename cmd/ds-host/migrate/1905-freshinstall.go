@@ -98,17 +98,16 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"token" TEXT,
 		"display_name" TEXT
 	)`)
+	// I don't actually know if this is two-way contacts, or if this is all the users?
 	// TODO indices: user_id; contact_id;
 
 	args.dbExec(`CREATE TABLE "appspace-users" (
 		"appspace_id" INTEGER,
-		"contact_id" INTEGER,
 		"proxy_id" TEXT,
-		"permissions" TEXT
+		"is_owner" INTEGER DEFAULT 0,
+		"contact_id" INTEGER,
 	)`)
 	// TODO indices: appspace_id; ...
-	// Might need to add owner as user somehow?
-	// Thinking it might be good for display name to be settable at appspace level
 
 	// Also need a "mutual_contacts" or something like that? For when a contact is an actual user's contact.
 

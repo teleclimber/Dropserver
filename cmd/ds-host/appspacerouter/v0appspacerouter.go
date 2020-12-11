@@ -21,8 +21,11 @@ type V0 struct {
 	AppspaceRouteModels interface {
 		GetV0(domain.AppspaceID) domain.V0RouteModel
 	}
-	AppspaceUserModel interface {
-		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceUser, error)
+	VxUserModels interface {
+		GetV0(domain.AppspaceID) domain.V0UserModel
+	}
+	AppspaceContactModel interface {
+		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceContact, error)
 	}
 	DropserverRoutes domain.RouteHandler // versioned
 	SandboxProxy     domain.RouteHandler // versioned?
@@ -162,8 +165,8 @@ func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authent
 	}
 
 	if routeData.RouteConfig.Auth.Allow == "authorized" {
-		// retrieve the appspace user
-		appspaceUser, err := r.AppspaceUserModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
+		userModel := r.VxUserModels.GetV0(auth.AppspaceID)
+		appspaceUser, err := userModel.Get(auth.ProxyID)
 		if err != nil {
 			// GetContact has to return err if no contact found!
 			// does this get logged at model level? If so, just return false here
@@ -183,7 +186,7 @@ func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authent
 	}
 
 	if routeData.RouteConfig.Auth.Allow == "owner" {
-		appspaceUser, err := r.AppspaceUserModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
+		appspaceUser, err := r.AppspaceContactModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
 		if err != nil {
 			// GetContact has to return err if no contact found!
 			// does this get logged at model level? If so, just return false here

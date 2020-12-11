@@ -501,16 +501,12 @@ type AppspaceRouteConfig struct {
 	Handler AppspaceRouteHandler `json:"handler"`
 }
 
-// AppspaceUser is a user of an appspace
-// Need to have an IsOwner
-// dont' we need a DisplayName?
-type AppspaceUser struct {
-	AppspaceID  AppspaceID
-	ContactID   ContactID
-	ProxyID     ProxyID
-	IsOwner     bool
-	Permissions []string
-	DisplayName string
+// AppspaceContact is a user of an appspace as stored on the host side
+type AppspaceContact struct {
+	ContactID  ContactID  `json:"contact_id"`
+	AppspaceID AppspaceID `json:"appspace_id"`
+	ProxyID    ProxyID    `json:"proxy_id"`
+	IsOwner    bool       `json:"is_owner"`
 }
 
 type DbConn interface {
@@ -555,6 +551,24 @@ type AppspaceRouteModels interface {
 	GetV0(AppspaceID) V0RouteModel
 }
 
+// V0UserModel serves appsace user data queries at API 0
+type V0UserModel interface {
+	ReverseServiceI
+
+	Get(ProxyID) (V0User, error)
+	GetAll() ([]V0User, error)
+	Create(proxyID ProxyID, displayName string, permissions []string) error
+	Update(proxyID ProxyID, displayName string, permissions []string) error
+	Delete(ProxyID) error
+}
+
+// V0User is an appspace user as stored in the appspace
+type V0User struct {
+	ProxyID     ProxyID  `json:"proxy_id"`
+	Permissions []string `json:"permissions"`
+	DisplayName string   `json:"display_name"`
+}
+
 // ReverseServiceI is a common interface for reverse services of all versions
 type ReverseServiceI interface {
 	HandleMessage(twine.ReceivedMessageI)
@@ -596,12 +610,12 @@ type AppspaceLogEvent struct {
 
 // AppspaceRouteHitEvent contains the route that was matched with the request
 type AppspaceRouteHitEvent struct {
-	Timestamp    time.Time
-	AppspaceID   AppspaceID
-	Request      *http.Request
-	RouteConfig  *AppspaceRouteConfig
-	AppspaceUser AppspaceUser
-	Status       int
+	Timestamp       time.Time
+	AppspaceID      AppspaceID
+	Request         *http.Request
+	RouteConfig     *AppspaceRouteConfig
+	AppspaceContact AppspaceContact
+	Status          int
 }
 
 // cli stuff

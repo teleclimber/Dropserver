@@ -101,6 +101,10 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 		_ = <-readyChan
 	}
 
+	if conn.connError != nil {
+		mdb.getLogger("GetConn(), connError").Error(conn.connError)
+	}
+
 	return conn, conn.connError
 }
 

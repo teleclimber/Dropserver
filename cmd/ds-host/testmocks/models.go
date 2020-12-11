@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppModel,AppspaceModel,AppspaceInfoModels,AppspaceUserModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppModel,AppspaceModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
 
 // AppModel is the interface for the app model
 type AppModel interface {
@@ -36,9 +36,9 @@ type AppspaceInfoModels interface {
 	GetSchema(domain.AppspaceID) (int, error)
 }
 
-// AppspaceUserModel stores users of appspaces
-type AppspaceUserModel interface {
-	GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+// AppspaceContactModel stores users of appspaces
+type AppspaceContactModel interface {
+	GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceContact, error)
 }
 
 // MigrationJobModel handles writing jobs to the db

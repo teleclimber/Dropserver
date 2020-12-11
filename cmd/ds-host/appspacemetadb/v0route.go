@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	createCmd = 12
-	deleteCmd = 13
+	createRouteCmd = 12
+	deleteRouteCmd = 13
 )
 
 // V0RouteModel responds to requests about appspace routes for an appspace
@@ -53,9 +53,9 @@ func (m *V0RouteModel) getDB() (*sqlx.DB, error) {
 // HandleMessage processes a command and payload from the reverse listener
 func (m *V0RouteModel) HandleMessage(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
-	case createCmd:
+	case createRouteCmd:
 		m.reverseCmdCreate(message)
-	case deleteCmd:
+	case deleteRouteCmd:
 		m.reverseCmdDelete(message)
 	default:
 		message.SendError("Command not recognized")

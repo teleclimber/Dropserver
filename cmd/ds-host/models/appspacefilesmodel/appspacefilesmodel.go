@@ -11,11 +11,20 @@ import (
 )
 
 // performs operations on appspace files
+// - backup
+// - import
+// - export
 
-// AppspaceFilesModel is struct for application files manager
+// Also need ability to take output of metadata taht is stored host-side
+// ..if there is any such data
+// ..and place it in the appspace files.
+
+// AppspaceFilesModel is struct for appspace data directory manager
 type AppspaceFilesModel struct {
 	Config *domain.RuntimeConfig
 }
+
+// TODO: add appspace files event interface and call upon change.
 
 // Probably need a create location
 
