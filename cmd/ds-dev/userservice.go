@@ -10,6 +10,8 @@ import (
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
+// TODO: how does this handle changes in DS API versions?
+
 // What do we need ?
 // app files events and app files so we can load user permissions (later)
 //
@@ -22,10 +24,24 @@ type UserService struct {
 		GetV0(domain.AppspaceID) domain.V0UserModel
 	}
 	DevAppspaceContactModel *DevAppspaceContactModel
+	AppspaceFilesEvents     interface {
+		Subscribe(chan<- domain.AppspaceID)
+	}
 }
 
 // Start creates listeners and then shuts everything down when twine exits
 func (u *UserService) Start(t *twine.Twine) {
+	asFilesCh := make(chan domain.AppspaceID)
+	go func() {
+		for range asFilesCh {
+			u.sendUsers(t)
+			// presumably appspace files contain owner info, so it gets reset in that way somehow
+			// ..just have to send it back down
+			// Also for selected user, we can maybe get away with doing nothing? They either still exist or not.
+		}
+	}()
+	u.AppspaceFilesEvents.Subscribe(asFilesCh)
+
 	// send initial users down
 	u.sendUsers(t)
 
@@ -49,9 +65,14 @@ const (
 
 func (u *UserService) sendUsers(twine *twine.Twine) {
 	v0userModel := u.AppspaceUserModels.GetV0(appspaceID)
-	users, err := v0userModel.GetAll()
+	v0users, err := v0userModel.GetAll()
 	if err != nil {
 		fmt.Println("sendUsers error getting users: " + err.Error())
+	}
+
+	users := make([]DevAppspaceUser, len(v0users))
+	for i, u := range v0users {
+		users[i] = V0ToDevApspaceUser(u)
 	}
 
 	bytes, err := json.Marshal(users)
@@ -143,7 +164,7 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	payload, err := json.Marshal(user)
+	payload, err := json.Marshal(V0ToDevApspaceUser(user))
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -207,6 +228,14 @@ func (u *UserService) handleUserSelectUserMessage(m twine.ReceivedMessageI) {
 	}
 
 	m.SendOK()
+}
+
+// V0ToDevApspaceUser converts a V0User to a non-VX userfor the frontend.
+func V0ToDevApspaceUser(v0user domain.V0User) (u DevAppspaceUser) {
+	u.DisplayName = v0user.DisplayName
+	u.Permissions = v0user.Permissions
+	u.ProxyID = v0user.ProxyID
+	return
 }
 
 ////////////

@@ -46,12 +46,17 @@ type V0 struct {
 func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	statusRes := statusRecorder{res, 0}
 
+	cred := struct {
+		ProxyID domain.ProxyID
+	}{}
+
 	defer func() {
 		if r.RouteHitEvents != nil {
 			r.RouteHitEvents.Send(&domain.AppspaceRouteHitEvent{
 				AppspaceID:  routeData.Appspace.AppspaceID,
 				Request:     req,
 				RouteConfig: routeData.RouteConfig,
+				Credentials: cred,
 				Status:      statusRes.status})
 		}
 	}()
@@ -82,6 +87,7 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 			return
 		}
 		if auth != nil {
+			cred.ProxyID = auth.ProxyID
 			if !r.authorize(routeData, auth) {
 				// If requester just logged in with a token but is not authroized, then just show as such.
 				// Here we do not redirect because that would cause a redirect loop.
@@ -89,6 +95,9 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				return
 			}
 		} else {
+			if routeData.Authentication != nil {
+				cred.ProxyID = routeData.Authentication.ProxyID
+			}
 			if !r.authorize(routeData, routeData.Authentication) {
 				// if request is for html, then redirect
 				// if it's for json response then send an error code?
@@ -168,8 +177,9 @@ func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authent
 		userModel := r.VxUserModels.GetV0(auth.AppspaceID)
 		appspaceUser, err := userModel.Get(auth.ProxyID)
 		if err != nil {
-			// GetContact has to return err if no contact found!
-			// does this get logged at model level? If so, just return false here
+			return false
+		}
+		if appspaceUser.ProxyID == "" { // appspace user has zero-value (not found)
 			return false
 		}
 

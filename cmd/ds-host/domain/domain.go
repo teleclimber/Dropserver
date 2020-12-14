@@ -555,6 +555,8 @@ type AppspaceRouteModels interface {
 type V0UserModel interface {
 	ReverseServiceI
 
+	// Get a appspace user by proxy id
+	// If proxy id does not exist it returns zero-value V0User and nil error
 	Get(ProxyID) (V0User, error)
 	GetAll() ([]V0User, error)
 	Create(proxyID ProxyID, displayName string, permissions []string) error
@@ -610,11 +612,16 @@ type AppspaceLogEvent struct {
 
 // AppspaceRouteHitEvent contains the route that was matched with the request
 type AppspaceRouteHitEvent struct {
-	Timestamp       time.Time
-	AppspaceID      AppspaceID
-	Request         *http.Request
-	RouteConfig     *AppspaceRouteConfig
-	AppspaceContact AppspaceContact
+	Timestamp   time.Time
+	AppspaceID  AppspaceID
+	Request     *http.Request
+	RouteConfig *AppspaceRouteConfig
+	// Credentials presented by the requester
+	// zero-values indicate credential not presented
+	Credentials struct {
+		ProxyID ProxyID
+	}
+	AppspaceContact AppspaceContact // hmm, probably not.
 	Status          int
 }
 

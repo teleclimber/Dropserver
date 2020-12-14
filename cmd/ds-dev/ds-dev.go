@@ -214,14 +214,15 @@ func main() {
 	appspaceLogin.Start()
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceRouteModels: appspaceRouteModels,
-		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
-		SandboxProxy:        sandboxProxy,
-		Authenticator:       devAuth,
-		VxUserModels:        appspaceUserModels,
-		RouteHitEvents:      routeHitEvents,
-		AppspaceLogin:       appspaceLogin,
-		Config:              runtimeConfig}
+		AppspaceRouteModels:  appspaceRouteModels,
+		AppspaceContactModel: devAppspaceContactModel,
+		DropserverRoutes:     &appspacerouter.DropserverRoutesV0{},
+		SandboxProxy:         sandboxProxy,
+		Authenticator:        devAuth,
+		VxUserModels:         appspaceUserModels,
+		RouteHitEvents:       routeHitEvents,
+		AppspaceLogin:        appspaceLogin,
+		Config:               runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
 		AppModel:       devAppModel,
@@ -261,6 +262,12 @@ func main() {
 	userService := &UserService{
 		DevAuthenticator:        devAuth,
 		AppspaceUserModels:      appspaceUserModels,
+		DevAppspaceContactModel: devAppspaceContactModel,
+		AppspaceFilesEvents:     appspaceFilesEvents}
+
+	routeHitService := &RouteHitService{
+		RouteHitEvents:          routeHitEvents,
+		AppspaceUserModels:      appspaceUserModels,
 		DevAppspaceContactModel: devAppspaceContactModel}
 
 	dsDevHandler := &DropserverDevServer{
@@ -279,11 +286,11 @@ func main() {
 		Config:                 runtimeConfig,
 		RoutesService:          routesService,
 		UserService:            userService,
+		RouteHitService:        routeHitService,
 		AppVersionEvents:       appVersionEvents,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
-		MigrationJobsEvents:    migrationJobEvents,
-		RouteHitEvents:         routeHitEvents}
+		MigrationJobsEvents:    migrationJobEvents}
 	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
 
 	// Create server.

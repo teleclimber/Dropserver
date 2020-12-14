@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/markbates/pkger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -80,14 +79,11 @@ type DropserverDevServer struct {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 	}
-	RouteHitEvents interface {
-		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
-		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
-	}
 
 	// Services:
-	RoutesService twineService
-	UserService   twineService
+	RoutesService   twineService
+	UserService     twineService
+	RouteHitService twineService
 
 	appPath      string
 	appspacePath string
@@ -188,6 +184,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 
 	go s.RoutesService.Start(t)
 	go s.UserService.Start(t)
+	go s.RouteHitService.Start(t)
 
 	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
 	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)
@@ -202,14 +199,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go func() {
 		for migrationEvent := range migrationEventsChan {
 			go s.sendMigrationEvent(t, migrationEvent)
-		}
-	}()
-
-	routeEventsChan := make(chan *domain.AppspaceRouteHitEvent)
-	s.RouteHitEvents.Subscribe(routeEventsChan)
-	go func() {
-		for routeEvent := range routeEventsChan {
-			go s.sendRouteEvent(t, routeEvent)
 		}
 	}()
 
@@ -242,9 +231,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 
 		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
 		close(appspaceLogEventChan)
-
-		s.RouteHitEvents.Unsubscribe(routeEventsChan)
-		close(routeEventsChan)
 
 		fmt.Println("unsubscribed")
 	}()
@@ -443,42 +429,6 @@ func (s *DropserverDevServer) sendMigrationEvent(twine *twine.Twine, migrationEv
 	if err != nil {
 		fmt.Println("sendMigrationEvent SendBlock Error: " + err.Error())
 	}
-}
-
-const routeHitEventCmd = 11
-
-type RequestJSON struct {
-	URL    string `json:"url"`
-	Method string `json:"method"`
-}
-type RouteHitEventJSON struct {
-	Timestamp   time.Time                   `json:"timestamp"`
-	Request     RequestJSON                 `json:"request"`
-	RouteConfig *domain.AppspaceRouteConfig `json:"route_config"` // this might be nil.OK?
-	Status      int                         `json:"status"`
-}
-
-func (s *DropserverDevServer) sendRouteEvent(twine *twine.Twine, routeEvent *domain.AppspaceRouteHitEvent) {
-	send := RouteHitEventJSON{
-		Timestamp: routeEvent.Timestamp,
-		Request: RequestJSON{
-			URL:    routeEvent.Request.URL.String(),
-			Method: routeEvent.Request.Method},
-		RouteConfig: routeEvent.RouteConfig,
-		Status:      routeEvent.Status}
-
-	bytes, err := json.Marshal(send)
-	if err != nil {
-		// meh
-		fmt.Println("sendRouteEvent json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(routeEventService, routeHitEventCmd, bytes)
-	if err != nil {
-		//urhg
-		fmt.Println("sendRouteEvent SendBlock Error: " + err.Error())
-	}
-
 }
 
 // SetPaths sets the paths of the ppa nd appspace so it can be reported on the frontend

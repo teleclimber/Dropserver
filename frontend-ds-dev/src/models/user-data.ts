@@ -23,7 +23,7 @@ const userDeleteCmd      = 13
 const userSelectOwnerCmd = 14
 const userSelectUserCmd  = 15
 
-type User = {
+export type User = {
 	permissions: string[]
 	display_name: string,
 	proxy_id: string
