@@ -5,17 +5,24 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppModel,AppspaceModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
+
+// AppFilesModel represents the application's files saved to disk
+type AppFilesModel interface {
+	Save(*map[string][]byte) (string, error)
+	ReadMeta(string) (*domain.AppFilesMetadata, error)
+	Delete(string) error
+}
 
 // AppModel is the interface for the app model
 type AppModel interface {
-	GetFromID(domain.AppID) (*domain.App, domain.Error)
-	GetForOwner(domain.UserID) ([]*domain.App, domain.Error)
-	Create(domain.UserID, string) (*domain.App, domain.Error)
-	GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
-	GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, domain.Error)
-	CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, domain.Error)
-	DeleteVersion(domain.AppID, domain.Version) domain.Error
+	GetFromID(domain.AppID) (*domain.App, error)
+	GetForOwner(domain.UserID) ([]*domain.App, error)
+	Create(domain.UserID, string) (*domain.App, error)
+	GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+	GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
+	CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
+	DeleteVersion(domain.AppID, domain.Version) error
 }
 
 // AppspaceModel is the interface for the appspace model

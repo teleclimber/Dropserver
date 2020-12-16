@@ -299,7 +299,7 @@ func TestDeleteVersion(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
 
-	afModel := domain.NewMockAppFilesModel(mockCtrl)
+	afModel := testmocks.NewMockAppFilesModel(mockCtrl)
 	afModel.EXPECT().Delete("foobar").Return(nil)
 
 	a := ApplicationRoutes{

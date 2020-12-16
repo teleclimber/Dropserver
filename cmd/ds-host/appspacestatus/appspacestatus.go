@@ -82,7 +82,7 @@ type AppspaceStatus struct {
 		Subscribe(chan<- domain.AppspacePausedEvent)
 	}
 	AppModel interface {
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 
 	AppspaceInfoModels interface {
@@ -232,8 +232,8 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	}
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
-	appVersion, dsErr := s.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
-	if dsErr != nil {
+	appVersion, err := s.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
+	if err != nil {
 		data.problem = true
 		return data
 	}

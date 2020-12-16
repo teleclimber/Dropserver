@@ -1,11 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
@@ -49,12 +49,12 @@ type DevAppModel struct {
 // }
 
 // GetFromID always returns the same app
-func (m *DevAppModel) GetFromID(appID domain.AppID) (*domain.App, domain.Error) {
+func (m *DevAppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
 	return &m.App, nil
 }
 
 // GetVersion always returns the same version
-func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, domain.Error) {
+func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
 	if version == m.Ver.Version {
 		return &m.Ver, nil
 	}
@@ -70,7 +70,7 @@ func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*d
 		return &ret, nil
 	}
 
-	return nil, dserror.New(dserror.NoRowsInResultSet)
+	return nil, sql.ErrNoRows
 }
 
 // DevAppspaceModel can return an appspace struct as needed

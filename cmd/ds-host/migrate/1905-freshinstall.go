@@ -105,7 +105,7 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"appspace_id" INTEGER,
 		"proxy_id" TEXT,
 		"is_owner" INTEGER DEFAULT 0,
-		"contact_id" INTEGER,
+		"contact_id" INTEGER
 	)`)
 	// TODO indices: appspace_id; ...
 

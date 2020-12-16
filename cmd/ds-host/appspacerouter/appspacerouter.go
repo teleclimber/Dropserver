@@ -15,8 +15,8 @@ import (
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
 	AppModel interface {
-		GetFromID(domain.AppID) (*domain.App, domain.Error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+		GetFromID(domain.AppID) (*domain.App, error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceModel interface {
 		GetFromSubdomain(string) (*domain.Appspace, domain.Error)
@@ -66,16 +66,16 @@ func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 
 	routeData.Appspace = appspace
 
-	app, dsErr := r.AppModel.GetFromID(appspace.AppID)
-	if dsErr != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
+	app, err := r.AppModel.GetFromID(appspace.AppID)
+	if err != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
 		r.getLogger(appspace).Log("Error: App does not exist") // this is an actua system error: an appspace is missing its app.
-		dsErr.HTTPError(res)
+		http.Error(res, err.Error(), 500)
 		return
 	}
 	routeData.App = app
 
-	appVersion, dsErr := r.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
-	if dsErr != nil {
+	appVersion, err := r.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
+	if err != nil {
 		r.getLogger(appspace).Log("Error: AppVersion does not exist")
 		http.Error(res, "App Version not found", http.StatusInternalServerError)
 		return

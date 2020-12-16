@@ -9,7 +9,7 @@
 	<div class="border-l-4 border-gray-800 my-8">
 		<h4 class="bg-gray-800 px-2 text-white inline-block">Route Hits:</h4>
 
-		<div class="overflow-y-scroll h-64 bg-gray-100">
+		<div class="overflow-y-scroll h-64 bg-gray-100" style="scroll-behavior: smooth" ref="scroll_container">
 			<div class="route-grid">
 				<template v-for="r in routeEvents.hit_events">
 					<span v-if="r.user" class="pl-2 py-1 font-bold text-gray-700">
@@ -32,6 +32,9 @@
 						</span>
 						<span v-else-if="r.route_config.auth.allow == 'public'" class="pl-2 py-1 border-b border-gray-600">
 							<span class="text-white text-xs px-2 bg-orange-500 rounded-full">PUBLIC</span>
+						</span>
+						<span v-else-if="r.user && r.route_config.auth.allow == 'authorized' && r.route_config.auth.permission" class="pl-2 py-1 border-b border-gray-600">
+							<span class="text-white text-xs px-2 bg-teal-600">{{ r.route_config.auth.permission }}</span>
 						</span>
 						<span v-else-if="r.user && r.route_config.auth.allow == 'authorized'" class="pl-2 py-1 border-b text-green-500 border-gray-600">
 							{{ r.route_config.auth.permission ? r.route_config.auth.permission : 'authorized' }}
@@ -87,6 +90,10 @@ export default defineComponent({
 		return {
 			routeEvents
 		};
+	},
+	updated() {
+	 	const elem = this.$refs.scroll_container as HTMLElement;
+	 	elem.scrollTop = elem.scrollHeight;
 	}
 });
 </script>

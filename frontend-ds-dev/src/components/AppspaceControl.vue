@@ -103,7 +103,7 @@ export default defineComponent({
 		statusString() {
 			if( this.baseData.problem ) return "problem";
 			if( this.baseData.migrating ) return "migrating";
-			if( this.baseData.app_version_schema !== this.baseData.appspace_schema ) return "migrate";
+			if( this.baseData.schema !== this.baseData.appspace_schema ) return "migrate";
 			if( this.baseData.paused ) return "paused";
 			if( this.baseData.temp_paused ) return "busy";
 			return "ready";

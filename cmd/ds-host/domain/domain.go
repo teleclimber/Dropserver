@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,AppFilesModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -368,13 +368,6 @@ type UserInvitationModel interface {
 	Delete(email string) Error
 }
 
-// AppFilesModel represents the application's files saved to disk
-type AppFilesModel interface {
-	Save(*map[string][]byte) (string, Error)
-	ReadMeta(string) (*AppFilesMetadata, Error)
-	Delete(string) Error
-}
-
 // AppspaceFilesModel manipulates data directories for appspaces
 type AppspaceFilesModel interface {
 	CreateLocation() (string, Error)
@@ -413,14 +406,24 @@ type Appspace struct {
 	// Config AppspaceConfig ..this one is harder
 }
 
+// AppspaceUserPermission describes a permission that can be granted to
+// a user, or via other means. The name and description are user-facing,
+// the key is used internally.
+type AppspaceUserPermission struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata struct {
-	AppName       string     `json:"name"`
-	AppVersion    Version    `json:"version"`
-	SchemaVersion int        `json:"schema"`
-	APIVersion    APIVersion `json:"api"`
-	Migrations    []int      `json:"migrations"`
+	AppName         string                   `json:"name"`
+	AppVersion      Version                  `json:"version"`
+	SchemaVersion   int                      `json:"schema"`
+	APIVersion      APIVersion               `json:"api"`
+	Migrations      []int                    `json:"migrations"`
+	UserPermissions []AppspaceUserPermission `json:"user_permissions"`
 }
 
 // V0AppspaceDBQuery is the structure expected when Posting a DB request

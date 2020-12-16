@@ -2,6 +2,7 @@ package appfilesmodel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // performs operations on application files
@@ -24,20 +24,20 @@ type AppFilesModel struct {
 }
 
 // Save puts the data passed in files in an apps directory
-func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
+func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 	logger := a.getLogger("Save()")
 	appsPath := a.Config.Exec.AppsPath
 
 	err := os.MkdirAll(appsPath, 0766)
 	if err != nil {
 		logger.AddNote("os.MkdirAll()").Error(err)
-		return "", dserror.New(dserror.InternalError) // user-friendly error
+		return "", errors.New("Internal error saving app files")
 	}
 
 	appPath, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {
 		logger.AddNote("ioutil.TempDir()").Error(err)
-		return "", dserror.New(dserror.InternalError)
+		return "", errors.New("Internal error saving app files")
 	}
 
 	logger.AddNote("files loop")
@@ -59,7 +59,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 		err = os.MkdirAll(filepath.Dir(fPath), 0766)
 		if err != nil {
 			logger.AddNote(fmt.Sprintf("os.MkdirAll(): %v", f)).Error(err)
-			return "", dserror.New(dserror.InternalError)
+			return "", errors.New("Internal error saving app files")
 		}
 
 		err = ioutil.WriteFile(fPath, data, 0666) // TODO: correct permissions?
@@ -71,7 +71,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 	}
 
 	if writeErr {
-		return "", dserror.New(dserror.InternalError, err.Error())
+		return "", errors.New("Internal error saving app files")
 	}
 
 	locationKey := filepath.Base(appPath)
@@ -80,7 +80,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, domain.Error) {
 }
 
 // ReadMeta reads metadata from the files at location key
-func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error) {
+func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, error) {
 	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "dropapp.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
@@ -89,20 +89,15 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
 			a.getLogger(fmt.Sprintf("ReadMeta(), location key: %v", locationKey)).Error(err)
-			return nil, dserror.New(dserror.InternalError, "ReadMeta: Location key not found "+locationKey)
+			return nil, errors.New("Internal error reading app meta data")
 		}
-		return nil, dserror.New(dserror.AppConfigNotFound)
+		return nil, errors.New("App config not found") // sentinel error?
 	}
 	defer jsonHandle.Close()
 
-	meta, dsErr := decodeAppJSON(jsonHandle)
-	if dsErr != nil {
-		return nil, dsErr
-	}
-
-	dsErr = validateAppMeta(meta)
-	if dsErr != nil {
-		return nil, dsErr
+	meta, err := decodeAppJSON(jsonHandle)
+	if err != nil {
+		return nil, err
 	}
 
 	// Other metadata:
@@ -111,11 +106,16 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 	// migrations: migration levels available, or at least the latest one
 
 	// Migration level:
-	mInts, dsErr := a.getMigrationDirs(locationKey)
-	if dsErr != nil {
-		return nil, dsErr
+	mInts, err := a.getMigrationDirs(locationKey)
+	if err != nil {
+		return nil, err
 	}
 	meta.Migrations = mInts
+
+	err = validateAppMeta(meta)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(mInts) == 0 {
 		meta.SchemaVersion = 0
@@ -127,7 +127,7 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 }
 
 // Delete removes the files from the system
-func (a *AppFilesModel) Delete(locationKey string) domain.Error {
+func (a *AppFilesModel) Delete(locationKey string) error {
 	if !a.locationKeyExists(locationKey) {
 		return nil //is that an error or do we consider this OK?
 	}
@@ -135,38 +135,57 @@ func (a *AppFilesModel) Delete(locationKey string) domain.Error {
 	err := os.RemoveAll(filepath.Join(a.Config.Exec.AppsPath, locationKey))
 	if err != nil {
 		a.getLogger("Delete()").Error(err)
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	return nil
 }
 
-func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, domain.Error) {
+func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, error) {
 	var meta domain.AppFilesMetadata
 	dec := json.NewDecoder(r)
 	err := dec.Decode(&meta)
 	if err != nil {
-		return nil, dserror.New(dserror.AppConfigParseFailed, err.Error())
+		return nil, err
 	}
 
-	// TODO: clean up data too, like trim whitespace on trings
+	// TODO: clean up data too, like trim whitespace on strings
 	// ..could lowercap on keywords?
+
+	for i, p := range meta.UserPermissions {
+		meta.UserPermissions[i].Key = strings.TrimSpace(p.Key)
+	}
 
 	return &meta, nil
 }
 
-func validateAppMeta(meta *domain.AppFilesMetadata) domain.Error {
+func validateAppMeta(meta *domain.AppFilesMetadata) error {
 	if meta.AppName == "" {
-		return dserror.New(dserror.AppConfigProblem, "Name can not be blank")
+		return errors.New("App config error: Name can not be blank")
 	}
 	if meta.AppVersion == "" {
-		return dserror.New(dserror.AppConfigProblem, "Version can not be blank")
+		return errors.New("App config error: Version can not be blank")
 	}
+
+	for i, p := range meta.UserPermissions {
+		if p.Key == "" {
+			return errors.New("Permission key can not be blank")
+		}
+		if i+1 < len(meta.UserPermissions) {
+			for _, p2 := range meta.UserPermissions[i+1:] {
+				if p.Key == p2.Key {
+					return errors.New("Duplicate permission key: " + p.Key)
+				}
+			}
+		}
+	}
+
+	// check that there is at least one migration level
 
 	return nil
 }
 
-func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, dsErr domain.Error) {
+func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err error) {
 	mPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "migrations")
 
 	mDir, err := os.Open(mPath)
@@ -174,13 +193,11 @@ func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, dsErr d
 		if os.IsNotExist(err) {
 			return
 		}
-		dsErr = dserror.FromStandard(err)
 		return
 	}
 
 	list, err := mDir.Readdir(-1)
 	if err != nil {
-		dsErr = dserror.FromStandard(err)
 		return
 	}
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPathInsidePath(t *testing.T) {
@@ -43,8 +42,6 @@ func TestDecodeAppJsonError(t *testing.T) {
 	_, err := decodeAppJSON(r)
 	if err == nil {
 		t.Error("Error was nil")
-	} else if err.Code() != dserror.AppConfigParseFailed {
-		t.Error("wrong error code", err.Code())
 	}
 }
 
@@ -77,10 +74,33 @@ func TestValidateAppMeta(t *testing.T) {
 		r := strings.NewReader(c.json)
 		meta, _ := decodeAppJSON(r)
 
-		dsErr := validateAppMeta(meta)
-		hasErr := dsErr != nil
+		err := validateAppMeta(meta)
+		hasErr := err != nil
 		if hasErr != c.err {
-			t.Error("error mismatch", meta, dsErr.ExtraMessage())
+			t.Error("error mismatch", meta, err)
+		}
+	}
+}
+
+func TestValidateUserPermissions(t *testing.T) {
+	cases := []struct {
+		json string
+		err  bool
+	}{
+		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}] }`, false},
+		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":""}] }`, true},
+		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}, {"key":"abc"}] }`, true},
+		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}, {"key":"def"}] }`, false},
+	}
+
+	for _, c := range cases {
+		r := strings.NewReader(c.json)
+		meta, _ := decodeAppJSON(r)
+
+		err := validateAppMeta(meta)
+		hasErr := err != nil
+		if hasErr != c.err {
+			t.Error("error mismatch", meta, err)
 		}
 	}
 }

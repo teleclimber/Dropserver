@@ -4,9 +4,9 @@
 	<div class="grid grid-cols-2 my-8">
 		<div class="border-l-4 border-gray-800">
 			<h4 class="bg-gray-800 px-2 text-white inline-block">App:</h4>
-			<h1 class="text-2xl px-2">{{baseData.app_name}} <span class="bg-gray-400 px-2 rounded-md">{{baseData.app_version}}</span></h1>
+			<h1 class="text-2xl px-2">{{baseData.name}} <span class="bg-gray-400 px-2 rounded-md">{{baseData.version}}</span></h1>
 			<div class="px-2">
-				Schema: <span>{{baseData.app_version_schema}}</span>
+				Schema: <span>{{baseData.schema}}</span>
 			</div>
 		</div>
 		<div class="border-l-4 border-gray-800">

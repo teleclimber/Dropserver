@@ -32,7 +32,7 @@ type DropserverDevServer struct {
 	Config        *domain.RuntimeConfig
 	DevAppModel   *DevAppModel
 	AppFilesModel interface {
-		ReadMeta(locationKey string) (*domain.AppFilesMetadata, domain.Error)
+		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
 	}
 	AppspaceFiles interface {
 		Reset()
@@ -64,10 +64,6 @@ type DropserverDevServer struct {
 		SetTempPause(domain.AppspaceID, bool)
 		WaitStopped(domain.AppspaceID)
 	}
-	AppVersionEvents interface {
-		Subscribe(chan<- domain.AppID)
-	}
-
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
 	}
@@ -81,6 +77,7 @@ type DropserverDevServer struct {
 	}
 
 	// Services:
+	AppMetaService  twineService
 	RoutesService   twineService
 	UserService     twineService
 	RouteHitService twineService
@@ -164,16 +161,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	}
 
 	// then subscribe to various events and push them down as new t.Send
-	appVersionEvent := make(chan domain.AppID)
-	s.AppVersionEvents.Subscribe(appVersionEvent)
-	go func() {
-		for range appVersionEvent {
-			go s.sendAppData(t)
-		}
-	}()
-	// push initial app data:
-	s.sendAppData(t)
-
 	appspaceStatusChan := make(chan domain.AppspaceStatusEvent)
 	s.AppspaceStatusEvents.Subscribe(appspaceID, appspaceStatusChan)
 	go func() {
@@ -182,6 +169,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		}
 	}()
 
+	go s.AppMetaService.Start(t)
 	go s.RoutesService.Start(t)
 	go s.UserService.Start(t)
 	go s.RouteHitService.Start(t)
@@ -306,9 +294,9 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 
 		// run migration to latest
 		//  First get highest migration level
-		appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
-		if dsErr != nil {
-			panic(dsErr.ToStandard().Error())
+		appFilesMeta, err := s.AppFilesModel.ReadMeta("")
+		if err != nil {
+			panic(err)
 		}
 		schema := 0
 		if len(appFilesMeta.Migrations) > 0 {
@@ -358,38 +346,8 @@ func (s *DropserverDevServer) migrate(migrateTo int) error {
 	return nil
 }
 
-type AppData struct {
-	AppName       string `json:"app_name"`
-	AppVersion    string `json:"app_version"`
-	AppMigrations []int  `json:"app_migrations"`
-	AppSchema     int    `json:"app_version_schema"`
-}
-
 // base data service:
 const statusEventCmd = 11
-const appDataCmd = 12
-
-func (s *DropserverDevServer) sendAppData(twine *twine.Twine) {
-	appFilesMeta, dsErr := s.AppFilesModel.ReadMeta("")
-	if dsErr != nil {
-		panic(dsErr.ToStandard().Error())
-	}
-	appData := AppData{
-		AppName:       appFilesMeta.AppName, // these are app-related, should be re-sent when app is changed
-		AppVersion:    string(appFilesMeta.AppVersion),
-		AppSchema:     appFilesMeta.SchemaVersion,
-		AppMigrations: appFilesMeta.Migrations,
-	}
-	bytes, err := json.Marshal(appData)
-	if err != nil {
-		fmt.Println("sendAppData json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes)
-	if err != nil {
-		fmt.Println("sendAppData SendBlock Error: " + err.Error())
-	}
-}
 
 func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, statusEvent domain.AppspaceStatusEvent) {
 	bytes, err := json.Marshal(statusEvent)

@@ -49,10 +49,11 @@
 					<label for="display_name" class="">Display Name:</label>
 					<input type="text" ref="display_name_input" name="display_name" id="display_name" v-model="display_name" class="border rounded p-2">
 				</div>
-				<div class="flex flex-col my-2">
-					<label for="permissions" class="">Permissions:</label>
-					<input type="text" name="permissions" id="permissions" v-model="permissions" class="border rounded p-2">
-				</div>
+				<div>Permissions:</div>
+				<label v-for="permission in baseData.user_permissions">
+					<input type="checkbox" v-model="permissions[permission.key]" />
+					{{permission.name}}
+				</label>
 
 				<div class="flex justify-between mt-4">
 					<button @click="closeUserModal" class="bg-gray-700 hover:bg-gray-900 text-white py-1 px-2 rounded">Cancel</button>
@@ -71,6 +72,7 @@
 <script lang="ts">
 import { defineComponent, reactive } from 'vue';
 
+import baseData from '../models/base-data';
 import userData from '../models/user-data';
 
 // Redo:
@@ -91,14 +93,14 @@ export default defineComponent({
 			edit_user_open: false,
 			is_edit: false,
 			display_name: "",
-			permissions:"",		// improve that
+			permissions: <{[permission:string]:boolean}>{},		// improve that
 			proxy_id: ""
 		}
 	},
 	components: {
 	},
 	setup(props, context) {
-		return { userData };
+		return { userData, baseData };
 	},
 	methods: {
 		showAddUser() {
@@ -108,7 +110,7 @@ export default defineComponent({
 
 			this.proxy_id = "";
 			this.display_name = "";
-			this.permissions = "";
+			this.permissions = {};
 
 			this.edit_user_open = true;
 
@@ -127,7 +129,10 @@ export default defineComponent({
 			// get user and copy values
 			this.proxy_id = proxy_id;
 			this.display_name = u.display_name;
-			this.permissions = u.permissions.join(", ");
+			this.permissions = {};
+			u.permissions.forEach((p) => {
+				this.permissions[p] = true;
+			});
 
 			this.edit_user_open = true;
 
@@ -145,8 +150,10 @@ export default defineComponent({
 			if( this.display_name == "" || this.display_name.length > 20 ) return;	//what are the validatiosn again?
 			// maybe let the user model perform validations. Just wait for response?
 
-			const permissions = this.permissions.split(",").filter((p:string)=> p != "");
-			// also map to strip whitespace
+			const permissions :string[] = [];
+			for( let p in this.permissions ) {
+				if(this.permissions[p])	permissions.push(p);
+			};
 
 			if( this.is_edit ) {
 				//this.userData.editUser();

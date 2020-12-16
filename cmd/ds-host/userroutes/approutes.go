@@ -3,7 +3,6 @@ package userroutes
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -16,15 +15,19 @@ import (
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
-	AppFilesModel domain.AppFilesModel
-	AppModel      interface {
-		GetFromID(domain.AppID) (*domain.App, domain.Error)
-		GetForOwner(domain.UserID) ([]*domain.App, domain.Error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
-		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, domain.Error)
-		Create(domain.UserID, string) (*domain.App, domain.Error)
-		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, domain.Error)
-		DeleteVersion(domain.AppID, domain.Version) domain.Error
+	AppFilesModel interface {
+		Save(*map[string][]byte) (string, error)
+		ReadMeta(string) (*domain.AppFilesMetadata, error)
+		Delete(string) error
+	}
+	AppModel interface {
+		GetFromID(domain.AppID) (*domain.App, error)
+		GetForOwner(domain.UserID) ([]*domain.App, error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
+		Create(domain.UserID, string) (*domain.App, error)
+		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
+		DeleteVersion(domain.AppID, domain.Version) error
 	}
 	AppspaceModel interface {
 		GetForApp(domain.AppID) ([]*domain.Appspace, domain.Error)
@@ -95,9 +98,9 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 }
 
 func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	apps, dsErr := a.AppModel.GetForOwner(routeData.Authentication.UserID)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	apps, err := a.AppModel.GetForOwner(routeData.Authentication.UserID)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
 		return
 	}
 
@@ -151,32 +154,29 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	fileData := a.extractFiles(req)
 	if len(*fileData) > 0 {
-		locationKey, dsErr := a.AppFilesModel.Save(fileData)
-		if dsErr != nil {
-			dsErr.HTTPError(res)
+		locationKey, err := a.AppFilesModel.Save(fileData)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 			return
 		}
 
-		filesMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
-		if dsErr != nil {
-			fmt.Println(dsErr, dsErr.ExtraMessage())
-			dsErr.HTTPError(res)
+		filesMetadata, err := a.AppFilesModel.ReadMeta(locationKey)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 
 			// delete the files? ..it really depends on the error.
 			return
 		}
 
-		app, dsErr := a.AppModel.Create(routeData.Authentication.UserID, filesMetadata.AppName)
-		if dsErr != nil {
-			fmt.Println(dsErr, dsErr.ExtraMessage())
-			dsErr.HTTPError(res)
+		app, err := a.AppModel.Create(routeData.Authentication.UserID, filesMetadata.AppName)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 			return
 		}
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
-		if dsErr != nil {
-			fmt.Println(dsErr, dsErr.ExtraMessage())
-			dsErr.HTTPError(res)
+		version, err := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 			return
 		}
 
@@ -207,16 +207,15 @@ func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *htt
 func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	fileData := a.extractFiles(req)
 	if len(*fileData) > 0 {
-		locationKey, dsErr := a.AppFilesModel.Save(fileData)
-		if dsErr != nil {
-			dsErr.HTTPError(res)
+		locationKey, err := a.AppFilesModel.Save(fileData)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 			return
 		}
 
-		filesMetadata, dsErr := a.AppFilesModel.ReadMeta(locationKey)
-		if dsErr != nil {
-			fmt.Println(dsErr, dsErr.ExtraMessage())
-			dsErr.HTTPError(res)
+		filesMetadata, err := a.AppFilesModel.ReadMeta(locationKey)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 
 			// delete the files? ..it really depends on the error.
 			return
@@ -231,10 +230,9 @@ func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWri
 		// "version exists" is enforced at DB level with an index.
 		// so just check versions and schemas.
 
-		version, dsErr := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
-		if dsErr != nil {
-			fmt.Println(dsErr, dsErr.ExtraMessage())
-			dsErr.HTTPError(res)
+		version, err := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
+		if err != nil {
+			http.Error(res, err.Error(), 500)
 			return
 		}
 
@@ -306,15 +304,15 @@ func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *doma
 		return
 	}
 
-	dsErr = a.AppModel.DeleteVersion(version.AppID, version.Version)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := a.AppModel.DeleteVersion(version.AppID, version.Version)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
 		return
 	}
 
-	dsErr = a.AppFilesModel.Delete(version.LocationKey)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err = a.AppFilesModel.Delete(version.LocationKey)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
 	}
 }
 
@@ -332,9 +330,9 @@ func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) 
 	}
 	appID := domain.AppID(appIDInt)
 
-	app, dsErr := a.AppModel.GetFromID(appID)
-	if dsErr != nil {
-		return nil, dsErr
+	app, err := a.AppModel.GetFromID(appID)
+	if err != nil {
+		return nil, dserror.FromStandard(err)
 	}
 	if app.OwnerID != routeData.Authentication.UserID {
 		return nil, dserror.New(dserror.Unauthorized)
@@ -353,9 +351,9 @@ func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteDa
 
 	// minimally check version string for size
 
-	version, dsErr := a.AppModel.GetVersion(appID, domain.Version(versionStr))
-	if dsErr != nil {
-		return nil, dsErr
+	version, err := a.AppModel.GetVersion(appID, domain.Version(versionStr))
+	if err != nil {
+		return nil, dserror.FromStandard(err)
 	}
 
 	return version, nil

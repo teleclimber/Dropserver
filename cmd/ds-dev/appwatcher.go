@@ -43,9 +43,9 @@ func (w *DevAppWatcher) Start(appPath string) {
 	go w.watch(appPath)
 }
 func (w *DevAppWatcher) load() {
-	appFilesMeta, dsErr := w.AppFilesModel.ReadMeta("")
-	if dsErr != nil {
-		panic(dsErr.ToStandard().Error())
+	appFilesMeta, err := w.AppFilesModel.ReadMeta("")
+	if err != nil {
+		panic(err)
 	}
 
 	w.DevAppModel.App = domain.App{

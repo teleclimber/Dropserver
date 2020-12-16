@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"database/sql"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -14,8 +15,8 @@ import (
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
 	AppModel interface {
-		GetFromID(domain.AppID) (*domain.App, domain.Error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+		GetFromID(domain.AppID) (*domain.App, error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceFilesModel domain.AppspaceFilesModel
 	AppspaceModel      interface {
@@ -138,12 +139,12 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 
 	// TODO: validate version before using it with DB. At least for size.
 
-	app, dsErr := a.AppModel.GetFromID(reqData.AppID)
-	if dsErr != nil {
-		if dsErr.Code() == dserror.NoRowsInResultSet {
+	app, err := a.AppModel.GetFromID(reqData.AppID)
+	if err != nil {
+		if err != sql.ErrNoRows {
 			// means we didn't find the application.
 		}
-		dsErr.HTTPError(res)
+		http.Error(res, err.Error(), 500)
 		return
 	}
 	if app.OwnerID != routeData.Authentication.UserID {
@@ -152,8 +153,8 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	version, dsErr := a.AppModel.GetVersion(app.AppID, reqData.Version)
-	if dsErr != nil {
+	version, err := a.AppModel.GetVersion(app.AppID, reqData.Version)
+	if err != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
 	}
@@ -175,7 +176,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	err := a.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
+	err = a.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
 	if err != nil {
 		http.Error(res, "Failed to create appspace meta db", http.StatusInternalServerError)
 	}
@@ -242,13 +243,13 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 
 	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
 
-	_, dsErr = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	_, err := a.AppModel.GetVersion(appspace.AppID, reqData.Version)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
 		return
 	}
 
-	_, err := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
+	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return

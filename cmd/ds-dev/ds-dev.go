@@ -254,6 +254,10 @@ func main() {
 	migrateJobController.Start()
 
 	// twine services:
+	appMetaService := &AppMetaService{
+		AppVersionEvents: appVersionEvents,
+		AppFilesModel:    appFilesModel,
+	}
 	routesService := &RoutesService{
 		AppspaceRouteModels: appspaceRouteModels,
 		AppspaceRouteEvents: appspaceRouteEvents,
@@ -284,10 +288,10 @@ func main() {
 		DevSandboxMaker:        devSandboxMaker,
 		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
+		AppMetaService:         appMetaService,
 		RoutesService:          routesService,
 		UserService:            userService,
 		RouteHitService:        routeHitService,
-		AppVersionEvents:       appVersionEvents,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobsEvents:    migrationJobEvents}

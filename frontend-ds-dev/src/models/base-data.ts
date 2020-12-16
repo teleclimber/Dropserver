@@ -24,11 +24,21 @@ type AppspaceStatus = {
 	problem: boolean
 }
 
-type AppData = {
-	app_name: string,
-	app_version: string,
-	app_migrations: number[],
-	app_version_schema: number
+type AppspaceUserPermission = {
+	key:         string,
+	name:        string,
+	description: string,
+}
+
+// AppFilesMetadata containes metadata that can be gleaned from
+// reading the application files
+type AppFilesMetadata = {
+	name: string,
+	version: string,
+	schema: Number,
+	api: Number,
+	migrations: Number[],
+	user_permissions: AppspaceUserPermission[]
 }
 
 class BaseData {
@@ -37,10 +47,12 @@ class BaseData {
 	app_path = "/";
 	appspace_path = "/";
 
-	app_name = "";
-	app_version = "0.0.0";
-	app_version_schema = 0;
-	app_migrations :number[] = [];
+	name = "";
+	version = "0.0.0";
+	schema = 0;
+	api = 0;
+	migrations :number[] = [];
+	user_permissions: AppspaceUserPermission[] = [];
 
 	paused = false;
 	temp_paused = false;
@@ -98,8 +110,7 @@ class BaseData {
 	}
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
-			const new_app_data = <AppData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-
+			const new_app_data = <AppFilesMetadata>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			Object.assign(this, new_app_data);
 		}
 		catch(e) {
@@ -107,6 +118,8 @@ class BaseData {
 			console.error(e);
 			return;
 		}
+
+		if( !this.user_permissions ) this.user_permissions = [];
 	
 		m.sendOK();
 	}
@@ -115,7 +128,7 @@ class BaseData {
 	get possible_migrations() {
 		const ret :number[] = [];
 		const cur_schema = this.appspace_schema;
-		const app_migrations = [0, ...this.app_migrations];
+		const app_migrations = [0, ...this.migrations];
 		let cur_i = app_migrations.indexOf(cur_schema);
 		if( cur_i === -1 ) return ret;
 

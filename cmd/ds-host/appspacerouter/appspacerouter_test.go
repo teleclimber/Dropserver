@@ -1,6 +1,7 @@
 package appspacerouter
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -95,7 +96,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 		AppspaceID: appspaceID,
 		Subdomain:  "as1",
 		AppID:      appID}, nil)
-	appModel.EXPECT().GetFromID(appID).Return(nil, dserror.New(dserror.InternalError))
+	appModel.EXPECT().GetFromID(appID).Return(nil, errors.New("some error"))
 	appspaceStatus.EXPECT().Ready(appspaceID).Return(true)
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)

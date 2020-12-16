@@ -23,7 +23,7 @@ type JobController struct {
 		SetFinished(domain.JobID, nulltypes.NullString) error
 	}
 	AppModel interface {
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, domain.Error)
+		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
@@ -265,9 +265,9 @@ func (c *JobController) runJob(job *runningJob) {
 		return
 	}
 
-	toVersion, dsErr := c.AppModel.GetVersion(job.appspace.AppID, job.migrationJob.ToVersion)
-	if dsErr != nil {
-		job.errStr.SetString("Error getting toVersion: " + dsErr.PublicString())
+	toVersion, err := c.AppModel.GetVersion(job.appspace.AppID, job.migrationJob.ToVersion)
+	if err != nil {
+		job.errStr.SetString("Error getting toVersion: " + err.Error())
 		return
 		// if no rows, that means version was deleted
 		// Job should have been deleted too. That's a program error
@@ -288,9 +288,9 @@ func (c *JobController) runJob(job *runningJob) {
 
 	if job.toSchema < job.fromSchema {
 		job.migrateDown = true
-		job.useVersion, dsErr = c.AppModel.GetVersion(job.appspace.AppID, job.appspace.AppVersion)
-		if dsErr != nil {
-			job.errStr.SetString("Error getting fromVersion: " + dsErr.PublicString())
+		job.useVersion, err = c.AppModel.GetVersion(job.appspace.AppID, job.appspace.AppVersion)
+		if err != nil {
+			job.errStr.SetString("Error getting fromVersion: " + err.Error())
 			return
 			// if no rows, that means version was deleted even though appspaces were using it. That's a program error
 		}

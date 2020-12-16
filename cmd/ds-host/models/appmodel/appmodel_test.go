@@ -1,11 +1,11 @@
 package appmodel
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -34,9 +34,9 @@ func TestGetFromNonExistentID(t *testing.T) {
 	appModel.PrepareStatements()
 
 	// There should be an error, but no panics
-	_, dsErr := appModel.GetFromID(10)
-	if dsErr == nil {
-		t.Error(dsErr)
+	_, err := appModel.GetFromID(10)
+	if err == nil {
+		t.Error(err)
 	}
 }
 
@@ -53,9 +53,9 @@ func TestCreate(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, dsErr := appModel.Create(domain.UserID(1), "test-app")
-	if dsErr != nil {
-		t.Error(dsErr)
+	app, err := appModel.Create(domain.UserID(1), "test-app")
+	if err != nil {
+		t.Error(err)
 	}
 
 	if app.Name != "test-app" {
@@ -75,15 +75,15 @@ func TestGetFromID(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	_, dsErr := appModel.Create(7, "test-app")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err := appModel.Create(7, "test-app")
+	if err != nil {
+		t.Error(err)
 	}
 
 	// There should now be one row so app id 1 should return something
-	app, dsErr := appModel.GetFromID(1)
-	if dsErr != nil {
-		t.Error(dsErr)
+	app, err := appModel.GetFromID(1)
+	if err != nil {
+		t.Error(err)
 	}
 
 	if app.AppID != 1 {
@@ -103,29 +103,29 @@ func TestGetOwner(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	apps, dsErr := appModel.GetForOwner(7)
-	if dsErr != nil {
-		t.Error(dsErr)
+	apps, err := appModel.GetForOwner(7)
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = appModel.Create(7, "test-app")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err = appModel.Create(7, "test-app")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = appModel.Create(7, "test-app2")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err = appModel.Create(7, "test-app2")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = appModel.Create(11, "bad-app")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err = appModel.Create(11, "bad-app")
+	if err != nil {
+		t.Error(err)
 	}
 
-	apps, dsErr = appModel.GetForOwner(7)
-	if dsErr != nil {
-		t.Error(dsErr)
+	apps, err = appModel.GetForOwner(7)
+	if err != nil {
+		t.Error(err)
 	}
 
 	if len(apps) != 2 {
@@ -145,9 +145,9 @@ func TestVersion(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	appVersion, dsErr := appModel.CreateVersion(1, "0.0.1", 7, 1, "foo-location")
-	if dsErr != nil {
-		t.Error(dsErr)
+	appVersion, err := appModel.CreateVersion(1, "0.0.1", 7, 1, "foo-location")
+	if err != nil {
+		t.Error(err)
 	}
 
 	if appVersion.Version != "0.0.1" {
@@ -164,9 +164,9 @@ func TestVersion(t *testing.T) {
 	}
 
 	// just go ahead and test GetVersion here for completeness
-	appVersion, dsErr = appModel.GetVersion(1, "0.0.1")
-	if dsErr != nil {
-		t.Error(dsErr)
+	appVersion, err = appModel.GetVersion(1, "0.0.1")
+	if err != nil {
+		t.Error(err)
 	}
 	if appVersion.Version != "0.0.1" {
 		t.Error("input version does not match output version", appVersion)
@@ -176,14 +176,14 @@ func TestVersion(t *testing.T) {
 	}
 
 	// test to make sure we get right error if no rows
-	_, dsErr = appModel.GetVersion(1, "0.0.13")
-	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Fatal("should have been no rows error", dsErr)
+	_, err = appModel.GetVersion(1, "0.0.13")
+	if err == nil || err != sql.ErrNoRows {
+		t.Fatal("should have been no rows error", err)
 	}
 
 	// then test inserting a duplicate version
-	_, dsErr = appModel.CreateVersion(1, "0.0.1", 7, 1, "bar-location")
-	if dsErr == nil {
+	_, err = appModel.CreateVersion(1, "0.0.1", 7, 1, "bar-location")
+	if err == nil {
 		t.Error("expected error on inserting duplicate")
 	}
 
@@ -214,23 +214,23 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, dsErr := appModel.CreateVersion(i.appID, i.version, i.schema, 1, i.location)
-		if dsErr != nil {
-			t.Error(dsErr)
+		_, err := appModel.CreateVersion(i.appID, i.version, i.schema, 1, i.location)
+		if err != nil {
+			t.Error(err)
 		}
 	}
 
-	vers, dsErr := appModel.GetVersionsForApp(7)
-	if dsErr != nil {
-		t.Error(dsErr)
+	vers, err := appModel.GetVersionsForApp(7)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(vers) != 3 {
 		t.Error("Got wrong number of results: should be 3")
 	}
 
-	vers, dsErr = appModel.GetVersionsForApp(1)
-	if dsErr != nil {
-		t.Error(dsErr)
+	vers, err = appModel.GetVersionsForApp(1)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(vers) != 0 {
 		t.Error("Got wrong number of results: should be 0")
@@ -252,18 +252,18 @@ func TestDeleteVersion(t *testing.T) {
 	appID := domain.AppID(7)
 	version := domain.Version("0.0.2")
 
-	_, dsErr := appModel.CreateVersion(appID, version, 4, 1, "foobar")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	_, err := appModel.CreateVersion(appID, version, 4, 1, "foobar")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	dsErr = appModel.DeleteVersion(appID, version)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = appModel.DeleteVersion(appID, version)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	_, dsErr = appModel.GetVersion(appID, version)
-	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Fatal("should have been no rows error", dsErr)
+	_, err = appModel.GetVersion(appID, version)
+	if err == nil || err != sql.ErrNoRows {
+		t.Fatal("should have been no rows error", err)
 	}
 }
