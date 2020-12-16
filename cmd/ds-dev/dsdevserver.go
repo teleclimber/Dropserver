@@ -66,6 +66,7 @@ type DropserverDevServer struct {
 	}
 	MigrationJobsEvents interface {
 		Subscribe(chan<- domain.MigrationStatusData)
+		Unsubscribe(chan<- domain.MigrationStatusData)
 	}
 	AppspaceLogEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
@@ -219,6 +220,9 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 
 		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
 		close(appspaceLogEventChan)
+
+		s.MigrationJobsEvents.Unsubscribe(migrationEventsChan)
+		close(migrationEventsChan)
 
 		fmt.Println("unsubscribed")
 	}()

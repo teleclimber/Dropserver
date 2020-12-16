@@ -20,6 +20,7 @@ type RoutesService struct {
 	}
 	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
+		Unsubscribe(chan<- domain.AppspaceID)
 	}
 }
 
@@ -52,7 +53,7 @@ func (s *RoutesService) Start(t *twine.Twine) {
 	s.AppspaceRouteEvents.Unsubscribe(appspaceID, appspaceRouteEvent)
 	close(appspaceRouteEvent)
 
-	s.AppspaceFilesEvents.Subscribe(asFilesCh)
+	s.AppspaceFilesEvents.Unsubscribe(asFilesCh)
 	close(asFilesCh)
 }
 

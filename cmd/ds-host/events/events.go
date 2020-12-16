@@ -62,7 +62,7 @@ func (e *MigrationJobStatusEvents) Subscribe(ch chan<- domain.MigrationStatusDat
 }
 
 // Unsubscribe to the event
-func (e *MigrationJobStatusEvents) Unsubscribe(appspaceID domain.AppspaceID, ch chan<- domain.MigrationStatusData) {
+func (e *MigrationJobStatusEvents) Unsubscribe(ch chan<- domain.MigrationStatusData) {
 	e.removeSubscriber(ch)
 }
 

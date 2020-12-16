@@ -26,6 +26,7 @@ type UserService struct {
 	DevAppspaceContactModel *DevAppspaceContactModel
 	AppspaceFilesEvents     interface {
 		Subscribe(chan<- domain.AppspaceID)
+		Unsubscribe(chan<- domain.AppspaceID)
 	}
 }
 
@@ -54,6 +55,9 @@ func (u *UserService) Start(t *twine.Twine) {
 	t.WaitClose()
 
 	fmt.Println("closing user service")
+
+	u.AppspaceFilesEvents.Unsubscribe(asFilesCh)
+	close(asFilesCh)
 
 }
 
