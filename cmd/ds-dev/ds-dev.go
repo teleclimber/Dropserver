@@ -237,6 +237,7 @@ func main() {
 	}
 	appspaceDB.Init()
 
+	// Appspace sandbox twine services:
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
 		UserModels:   appspaceUserModels,
@@ -253,7 +254,7 @@ func main() {
 
 	migrateJobController.Start()
 
-	// twine services:
+	// Ds-dev frontend twine services:
 	appMetaService := &AppMetaService{
 		AppVersionEvents: appVersionEvents,
 		AppFilesModel:    appFilesModel,

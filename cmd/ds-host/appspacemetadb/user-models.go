@@ -38,9 +38,10 @@ func (g *AppspaceUserModels) GetV0(appspaceID domain.AppspaceID) domain.V0UserMo
 	rm, ok := g.modelsV0[appspaceID]
 	if !ok {
 		rm = &V0UserModel{
-			Validator:      g.Validator,
-			AppspaceMetaDB: g.AppspaceMetaDB,
-			appspaceID:     appspaceID,
+			Validator:            g.Validator,
+			AppspaceMetaDB:       g.AppspaceMetaDB,
+			AppspaceContactModel: g.AppspaceContactModel,
+			appspaceID:           appspaceID,
 		}
 		g.modelsV0[appspaceID] = rm
 	}
