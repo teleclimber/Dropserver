@@ -22,11 +22,15 @@ func TestAuthorize(t *testing.T) {
 	proxyID := domain.ProxyID("abc")
 	appspaceID := domain.AppspaceID(11)
 
-	appspaceContactModel := testmocks.NewMockAppspaceContactModel(mockCtrl)
-	appspaceContactModel.EXPECT().GetByProxy(appspaceID, proxyID).Return(domain.AppspaceContact{IsOwner: true}, nil)
+	v0UserModel := testmocks.NewMockV0UserModel(mockCtrl)
+	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID}, nil)
+
+	vXUserModels := testmocks.NewMockVXUserModels(mockCtrl)
+	vXUserModels.EXPECT().GetV0(appspaceID).Return(v0UserModel)
 
 	v0 := &V0{
-		AppspaceContactModel: appspaceContactModel}
+		VxUserModels: vXUserModels,
+	}
 
 	routeData := domain.AppspaceRouteData{
 		RouteConfig: &domain.AppspaceRouteConfig{
@@ -40,7 +44,7 @@ func TestAuthorize(t *testing.T) {
 		t.Error("expected public route authorized")
 	}
 
-	routeData.RouteConfig.Auth.Allow = "owner"
+	routeData.RouteConfig.Auth.Allow = "authorized"
 	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
 	a = v0.authorize(&routeData, &domain.Authentication{})
 	if a {
@@ -64,6 +68,56 @@ func TestAuthorize(t *testing.T) {
 	}
 
 	auth.AppspaceID = appspaceID
+	a = v0.authorize(&routeData, auth)
+	if !a {
+		t.Error("expected route authorized")
+	}
+}
+
+func TestAuthorizePermissions(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	proxyID := domain.ProxyID("abc")
+	appspaceID := domain.AppspaceID(11)
+
+	v0UserModel := testmocks.NewMockV0UserModel(mockCtrl)
+
+	vXUserModels := testmocks.NewMockVXUserModels(mockCtrl)
+	vXUserModels.EXPECT().GetV0(appspaceID).AnyTimes().Return(v0UserModel)
+
+	v0 := &V0{
+		VxUserModels: vXUserModels,
+	}
+
+	routeData := domain.AppspaceRouteData{
+		Appspace: &domain.Appspace{
+			AppspaceID: appspaceID},
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Auth: domain.AppspaceRouteAuth{
+				Allow:      "authorized",
+				Permission: "delete",
+			},
+		},
+	}
+
+	auth := &domain.Authentication{
+		AppspaceID: appspaceID,
+		ProxyID:    proxyID}
+
+	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID}, nil)
+	a := v0.authorize(&routeData, auth)
+	if a {
+		t.Error("expected route unauthorized (no permissions)")
+	}
+
+	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID, Permissions: []string{"create"}}, nil)
+	a = v0.authorize(&routeData, auth)
+	if a {
+		t.Error("expected route unauthorized (incorrect permissions)")
+	}
+
+	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID, Permissions: []string{"create", "delete"}}, nil)
 	a = v0.authorize(&routeData, auth)
 	if !a {
 		t.Error("expected route authorized")

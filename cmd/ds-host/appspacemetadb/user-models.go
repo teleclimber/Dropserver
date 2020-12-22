@@ -13,9 +13,6 @@ type AppspaceUserModels struct {
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
-	AppspaceContactModel interface {
-		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceContact, error)
-	}
 
 	modelsMux sync.Mutex
 	modelsV0  map[domain.AppspaceID]*V0UserModel // maybe make that an interface for testing purposes.
@@ -38,10 +35,9 @@ func (g *AppspaceUserModels) GetV0(appspaceID domain.AppspaceID) domain.V0UserMo
 	rm, ok := g.modelsV0[appspaceID]
 	if !ok {
 		rm = &V0UserModel{
-			Validator:            g.Validator,
-			AppspaceMetaDB:       g.AppspaceMetaDB,
-			AppspaceContactModel: g.AppspaceContactModel,
-			appspaceID:           appspaceID,
+			Validator:      g.Validator,
+			AppspaceMetaDB: g.AppspaceMetaDB,
+			appspaceID:     appspaceID,
 		}
 		g.modelsV0[appspaceID] = rm
 	}

@@ -487,7 +487,11 @@ func v0appspaceRouteFromRow(r routeRow) (domain.AppspaceRouteConfig, error) {
 }
 
 func v0validateAuth(auth domain.AppspaceRouteAuth) error {
+	if auth.Allow != "public" && auth.Allow != "authorized" {
+		return errors.New("invalid allow: " + auth.Allow)
+	}
 	// TODO update this
+	// Definintely have to check "Allow" string for permissible values.
 	// how tovalidate?
 	// Depends what we allow for permission string (characters allowd, max length)
 	// what is meaning of empty permission string?

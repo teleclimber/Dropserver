@@ -146,8 +146,7 @@ func main() {
 
 	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
 		// apparently config and validator are unused
-		AppspaceMetaDB:       appspaceMetaDb,
-		AppspaceContactModel: devAppspaceContactModel,
+		AppspaceMetaDB: appspaceMetaDb,
 	}
 	appspaceUserModels.Init()
 
@@ -214,15 +213,14 @@ func main() {
 	appspaceLogin.Start()
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceRouteModels:  appspaceRouteModels,
-		AppspaceContactModel: devAppspaceContactModel,
-		DropserverRoutes:     &appspacerouter.DropserverRoutesV0{},
-		SandboxProxy:         sandboxProxy,
-		Authenticator:        devAuth,
-		VxUserModels:         appspaceUserModels,
-		RouteHitEvents:       routeHitEvents,
-		AppspaceLogin:        appspaceLogin,
-		Config:               runtimeConfig}
+		AppspaceRouteModels: appspaceRouteModels,
+		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
+		SandboxProxy:        sandboxProxy,
+		Authenticator:       devAuth,
+		VxUserModels:        appspaceUserModels,
+		RouteHitEvents:      routeHitEvents,
+		AppspaceLogin:       appspaceLogin,
+		Config:              runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
 		AppModel:       devAppModel,

@@ -1,7 +1,7 @@
 <style scoped>
 	.log-grid {
 		display: grid;
-		grid-template-columns: 3rem 10rem 5rem 5rem 1fr 8rem;
+		grid-template-columns: 3rem 10rem 5rem 1fr 8rem;
 	}
 </style>
 
@@ -19,9 +19,6 @@
 					</span>
 					<span class="bg-gray-200 text-gray-700 pl-2 py-2 text-lg font-bold border-b border-gray-400">{{user.display_name}}</span>
 					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm font-mono border-b border-gray-400">{{user.proxy_id}}</span>
-					<span @click.stop.prevent="setOwner(user.proxy_id)" class="bg-gray-200 pt-3 text-xs border-b border-gray-400 text-center hover:bg-green-200">
-						<span v-if="userData.isOwner(user.proxy_id)" class="text-white px-2 bg-green-500 rounded-full">OWNER</span>
-					</span>
 					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm border-b border-gray-400">{{user.permissions.join(", ")}}</span>
 					<span class="bg-gray-200 pt-3 text-sm border-b border-gray-400">
 						<button class="bg-blue-400 inline-block px-2 mx-2 rounded" @click.stop.prevent="showEditUser(user.proxy_id)">Edit</button>
@@ -34,7 +31,7 @@
 						<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 					</svg>
 				</span>
-				<span style="grid-column: span 5" class="bg-blue-100 text-blue-700 pl-2 py-2 text-lg font-bold border-b border-gray-400 italic">Public</span>
+				<span style="grid-column: span 4" class="bg-blue-100 text-blue-700 pl-2 py-2 text-lg font-bold border-b border-gray-400 italic">Public</span>
 					
 			</div>
 		</div>

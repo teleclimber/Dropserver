@@ -109,7 +109,6 @@ func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version doma
 
 //
 type DevAppspaceContactModel struct {
-	//contacts []domain.AppspaceContact	//hm maybe not needed for Dev
 	hasOwnerProxy bool
 	ownerProxy    domain.ProxyID
 }
@@ -126,13 +125,9 @@ func (m *DevAppspaceContactModel) GetOwnerProxyID() domain.ProxyID {
 	return domain.ProxyID("")
 }
 
-// GetByProxy ...
-func (m *DevAppspaceContactModel) GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceContact, error) {
-	return domain.AppspaceContact{
-		AppspaceID: appspaceID,
-		ProxyID:    proxyID,
-		IsOwner:    m.hasOwnerProxy && m.ownerProxy == proxyID,
-	}, nil
+// Proxy is owner returns true if proxy_id is the appspace owner
+func (m *DevAppspaceContactModel) ProxyIsOwner(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (bool, error) {
+	return m.hasOwnerProxy && m.ownerProxy == proxyID, nil
 }
 
 ////////

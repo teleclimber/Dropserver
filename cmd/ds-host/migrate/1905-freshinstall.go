@@ -89,26 +89,43 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	// probably index owner_id. and maybe app_id?
 	// should put a unique key constraint on location key?
 
-	// contacts:
+	// contacts added by the user:
 	args.dbExec(`CREATE TABLE "contacts" (
-		"user_id" INTEGER,
-		"contact_id" INTEGER,
-		"username" TEXT,
-		"url" TEXT,
-		"token" TEXT,
+		"user_id" INTEGER NOT NULL,
+		"contact_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		"name" TEXT,
 		"display_name" TEXT
 	)`)
-	// I don't actually know if this is two-way contacts, or if this is all the users?
-	// TODO indices: user_id; contact_id;
+	args.dbExec(`CREATE INDEX contact_user_id ON contacts (user_id)`)
+	// maybe we need some timestamps on this? created, modified
+	// Might need a "block" flag
 
-	args.dbExec(`CREATE TABLE "appspace-users" (
-		"appspace_id" INTEGER,
-		"proxy_id" TEXT,
-		"is_owner" INTEGER DEFAULT 0,
-		"contact_id" INTEGER
+	// then add auth tables
+	// CREATE TABLE contact_ds_auth (
+	//	"contact_id" INTEGER NOT NULL,
+	// 	"username" TEXT,
+	// 	"url" TEXT,
+	// 	"token" TEXT,
+	// )
+	// plus other things like datetime established,
+	// Whether contact is 2-way..
+
+	// Other tables: contact_email_auth,
+
+	// appspace_users linkes contacts (or owner) to proxy ids.
+	args.dbExec(`CREATE TABLE "appspace_contacts" (
+		"appspace_id" INTEGER NOT NULL,
+		"contact_id" INTEGER,
+		"proxy_id" TEXT
 	)`)
-	// TODO indices: appspace_id; ...
+	args.dbExec(`CREATE UNIQUE INDEX appspace_proxy_id ON appspace_contacts (appspace_id, proxy_id)`)
+	args.dbExec(`CREATE INDEX user_contact_id ON appspace_contacts (contact_id)`)
 
+	// Do we need a "block" flag? We'd need it on appspaces (kind of like a "pause" but for a user)
+	// Also would need a block flag at the contact level, which blocks contact from all appspaces.
+	// The per-appspace block would be in the appspace meta data itself, so that non-contacts can be blocked.
+
+	// We may need to separatecontact urls and auth stuff into separate tables to enable multiple ways for contacts to log in, etc..
 	// Also need a "mutual_contacts" or something like that? For when a contact is an actual user's contact.
 
 	// migration jobs

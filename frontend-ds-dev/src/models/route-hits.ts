@@ -23,7 +23,7 @@ type RouteHit = {
 	request: Request,
 	route_config: RouteConfig,
 	user?: User,
-	is_owner: boolean,
+	authorized: boolean,
 	status: Number
 }
 

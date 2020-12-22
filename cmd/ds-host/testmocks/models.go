@@ -45,7 +45,17 @@ type AppspaceInfoModels interface {
 
 // AppspaceContactModel stores users of appspaces
 type AppspaceContactModel interface {
-	GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceContact, error)
+	Create(userID domain.UserID, name string, displayName string) (domain.Contact, error)
+	Update(userID domain.UserID, contactID domain.ContactID, name string, displayName string) error
+	Delete(userID domain.UserID, contactID domain.ContactID) error
+	Get(userID domain.UserID, contactID domain.ContactID) (domain.Contact, error)
+	GetForUser(userID domain.UserID) ([]domain.Contact, error)
+	InsertAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID, proxyID domain.ProxyID) error
+	DeleteAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID) error
+	GetContactProxy(appspaceID domain.AppspaceID, contactID domain.ContactID) (domain.ProxyID, error)
+	GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.ContactID, error)
+	GetContactAppspaces(contactID domain.ContactID) ([]domain.AppspaceContact, error)
+	GetAppspaceContacts(appspaceID domain.AppspaceID) ([]domain.AppspaceContact, error)
 }
 
 // MigrationJobModel handles writing jobs to the db

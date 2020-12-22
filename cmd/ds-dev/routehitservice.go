@@ -20,7 +20,7 @@ type RouteHitEventJSON struct {
 	Request     RequestJSON                 `json:"request"`
 	RouteConfig *domain.AppspaceRouteConfig `json:"route_config"` // this might be nil.OK?
 	User        *DevAppspaceUser            `json:"user"`         //make nil OK
-	IsOwner     bool                        `json:"is_owner"`
+	Authorized  bool                        `json:"authorized"`
 	Status      int                         `json:"status"`
 }
 
@@ -65,6 +65,7 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 			URL:    routeEvent.Request.URL.String(),
 			Method: routeEvent.Request.Method},
 		RouteConfig: routeEvent.RouteConfig,
+		Authorized:  routeEvent.Authorized,
 		Status:      routeEvent.Status}
 
 	if routeEvent.Credentials.ProxyID != "" {
@@ -75,12 +76,6 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 		}
 		user := V0ToDevApspaceUser(v0user)
 		send.User = &user
-
-		contact, err := s.DevAppspaceContactModel.GetByProxy(appspaceID, routeEvent.Credentials.ProxyID)
-		if err != nil {
-			panic(err)
-		}
-		send.IsOwner = contact.IsOwner
 	}
 
 	bytes, err := json.Marshal(send)

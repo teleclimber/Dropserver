@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	getUserCmd     = 12
-	userIsOwnerCmd = 13
+	getUserCmd = 12
 )
 
 // V0UserModel responds to requests about appspace routes for an appspace
@@ -23,9 +22,6 @@ type V0UserModel struct {
 	Validator      domain.Validator
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
-	}
-	AppspaceContactModel interface {
-		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceContact, error)
 	}
 
 	//going to need a way to know if a user is the owner or not.
@@ -60,8 +56,6 @@ func (m *V0UserModel) HandleMessage(message twine.ReceivedMessageI) {
 		// from proxy id fetch user's name and permissions
 		// and figure out if they are owner or not.
 		m.handleGetUserCommand(message)
-	case userIsOwnerCmd:
-		m.handleIsOwnerCommand(message)
 	default:
 		message.SendError("Command not recognized")
 	}
@@ -83,24 +77,6 @@ func (m *V0UserModel) handleGetUserCommand(message twine.ReceivedMessageI) {
 			message.SendError("Error on host")
 		}
 		message.Reply(14, bytes)
-	}
-}
-
-func (m *V0UserModel) handleIsOwnerCommand(message twine.ReceivedMessageI) {
-	proxyID := domain.ProxyID(string(message.Payload()))
-	contact, err := m.AppspaceContactModel.GetByProxy(m.appspaceID, proxyID)
-	if err != nil {
-		message.SendError(err.Error())
-		return
-	}
-	if contact.ProxyID == "" {
-		// Here we could really use Twine's error-code facility, if it existed
-		message.Reply(13, nil) // use command 13 to signify "not found"?
-		return
-	} else if contact.IsOwner {
-		message.Reply(14, nil)
-	} else {
-		message.Reply(15, nil)
 	}
 }
 

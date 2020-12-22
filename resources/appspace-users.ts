@@ -4,7 +4,6 @@ import type Twine from "./twine/twine.ts";
 const service = 16;
 
 const getUserCmd     = 12;
-const userIsOwnerCmd = 13;
 
 type User = {
 	proxy_id: string,
@@ -30,27 +29,6 @@ class Users {
 		reply.sendOK();
 
 		return user;
-	}
-
-	async isOwner(proxy_id: string) :Promise<boolean> {
-		const reply = await this.twine.sendBlock(service, userIsOwnerCmd, new TextEncoder().encode(proxy_id));
-		if(reply.error) {
-			console.error("Failed to get is owner: "+reply.error);
-			throw new Error(reply.error);
-		}
-
-		let is_owner = false;
-		if( reply.command === 14 ) {
-			is_owner = true;
-		} else if( reply.command === 15 ) {
-			is_owner = false;
-		} else {
-			throw new Error("Unexpected reply command from user service.")
-		}
-
-		reply.sendOK();
-		
-		return is_owner;
 	}
 }
 

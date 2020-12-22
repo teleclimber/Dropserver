@@ -27,17 +27,14 @@
 					</span>
 					<span></span>
 					<template v-if="r.route_config">
-						<span v-if="r.is_owner && r.route_config.auth.allow == 'owner'" class="pl-2 py-1 border-b border-gray-600">
-							<span class="text-white text-xs px-2 bg-green-500 rounded-full">OWNER</span>
-						</span>
-						<span v-else-if="r.route_config.auth.allow == 'public'" class="pl-2 py-1 border-b border-gray-600">
+						<span v-if="r.route_config.auth.allow == 'public'" class="pl-2 py-1 border-b border-gray-600">
 							<span class="text-white text-xs px-2 bg-orange-500 rounded-full">PUBLIC</span>
 						</span>
-						<span v-else-if="r.user && r.route_config.auth.allow == 'authorized' && r.route_config.auth.permission" class="pl-2 py-1 border-b border-gray-600">
-							<span class="text-white text-xs px-2 bg-teal-600">{{ r.route_config.auth.permission }}</span>
+						<span v-else-if="r.authorized && r.route_config.auth.permission" class="pl-2 py-1 border-b border-gray-600">
+							<span class="text-white text-xs px-2 bg-green-600">{{ r.route_config.auth.permission }}</span>
 						</span>
-						<span v-else-if="r.user && r.route_config.auth.allow == 'authorized'" class="pl-2 py-1 border-b text-green-500 border-gray-600">
-							{{ r.route_config.auth.permission ? r.route_config.auth.permission : 'authorized' }}
+						<span v-else-if="r.authorized" class="pl-2 py-1 border-b text-green-500 border-gray-600">
+							authorized
 						</span>
 						<span v-else class="pl-2 py-1 border-b text-orange-500 border-gray-600 italic">
 							unauthorized

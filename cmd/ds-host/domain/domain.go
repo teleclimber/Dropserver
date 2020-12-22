@@ -489,7 +489,7 @@ type AppspaceRouteHandler struct {
 // description of auth paradigm for a route
 // Will need a lot more than just type in the long run.
 type AppspaceRouteAuth struct {
-	//Allow is either "public", "authorized", or "owner"
+	//Allow is either "public", "authorized"
 	Allow string `json:"allow"`
 	// Permission that is required to access this route
 	// An empty string means no specifc permission needed
@@ -504,12 +504,20 @@ type AppspaceRouteConfig struct {
 	Handler AppspaceRouteHandler `json:"handler"`
 }
 
-// AppspaceContact is a user of an appspace as stored on the host side
+// Contact represents a user's contact
+// Q: where how when do we attach other props lige appspace use and auth methods?
+type Contact struct {
+	UserID      UserID    `db:"user_id"`
+	ContactID   ContactID `db:"contact_id"`
+	Name        string    `db:"name"`
+	DisplayName string    `db:"display_name"`
+}
+
+// AppspaceContact is a user of an appspace who is a contact of the owner
 type AppspaceContact struct {
-	ContactID  ContactID  `json:"contact_id"`
-	AppspaceID AppspaceID `json:"appspace_id"`
-	ProxyID    ProxyID    `json:"proxy_id"`
-	IsOwner    bool       `json:"is_owner"`
+	AppspaceID AppspaceID `db:"appspace_id",json:"appspace_id"`
+	ContactID  ContactID  `db:"contact_id",json:"contact_id"`
+	ProxyID    ProxyID    `db:"proxy_id",json:"proxy_id"`
 }
 
 type DbConn interface {
@@ -624,8 +632,9 @@ type AppspaceRouteHitEvent struct {
 	Credentials struct {
 		ProxyID ProxyID
 	}
-	AppspaceContact AppspaceContact // hmm, probably not.
-	Status          int
+	// Authorized: whether the route was authorized or not
+	Authorized bool
+	Status     int
 }
 
 // cli stuff

@@ -1,10 +1,10 @@
 <template>
-	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-orange-300" 
-		style="font-variant-caps: all-small-caps">public</span>
-	<span v-else-if="route.auth.allow === 'authorized'"  class="border-b border-gray-400 text-sm bold pl-2 bg-teal-200" 
-		style="font-variant-caps: all-small-caps">auth:{{route.auth.permission}}</span>
-	<span v-else-if="route.auth.allow === 'owner'" class="border-b border-gray-400 text-sm bold pl-2 bg-teal-300" 
-		style="font-variant-caps: all-small-caps">owner</span>
+	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-orange-300">public</span>
+	<span v-else-if="route.auth.allow === 'authorized'"  class="border-b border-gray-400 text-sm bold pl-2 bg-teal-200">
+		Auth: 
+		<span v-if="route.auth.permission" class="text-white text-xs px-2 bg-teal-600">{{route.auth.permission}}</span>
+		<span v-else>-</span>
+	</span>
 	<span v-else>???</span>
 
 	<span class="border-b border-gray-400 pl-2" style="font-variant-caps: all-small-caps">{{route.methods.join(' ')}}</span>

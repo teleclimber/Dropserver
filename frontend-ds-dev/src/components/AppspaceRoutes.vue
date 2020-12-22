@@ -1,7 +1,7 @@
 <style scoped>
 	.log-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr 4fr 7rem 5fr;
+		grid-template-columns: 8rem 6rem 4fr 7rem 5fr;
 	}
 </style>
 

@@ -106,7 +106,7 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 
 	err := m.stmt.selectApp.Select(&ret, appID)
 	if err != nil {
-		m.getLogger("GetForOwner()").AppID(appID).Error(err)
+		m.getLogger("GetForApp()").AppID(appID).Error(err)
 		return nil, dserror.FromStandard(err)
 	}
 
@@ -115,7 +115,7 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 
 // Create adds an appspace to the database
 func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, domain.Error) {
-	logger := m.getLogger("GetForOwner()").UserID(ownerID).AppID(appID).AppVersion(version).AddNote(fmt.Sprintf("subdomain:%v, locationkey:%v", subdomain, locationKey))
+	logger := m.getLogger("Create()").UserID(ownerID).AppID(appID).AppVersion(version).AddNote(fmt.Sprintf("subdomain:%v, locationkey:%v", subdomain, locationKey))
 
 	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain, locationKey)
 	if err != nil {

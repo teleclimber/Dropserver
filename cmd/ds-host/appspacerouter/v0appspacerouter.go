@@ -24,9 +24,6 @@ type V0 struct {
 	VxUserModels interface {
 		GetV0(domain.AppspaceID) domain.V0UserModel
 	}
-	AppspaceContactModel interface {
-		GetByProxy(domain.AppspaceID, domain.ProxyID) (domain.AppspaceContact, error)
-	}
 	DropserverRoutes domain.RouteHandler // versioned
 	SandboxProxy     domain.RouteHandler // versioned?
 	AppspaceLogin    interface {
@@ -49,6 +46,7 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 	cred := struct {
 		ProxyID domain.ProxyID
 	}{}
+	authorized := false
 
 	defer func() {
 		if r.RouteHitEvents != nil {
@@ -57,6 +55,7 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				Request:     req,
 				RouteConfig: routeData.RouteConfig,
 				Credentials: cred,
+				Authorized:  authorized,
 				Status:      statusRes.status})
 		}
 	}()
@@ -108,6 +107,9 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				return
 			}
 		}
+
+		// if you got this far, route is authorized.
+		authorized = true
 
 		switch routeConfig.Handler.Type {
 		case "function":
@@ -192,19 +194,6 @@ func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authent
 			if p == requiredPermission {
 				return true
 			}
-		}
-	}
-
-	if routeData.RouteConfig.Auth.Allow == "owner" {
-		appspaceUser, err := r.AppspaceContactModel.GetByProxy(auth.AppspaceID, auth.ProxyID)
-		if err != nil {
-			// GetContact has to return err if no contact found!
-			// does this get logged at model level? If so, just return false here
-			return false
-		}
-
-		if appspaceUser.IsOwner {
-			return true // owner has access to all routes
 		}
 	}
 

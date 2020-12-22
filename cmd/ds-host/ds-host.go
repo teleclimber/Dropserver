@@ -24,6 +24,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
@@ -154,6 +155,10 @@ func main() {
 	cookieModel := &cookiemodel.CookieModel{
 		DB: db}
 	cookieModel.PrepareStatements()
+
+	contactModel := contactmodel.ContactModel{
+		DB: db}
+	contactModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
 		Config: runtimeConfig}
@@ -338,8 +343,16 @@ func main() {
 		Validator:      validator}
 	appspaceRouteModels.Init()
 
+	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb,
+		Validator:      validator,
+	}
+	appspaceUserModels.Init()
+
 	v0appspaceRouter := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
+		VxUserModels:        appspaceUserModels,
 		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       authenticator,
@@ -356,6 +369,7 @@ func main() {
 
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
+		UserModels:   appspaceUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 	sandboxManager.Services = services
 	migrationSandboxMaker.Services = services

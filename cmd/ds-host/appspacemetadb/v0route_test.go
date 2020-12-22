@@ -13,6 +13,13 @@ import (
 
 func TestV0validateAuth(t *testing.T) {
 	// OK there ust isn't anything to do here yet
+	auth := domain.AppspaceRouteAuth{
+		Allow:      "owner",
+		Permission: ""}
+	err := v0validateAuth(auth)
+	if err == nil {
+		t.Error("expected error because allow: owner isinvalid now")
+	}
 }
 
 func TestV0validateHandler(t *testing.T) {
@@ -36,7 +43,7 @@ func TestV0RouteCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	auth := domain.AppspaceRouteAuth{Allow: "owner"}
+	auth := domain.AppspaceRouteAuth{Allow: "authorized"}
 	handler := domain.AppspaceRouteHandler{Type: "file", Path: "@app/abc/"}
 
 	r := v0RoutesGetModel(t, mockCtrl)
@@ -85,7 +92,7 @@ func TestV0RouteGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "authorized"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +138,7 @@ func TestV0RouteGetAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = r.Create([]string{"post", "patch"}, "/def/", domain.AppspaceRouteAuth{Allow: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/def"})
+	err = r.Create([]string{"post", "patch"}, "/def/", domain.AppspaceRouteAuth{Allow: "authorized"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/def"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +176,7 @@ func TestV0RouteGetPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	err = r.Create([]string{"post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "authorized"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +195,7 @@ func TestV0Delete(t *testing.T) {
 
 	r := v0RoutesGetModel(t, mockCtrl)
 
-	err := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "owner"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
+	err := r.Create([]string{"get", "post", "patch"}, "/abc/", domain.AppspaceRouteAuth{Allow: "authorized"}, domain.AppspaceRouteHandler{Type: "function", File: "@app/abc"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +233,7 @@ func TestV0RouteMatch(t *testing.T) {
 		appspaceID:     appspaceID,
 	}
 
-	err := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Allow: "owner"}, handler)
+	err := r.Create([]string{"get", "post"}, "/abc/", domain.AppspaceRouteAuth{Allow: "authorized"}, handler)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +280,7 @@ func TestV0RouteMatch(t *testing.T) {
 	if route.Path != "/abc" {
 		t.Error("Got the wrong route?")
 	}
-	if route.Auth.Allow != "owner" {
+	if route.Auth.Allow != "authorized" {
 		t.Error("got the wrong route data")
 	}
 
