@@ -30,7 +30,4 @@
         "activityBarBadge.foreground": "#e7e7e7"
     },
     "peacock.color": "#2a1811",
-
-    "vetur.validation.template": false,
-
 }

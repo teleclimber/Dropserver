@@ -7,6 +7,7 @@ module.exports = {
 	settings: {
 	  "vetur.useWorkspaceDependencies": false,
 	  "vetur.experimental.templateInterpolationService": true,
+	  "vetur.validation.template": true,
 	  "vetur.validation.interpolation": true
 	},
 	// **optional** default: `[{ root: './' }]`
@@ -37,7 +38,10 @@ module.exports = {
 		// globalComponents: [
 		//   './src/components/**/*.vue'
 		// ]
+	  },{
+		  root: './frontend-ds-host'
 	  }
+
 	]
   }
   
