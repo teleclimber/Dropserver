@@ -515,9 +515,9 @@ type Contact struct {
 
 // AppspaceContact is a user of an appspace who is a contact of the owner
 type AppspaceContact struct {
-	AppspaceID AppspaceID `db:"appspace_id",json:"appspace_id"`
-	ContactID  ContactID  `db:"contact_id",json:"contact_id"`
-	ProxyID    ProxyID    `db:"proxy_id",json:"proxy_id"`
+	AppspaceID AppspaceID `db:"appspace_id" json:"appspace_id"`
+	ContactID  ContactID  `db:"contact_id" json:"contact_id"`
+	ProxyID    ProxyID    `db:"proxy_id" json:"proxy_id"`
 }
 
 type DbConn interface {

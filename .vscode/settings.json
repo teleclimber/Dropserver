@@ -14,7 +14,7 @@
 
     "go.useLanguageServer": true,
 
-    "deno.enable": true,
+    "deno.enable": false,
     "deno.enablePatterns": ["resources/**"],
     "deno.unstable": true,
 

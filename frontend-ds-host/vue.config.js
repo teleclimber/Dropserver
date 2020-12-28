@@ -21,17 +21,17 @@ module.exports = {
 				cookieDomainRewrite: ".localhost"
 			},
 			"/logout": {
-				target: "http://user.dropserver.develop:3000",
+				target: "https://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
 			"/signup": {
-				target: "http://user.dropserver.develop:3000",
+				target: "https://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
 			"/api": {
-				target: "http://user.dropserver.develop:3000",
+				target: "https://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
@@ -48,7 +48,7 @@ module.exports = {
 				}
 			},
 			"/live": {
-				target: "http://user.dropserver.develop:3000",
+				target: "https://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost",
 			}
