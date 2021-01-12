@@ -56,27 +56,32 @@ func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.P
 }
 
 // Authenticate returns a cookie if a valid and verified cookie was included in the request
-func (a *Authenticator) Authenticate(res http.ResponseWriter, req *http.Request) (*domain.Authentication, error) {
+// I think we can change the signature: don't pass res, don't return error.
+// ue separate method to refresh cookie, called from middleware
+// errors are logged, and if any then auth is nil.
+func (a *Authenticator) Authenticate(req *http.Request) (auth domain.Authentication) {
 	cookie, err := a.getCookie(req)
 	if err != nil {
-		return nil, err
+		// TODO log it. Or log it in getCookie.
+		return
 	}
 	if cookie == nil {
-		return nil, nil
+		return
 	}
 
 	// Do we definitely refresh cookie in all cases?
 	//a.refreshCookie(res, cookie.CookieID)
 	// ^ commenting out until we can sort this out better.
 
-	auth := &domain.Authentication{
-		UserID:      cookie.UserID,
-		AppspaceID:  cookie.AppspaceID,
-		CookieID:    cookie.CookieID,
-		UserAccount: cookie.UserAccount,
-		ProxyID:     cookie.ProxyID}
+	auth = domain.Authentication{
+		Authenticated: true,
+		UserID:        cookie.UserID,
+		AppspaceID:    cookie.AppspaceID,
+		CookieID:      cookie.CookieID,
+		UserAccount:   cookie.UserAccount,
+		ProxyID:       cookie.ProxyID}
 
-	return auth, nil
+	return auth
 }
 
 // Also need to auth via API key eventually
@@ -102,10 +107,12 @@ func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, error) {
 			// If the cookie is not set, return unauthorized
 			return nil, nil
 		}
-		// For any other type of error, return a bad request status
+		// In current version of Go, the only error is ErrNoCookie
+		// If we get here log it
 		return nil, err
 	}
 
+	// this should be cached, either here or in cookie model.
 	cookie, err := a.CookieModel.Get(c.Value)
 	if err != nil {
 		return nil, err //this should be internal error?

@@ -15,7 +15,7 @@ import (
 type Server struct {
 	Config        *domain.RuntimeConfig
 	Authenticator interface {
-		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
+		Authenticate(*http.Request) domain.Authentication
 	}
 
 	// admin routes, user routes, auth routes....
@@ -107,16 +107,12 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	auth, err := s.Authenticator.Authenticate(res, req)
-	if err != nil {
-		http.Error(res, "authentication error", http.StatusInternalServerError)
-		return
-	}
+	auth := s.Authenticator.Authenticate(req)
 
 	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
 		URLTail:        req.URL.Path,
 		Subdomains:     &subdomains,
-		Authentication: auth}
+		Authentication: &auth}
 
 	switch topSub {
 	case "user":

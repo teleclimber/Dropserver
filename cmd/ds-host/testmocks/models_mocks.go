@@ -258,6 +258,21 @@ func (mr *MockAppspaceModelMockRecorder) GetForApp(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForApp", reflect.TypeOf((*MockAppspaceModel)(nil).GetForApp), arg0)
 }
 
+// GetForAppVersion mocks base method
+func (m *MockAppspaceModel) GetForAppVersion(arg0 domain.AppID, arg1 domain.Version) ([]*domain.Appspace, domain.Error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetForAppVersion", arg0, arg1)
+	ret0, _ := ret[0].([]*domain.Appspace)
+	ret1, _ := ret[1].(domain.Error)
+	return ret0, ret1
+}
+
+// GetForAppVersion indicates an expected call of GetForAppVersion
+func (mr *MockAppspaceModelMockRecorder) GetForAppVersion(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppVersion", reflect.TypeOf((*MockAppspaceModel)(nil).GetForAppVersion), arg0, arg1)
+}
+
 // GetForOwner mocks base method
 func (m *MockAppspaceModel) GetForOwner(arg0 domain.UserID) ([]*domain.Appspace, domain.Error) {
 	m.ctrl.T.Helper()

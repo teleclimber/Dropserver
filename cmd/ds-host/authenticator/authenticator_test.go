@@ -56,9 +56,6 @@ func TestRefreshCookie(t *testing.T) {
 
 // testing for GetForAccount
 func TestGetForAccountNoCookie(t *testing.T) {
-
-	rr := httptest.NewRecorder()
-
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -67,11 +64,8 @@ func TestGetForAccountNoCookie(t *testing.T) {
 	a := &Authenticator{
 		Config: getConfig()}
 
-	cookie, err := a.Authenticate(rr, req)
-	if err != nil {
-		t.Error(err)
-	}
-	if cookie != nil {
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
 		t.Error("No cookie should be returned")
 	}
 }
@@ -79,8 +73,6 @@ func TestGetForAccountNoCookie(t *testing.T) {
 func TestGetForAccountNoDBCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -99,11 +91,8 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	cookie, err := a.Authenticate(rr, req)
-	if err != nil {
-		t.Error(err)
-	}
-	if cookie != nil {
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
 		t.Error("No cookie should be returned")
 	}
 }
@@ -112,8 +101,6 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 func TestGetForAccountNotUser(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -138,14 +125,11 @@ func TestGetForAccountNotUser(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	cookie, err := a.Authenticate(rr, req)
-	if err != nil {
-		t.Error(err)
-	}
-	if cookie == nil {
+	auth := a.Authenticate(req)
+	if !auth.Authenticated {
 		t.Error("cookie should not be nil")
 	}
-	if cookie.UserAccount {
+	if auth.UserAccount {
 		t.Error("cookie should not be for user account")
 	}
 }
@@ -153,8 +137,6 @@ func TestGetForAccountNotUser(t *testing.T) {
 func TestGetForAccountExpired(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -178,11 +160,8 @@ func TestGetForAccountExpired(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	cookie, err := a.Authenticate(rr, req)
-	if err != nil {
-		t.Error(err)
-	}
-	if cookie != nil {
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
 		t.Error("cookie should be nil")
 	}
 }
@@ -190,8 +169,6 @@ func TestGetForAccountExpired(t *testing.T) {
 func TestAuthenticate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -218,14 +195,11 @@ func TestAuthenticate(t *testing.T) {
 
 	routeData := &domain.AppspaceRouteData{}
 
-	cookie, err := a.Authenticate(rr, req)
-	if err != nil {
-		t.Error("should not error")
-	}
-	if cookie == nil {
+	auth := a.Authenticate(req)
+	if !auth.Authenticated {
 		t.Error("cookie should not be nil")
 	}
-	if cookie.CookieID != "abc" {
+	if auth.CookieID != "abc" {
 		t.Error("route data not as expected", routeData)
 	}
 }

@@ -12,7 +12,7 @@ import (
 // Authenticator is an interface that can set and authenticate cookies
 // And in the future it will handle other forms of authentication
 type Authenticator interface {
-	Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
+	Authenticate(*http.Request) domain.Authentication
 	SetForAccount(http.ResponseWriter, domain.UserID) error
 	SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	UnsetForAccount(http.ResponseWriter, *http.Request)

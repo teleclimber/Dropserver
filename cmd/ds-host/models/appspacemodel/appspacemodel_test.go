@@ -38,7 +38,7 @@ func TestGetFromIDError(t *testing.T) {
 	// There should be an error, but no panics
 	_, dsErr := model.GetFromID(10)
 	if dsErr == nil {
-		t.Error(dsErr)
+		t.Error("expected an error")
 	}
 }
 

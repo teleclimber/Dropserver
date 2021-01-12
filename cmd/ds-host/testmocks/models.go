@@ -31,6 +31,7 @@ type AppspaceModel interface {
 	GetFromSubdomain(string) (*domain.Appspace, domain.Error)
 	GetForOwner(domain.UserID) ([]*domain.Appspace, domain.Error)
 	GetForApp(domain.AppID) ([]*domain.Appspace, domain.Error)
+	GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, domain.Error)
 	Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, domain.Error)
 	Pause(domain.AppspaceID, bool) domain.Error
 	SetVersion(domain.AppspaceID, domain.Version) domain.Error

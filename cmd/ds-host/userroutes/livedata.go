@@ -52,7 +52,7 @@ type jobControllerI interface {
 // LiveDataRoutes provides live data update service.
 type LiveDataRoutes struct {
 	Authenticator interface {
-		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
+		Authenticate(*http.Request) domain.Authentication
 	}
 	//JobController     jobControllerI
 	MigrationJobModel interface {
@@ -152,17 +152,13 @@ func (l *LiveDataRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (l *LiveDataRoutes) serveToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	auth, err := l.Authenticator.Authenticate(res, req)
-	if err != nil {
-		http.Error(res, "internal error", http.StatusInternalServerError)
-		return
-	}
-	if auth == nil || !auth.UserAccount {
+	auth := l.Authenticator.Authenticate(req)
+	if !auth.Authenticated || !auth.UserAccount {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	routeData.Authentication = auth
+	routeData.Authentication = &auth
 
 	l.tokenMux.Lock()
 	defer l.tokenMux.Unlock()

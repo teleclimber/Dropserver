@@ -20,13 +20,14 @@ type AppspaceModel struct {
 	}
 
 	stmt struct {
-		selectID        *sqlx.Stmt
-		selectOwner     *sqlx.Stmt
-		selectApp       *sqlx.Stmt
-		selectSubdomain *sqlx.Stmt
-		insert          *sqlx.Stmt
-		pause           *sqlx.Stmt
-		setVersion      *sqlx.Stmt
+		selectID         *sqlx.Stmt
+		selectOwner      *sqlx.Stmt
+		selectApp        *sqlx.Stmt
+		selectAppVersion *sqlx.Stmt
+		selectSubdomain  *sqlx.Stmt
+		insert           *sqlx.Stmt
+		pause            *sqlx.Stmt
+		setVersion       *sqlx.Stmt
 	}
 }
 
@@ -48,6 +49,8 @@ func (m *AppspaceModel) PrepareStatements() {
 	// -> advantage of app_id is that we might one day have non-owner apps
 	m.stmt.selectApp = p.Prep(`SELECT * FROM appspaces WHERE app_id = ?`)
 
+	m.stmt.selectAppVersion = p.Prep(`SELECT * FROM appspaces WHERE app_id = ? AND app_version = ?`)
+
 	// insert appspace:
 	m.stmt.insert = p.Prep(`INSERT INTO appspaces
 		("owner_id", "app_id", "app_version", subdomain, created, location_key) VALUES (?, ?, ?, ?, datetime("now"), ?)`)
@@ -59,6 +62,7 @@ func (m *AppspaceModel) PrepareStatements() {
 }
 
 // GetFromID gets an AppSpace by its ID
+// Q: does this return an error if not found? What kind of error
 func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error) {
 	var appspace domain.Appspace
 
@@ -111,6 +115,19 @@ func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domai
 	}
 
 	return ret, nil
+}
+
+// GetForAppVersion gets all appspaces for a given app_id.
+func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, domain.Error) {
+	ret := []*domain.Appspace{}
+
+	err := m.stmt.selectAppVersion.Select(&ret, appID, version)
+	if err != nil {
+		m.getLogger("GetForAppVersion()").AppID(appID).AppVersion(version).Error(err)
+		return nil, dserror.FromStandard(err)
+	}
+
+	return ret, nil // TODO: add test for this function
 }
 
 // Create adds an appspace to the database

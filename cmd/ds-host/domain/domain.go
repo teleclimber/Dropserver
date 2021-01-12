@@ -175,11 +175,12 @@ type SandboxI interface {
 // or you have an api key
 //...which is all fine, but it means cookies have to be tweaked as well
 type Authentication struct {
-	UserID      UserID
-	AppspaceID  AppspaceID
-	ProxyID     ProxyID // for appspace users (including owner)
-	UserAccount bool    // Tells whether this is for user account auth. Otherwise it's for appspace
-	CookieID    string  // if there is a cookie
+	Authenticated bool
+	UserID        UserID
+	AppspaceID    AppspaceID
+	ProxyID       ProxyID // for appspace users (including owner)
+	UserAccount   bool    // Tells whether this is for user account auth. Otherwise it's for appspace
+	CookieID      string  // if there is a cookie
 }
 
 // ^^ this should be changed to reflect that User IDs are appspace user ids? (?)
