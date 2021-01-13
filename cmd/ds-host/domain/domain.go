@@ -341,7 +341,7 @@ type SettingsModel interface {
 }
 
 // UserModel is the interface for user model
-type UserModel interface {
+type UserModel interface { //TODO remove domain.Error, also move this
 	PrepareStatements()
 	Create(string, string) (*User, Error)
 	UpdatePassword(UserID, string) Error
@@ -367,11 +367,6 @@ type UserInvitationModel interface {
 	Get(email string) (*UserInvitation, Error)
 	Create(email string) Error
 	Delete(email string) Error
-}
-
-// AppspaceFilesModel manipulates data directories for appspaces
-type AppspaceFilesModel interface {
-	CreateLocation() (string, Error)
 }
 
 // App represents the data structure for an App.

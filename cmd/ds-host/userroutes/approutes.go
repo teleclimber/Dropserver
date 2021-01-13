@@ -3,15 +3,18 @@ package userroutes
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
+
+var errBadRequest = errors.New("bad request")
+var errUnauthorized = errors.New("unauthorized")
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
@@ -30,7 +33,7 @@ type ApplicationRoutes struct {
 		DeleteVersion(domain.AppID, domain.Version) error
 	}
 	AppspaceModel interface {
-		GetForApp(domain.AppID) ([]*domain.Appspace, domain.Error)
+		GetForApp(domain.AppID) ([]*domain.Appspace, error)
 	}
 }
 
@@ -46,9 +49,16 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
 	}
 
-	app, dsErr := a.getAppFromPath(routeData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	app, err := a.getAppFromPath(routeData)
+	if err != nil {
+		if errors.Is(err, errBadRequest) {
+			http.Error(res, "bad request", http.StatusBadRequest)
+		} else if errors.Is(err, errUnauthorized) {
+			http.Error(res, "unauthorized", http.StatusUnauthorized)
+		} else {
+			http.Error(res, "", http.StatusInternalServerError)
+		}
+		return
 	}
 	method := req.Method
 
@@ -70,9 +80,9 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		switch head {
 		case "version": // application/<app-id>/version/*
 			// get a version from path
-			version, dsErr := a.getVersionFromPath(routeData, app.AppID)
-			if dsErr != nil {
-				dsErr.HTTPError(res)
+			version, err := a.getVersionFromPath(routeData, app.AppID)
+			if err != nil {
+				http.Error(res, "", http.StatusInternalServerError)
 				return
 			}
 
@@ -109,8 +119,8 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 
 	fail := false
 	for _, app := range apps {
-		appVersions, dsErr := a.AppModel.GetVersionsForApp(app.AppID)
-		if dsErr != nil { // willit error on zer versions found? -> it should not.
+		appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
+		if err != nil {
 			fail = true
 			break
 		}
@@ -286,9 +296,9 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 }
 
 func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *domain.AppVersion) {
-	appspaces, dsErr := a.AppspaceModel.GetForApp(version.AppID)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	appspaces, err := a.AppspaceModel.GetForApp(version.AppID)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -304,7 +314,7 @@ func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *doma
 		return
 	}
 
-	err := a.AppModel.DeleteVersion(version.AppID, version.Version)
+	err = a.AppModel.DeleteVersion(version.AppID, version.Version)
 	if err != nil {
 		http.Error(res, err.Error(), 500)
 		return
@@ -316,7 +326,7 @@ func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *doma
 	}
 }
 
-func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) (*domain.App, domain.Error) {
+func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) (*domain.App, error) {
 	appIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
 	routeData.URLTail = tail
 
@@ -326,22 +336,22 @@ func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) 
 
 	appIDInt, err := strconv.Atoi(appIDStr)
 	if err != nil {
-		return nil, dserror.New(dserror.BadRequest)
+		return nil, errBadRequest
 	}
 	appID := domain.AppID(appIDInt)
 
 	app, err := a.AppModel.GetFromID(appID)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 	if app.OwnerID != routeData.Authentication.UserID {
-		return nil, dserror.New(dserror.Unauthorized)
+		return nil, errUnauthorized
 	}
 
 	return app, nil
 }
 
-func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteData, appID domain.AppID) (*domain.AppVersion, domain.Error) {
+func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteData, appID domain.AppID) (*domain.AppVersion, error) {
 	versionStr, tail := shiftpath.ShiftPath(routeData.URLTail)
 	routeData.URLTail = tail
 
@@ -353,7 +363,7 @@ func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteDa
 
 	version, err := a.AppModel.GetVersion(appID, domain.Version(versionStr))
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return version, nil

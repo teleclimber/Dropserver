@@ -44,9 +44,9 @@ type UserJSONAPI struct {
 		// authorized?
 	}
 	AppspaceModel interface {
-		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error)
-		GetForOwner(userID domain.UserID) ([]*domain.Appspace, domain.Error)
-		GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, domain.Error)
+		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
+		GetForOwner(userID domain.UserID) ([]*domain.Appspace, error)
+		GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error)
 	}
 	AppModel interface {
 		GetFromID(appID domain.AppID) (*domain.App, error)

@@ -2,12 +2,12 @@ package appspacemodel
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 )
 
@@ -63,113 +63,114 @@ func (m *AppspaceModel) PrepareStatements() {
 
 // GetFromID gets an AppSpace by its ID
 // Q: does this return an error if not found? What kind of error
-func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error) {
+func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error) {
 	var appspace domain.Appspace
 
 	err := m.stmt.selectID.QueryRowx(appspaceID).StructScan(&appspace)
 	if err != nil {
 		m.getLogger("GetFromID()").AppspaceID(appspaceID).Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return &appspace, nil
 }
 
 // GetFromSubdomain gets an AppSpace by looking up the subdomain
-func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, domain.Error) {
+// It returns nil, nil if no matches found
+func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, error) {
 	var appspace domain.Appspace
 
 	err := m.stmt.selectSubdomain.QueryRowx(subdomain).StructScan(&appspace)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, dserror.New(dserror.NoRowsInResultSet)
+			return nil, nil
 		}
 		m.getLogger("GetFromSubdomain(), subdomain: " + subdomain).Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return &appspace, nil
 }
 
 // GetForOwner gets all appspaces for an owner
-func (m *AppspaceModel) GetForOwner(userID domain.UserID) ([]*domain.Appspace, domain.Error) {
+func (m *AppspaceModel) GetForOwner(userID domain.UserID) ([]*domain.Appspace, error) {
 	ret := []*domain.Appspace{}
 
 	err := m.stmt.selectOwner.Select(&ret, userID)
 	if err != nil {
 		m.getLogger("GetForOwner()").UserID(userID).Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return ret, nil
 }
 
 // GetForApp gets all appspaces for a given app_id.
-func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, domain.Error) {
+func (m *AppspaceModel) GetForApp(appID domain.AppID) ([]*domain.Appspace, error) {
 	ret := []*domain.Appspace{}
 
 	err := m.stmt.selectApp.Select(&ret, appID)
 	if err != nil {
 		m.getLogger("GetForApp()").AppID(appID).Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return ret, nil
 }
 
 // GetForAppVersion gets all appspaces for a given app_id.
-func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, domain.Error) {
+func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error) {
 	ret := []*domain.Appspace{}
 
 	err := m.stmt.selectAppVersion.Select(&ret, appID, version)
 	if err != nil {
 		m.getLogger("GetForAppVersion()").AppID(appID).AppVersion(version).Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	return ret, nil // TODO: add test for this function
 }
 
 // Create adds an appspace to the database
-func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, domain.Error) {
+func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, error) {
 	logger := m.getLogger("Create()").UserID(ownerID).AppID(appID).AppVersion(version).AddNote(fmt.Sprintf("subdomain:%v, locationkey:%v", subdomain, locationKey))
 
 	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain, locationKey)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: appspaces.subdomain" {
-			return nil, dserror.New(dserror.DomainNotUnique)
+			return nil, errors.New("Domain not unique")
 		}
 		logger.AddNote("insert").Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 
 	lastID, err := r.LastInsertId()
 	if err != nil {
 		logger.AddNote("r.lastInsertId()").Error(err)
-		return nil, dserror.FromStandard(err)
+		return nil, err
 	}
 	if lastID >= 0xFFFFFFFF {
 		logger.Log("LastID greater than uint32")
-		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
+		return nil, errors.New("Last Insert ID from DB greater than uint32")
 	}
 
 	appspaceID := domain.AppspaceID(lastID)
 
-	appspace, dsErr := m.GetFromID(appspaceID)
-	if dsErr != nil {
-		logger.AddNote("GetFromID()").Error(dsErr.ToStandard())
-		return nil, dsErr // this indicates a severe internal problem, not "oh we coudln't find it"
+	appspace, err := m.GetFromID(appspaceID)
+	if err != nil {
+		logger.AddNote("GetFromID()").Error(err)
+		return nil, err // this indicates a severe internal problem, not "oh we coudln't find it"
 	}
 
 	return appspace, nil
 }
 
 // Pause changes the paused status of the appspace
-func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.Error {
+func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
 	_, err := m.stmt.pause.Exec(pause, appspaceID)
 	if err != nil {
 		m.getLogger("Pause").Error(err)
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	m.AsPausedEvent.Send(appspaceID, pause)
@@ -178,11 +179,11 @@ func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.E
 }
 
 // SetVersion changes the active version of the application for tha tappspace
-func (m *AppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) domain.Error {
+func (m *AppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) error {
 	_, err := m.stmt.setVersion.Exec(version, appspaceID)
 	if err != nil {
 		m.getLogger("SetVersion").Error(err)
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	return nil

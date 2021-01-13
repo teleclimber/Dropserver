@@ -6,7 +6,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // route handler for when we know the route is for an app-space.
@@ -19,7 +18,7 @@ type AppspaceRouter struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceModel interface {
-		GetFromSubdomain(string) (*domain.Appspace, domain.Error)
+		GetFromSubdomain(string) (*domain.Appspace, error)
 	}
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
@@ -47,12 +46,13 @@ func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	subdomains := *routeData.Subdomains
 	appspaceSubdomain := subdomains[len(subdomains)-1]
 
-	appspace, dsErr := r.AppspaceModel.GetFromSubdomain(appspaceSubdomain)
-	if dsErr != nil && dsErr.Code() == dserror.NoRowsInResultSet {
-		http.Error(res, "Appspace does not exist", http.StatusNotFound)
+	appspace, err := r.AppspaceModel.GetFromSubdomain(appspaceSubdomain)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
-	} else if dsErr != nil {
-		dsErr.HTTPError(res)
+	}
+	if appspace == nil {
+		http.Error(res, "Appspace does not exist", http.StatusNotFound)
 		return
 	}
 

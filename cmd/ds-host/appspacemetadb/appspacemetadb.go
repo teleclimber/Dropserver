@@ -22,7 +22,7 @@ type AppspaceMetaDB struct {
 	Config        *domain.RuntimeConfig
 	Validator     domain.Validator
 	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
 
 	connsMux sync.Mutex
@@ -129,9 +129,9 @@ func (mdb *AppspaceMetaDB) CloseConn(appspaceID domain.AppspaceID) error {
 }
 
 func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) { //maybe just pass location key instead of appspace id?
-	appspace, dsErr := mdb.AppspaceModel.GetFromID(appspaceID)
-	if dsErr != nil {
-		setConnError(conn, dsErr.ToStandard())
+	appspace, err := mdb.AppspaceModel.GetFromID(appspaceID)
+	if err != nil {
+		setConnError(conn, err)
 		return
 	}
 

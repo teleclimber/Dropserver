@@ -92,8 +92,8 @@ func getAppVersionHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 		}
 		apiAppVersion := makeAppVersion(*appVersion)
 
-		appspaces, dsErr := api.AppspaceModel.GetForAppVersion(appID, version)
-		if dsErr != nil {
+		appspaces, err := api.AppspaceModel.GetForAppVersion(appID, version)
+		if err != nil {
 			return jsonapirouter.Error
 		}
 
@@ -133,8 +133,8 @@ func getAppVersionsHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 
 		//appVersion
 
-		appspaces, dsErr := api.AppspaceModel.GetForOwner(auth.UserID)
-		if dsErr != nil {
+		appspaces, err := api.AppspaceModel.GetForOwner(auth.UserID)
+		if err != nil {
 			return jsonapirouter.Error
 		}
 

@@ -76,7 +76,7 @@ type statusData struct {
 // AppspaceStatus determines the status of an appspace
 type AppspaceStatus struct {
 	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
 	AppspacePausedEvent interface {
 		Subscribe(chan<- domain.AppspacePausedEvent)
@@ -217,8 +217,8 @@ func (s *AppspaceStatus) getTrackedStatus(appspaceID domain.AppspaceID) *status 
 func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	data := statusData{}
 
-	appspace, dsErr := s.AppspaceModel.GetFromID(appspaceID)
-	if dsErr != nil {
+	appspace, err := s.AppspaceModel.GetFromID(appspaceID)
+	if err != nil {
 		data.problem = true
 		return data
 	}

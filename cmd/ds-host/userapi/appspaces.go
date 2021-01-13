@@ -49,8 +49,8 @@ func getAppspaceHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 		if err != nil {
 			return jsonapirouter.Error
 		}
-		appspace, dsErr := api.AppspaceModel.GetFromID(domain.AppspaceID(appspaceID))
-		if dsErr != nil {
+		appspace, err := api.AppspaceModel.GetFromID(domain.AppspaceID(appspaceID))
+		if err != nil {
 			return jsonapirouter.NotFound
 		}
 		if appspace.OwnerID != auth.UserID {
@@ -82,8 +82,8 @@ func getAppspacesHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 		// do different filters later,
 		// .. or allow unfiltered results for admin
 
-		appspaces, dsErr := api.AppspaceModel.GetForOwner(auth.UserID)
-		if dsErr != nil {
+		appspaces, err := api.AppspaceModel.GetForOwner(auth.UserID)
+		if err != nil {
 			return jsonapirouter.Error
 		}
 
@@ -128,9 +128,9 @@ func getAppspacesLoader(api *UserJSONAPI) jsonapirouter.JSONAPIDataLoader {
 			if err != nil {
 				return nil, err
 			}
-			appspace, dsErr := api.AppspaceModel.GetFromID(domain.AppspaceID(idInt))
-			if dsErr != nil {
-				return nil, dsErr.ToStandard()
+			appspace, err := api.AppspaceModel.GetFromID(domain.AppspaceID(idInt))
+			if err != nil {
+				return nil, err
 			}
 			ret[i] = wrapAppspace(*appspace)
 		}

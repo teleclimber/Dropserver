@@ -26,8 +26,8 @@ type JobController struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
-		SetVersion(domain.AppspaceID, domain.Version) domain.Error
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
+		SetVersion(domain.AppspaceID, domain.Version) error
 	}
 	AppspaceInfoModels interface {
 		Get(domain.AppspaceID) domain.AppspaceInfoModel
@@ -247,11 +247,11 @@ func (c *JobController) runJob(job *runningJob) {
 
 	c.SandboxManager.StopAppspace(appspaceID)
 
-	var dsErr domain.Error
+	var err error
 
-	job.appspace, dsErr = c.AppspaceModel.GetFromID(appspaceID)
-	if dsErr != nil {
-		job.errStr.SetString("Error getting appspace: " + dsErr.PublicString())
+	job.appspace, err = c.AppspaceModel.GetFromID(appspaceID)
+	if err != nil {
+		job.errStr.SetString("Error getting appspace: " + err.Error())
 		return
 		// job encountered error condition
 		// if no rows, just means appspace has been deleted in he interim
@@ -310,9 +310,9 @@ func (c *JobController) runJob(job *runningJob) {
 		return
 	}
 
-	dsErr = c.AppspaceModel.SetVersion(appspaceID, toVersion.Version)
-	if dsErr != nil {
-		job.errStr.SetString("Error setting new Version: " + dsErr.PublicString())
+	err = c.AppspaceModel.SetVersion(appspaceID, toVersion.Version)
+	if err != nil {
+		job.errStr.SetString("Error setting new Version: " + err.Error())
 		return
 	}
 }

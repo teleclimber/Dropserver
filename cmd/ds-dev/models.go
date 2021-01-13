@@ -82,7 +82,7 @@ type DevAppspaceModel struct {
 }
 
 // Pause pauses the appspace
-func (m *DevAppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domain.Error {
+func (m *DevAppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
 	m.Appspace.Paused = pause // wait does that work? we're not dealing with pointers here.
 
 	m.AsPausedEvent.Send(appspaceID, pause)
@@ -91,17 +91,17 @@ func (m *DevAppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) domai
 }
 
 // GetFromSubdomain always returns the same appspace
-func (m *DevAppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, domain.Error) {
+func (m *DevAppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, error) {
 	return &m.Appspace, nil
 }
 
 // GetFromID always returns the same appspace
-func (m *DevAppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, domain.Error) {
+func (m *DevAppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error) {
 	return &m.Appspace, nil
 }
 
 // SetVersion changes the active version of the application for tha tappspace
-func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) domain.Error {
+func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) error {
 	//m.Appspace.AppVersion = version // will bomb if no appspace is set
 	// no-op! this gets called after a migration, but in ds-dev we don't want it to have an effect.
 	return nil

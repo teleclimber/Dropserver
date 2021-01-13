@@ -2,13 +2,13 @@ package userroutes
 
 import (
 	"database/sql"
+	"errors"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -18,13 +18,15 @@ type AppspaceRoutes struct {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
-	AppspaceFilesModel domain.AppspaceFilesModel
-	AppspaceModel      interface {
-		GetForOwner(domain.UserID) ([]*domain.Appspace, domain.Error)
-		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
-		Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, domain.Error)
-		Pause(domain.AppspaceID, bool) domain.Error
-		GetFromSubdomain(string) (*domain.Appspace, domain.Error)
+	AppspaceFilesModel interface {
+		CreateLocation() (string, error)
+	}
+	AppspaceModel interface {
+		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
+		Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, error)
+		Pause(domain.AppspaceID, bool) error
+		GetFromSubdomain(string) (*domain.Appspace, error)
 	}
 	AppspaceMetaDB    domain.AppspaceMetaDB
 	MigrationJobModel interface {
@@ -45,9 +47,9 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		return
 	}
 
-	appspace, dsErr := a.getAppspaceFromPath(routeData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	appspace, err := a.getAppspaceFromPath(routeData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -76,9 +78,9 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	appspaces, dsErr := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	appspaces, err := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -98,7 +100,7 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 	writeJSON(res, respData)
 }
 
-func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData) (*domain.Appspace, domain.Error) {
+func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData) (*domain.Appspace, error) {
 	appspaceIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
 	routeData.URLTail = tail
 
@@ -108,16 +110,16 @@ func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData
 
 	appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
 	if err != nil {
-		return nil, dserror.New(dserror.BadRequest)
+		return nil, err
 	}
 	appspaceID := domain.AppspaceID(appspaceIDInt)
 
-	appspace, dsErr := a.AppspaceModel.GetFromID(appspaceID)
-	if dsErr != nil {
-		return nil, dsErr
+	appspace, err := a.AppspaceModel.GetFromID(appspaceID)
+	if err != nil {
+		return nil, err
 	}
 	if appspace.OwnerID != routeData.Authentication.UserID {
-		return nil, dserror.New(dserror.Unauthorized)
+		return nil, errors.New("unauthorized")
 	}
 
 	return appspace, nil
@@ -164,14 +166,14 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// But let's get things working first.
 	sub := a.getNewSubdomain()
 
-	locationKey, dsErr := a.AppspaceFilesModel.CreateLocation()
-	if dsErr != nil {
+	locationKey, err := a.AppspaceFilesModel.CreateLocation()
+	if err != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
 	}
 
-	appspace, dsErr := a.AppspaceModel.Create(routeData.Authentication.UserID, app.AppID, version.Version, sub, locationKey)
-	if dsErr != nil {
+	appspace, err := a.AppspaceModel.Create(routeData.Authentication.UserID, app.AppID, version.Version, sub, locationKey)
+	if err != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
 	}
@@ -219,9 +221,9 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 		return
 	}
 
-	dsErr = a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
+	if err != nil {
+		http.Error(res, "", http.StatusInternalServerError)
 		return
 	}
 
@@ -263,8 +265,8 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 	for i := 0; i < 10; i++ {
 		sub = randomSubomainString()
-		_, dsErr := a.AppspaceModel.GetFromSubdomain(sub)
-		if dsErr == nil {
+		_, err := a.AppspaceModel.GetFromSubdomain(sub)
+		if err == nil {
 			break
 		}
 	}

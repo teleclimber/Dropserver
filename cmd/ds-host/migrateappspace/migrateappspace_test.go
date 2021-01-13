@@ -1,13 +1,13 @@
 package migrateappspace
 
 import (
+	"errors"
 	"sync"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/DropServer/internal/twine"
 )
@@ -178,7 +178,7 @@ func TestStartNextOneJob(t *testing.T) {
 	migrationJobModel.EXPECT().SetStarted(j.JobID).Return(true, nil)
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, errors.New("nada"))
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitStopped(appspaceID)

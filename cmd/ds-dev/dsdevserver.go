@@ -238,18 +238,18 @@ const importAndMigrate = 16
 func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case pauseAppspaceCmd:
-		dsErr := s.DevAppspaceModel.Pause(appspaceID, true)
-		if dsErr != nil {
-			msg := "error pausing appspace " + dsErr.ToStandard().Error()
+		err := s.DevAppspaceModel.Pause(appspaceID, true)
+		if err != nil {
+			msg := "error pausing appspace " + err.Error()
 			fmt.Println(msg)
 			m.SendError(msg)
 		} else {
 			m.SendOK()
 		}
 	case unpauseAppspaceCmd:
-		dsErr := s.DevAppspaceModel.Pause(appspaceID, false)
-		if dsErr != nil {
-			msg := "error unpausing appspace " + dsErr.ToStandard().Error()
+		err := s.DevAppspaceModel.Pause(appspaceID, false)
+		if err != nil {
+			msg := "error unpausing appspace " + err.Error()
 			fmt.Println(msg)
 			m.SendError(msg)
 		} else {

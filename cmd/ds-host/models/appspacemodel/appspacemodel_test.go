@@ -7,7 +7,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -36,8 +35,8 @@ func TestGetFromIDError(t *testing.T) {
 	model.PrepareStatements()
 
 	// There should be an error, but no panics
-	_, dsErr := model.GetFromID(10)
-	if dsErr == nil {
+	_, err := model.GetFromID(10)
+	if err == nil {
 		t.Error("expected an error")
 	}
 }
@@ -55,9 +54,9 @@ func TestCreate(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
 	if appspace.OwnerID != domain.UserID(1) {
@@ -92,15 +91,15 @@ func TestGetFromID(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
 	// There should now be one row so app id 1 should return something
-	appspace, dsErr := model.GetFromID(domain.AppspaceID(1))
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err := model.GetFromID(domain.AppspaceID(1))
+	if err != nil {
+		t.Error(err)
 	}
 
 	if appspace.AppspaceID != domain.AppspaceID(1) {
@@ -120,23 +119,28 @@ func TestGetFromSubdomain(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = model.GetFromSubdomain("test-appspace")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err = model.GetFromSubdomain("test-appspace")
+	if err != nil {
+		t.Error(err)
 	}
 
 	// test non-existent subdomain
-	_, dsErr = model.GetFromSubdomain("foo")
-	if dsErr == nil {
-		t.Error("Should have errored trying to get non-existent subdomain")
-	} else if dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Error("wrong error for non-existent subdomain: ", dsErr)
+	appspace, err := model.GetFromSubdomain("foo")
+	if err != nil {
+		t.Error(err)
 	}
+	if appspace != nil {
+		t.Error("Should return nil trying to get non-existent subdomain")
+	}
+	// else if err.Code() != dserror.NoRowsInResultSet {
+	// 	t.Error("wrong error for non-existent subdomain: ", err)
+	// }
+	// TODO: add sentinel error?
 }
 
 func TestGetForOwner(t *testing.T) {
@@ -165,23 +169,23 @@ func TestGetForOwner(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, dsErr := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
-		if dsErr != nil {
-			t.Error(dsErr)
+		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
+		if err != nil {
+			t.Error(err)
 		}
 	}
 
-	appSpaces, dsErr := model.GetForOwner(7)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appSpaces, err := model.GetForOwner(7)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(appSpaces) != 3 {
 		t.Error("expected 3 appspaces")
 	}
 
-	appSpaces, dsErr = model.GetForOwner(1)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appSpaces, err = model.GetForOwner(1)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(appSpaces) != 0 {
 		t.Error("expected ZERO appspaces")
@@ -200,17 +204,19 @@ func TestCreateDupeSubdomain(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as789")
-	if dsErr == nil {
+	_, err = model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as789")
+	if err == nil {
 		t.Error("There should have been an error for duplicate subdomain")
-	} else if dsErr.Code() != dserror.DomainNotUnique {
-		t.Error("Wrong error", dsErr)
 	}
+	// else if err.Code() != dserror.DomainNotUnique {
+	// 	t.Error("Wrong error", err)
+	// }
+	// TODO add sentinel error?
 }
 
 //TODO: test dupe locationKey?
@@ -241,23 +247,23 @@ func TestGetForApp(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, dsErr := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
-		if dsErr != nil {
-			t.Error(dsErr)
+		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
+		if err != nil {
+			t.Error(err)
 		}
 	}
 
-	appSpaces, dsErr := model.GetForApp(6)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appSpaces, err := model.GetForApp(6)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(appSpaces) != 2 {
 		t.Error("expected 2 appspaces")
 	}
 
-	appSpaces, dsErr = model.GetForApp(1)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appSpaces, err = model.GetForApp(1)
+	if err != nil {
+		t.Error(err)
 	}
 	if len(appSpaces) != 0 {
 		t.Error("expected ZERO appspaces")
@@ -282,19 +288,19 @@ func TestPause(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
-	dsErr = model.Pause(appspace.AppspaceID, true)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = model.Pause(appspace.AppspaceID, true)
+	if err != nil {
+		t.Error(err)
 	}
 
-	appspace, dsErr = model.GetFromID(appspace.AppspaceID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err = model.GetFromID(appspace.AppspaceID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	if !appspace.Paused {
@@ -315,19 +321,19 @@ func TestSetVersion(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, dsErr := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	if err != nil {
+		t.Error(err)
 	}
 
-	dsErr = model.SetVersion(appspace.AppspaceID, domain.Version("0.0.2"))
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = model.SetVersion(appspace.AppspaceID, domain.Version("0.0.2"))
+	if err != nil {
+		t.Error(err)
 	}
 
-	appspace, dsErr = model.GetFromID(appspace.AppspaceID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	appspace, err = model.GetFromID(appspace.AppspaceID)
+	if err != nil {
+		t.Error(err)
 	}
 	if appspace.AppVersion != domain.Version("0.0.2") {
 		t.Error("appspace version incorrect")

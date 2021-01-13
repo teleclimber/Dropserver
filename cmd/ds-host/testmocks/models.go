@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
 
 // AppFilesModel represents the application's files saved to disk
 type AppFilesModel interface {
@@ -27,14 +27,19 @@ type AppModel interface {
 
 // AppspaceModel is the interface for the appspace model
 type AppspaceModel interface {
-	GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
-	GetFromSubdomain(string) (*domain.Appspace, domain.Error)
-	GetForOwner(domain.UserID) ([]*domain.Appspace, domain.Error)
-	GetForApp(domain.AppID) ([]*domain.Appspace, domain.Error)
-	GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, domain.Error)
-	Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, domain.Error)
-	Pause(domain.AppspaceID, bool) domain.Error
-	SetVersion(domain.AppspaceID, domain.Version) domain.Error
+	GetFromID(domain.AppspaceID) (*domain.Appspace, error)
+	GetFromSubdomain(string) (*domain.Appspace, error)
+	GetForOwner(domain.UserID) ([]*domain.Appspace, error)
+	GetForApp(domain.AppID) ([]*domain.Appspace, error)
+	GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error)
+	Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, error)
+	Pause(domain.AppspaceID, bool) error
+	SetVersion(domain.AppspaceID, domain.Version) error
+}
+
+// AppspaceFilesModel manipulates data directories for appspaces
+type AppspaceFilesModel interface {
+	CreateLocation() (string, error)
 }
 
 // AppspaceInfoModels caches and dishes AppspaceInfoModels

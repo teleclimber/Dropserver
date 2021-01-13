@@ -7,7 +7,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // performs operations on appspace files
@@ -30,23 +29,23 @@ type AppspaceFilesModel struct {
 
 // CreateLocation creates a new location for an appspace
 // This will need more subtlety when we import appspace files ( don't create "files", for ex)
-func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
+func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 	err := os.MkdirAll(a.Config.Exec.AppspacesPath, 0766) // This base dir for all appspaces should probably be created at ds-host migration time
 	if err != nil {
 		a.getLogger("CreateLocation(), os.Mkdirall").AddNote(a.Config.Exec.AppspacesPath).Error(err)
-		return "", dserror.New(dserror.InternalError)
+		return "", err
 	}
 
 	appspacePath, err := ioutil.TempDir(a.Config.Exec.AppspacesPath, "as")
 	if err != nil {
 		a.getLogger("CreateLocation(), ioutil.TempDir").AddNote(a.Config.Exec.AppspacesPath).Error(err)
-		return "", dserror.New(dserror.InternalError)
+		return "", err
 	}
 
 	err = os.MkdirAll(filepath.Join(appspacePath, "files"), 0766)
 	if err != nil {
 		a.getLogger("CreateLocation(), os.Mkdirall for files").Error(err)
-		return "", dserror.New(dserror.InternalError)
+		return "", err
 	}
 
 	// Should we log when we create a location?
@@ -55,7 +54,7 @@ func (a *AppspaceFilesModel) CreateLocation() (string, domain.Error) {
 }
 
 // Delete removes the files from the system
-// func (a *AppspaceFilesModel) Delete(locationKey string) domain.Error {
+// func (a *AppspaceFilesModel) Delete(locationKey string) error {
 // 	if !a.locationKeyExists(locationKey) {
 // 		return nil //is that an error or do we consider this OK?
 // 	}

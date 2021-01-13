@@ -9,7 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // test ServeHTTP
@@ -51,7 +50,7 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(nil, dserror.New(dserror.NoRowsInResultSet))
+	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(nil, nil)
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
 

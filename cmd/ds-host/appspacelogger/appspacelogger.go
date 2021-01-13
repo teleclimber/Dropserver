@@ -29,7 +29,7 @@ type AppspaceLogger struct {
 		Send(domain.AppspaceLogEvent)
 	}
 	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, domain.Error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
 
 	Config *domain.RuntimeConfig
@@ -94,10 +94,10 @@ func (l *AppspaceLogger) getLogger(appspaceID domain.AppspaceID) (*logger, error
 
 	appspaceLogger, ok := l.loggers[appspaceID]
 	if !ok {
-		appspace, dsErr := l.AppspaceModel.GetFromID(appspaceID)
-		if dsErr != nil {
-			l.getHostLogger("AppspaceModel.GetFromID").Error(dsErr.ToStandard())
-			return nil, dsErr.ToStandard()
+		appspace, err := l.AppspaceModel.GetFromID(appspaceID)
+		if err != nil {
+			l.getHostLogger("AppspaceModel.GetFromID").Error(err)
+			return nil, err
 		}
 
 		logPath := filepath.Join(l.Config.Exec.AppspacesPath, appspace.LocationKey, "log.txt")
