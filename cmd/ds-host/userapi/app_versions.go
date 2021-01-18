@@ -72,7 +72,7 @@ func getAppVersionHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 	return func(res http.ResponseWriter, req *http.Request, rReq *jsonapirouter.RouterReq) jsonapirouter.Status {
 		auth := api.authenticateUser(res, req)
 		if !auth.Authenticated {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		appID, version, err := parseAppVersionID(rReq.URL.ResID)
@@ -84,7 +84,7 @@ func getAppVersionHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 			return jsonapirouter.NotFound // or is this OK with an empty data?
 		}
 		if app.OwnerID != auth.UserID {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 		appVersion, err := api.AppModel.GetVersion(appID, version)
 		if err != nil {
@@ -120,13 +120,13 @@ func getAppVersionsHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 	return func(res http.ResponseWriter, req *http.Request, rReq *jsonapirouter.RouterReq) jsonapirouter.Status {
 		auth := api.authenticateUser(res, req)
 		if !auth.Authenticated {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		filterLabel := rReq.URL.Params.FilterLabel
 		if filterLabel != "owner" { // wait shouldn't filter be filter=owner:1
 			//http.Error(res, "missing filter by owner", 403)
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 		// do different filters later,
 		// .. or allow unfiltered results for admin

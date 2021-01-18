@@ -21,7 +21,7 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
 			</svg>
 		</a>
-		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800">{{route.name}}</h1>
+		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800">{{getHead()}}</h1>
 
 		<div class="justify-self-end self-center pr-2">[user name]</div>
 	</header>
@@ -33,7 +33,6 @@ import {useRoute} from 'vue-router';
 
 import {openNav} from '../controllers/nav';
 
-
 export default defineComponent({
 	name: 'HeaderMain',
 	components: {
@@ -41,8 +40,17 @@ export default defineComponent({
 	},
 	setup() {
 		const route = useRoute();
+		function getHead() {
+			switch(route.name) {
+				case "home": return "Home";
+				case "apps": return "Apps";
+				case "appspaces": return "Appspaces";
+				case "manage-appspace": return "Manage Appspace";	// this should actually reflect the appspace name, or something like that.
+			}
+			return route.name;	// default
+		}
 		return {
-			route,
+			getHead,
 			openNav
 		}
 	}

@@ -47,6 +47,7 @@ type UserJSONAPI struct {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 		GetForOwner(userID domain.UserID) ([]*domain.Appspace, error)
 		GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error)
+		Pause(appspaceID domain.AppspaceID, pause bool) error
 	}
 	AppModel interface {
 		GetFromID(appID domain.AppID) (*domain.App, error)
@@ -70,6 +71,7 @@ func (api *UserJSONAPI) Init() {
 	api.router.AddLoader("appspaces", getAppspacesLoader(api))
 	api.router.GetCollection("appspaces", getAppspacesHandler(api))
 	api.router.GetResource("appspaces", getAppspaceHandler(api))
+	api.router.UpdateResource("appspaces", updateAppspaceHandler(api))
 
 	// api.router.GetRelated("appspaces", "app-version", api.getAppspaceAppVersion)
 	// api.router.GetRelationships("appspaces", "app-version", api.getAppspaceAppVersionRel)

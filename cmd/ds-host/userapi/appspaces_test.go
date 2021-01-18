@@ -64,3 +64,31 @@ func TestGetAppspacesRoute(t *testing.T) {
 
 	payloadContains(t, payload, "subdomain-one", "subdomain-two", "subdomain-three", "app-version-one", "app-version-three")
 }
+
+func TestPauseAppspaceRoute(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
+	authenticator.EXPECT().Authenticate(gomock.Any()).Return(domain.Authentication{Authenticated: true, UserID: ownerID}).Times(2)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspace1.AppspaceID).Return(&appspace1, nil).Times(2)
+	appspaceModel.EXPECT().Pause(appspace1.AppspaceID, true).Return(nil)
+	appspaceModel.EXPECT().Pause(appspace1.AppspaceID, false).Return(nil)
+
+	api := UserJSONAPI{
+		Auth:          authenticator,
+		AppspaceModel: appspaceModel,
+	}
+	api.Init()
+
+	resp, _ := apiReq(&api, "PATCH", "/appspaces/21", `{"data":{"id":"21","type":"appspaces","attributes":{"paused":true}}}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Error("expected code 200")
+	}
+
+	resp, _ = apiReq(&api, "PATCH", "/appspaces/21", `{"data":{"id":"21","type":"appspaces","attributes":{"paused":false}}}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Error("expected code 200")
+	}
+}

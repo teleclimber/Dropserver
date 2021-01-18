@@ -1,6 +1,11 @@
+import { ref, reactive } from 'vue';
+import type {Ref} from 'vue';
+
+import {get, patch} from '../controllers/userapi';
+import {Resource, DocumentBuilder} from '../utils/jsonapi_utils';
+import type {AppVersion} from './app_versions';
+
 // these are owner's appspaces, not remotes.
-import {ref, reactive} from 'vue';
-import axios from 'axios';
 
 // hierarchical data:
 // - appspaces (listing)
@@ -17,62 +22,75 @@ import axios from 'axios';
 // - data for these ids.
 //   ..here should be a preview
 
-type Appspace = {
-	appspace_id: number,
-	app_id: number,
-	app_version: string,
-	subdomain: string,
-	created_dt: Date,
-	paused: boolean,
+// from Go:
+// type Appspace struct {
+// 	ID         string    `json:"id" api:"appspaces"`
+// 	Subdomain  string    `json:"subdomain" api:"attr"`
+// 	Created    time.Time `json:"created_dt" api:"attr"`
+// 	Paused     bool      `json:"paused" api:"attr"`
+// 	AppVersion string    `json:"app_version" api:"rel,app_versions,appspaces"`
+// 	//Owner string `json:"owner" api:"rel,..`
+// }
+
+export class Appspace {
+	loaded = false;
+	id = 0;
+	subdomain = "";
+	created_dt = new Date();
+	paused = false;
+
+	// app_id: number,	// have to parse app_version string id: "3-1.1.1"
+	// app_version: string,
+	app_version?: AppVersion// should this just be an id, and we can ftch it from appversions collection when needed?
+
+	async fetch(id: number) {
+		const resp_data = await get('/appspaces/'+id+'?include=app_version');
+		this.setFromResource(new Resource(resp_data.data));
+	}
+	setFromResource(r :Resource) {
+		this.id = r.idNumber();
+		this.subdomain = r.attrString('subdomain');
+		this.created_dt = r.attrDate('created_dt');
+		this.paused = r.attrBool('paused');
+		this.loaded = true;
+	}
+	
+	// actions:
+	async setPause(pause :boolean) {
+		const id_str = this.id+''; 
+		const doc = new DocumentBuilder('appspaces', id_str);
+		doc.setAttr('paused', pause);
+		const data = patch('/appspaces/'+id_str, doc.getJSON());
+		this.paused = pause;
+	}
 }
 
+export function ReactiveAppspace() {
+	return reactive(new Appspace);
+}
 
-class Appspaces {
-	appspaces : Map<number,Appspace> = reactive(new Map());
-	all_loaded = ref(false);
+export class Appspaces {
+	as : Map<number,Appspace> = new Map();
 
-	async fetchAll() {
-		if( this.all_loaded.value ) return;
+	async fetchForOwner() {
+		const body_data = await get('/appspaces?include=app_version&filter=owner');
+		const data = <any[]>body_data.data;
 
-		let resp:any;
-		try {
-			resp = await axios.get( '/api/appspace' );
-		}
-		catch(e) {
-			// handle error
-			console.error(e, resp);
-		}
-
-		if( !resp || !resp.data || !resp.data.appspaces ) return;
-
-		// Since this is fetch all, reset the map completely.
-		this.appspaces.forEach((_, id)=> this.appspaces.delete(id));
-
-		const appspaces_resp = <Appspace[]>resp.data.appspaces ;
-		appspaces_resp.forEach(as => {
-			this.appspaces.set(Number(as.appspace_id), appspaceResp(as))
+		data.forEach(r => {
+			const resource = new Resource(r);
+			const appspace = new Appspace;
+			appspace.setFromResource(resource);
+			this.as.set(appspace.id, appspace);
 		});
-
-		this.all_loaded.value = true;
 	}
 
 	get asArray() : Appspace[] {
 		// maybe this should return an empty array if all_loaded === false
 		// Otherwise, some views might load some appspaces, then the appspace view will render a partial list.
-		if( this.all_loaded.value ) return Array.from(this.appspaces.values());
-		return [];
+		return Array.from(this.as.values());
 	}
 }
 
-function appspaceResp(data:any) :Appspace {
-	return {
-		appspace_id: Number(data.appspace_id),
-		app_id: Number(data.app_id),
-		app_version: data.app_version+'',
-		subdomain: data.subdomain+'',
-		paused: !!data.paused,
-		created_dt: new Date(data.created_dt)
-	}
+export function ReactiveAppspaces() {
+	return reactive(new Appspaces);
 }
-
-export default new Appspaces;

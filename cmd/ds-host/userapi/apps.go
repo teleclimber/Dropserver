@@ -39,7 +39,7 @@ func getAppHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 	return func(res http.ResponseWriter, req *http.Request, rReq *jsonapirouter.RouterReq) jsonapirouter.Status {
 		auth := api.authenticateUser(res, req)
 		if !auth.Authenticated {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		appIDInt, err := strconv.Atoi(rReq.URL.ResID)
@@ -49,7 +49,7 @@ func getAppHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 			return jsonapirouter.NotFound // or is this OK with an empty data?
 		}
 		if app.OwnerID != auth.UserID {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		apiApp := makeApp(*app)
@@ -80,12 +80,12 @@ func getAppsHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 	return func(res http.ResponseWriter, req *http.Request, rReq *jsonapirouter.RouterReq) jsonapirouter.Status {
 		auth := api.authenticateUser(res, req)
 		if !auth.Authenticated {
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		filterLabel := rReq.URL.Params.FilterLabel
 		if filterLabel != "owner" { // wait shouldn't filter be filter=owner:1
-			return jsonapirouter.Unauthorized
+			return jsonapirouter.Forbidden
 		}
 
 		apps, err := api.AppModel.GetForOwner(auth.UserID)

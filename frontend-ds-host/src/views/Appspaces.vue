@@ -1,28 +1,38 @@
 <template>
   <div>
 	
-	<div v-for="a in appspaces.asArray" :key="a.appspace_id">
-		<h2 class="text-xl">{{a.subdomain}}</h2>
-		<AppspaceApp :app_id="a.app_id" :version="a.app_version" />
-	
-	</div>
+	<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a">
+		
+	</AppspaceListItem>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
-import appspaces from '../models/appspaces';
+import { defineComponent, ref, reactive, onMounted } from 'vue';
 
+import axios from 'axios';
+import type {AxiosResponse} from 'axios';
+
+import { Resource } from '../utils/jsonapi_utils';
+
+import { ReactiveAppspaces } from '../models/appspaces';
+
+import AppspaceListItem from '../components/AppspaceListItem.vue';
 import AppspaceApp from './AppspaceApp.vue';
 
 export default defineComponent({
 	name: 'Appspaces',
 	components: {
-		AppspaceApp
+		AppspaceListItem
 	},
 	setup() {
-		appspaces.fetchAll();
+		const appspaces = ReactiveAppspaces();
+		onMounted( async () => {
+			await appspaces.fetchForOwner();
+		});
+		
 		return {appspaces}
 	}
 });
+
 </script>

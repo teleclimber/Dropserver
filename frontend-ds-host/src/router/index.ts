@@ -1,20 +1,25 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Home from '../views/Home.vue';
 import Appspaces from '../views/Appspaces.vue';
+import ManageAppspace from '../views/ManageAppspace.vue';
 import Apps from '../views/Apps.vue';
 
 const routes: Array<RouteRecordRaw> = [
 	{
 		path: '/',
-		name: 'Home',
+		name: 'home',
 		component: Home
 	},{
 		path: '/appspace',
-		name: 'Appspaces',
+		name: 'appspaces',
 		component: Appspaces
 	},{
+		path: '/appspace/:id',
+		name: 'manage-appspace',
+		component: ManageAppspace
+	},{
 		path: '/app',
-		name: 'Apps',
+		name: 'apps',
 		component: Apps
 	}
 ];

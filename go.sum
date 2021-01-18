@@ -141,6 +141,12 @@ github.com/teleclimber/jsonapirouter v0.0.0-20210112203741-2c15d5d1f22e h1:9eNFd
 github.com/teleclimber/jsonapirouter v0.0.0-20210112203741-2c15d5d1f22e/go.mod h1:5rcORtCjMY0DdERiQCqAZjneL9LuWlFU8EnZQNb6IUM=
 github.com/teleclimber/jsonapirouter v0.0.0-20210112232315-55577a6bd738 h1:PjHIW5EnTMFtrzWu7ZMp2xt/6sVKTFcK0eJS0DG9TX8=
 github.com/teleclimber/jsonapirouter v0.0.0-20210112232315-55577a6bd738/go.mod h1:5rcORtCjMY0DdERiQCqAZjneL9LuWlFU8EnZQNb6IUM=
+github.com/teleclimber/jsonapirouter v0.0.0-20210113175910-9af787d78263 h1:sal7pjR/Cxc5hp8fnJZVOL3OcZoXIpKm1T3V66/XR7k=
+github.com/teleclimber/jsonapirouter v0.0.0-20210113175910-9af787d78263/go.mod h1:5rcORtCjMY0DdERiQCqAZjneL9LuWlFU8EnZQNb6IUM=
+github.com/teleclimber/jsonapirouter v0.0.0-20210115173504-7e75ae7c4641 h1:Os/dzD2HKkjhJS6PuP9PSuvZ/Mg0jR/EYvVmiGJtDO8=
+github.com/teleclimber/jsonapirouter v0.0.0-20210115173504-7e75ae7c4641/go.mod h1:5rcORtCjMY0DdERiQCqAZjneL9LuWlFU8EnZQNb6IUM=
+github.com/teleclimber/jsonapirouter v0.0.0-20210115193858-5be11d606ba7 h1:143ONwbhboZphfH38y++NLB56se8D0+r68i/YV62NG8=
+github.com/teleclimber/jsonapirouter v0.0.0-20210115193858-5be11d606ba7/go.mod h1:5rcORtCjMY0DdERiQCqAZjneL9LuWlFU8EnZQNb6IUM=
 golang.org/x/crypto v0.0.0-20180904163835-0709b304e793/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 h1:DZhuSZLsGlFL4CmhA8BcRA0mnthyA/nZ00AqCUo7vHg=

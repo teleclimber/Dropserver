@@ -52,15 +52,18 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	head, _ := shiftpath.ShiftPath(routeData.URLTail)
+	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	switch head {
 	case "":
 		u.Views.UserHome(res)
 	case "admin":
 		u.Views.Admin(res)
-	//case "api": // should this be /user/api/ , or /api/user/ ... because there is also /admin/ api routes to contend with.
-	default:
+	case "api": // should this be /user/api/ , or /api/user/ ... because there is also /admin/ api routes to contend with.
+		// Temporary. jsonapi should support path prefixes some day.
+		req.URL.Path = tail
 		u.UserAPI.ServeHTTP(res, req)
+	default:
+		res.WriteHeader(http.StatusNotFound)
 		// Is this all the JSON API stuff?
 		// Uhm, should it be versioned???????
 		// head, tail = shiftpath.ShiftPath(tail)
