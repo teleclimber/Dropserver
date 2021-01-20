@@ -91,3 +91,35 @@ func TestGetAppsIncVersions(t *testing.T) {
 
 	payloadContains(t, payload, "app-one", "app-two", "app-version-one", "app-version-two")
 }
+
+// func TestGetAppsIncAppspaces(t *testing.T) {
+// 	mockCtrl := gomock.NewController(t)
+// 	defer mockCtrl.Finish()
+
+// 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
+// 	authenticator.EXPECT().Authenticate(gomock.Any()).Return(domain.Authentication{Authenticated: true, UserID: ownerID})
+
+// 	appModel := testmocks.NewMockAppModel(mockCtrl)
+// 	appModel.EXPECT().GetForOwner(ownerID).Return([]*domain.App{&app1, &app2}, nil)
+// 	appModel.EXPECT().GetVersionsForApp(appID1).Return([]*domain.AppVersion{&appVersion1, &appVersion2}, nil)
+// 	appModel.EXPECT().GetVersionsForApp(appID2).Return([]*domain.AppVersion{}, nil)
+
+// 	appspacemodel := testmocks.NewMockAppspaceModel(mockCtrl)
+// 	appspacemodel.EXPECT().GetForAppVersion(appVersion1.AppID, appVersion1.Version).Return([]*domain.Appspace{&appspace1, &appspace2}, nil)
+// 	appspacemodel.EXPECT().GetForAppVersion(appVersion2.AppID, appVersion2.Version).Return([]*domain.Appspace{}, nil)
+
+// 	api := UserJSONAPI{
+// 		Auth:          authenticator,
+// 		AppModel:      appModel,
+// 		AppspaceModel: appspacemodel,
+// 	}
+// 	api.Init()
+
+// 	resp, payload := apiReq(&api, "GET", "/apps?filter=owner&include=versions.appspaces", "")
+
+// 	if resp.StatusCode != http.StatusOK {
+// 		t.Errorf("expected code 200, got %v", resp.StatusCode)
+// 	}
+
+// 	payloadContains(t, payload, "app-one", "app-two", "app-version-one", "app-version-two", "subdomain-one", "subdomain-two")
+// }

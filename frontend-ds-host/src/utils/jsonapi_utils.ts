@@ -1,4 +1,14 @@
-
+// type Identifier = {
+// 	type: string,
+// 	id: string
+// }
+type RawDoc = {
+	data?: RawResource | RawResource[],	// or null?
+	errors?: any,	// doc must include one of data, errors, oro meta.
+	meta?: any,		// Will add those latter ones later.
+	links?: Links,
+	included?: RawResource[]
+}
 type Links = {
 	self?: string,
 	related?: string,
@@ -16,6 +26,29 @@ type RawResource = {
 	links?: Links,
 	meta?: {}
 }
+export class Document {
+	constructor( private raw:RawDoc) {
+
+	}
+	getResource() :Resource {
+		if( this.raw.data === undefined ) throw new Error("no data in document");
+		if( Array.isArray(this.raw.data) ) throw new Error("data is a collection");
+		return new Resource(this.raw.data);
+	}
+	getCollection() :Resource[] {
+		if( this.raw.data === undefined ) throw new Error("no data in document");
+		if( !Array.isArray(this.raw.data) ) throw new Error("data is not a collection");
+		return this.raw.data.map(raw => {
+			return new Resource(raw);
+		});
+	}
+	getIncluded(type:string, id:string) :Resource {
+		if( this.raw.included === undefined ) throw new Error("nothing included in document");
+		const raw_inc = this.raw.included.find((inc) => inc.type === type && inc.id === id );
+		if( raw_inc === undefined ) throw new Error("expected to find included resource.");
+		return new Resource(raw_inc);
+	}
+}
 
 export class Resource {
 	constructor(private raw:RawResource) {
@@ -32,6 +65,7 @@ export class Resource {
 		}
 		return num;
 	}
+	// might need a hasAttr, because we could be looking at just a type and id?
 	attr(attr_name : string) :any {
 		if( this.raw.attributes !== undefined ) {
 			return this.raw.attributes[attr_name];
@@ -64,6 +98,24 @@ export class Resource {
 			throw new Error(`attribute ${attr_name} is not a date string on resource`);
 		}
 		return new Date(s);
+	}
+
+	relOne(rel_name:string) : Resource {
+		if( this.raw.relationships === undefined || this.raw.relationships[rel_name] === undefined || this.raw.relationships[rel_name].data === undefined ) {
+			throw new Error('Unable to reutrn relationship '+rel_name);
+		}
+		return new Resource(this.raw.relationships[rel_name].data);		
+	}
+	relMany(rel_name:string) :Resource[] {
+		if( this.raw.relationships === undefined || this.raw.relationships[rel_name] === undefined || this.raw.relationships[rel_name].data === undefined ) {
+			throw new Error('Unable to reutrn relationship '+rel_name);
+		}
+		const rel = this.raw.relationships[rel_name].data;
+		if( !Array.isArray(rel) ) throw new Error("to many relationship not an array in doc "+rel_name);
+		
+		return rel.map(raw => {
+			return new Resource(raw);
+		});
 	}
 }
 

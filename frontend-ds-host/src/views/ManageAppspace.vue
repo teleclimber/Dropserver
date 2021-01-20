@@ -1,15 +1,16 @@
 <template>
-	<div>
+	<ViewWrap>
 		<h3>Manage appspace</h3>
 
 		<p>Subdomain: {{appspace.subdomain}}</p>
 		<p>Created {{appspace.created_dt.toLocaleString()}}</p>
+		<p>App: {{appspace.app_version.name}}, version: {{appspace.app_version.version}}</p>
 		<p>
 			<span v-if="pausing">Pausing...</span>
 			<button v-else-if="appspace.paused" @click.stop.prevent="unPause()">Un-Pause</button>
 			<button v-else @click.stop.prevent="pause()">Pause</button>
 		</p>
-	</div>
+	</ViewWrap>
 </template>
 
 <script lang="ts">
@@ -20,10 +21,12 @@ import { Resource } from '../utils/jsonapi_utils';
 
 import { ReactiveAppspace, Appspace } from '../models/appspaces';
 
+import ViewWrap from '../components/ViewWrap.vue';
+
 export default defineComponent({
 	name: 'ManageAppspace',
 	components: {
-		
+		ViewWrap
 	},
 	setup() {
 		const route = useRoute();

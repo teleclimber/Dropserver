@@ -1,28 +1,24 @@
 <template>
-  <div>
+  <ViewWrap>
 	
 	<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a">
 		
 	</AppspaceListItem>
-  </div>
+  </ViewWrap>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, reactive, onMounted } from 'vue';
 
-import axios from 'axios';
-import type {AxiosResponse} from 'axios';
-
-import { Resource } from '../utils/jsonapi_utils';
-
 import { ReactiveAppspaces } from '../models/appspaces';
 
+import ViewWrap from '../components/ViewWrap.vue';
 import AppspaceListItem from '../components/AppspaceListItem.vue';
-import AppspaceApp from './AppspaceApp.vue';
 
 export default defineComponent({
 	name: 'Appspaces',
 	components: {
+		ViewWrap,
 		AppspaceListItem
 	},
 	setup() {

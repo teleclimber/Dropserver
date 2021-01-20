@@ -93,6 +93,9 @@ func getAppsHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 			return jsonapirouter.Error // or is this OK with an empty data?
 		}
 
+		//includeVersions := jsonapirouter.IsIncluded(rReq.URL, "versions")
+		//incAppspaces := jsonapirouter.IsIncluded(rReq.URL, "versions.appspaces")
+
 		appsCol := api.router.NewCollection("apps")
 		for _, app := range apps {
 			apiApp := makeApp(*app)
@@ -104,9 +107,24 @@ func getAppsHandler(api *UserJSONAPI) jsonapirouter.JSONAPIRouteHandler {
 			apiApp.Versions = make([]string, len(appVersions))
 			for i, appV := range appVersions {
 				apiApp.Versions[i] = appVersionID(app.AppID, appV.Version)
-				rReq.Includes.HoldResource(wrapAppVersion(*appV))
-			}
+				apiAppV := makeAppVersion(*appV)
 
+				// then get appspaces, [if requested]
+				// Skip for now.
+				// if incAppspaces {
+				// 	appspaces, err := api.AppspaceModel.GetForAppVersion(appV.AppID, appV.Version)
+				// 	if err != nil {
+				// 		return jsonapirouter.Error
+				// 	}
+				// 	apiAppV.Appspaces = make([]string, len(appspaces))
+				// 	for j, appspace := range appspaces {
+				// 		apiAppV.Appspaces[j] = fmt.Sprint(appspace.AppspaceID)
+				// 		rReq.Includes.HoldResource(wrapAppspace(*appspace))
+				// 	}
+				// }
+
+				rReq.Includes.HoldResource(jsonapi.Wrap(apiAppV))
+			}
 			appsCol.Add(jsonapi.Wrap(apiApp))
 		}
 		rReq.Doc.Data = appsCol

@@ -1,5 +1,5 @@
 <template>
-	<main class="p-4">
+	<main class="md:p-6">
 		<slot></slot>
 	</main>
 </template>
