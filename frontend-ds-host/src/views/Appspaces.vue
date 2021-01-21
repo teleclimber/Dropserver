@@ -2,7 +2,7 @@
   <ViewWrap>
 	
 	<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a">
-		
+				
 	</AppspaceListItem>
   </ViewWrap>
 </template>

@@ -2,6 +2,8 @@ package userroutes
 
 // This may no longer be reelevant. We are not generating TS types.
 
+// Indeed , move relevant types to be close to where they are used.
+
 import (
 	"time"
 
@@ -46,25 +48,6 @@ type PostSettingsReq struct {
 }
 
 ////// App Routes:
-
-// GetAppsResp is
-type GetAppsResp struct {
-	Apps []ApplicationMeta `json:"apps"`
-}
-
-// don't we need PostAppReq?
-
-// PostAppResp is response to creating an application
-type PostAppResp struct {
-	AppMeta ApplicationMeta `json:"app_meta"`
-}
-
-// don't we need post version req?
-
-// PostVersionResp is
-type PostVersionResp struct {
-	VersionMeta VersionMeta `json:"version_meta"`
-}
 
 ////// Appspace Routes:
 
@@ -134,22 +117,6 @@ type UserData struct {
 	Email   string `json:"email"`
 	UserID  int    `json:"user_id"`
 	IsAdmin bool   `json:"is_admin"`
-}
-
-// ApplicationMeta is an application's metadata
-type ApplicationMeta struct {
-	AppID    int           `json:"app_id"`
-	AppName  string        `json:"app_name"`
-	Created  time.Time     `json:"created_dt"`
-	Versions []VersionMeta `json:"versions"`
-}
-
-// VersionMeta is for listing versions of application code
-type VersionMeta struct {
-	AppName string         `json:"app_name"`
-	Version domain.Version `json:"version"`
-	Schema  int            `json:"schema"`
-	Created time.Time      `json:"created_dt"`
 }
 
 //AppspaceMeta is

@@ -58,41 +58,30 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		u.Views.UserHome(res)
 	case "admin":
 		u.Views.Admin(res)
-	case "api": // should this be /user/api/ , or /api/user/ ... because there is also /admin/ api routes to contend with.
-		// Temporary. jsonapi should support path prefixes some day.
-		req.URL.Path = tail
-		u.UserAPI.ServeHTTP(res, req)
+	case "api":
+		head, tail = shiftpath.ShiftPath(tail)
+		routeData.URLTail = tail
+		switch head {
+		case "admin":
+			u.AdminRoutes.ServeHTTP(res, req, routeData)
+		case "user":
+			switch req.Method {
+			case http.MethodGet:
+				u.getUserData(res, req, routeData)
+			case http.MethodPatch:
+				u.setUserData(res, req, routeData)
+			default:
+				res.WriteHeader(http.StatusNotFound)
+			}
+		case "application":
+			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
+		case "appspace":
+			u.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		default:
+			http.Error(res, head+" not implemented", http.StatusNotImplemented)
+		}
 	default:
 		res.WriteHeader(http.StatusNotFound)
-		// Is this all the JSON API stuff?
-		// Uhm, should it be versioned???????
-		// head, tail = shiftpath.ShiftPath(tail)
-		// routeData.URLTail = tail
-		// switch head {
-		// case "admin": // this is /api/admin/
-		// 	u.AdminRoutes.ServeHTTP(res, req, routeData)
-		// case "user": // /api/user/
-		// 	switch req.Method {
-		// 	case http.MethodGet:
-		// 		u.getUserData(res, req, routeData)
-		// 	case http.MethodPatch:
-		// 		u.setUserData(res, req, routeData)
-		// 	default:
-		// 		res.WriteHeader(http.StatusNotFound)
-		// 	}
-		// case "application":
-		// 	u.ApplicationRoutes.ServeHTTP(res, req, routeData)
-		// case "appspace":
-		// 	u.AppspaceRoutes.ServeHTTP(res, req, routeData)
-		// default:
-		// 	http.Error(res, head+" not implemented", http.StatusNotImplemented)
-		// }
-		//case "....":
-		// There will be other pages.
-		// I suspect "manage applications" will be its own page
-		// It's possible "/" page is more summary, and /appspaces will be its own page.
-		// default:
-		// 	res.WriteHeader(http.StatusNotFound)
 	}
 }
 

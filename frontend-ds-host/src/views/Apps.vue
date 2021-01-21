@@ -1,6 +1,6 @@
 <template>
 	<ViewWrap>
-		<AppListItem v-for="app in apps.apps" :key="app.app_id" :app="app"></AppListItem>
+		<AppListItem v-for="app in apps.asArray" :key="app.app_id" :app="app"></AppListItem>
 		
 	</ViewWrap>
 </template>

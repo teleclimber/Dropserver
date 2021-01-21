@@ -7,11 +7,55 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
+
+// GetAppsResp is
+type GetAppsResp struct {
+	Apps []ApplicationMeta `json:"apps"`
+}
+
+// don't we need PostAppReq?
+
+// PostAppResp is response to creating an application
+type PostAppResp struct {
+	AppMeta ApplicationMeta `json:"app_meta"`
+}
+
+// don't we need post version req?
+
+// PostVersionResp is
+type PostVersionResp struct {
+	VersionMeta VersionMeta `json:"version_meta"`
+}
+
+// ApplicationMeta is an application's metadata
+type ApplicationMeta struct {
+	AppID    int           `json:"app_id"`
+	AppName  string        `json:"name"`
+	Created  time.Time     `json:"created_dt"`
+	Versions []VersionMeta `json:"versions"`
+}
+
+// VersionMeta is for listing versions of application code
+type VersionMeta struct {
+	AppID      domain.AppID      `json:"app_id"`
+	AppName    string            `json:"app_name"`
+	Version    domain.Version    `json:"version"`
+	APIVersion domain.APIVersion `json:"api_version"`
+	Schema     int               `json:"schema"`
+	Created    time.Time         `json:"created_dt"`
+}
+
+// Versions should be embedded in application meta?
+type Versions struct {
+	AppVersions []VersionMeta `json:"app_versions"`
+}
 
 var errBadRequest = errors.New("bad request")
 var errUnauthorized = errors.New("unauthorized")
@@ -65,7 +109,7 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	if app == nil {
 		switch method {
 		case http.MethodGet:
-			a.getAllApplications(res, req, routeData)
+			a.getApplications(res, req, routeData)
 		case http.MethodPost:
 			a.postNewApplication(res, req, routeData)
 		default:
@@ -95,6 +139,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 				}
 			} else {
 				switch req.Method {
+				case http.MethodGet:
+					a.getVersion(res, version)
 				case http.MethodDelete:
 					a.deleteVersion(res, version)
 				default:
@@ -107,6 +153,16 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	}
 }
 
+func (a *ApplicationRoutes) getApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	query := req.URL.Query()
+	_, ok := query["app-version"]
+	if ok {
+		a.getAppVersions(res, req, routeData)
+	} else {
+		a.getAllApplications(res, req, routeData)
+	}
+}
+
 func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	apps, err := a.AppModel.GetForOwner(routeData.Authentication.UserID)
 	if err != nil {
@@ -115,30 +171,21 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 	}
 
 	respData := GetAppsResp{
-		Apps: make([]ApplicationMeta, 0)}
+		Apps: make([]ApplicationMeta, len(apps))}
 
 	fail := false
-	for _, app := range apps {
+	for i, app := range apps {
+		appResp := makeAppResp(*app)
 		appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
 		if err != nil {
 			fail = true
 			break
 		}
-
-		verResp := make([]VersionMeta, 0)
-		for _, appVersion := range appVersions {
-			verResp = append(verResp, VersionMeta{
-				AppName: appVersion.AppName,
-				Version: appVersion.Version,
-				Schema:  appVersion.Schema,
-				Created: appVersion.Created})
+		appResp.Versions = make([]VersionMeta, len(appVersions))
+		for j, appVersion := range appVersions {
+			appResp.Versions[j] = makeAppVersionResp(*appVersion)
 		}
-
-		respData.Apps = append(respData.Apps, ApplicationMeta{
-			AppID:    int(app.AppID),
-			AppName:  app.Name,
-			Created:  app.Created,
-			Versions: verResp})
+		respData.Apps[i] = appResp
 	}
 
 	if fail {
@@ -146,15 +193,46 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 		return
 	}
 
-	respJSON, err := json.Marshal(respData)
-	if err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+	writeJSON(res, respData)
+}
+
+func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	// check query string
+	query := req.URL.Query()
+	appVerionIDs, ok := query["app-version"]
+	if ok {
+		respData := Versions{
+			AppVersions: make([]VersionMeta, len(appVerionIDs))}
+
+		for i, id := range appVerionIDs {
+			appID, version, err := parseAppVersionID(id)
+			if err != nil {
+				http.Error(res, "bad app version id", http.StatusBadRequest)
+				return
+			}
+			// first get the app to ensure owner is legit
+			app, err := a.AppModel.GetFromID(appID)
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if app.OwnerID != routeData.Authentication.UserID {
+				http.Error(res, "app version not owned by user", http.StatusForbidden)
+				return
+			}
+			appVersion, err := a.AppModel.GetVersion(appID, version)
+			if err != nil {
+				http.Error(res, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			respData.AppVersions[i] = makeAppVersionResp(*appVersion)
+		}
+
+		writeJSON(res, respData)
 		return
 	}
-
-	res.Header().Set("Content-Type", "application/json")
-	res.Write(respJSON)
-
+	http.Error(res, "query params not supported", http.StatusNotImplemented)
 }
 
 // postNewApplication is for Post with no app-id
@@ -295,6 +373,18 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 	return &fileData
 }
 
+func (a *ApplicationRoutes) getVersion(res http.ResponseWriter, appVersion *domain.AppVersion) {
+	respData := VersionMeta{
+		AppID:      appVersion.AppID,
+		AppName:    appVersion.AppName,
+		Version:    appVersion.Version,
+		Schema:     appVersion.Schema,
+		APIVersion: appVersion.APIVersion,
+		Created:    appVersion.Created}
+
+	writeJSON(res, respData)
+}
+
 func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *domain.AppVersion) {
 	appspaces, err := a.AppspaceModel.GetForApp(version.AppID)
 	if err != nil {
@@ -367,6 +457,46 @@ func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteDa
 	}
 
 	return version, nil
+}
+
+func parseAppVersionID(id string) (appID domain.AppID, version domain.Version, err error) {
+	pieces := strings.SplitN(id, "-", 2)
+	if len(pieces) != 2 {
+		err = errors.New("invalid id string for app version")
+		return
+	}
+	IDint, err := strconv.Atoi(pieces[0])
+	if err != nil {
+		return
+	}
+	appID = domain.AppID(IDint)
+
+	if len(pieces[1]) == 0 {
+		err = errors.New("invalid version string for app version")
+	}
+	if len(pieces[1]) > 20 { // 20 should be enough for even complex versions?
+		err = errors.New("invalid version string for app version")
+	}
+	version = domain.Version(pieces[1])
+
+	return
+}
+
+func makeAppResp(app domain.App) ApplicationMeta {
+	return ApplicationMeta{
+		AppID:   int(app.AppID),
+		AppName: app.Name,
+		Created: app.Created}
+}
+
+func makeAppVersionResp(appVersion domain.AppVersion) VersionMeta {
+	return VersionMeta{
+		AppID:      appVersion.AppID,
+		AppName:    appVersion.AppName,
+		Version:    appVersion.Version,
+		Schema:     appVersion.Schema,
+		APIVersion: appVersion.APIVersion,
+		Created:    appVersion.Created}
 }
 
 func (a *ApplicationRoutes) getLogger(note string) *record.DsLogger {

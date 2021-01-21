@@ -43,11 +43,29 @@ export async function get(path :string) :Promise<any> {	// string for now, we ca
 
 }
 
-export async function patch(path:string, json:string) :Promise<any> {
+export async function patch(path:string, data:any) :Promise<any> {
 
 	let resp:AxiosResponse;
 	try {
-		resp = await ax.patch( path_prefix + path, json, options );
+		resp = await ax.patch( path_prefix + path, data, options );
+	}
+	catch(e) {
+		// handle error
+		console.error(e);
+		return;
+	}
+
+	// if 401 then notify page user needs to log in.
+
+	return resp.data;
+}
+
+
+export async function post(path:string, data:any) :Promise<any> {
+
+	let resp:AxiosResponse;
+	try {
+		resp = await ax.post( path_prefix + path, data, options );
 	}
 	catch(e) {
 		// handle error

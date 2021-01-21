@@ -67,6 +67,8 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		routeData.URLTail = tail
 
 		switch head {
+		case "":
+			a.getAppspace(res, req, routeData, appspace)
 		case "pause":
 			a.changeAppspacePause(res, req, routeData, appspace)
 		case "version":
@@ -75,6 +77,18 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			http.Error(res, "", http.StatusNotImplemented)
 		}
 	}
+}
+
+func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+	respData := AppspaceMeta{
+		AppspaceID: int(appspace.AppspaceID),
+		AppID:      int(appspace.AppID),
+		AppVersion: appspace.AppVersion,
+		Subdomain:  appspace.Subdomain, // yeah, subdomain versus name. Gonna need to do some work here.
+		Paused:     appspace.Paused,
+		Created:    appspace.Created}
+
+	writeJSON(res, respData)
 }
 
 func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
