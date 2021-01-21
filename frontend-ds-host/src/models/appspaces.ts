@@ -1,7 +1,6 @@
 import { reactive } from 'vue';
 
 import {get, post} from '../controllers/userapi';
-import {Document, Resource, DocumentBuilder} from '../utils/jsonapi_utils';
 
 // these are owner's appspaces, not remotes.
 

@@ -17,8 +17,6 @@
 import {useRoute} from 'vue-router';
 import { defineComponent, ref, reactive, onMounted } from 'vue';
 
-import { Resource } from '../utils/jsonapi_utils';
-
 import { ReactiveAppspace, Appspace } from '../models/appspaces';
 import { AppVersion, AppVersionCollector } from '../models/app_versions';
 

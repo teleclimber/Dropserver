@@ -35,7 +35,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
-	"github.com/teleclimber/DropServer/cmd/ds-host/userapi"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
@@ -222,14 +221,6 @@ func main() {
 	appspaceLogin := &appspacelogin.AppspaceLogin{}
 	appspaceLogin.Start()
 
-	// USER JSON:API
-	userAPI := &userapi.UserJSONAPI{
-		Auth:          authenticator,
-		AppspaceModel: appspaceModel,
-		AppModel:      appModel,
-	}
-	userAPI.Init()
-
 	liveDataRoutes := &userroutes.LiveDataRoutes{
 		//JobController:     migrationJobCtl,
 		MigrationJobModel: migrationJobModel,
@@ -332,7 +323,6 @@ func main() {
 		AppModel:               appModel}
 
 	userRoutes := &userroutes.UserRoutes{
-		UserAPI:           userAPI,
 		AuthRoutes:        authRoutes,
 		AdminRoutes:       adminRoutes,
 		ApplicationRoutes: applicationRoutes,
