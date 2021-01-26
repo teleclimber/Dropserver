@@ -56,13 +56,6 @@ type GetAppspacesResp struct {
 	Appspaces []AppspaceMeta `json:"appspaces"`
 }
 
-// PostAppspaceReq is
-// TODO: this one should be an interface only
-type PostAppspaceReq struct {
-	AppID   domain.AppID   `json:"app_id"`
-	Version domain.Version `json:"version"`
-}
-
 // PostAppspaceResp is
 type PostAppspaceResp struct {
 	JobID        domain.JobID `json:"job_id"`

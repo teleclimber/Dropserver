@@ -126,15 +126,15 @@ func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, ro
 
 func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	reqData := &PostSettingsReq{}
-	dsErr := readJSON(req, reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := readJSON(req, reqData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// gotta validate the fields that aren't bool.
 
-	dsErr = a.SettingsModel.Set(&reqData.Settings)
+	dsErr := a.SettingsModel.Set(&reqData.Settings)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 	}
@@ -171,13 +171,13 @@ func (a *AdminRoutes) getInvitations(res http.ResponseWriter, req *http.Request,
 
 func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	reqData := &AdminPostUserInvitationReq{}
-	dsErr := readJSON(req, reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := readJSON(req, reqData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	dsErr = a.Validator.Email(reqData.UserInvitation.Email)
+	dsErr := a.Validator.Email(reqData.UserInvitation.Email)
 	if dsErr != nil {
 		http.Error(res, "email validation error: "+dsErr.PublicString(), http.StatusBadRequest)
 		return

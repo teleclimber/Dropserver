@@ -21,9 +21,9 @@ func TestReadJson(t *testing.T) {
 
 	d := &testData{}
 
-	dsErr := readJSON(req, d)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = readJSON(req, d)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if d.Foo != "lol" {

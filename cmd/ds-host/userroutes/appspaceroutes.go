@@ -145,11 +145,17 @@ const charset = "abcdefghijklmnopqrstuvwxyz"
 var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
+// PostAppspaceReq is
+type PostAppspaceReq struct {
+	AppID   domain.AppID   `json:"app_id"`
+	Version domain.Version `json:"version"`
+}
+
 func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	reqData := &PostAppspaceReq{}
-	dsErr := readJSON(req, reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := readJSON(req, reqData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -229,13 +235,13 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	}
 
 	reqData := PostAppspacePauseReq{}
-	dsErr := readJSON(req, &reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := readJSON(req, &reqData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	err := a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
+	err = a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
 	if err != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
@@ -251,15 +257,15 @@ func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *htt
 	}
 
 	reqData := PostAppspaceVersionReq{}
-	dsErr := readJSON(req, &reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err := readJSON(req, &reqData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
 
-	_, err := a.AppModel.GetVersion(appspace.AppID, reqData.Version)
+	_, err = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
 	if err != nil {
 		http.Error(res, err.Error(), 500)
 		return

@@ -4,20 +4,17 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
-func readJSON(req *http.Request, data interface{}) domain.Error {
+func readJSON(req *http.Request, data interface{}) error {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	err = json.Unmarshal(body, data)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	return nil
