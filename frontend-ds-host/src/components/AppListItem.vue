@@ -5,6 +5,7 @@
 		<ul>
 			<li v-for="ver in app.versions" :key="ver.version">{{ver.version}} created {{ver.created_dt.toLocaleString()}}</li>
 		</ul>
+		<p><router-link :to="{name: 'manage-app', params:{id:app.app_id}}">Manage</router-link></p>
 	</div>
 </template>
 

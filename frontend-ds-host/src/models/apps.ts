@@ -1,5 +1,5 @@
 import {reactive} from 'vue';
-import {get} from '../controllers/userapi';
+import {get, post} from '../controllers/userapi';
 
 import {AppVersion} from './app_versions';
 
@@ -22,7 +22,10 @@ export class App {
 
 	versions : AppVersion[] = [];	// wondering if thous should be some sort of collection, so that it can be sorted, filtered, etc...
 
-	// fetch()...
+	async fetch(app_id: number) {
+		const resp_data = await get('/application/'+app_id);
+		this.setFromRaw(resp_data);
+	}
 	setFromRaw(raw :any) {
 		this.app_id = Number(raw.app_id);
 		this.name = raw.name + '';
@@ -64,138 +67,58 @@ export function ReactiveApps() {
 }
 
 
-// enum LoadStatus {
-// 	Needed,
-// 	Loading,
-// 	Loaded
-// }
+export type SelectedFile = {
+	file: File,
+	rel_path: string
+}
 
-// // not 100% sure we need a collector here?
-// class ACollector {
-// 	apps : Map<number,App> = new Map();
-// 	status: Map<number, LoadStatus> = new Map();
+// NewAppVersionResp is returned by the server when it reads the contents of a new app code
+// (whether it's a new version or an all new app).
+// It returns any errors / problems found in the files, and the app version data if passable.
+export type UploadVersionResp = {
+	key: string, // key is used to commit the uploaded files to their "destination" (new app, new app version)
+	prev_version: string,
+	next_version: string,
+	errors?: string[],	// maybe array of strings?
+	version_metadata?: AppVersion
+}
 
-// 	load_counter = 0;
-// 	load_timeout = 0;
+// upload new application sends the files to backend for temporary storage.
+export async function uploadNewApplication(selected_files: SelectedFile[]): Promise<UploadVersionResp> {
+	const form_data = new FormData();
+	selected_files.forEach((sf)=> {
+		form_data.append( 'app_dir', sf.file, sf.rel_path );
+	});
 
-// 	get(app_id: number) :App {
-// 		let app = this.apps.get(app_id);
-// 		if( app !== undefined ) return app;
-		
-// 		app = reactive(new App);
-// 		app.app_id = app_id;
-		
-// 		this.apps.set(app_id, app);
-// 		this.status.set(app_id, LoadStatus.Needed);
-		
-// 		this.touch();
+	const resp_data = await post('/application', form_data);
+	const resp = <UploadVersionResp>resp_data;
 
-// 		return app;
-// 	}
-// 	touch() {
-// 		window.clearTimeout(this.load_timeout);
-// 		this.load_timeout = window.setTimeout(() => {
-// 			this.loadNeeded();
-// 		}, 200);
-// 	}
-// 	async loadNeeded() {
-// 		console.log("loading app versions");
-		
-// 		const needed : string[] = [];
-// 		this.status.forEach((status, id) => {
-// 			if( status === LoadStatus.Needed ) {
-// 				needed.push('id='+encodeURIComponent(id));
-// 				this.status.set(id, LoadStatus.Loading);
-// 			}
-// 		});
+	return resp;
+}
 
-// 		if( needed.length ) {
-// 			const resp_data = await get('/application/?'+needed.join('&'));
-// 			resp_data.app_versions.forEach((raw:any) =>{
-// 				const id_string = idString(Number(raw.app_id), raw.version);
-// 				const av = this.avs.get(id_string);
-// 				if( av === undefined ) throw new Error("app version undefined after loading due to need.");
-// 				av.setFromRaw(raw);
-// 				this.status.set(id_string, LoadStatus.Loaded);
-// 			});
-// 		}
-// 	}
+export async function commitNewApplication(key:string): Promise<App> {
+	const resp_data = await post('/application?key='+key, undefined);
+	const app = new App;
+	app.setFromRaw(resp_data);
+	return app;
+}
 
+export async function uploadNewAppVersion(app_id:number, selected_files: SelectedFile[]): Promise<UploadVersionResp> {
+	const form_data = new FormData();
+	selected_files.forEach((sf)=> {
+		form_data.append( 'app_dir', sf.file, sf.rel_path );
+	});
 
-// }
+	const resp_data = await post('/application/'+app_id+'/version', form_data);
+	const resp = <UploadVersionResp>resp_data;
 
-// export class Apps {
+	return resp;
+}
 
-// 	apps : App[] = []
+export async function commitNewAppVersion(app_id:number, key:string): Promise<App> {
+	const resp_data = await post('/application/'+app_id+'/version?key='+key, undefined);
+	const app = new App;
+	app.setFromRaw(resp_data);
+	return app;
+}
 
-// 	async fetchForOwner() {
-// 		const resp_data = await get('/apps?include=versions&filter=owner');
-// 		const doc = new Document(resp_data);
-// 		this.apps = doc.getCollection().map(res => {
-// 			const app = new App;
-// 			app.setFromResource(res);
-
-// 			// const app_version_rels = res.relMany('versions');
-// 			// app.versions = app_version_rels.map(res => {
-// 			// 	const app_version = new AppVersion;
-// 			// 	const inc_res = doc.getIncluded('app_versions', res.idString());
-// 			// 	console.log("res / incres", res, inc_res);
-// 			// 	app_version.setFromResource(inc_res);
-// 			// 	return app_version;
-// 			// });
-			
-			
-// 			return app;
-// 		});
-// 	}
-// }
-
-// export function ReactiveApps() {
-// 	return reactive(new Apps);
-// }
-
-
-// type AppVersion = {
-// 	loading: true,	// could also do some sort of embedded type or whatever, if we want to expand on the concept.
-// 	app_name: string,
-// 	version: string,
-// 	schema: number,
-// 	created_dt: Date,
-// }
-
-// class AppVersions {
-// 	apps_versions: Map<number,Map<string,AppVersion>> = reactive(new Map());
-
-// 	getAppVersion(app_id:number, version:string) :AppVersion {
-// 		const app_versions = this.apps_versions.get(app_id);
-// 		if( app_versions !== undefined ) {
-// 			const app_version = app_versions.get(version);
-// 			if( app_version !== undefined ) return app_version;
-// 		}
-
-// 		return this.setAppVersion(app_id, version, {
-// 			loading: true,
-// 			app_name: '',
-// 			version: 'x.x.x',
-// 			created_dt: new Date(),
-// 			schema: 0
-// 		});
-// 	}
-
-// 	setAppVersion(app_id:number, version:string, av:AppVersion) :AppVersion {
-// 		let app_versions = this.apps_versions.get(app_id);
-// 		if( app_versions === undefined ) this.apps_versions.set(app_id, new Map);
-// 		app_versions = <Map<string,AppVersion>>this.apps_versions.get(app_id);
-// 		if( app_versions.has(version) ) {
-// 			// merge new data in
-// 			const app_version = app_versions.get(version);
-// 			Object.assign(app_version, av);
-// 		}
-// 		else {
-// 			app_versions.set(version, av);
-// 		}
-// 		return <AppVersion>app_versions.get(version);
-// 	}
-// }
-
-// export const app_versions = new AppVersions();

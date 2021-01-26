@@ -84,14 +84,14 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "dropapp.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
-		// here the error might be that application.json is not in app?
+		// here the error might be that dropapp.json is not in app?
 		// Or it could be a more internal problem, like directory of apps not where it's expected to be.
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
 			a.getLogger(fmt.Sprintf("ReadMeta(), location key: %v", locationKey)).Error(err)
 			return nil, errors.New("Internal error reading app meta data")
 		}
-		return nil, errors.New("App config not found") // sentinel error?
+		return nil, domain.ErrAppConfigNotFound
 	}
 	defer jsonHandle.Close()
 
@@ -111,11 +111,6 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		return nil, err
 	}
 	meta.Migrations = mInts
-
-	err = validateAppMeta(meta)
-	if err != nil {
-		return nil, err
-	}
 
 	if len(mInts) == 0 {
 		meta.SchemaVersion = 0
@@ -157,32 +152,6 @@ func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, error) {
 	}
 
 	return &meta, nil
-}
-
-func validateAppMeta(meta *domain.AppFilesMetadata) error {
-	if meta.AppName == "" {
-		return errors.New("App config error: Name can not be blank")
-	}
-	if meta.AppVersion == "" {
-		return errors.New("App config error: Version can not be blank")
-	}
-
-	for i, p := range meta.UserPermissions {
-		if p.Key == "" {
-			return errors.New("Permission key can not be blank")
-		}
-		if i+1 < len(meta.UserPermissions) {
-			for _, p2 := range meta.UserPermissions[i+1:] {
-				if p.Key == p2.Key {
-					return errors.New("Duplicate permission key: " + p.Key)
-				}
-			}
-		}
-	}
-
-	// check that there is at least one migration level
-
-	return nil
 }
 
 func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err error) {

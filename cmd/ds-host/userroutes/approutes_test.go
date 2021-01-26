@@ -160,7 +160,10 @@ func TestExtractFiles(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	appRoutes := &ApplicationRoutes{}
-	fileData := appRoutes.extractFiles(req)
+	fileData, err := appRoutes.extractFiles(req)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if len(*fileData) != 2 {
 		t.Error("fileData should have 2 files", fileData)
@@ -189,7 +192,10 @@ func TestExtractFilesEmptyBody(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	appRoutes := &ApplicationRoutes{}
-	fileData := appRoutes.extractFiles(req)
+	fileData, err := appRoutes.extractFiles(req)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if len(*fileData) != 0 {
 		t.Error("filedata shouldbe zero length", fileData)
@@ -219,7 +225,10 @@ func TestExtractFilesEmptyFile(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	appRoutes := &ApplicationRoutes{}
-	fileData := appRoutes.extractFiles(req)
+	fileData, err := appRoutes.extractFiles(req)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if len(*fileData) != 1 {
 		t.Error("filedata should be have 1 file", fileData)

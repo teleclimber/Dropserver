@@ -1,5 +1,6 @@
 <template>
 	<ViewWrap>
+		<router-link to="new-app">Upload New App</router-link>
 		<AppListItem v-for="app in apps.asArray" :key="app.app_id" :app="app"></AppListItem>
 		
 	</ViewWrap>

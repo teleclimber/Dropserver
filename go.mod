@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/Storytel/gomock-matchers v1.2.0
+	github.com/blang/semver/v4 v4.0.0
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-playground/universal-translator v0.17.0 // indirect

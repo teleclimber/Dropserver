@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appgetter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
@@ -268,6 +269,12 @@ func main() {
 
 	m := record.Metrics{}
 
+	appGetter := &appgetter.AppGetter{
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+	}
+	appGetter.Init()
+
 	appspaceStatus := &appspacestatus.AppspaceStatus{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
@@ -310,6 +317,7 @@ func main() {
 		Validator:           validator}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
+		AppGetter:     appGetter,
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel}

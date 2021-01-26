@@ -60,51 +60,6 @@ func TestDecodeAppJSON(t *testing.T) {
 	}
 }
 
-func TestValidateAppMeta(t *testing.T) {
-	cases := []struct {
-		json string
-		err  bool
-	}{
-		{`{ "name":"blah", "version":"0.0.1" }`, false},
-		{`{ "version":"0.0.1" }`, true},
-		{`{ "name":"blah", "foo":"0.0.1" }`, true},
-	}
-
-	for _, c := range cases {
-		r := strings.NewReader(c.json)
-		meta, _ := decodeAppJSON(r)
-
-		err := validateAppMeta(meta)
-		hasErr := err != nil
-		if hasErr != c.err {
-			t.Error("error mismatch", meta, err)
-		}
-	}
-}
-
-func TestValidateUserPermissions(t *testing.T) {
-	cases := []struct {
-		json string
-		err  bool
-	}{
-		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}] }`, false},
-		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":""}] }`, true},
-		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}, {"key":"abc"}] }`, true},
-		{`{ "name":"blah", "version":"0.0.1", "user_permissions":[{"key":"abc"}, {"key":"def"}] }`, false},
-	}
-
-	for _, c := range cases {
-		r := strings.NewReader(c.json)
-		meta, _ := decodeAppJSON(r)
-
-		err := validateAppMeta(meta)
-		hasErr := err != nil
-		if hasErr != c.err {
-			t.Error("error mismatch", meta, err)
-		}
-	}
-}
-
 func TestSave(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

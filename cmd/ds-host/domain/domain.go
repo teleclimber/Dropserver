@@ -4,6 +4,7 @@ package domain
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -388,6 +389,17 @@ type AppVersion struct {
 	LocationKey string `db:"location_key"`
 }
 
+type AppGetKey string
+
+// AppGetMeta has app version data and any errors found in it
+type AppGetMeta struct {
+	Key             AppGetKey        `json:"key"`
+	PrevVersion     Version          `json:"prev_version"`
+	NextVersion     Version          `json:"next_version"`
+	Errors          []string         `json:"errors"`
+	VersionMetadata AppFilesMetadata `json:"version_metadata,omitempty"`
+}
+
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
 	OwnerID     UserID     `db:"owner_id"`
@@ -421,6 +433,9 @@ type AppFilesMetadata struct {
 	Migrations      []int                    `json:"migrations"`
 	UserPermissions []AppspaceUserPermission `json:"user_permissions"`
 }
+
+// ErrAppConfigNotFound means the application config (dropapp.json) file was not found
+var ErrAppConfigNotFound = errors.New("App config json not found")
 
 // V0AppspaceDBQuery is the structure expected when Posting a DB request
 type V0AppspaceDBQuery struct {

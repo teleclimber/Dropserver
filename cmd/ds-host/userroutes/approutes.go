@@ -2,7 +2,6 @@ package userroutes
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -18,20 +17,6 @@ import (
 // GetAppsResp is
 type GetAppsResp struct {
 	Apps []ApplicationMeta `json:"apps"`
-}
-
-// don't we need PostAppReq?
-
-// PostAppResp is response to creating an application
-type PostAppResp struct {
-	AppMeta ApplicationMeta `json:"app_meta"`
-}
-
-// don't we need post version req?
-
-// PostVersionResp is
-type PostVersionResp struct {
-	VersionMeta VersionMeta `json:"version_meta"`
 }
 
 // ApplicationMeta is an application's metadata
@@ -62,9 +47,14 @@ var errUnauthorized = errors.New("unauthorized")
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
+	AppGetter interface {
+		FromRaw(userID domain.UserID, fileData *map[string][]byte, appIDs ...domain.AppID) (domain.AppGetKey, error)
+		GetUser(key domain.AppGetKey) (domain.UserID, bool)
+		GetMetaData(domain.AppGetKey) (domain.AppGetMeta, error)
+		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
+		Delete(domain.AppGetKey)
+	}
 	AppFilesModel interface {
-		Save(*map[string][]byte) (string, error)
-		ReadMeta(string) (*domain.AppFilesMetadata, error)
 		Delete(string) error
 	}
 	AppModel interface {
@@ -72,18 +62,12 @@ type ApplicationRoutes struct {
 		GetForOwner(domain.UserID) ([]*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-		Create(domain.UserID, string) (*domain.App, error)
-		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
 		DeleteVersion(domain.AppID, domain.Version) error
 	}
 	AppspaceModel interface {
 		GetForApp(domain.AppID) ([]*domain.Appspace, error)
 	}
 }
-
-// post to / to create a new application even if only partially,
-// ..it gets an entry in DB along with an ID, which is returned with that first request.
-// Subsequent updates, finalizing, etc... all reference the id /:id/ and use patch or update.
 
 // ServeHTTP handles http traffic to the application routes
 // Namely upload, create new application, delete, ...
@@ -122,6 +106,8 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 		// delete application??
 
 		switch head {
+		case "":
+			a.getApplication(res, app)
 		case "version": // application/<app-id>/version/*
 			// get a version from path
 			version, err := a.getVersionFromPath(routeData, app.AppID)
@@ -153,6 +139,20 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 	}
 }
 
+func (a *ApplicationRoutes) getApplication(res http.ResponseWriter, app *domain.App) {
+	appResp := makeAppResp(*app)
+	appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	appResp.Versions = make([]VersionMeta, len(appVersions))
+	for j, appVersion := range appVersions {
+		appResp.Versions[j] = makeAppVersionResp(*appVersion)
+	}
+
+	writeJSON(res, appResp)
+}
 func (a *ApplicationRoutes) getApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	query := req.URL.Query()
 	_, ok := query["app-version"]
@@ -235,114 +235,75 @@ func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Re
 	http.Error(res, "query params not supported", http.StatusNotImplemented)
 }
 
+type NewAppResp struct {
+	App     domain.App        `json:"app"`
+	Version domain.AppVersion `json:"app_version"`
+}
+
 // postNewApplication is for Post with no app-id
 // if there are files attached send appfilesmodel(?) for storage,
-// ..then ask for files metadata.
-// Create DB row for application and return app-id.
+// ..then ask for files metadata, and return along with key.
+// if there are no files but there is a key, then create a new app with files found at key.
 func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	fileData := a.extractFiles(req)
-	if len(*fileData) > 0 {
-		locationKey, err := a.AppFilesModel.Save(fileData)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
+	query := req.URL.Query()
+	keys, ok := query["key"]
+	if ok && len(keys) == 1 {
+		appID, _, ok := a.commitKey(res, routeData, keys[0])
+		if !ok { // something went wrong. response sent.
 			return
 		}
-
-		filesMetadata, err := a.AppFilesModel.ReadMeta(locationKey)
+		app, err := a.AppModel.GetFromID(appID)
 		if err != nil {
-			http.Error(res, err.Error(), 500)
-
-			// delete the files? ..it really depends on the error.
-			return
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 		}
-
-		app, err := a.AppModel.Create(routeData.Authentication.UserID, filesMetadata.AppName)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
-			return
-		}
-
-		version, err := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
-			return
-		}
-
-		// Send back exact same thing we would send if doing a GET on applications.
-		respData := PostAppResp{
-			AppMeta: ApplicationMeta{
-				AppID:   int(app.AppID),
-				AppName: app.Name,
-				Created: app.Created,
-				Versions: []VersionMeta{{
-					Version: version.Version,
-					Schema:  version.Schema,
-					Created: version.Created}}}}
-
-		respJSON, err := json.Marshal(respData)
-		if err != nil {
-			res.WriteHeader(http.StatusInternalServerError)
-		}
-
-		res.Header().Set("Content-Type", "application/json")
-		res.Write(respJSON)
-
+		a.getApplication(res, app)
 	} else {
-		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)
+		a.handleFilesUpload(req, res, routeData)
 	}
 }
 
 func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	fileData := a.extractFiles(req)
-	if len(*fileData) > 0 {
-		locationKey, err := a.AppFilesModel.Save(fileData)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
+	query := req.URL.Query()
+	keys, ok := query["key"]
+	if ok && len(keys) == 1 {
+		appID, version, ok := a.commitKey(res, routeData, keys[0])
+		if !ok { // something went wrong. response sent.
 			return
 		}
-
-		filesMetadata, err := a.AppFilesModel.ReadMeta(locationKey)
+		appVersion, err := a.AppModel.GetVersion(appID, version)
 		if err != nil {
-			http.Error(res, err.Error(), 500)
-
-			// delete the files? ..it really depends on the error.
-			return
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 		}
-
-		// TODO: here we should check that this version is coherent with previously uploaded versions
-		// The frontend performs the checks, but we should repeat them at the backend and fail with bad request if violation is found?
-		// actual violations:
-		// - version exists
-		// - schema and versions don't add up
-		//.. that's it. Everything else is user's choice to break.
-		// "version exists" is enforced at DB level with an index.
-		// so just check versions and schemas.
-
-		version, err := a.AppModel.CreateVersion(app.AppID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, locationKey)
-		if err != nil {
-			http.Error(res, err.Error(), 500)
-			return
-		}
-
-		respData := PostVersionResp{ // actually might reuse createAppResp. ..to reflect uploaded data. Could callit uploadResp?
-			VersionMeta: VersionMeta{
-				Version: version.Version,
-				Schema:  version.Schema,
-				Created: version.Created}}
-
-		respJSON, err := json.Marshal(respData)
-		if err != nil {
-			res.WriteHeader(http.StatusInternalServerError) //...
-		}
-
-		res.Header().Set("Content-Type", "application/json")
-		res.Write(respJSON)
+		a.getVersion(res, appVersion)
 	} else {
-		http.Error(res, "Got a post but no file data found", http.StatusBadRequest)
+		a.handleFilesUpload(req, res, routeData, app.AppID)
 	}
 }
 
-func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
+func (a *ApplicationRoutes) handleFilesUpload(req *http.Request, res http.ResponseWriter, routeData *domain.AppspaceRouteData, appIDs ...domain.AppID) {
+	fileData, err := a.extractFiles(req)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+	}
+	if len(*fileData) == 0 {
+		http.Error(res, "no files in request", http.StatusBadRequest)
+	}
+	appGetKey, err := a.AppGetter.FromRaw(routeData.Authentication.UserID, fileData, appIDs...)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
+		return
+	}
+
+	fileMeta, err := a.AppGetter.GetMetaData(appGetKey)
+	if err != nil {
+		http.Error(res, err.Error(), 500)
+		return
+	}
+
+	writeJSON(res, fileMeta)
+}
+
+func (a *ApplicationRoutes) extractFiles(req *http.Request) (*map[string][]byte, error) {
 	fileData := map[string][]byte{}
 
 	// copied from http://sanatgersappa.blogspot.com/2013/03/handling-multiple-file-uploads-in-go.html
@@ -350,7 +311,7 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 	reader, err := req.MultipartReader()
 	if err != nil {
 		a.getLogger("extractFiles(), req.MultipartReader()").Error(err)
-		return &fileData
+		return &fileData, nil
 	}
 
 	for {
@@ -358,7 +319,7 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		if part.FileName() == "" {
@@ -370,7 +331,26 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) *map[string][]byte {
 		fileData[part.FileName()] = buf.Bytes()
 	}
 
-	return &fileData
+	return &fileData, nil
+}
+
+func (a *ApplicationRoutes) commitKey(res http.ResponseWriter, routeData *domain.AppspaceRouteData, key string) (domain.AppID, domain.Version, bool) {
+	// TODO basic validation on key
+	keyUser, ok := a.AppGetter.GetUser(domain.AppGetKey(key))
+	if !ok {
+		res.WriteHeader(http.StatusGone)
+		return domain.AppID(0), domain.Version(""), false
+	}
+	if keyUser != routeData.Authentication.UserID {
+		res.WriteHeader(http.StatusForbidden)
+		return domain.AppID(0), domain.Version(""), false
+	}
+	appID, appVersion, err := a.AppGetter.Commit(domain.AppGetKey(key))
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return domain.AppID(0), domain.Version(""), false
+	}
+	return appID, appVersion, true
 }
 
 func (a *ApplicationRoutes) getVersion(res http.ResponseWriter, appVersion *domain.AppVersion) {
