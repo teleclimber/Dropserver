@@ -47,31 +47,6 @@ type PostSettingsReq struct {
 	Settings domain.Settings `json:"settings"`
 }
 
-////// App Routes:
-
-////// Appspace Routes:
-
-// GetAppspacesResp is
-type GetAppspacesResp struct {
-	Appspaces []AppspaceMeta `json:"appspaces"`
-}
-
-// PostAppspaceResp is
-type PostAppspaceResp struct {
-	JobID        domain.JobID `json:"job_id"`
-	AppspaceMeta AppspaceMeta `json:"appspace"`
-}
-
-////// Auth Routes:
-
-////// User Routes:
-
-// PatchPasswordReq is
-// type PatchPasswordReq struct {
-// 	Old string `json:"old"`
-// 	New string `json:"new"`
-//}
-
 // Live data routes
 
 // GetStartLiveDataResp holds the token necessary to start a websocket upgraded conn
@@ -110,14 +85,4 @@ type UserData struct {
 	Email   string `json:"email"`
 	UserID  int    `json:"user_id"`
 	IsAdmin bool   `json:"is_admin"`
-}
-
-//AppspaceMeta is
-type AppspaceMeta struct {
-	AppspaceID int            `json:"appspace_id"`
-	AppID      int            `json:"app_id"`
-	AppVersion domain.Version `json:"app_version"`
-	Subdomain  string         `json:"subdomain"`
-	Created    time.Time      `json:"created_dt"`
-	Paused     bool           `json:"paused"`
 }

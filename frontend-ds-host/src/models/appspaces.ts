@@ -87,3 +87,8 @@ export class Appspaces {
 export function ReactiveAppspaces() {
 	return reactive(new Appspaces);
 }
+
+export async function createAppspace(app_id:number, app_version:string) :Promise<number> {
+	const resp_data = await post('/appspace', {app_id, app_version});
+	return Number(resp_data.appspace_id);
+}

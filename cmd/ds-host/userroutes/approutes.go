@@ -235,6 +235,7 @@ func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Re
 	http.Error(res, "query params not supported", http.StatusNotImplemented)
 }
 
+// NewAppResp returns the new app and nversion metadata
 type NewAppResp struct {
 	App     domain.App        `json:"app"`
 	Version domain.AppVersion `json:"app_version"`

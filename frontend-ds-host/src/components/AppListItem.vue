@@ -3,7 +3,10 @@
 		<h3>{{app.name}}</h3>
 		<p>Created: {{app.created_dt.toLocaleString()}}</p>
 		<ul>
-			<li v-for="ver in app.versions" :key="ver.version">{{ver.version}} created {{ver.created_dt.toLocaleString()}}</li>
+			<li v-for="ver in app.versions" :key="ver.version">
+				{{ver.version}} created {{ver.created_dt.toLocaleString()}}
+				<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:ver.version}}">Create Appspace</router-link>
+			</li>
 		</ul>
 		<p><router-link :to="{name: 'manage-app', params:{id:app.app_id}}">Manage</router-link></p>
 	</div>

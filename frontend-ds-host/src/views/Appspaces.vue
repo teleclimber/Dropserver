@@ -1,6 +1,7 @@
 <template>
   <ViewWrap>
-	
+	<router-link to="new-appspace">New Appspace</router-link>
+
 	<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a">
 				
 	</AppspaceListItem>

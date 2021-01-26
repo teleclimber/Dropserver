@@ -12,6 +12,16 @@ import (
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
+//AppspaceMeta is
+type AppspaceMeta struct {
+	AppspaceID int            `json:"appspace_id"`
+	AppID      int            `json:"app_id"`
+	AppVersion domain.Version `json:"app_version"`
+	Subdomain  string         `json:"subdomain"`
+	Created    time.Time      `json:"created_dt"`
+	Paused     bool           `json:"paused"`
+}
+
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
 	AppModel interface {
@@ -91,6 +101,11 @@ func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request,
 	writeJSON(res, respData)
 }
 
+// GetAppspacesResp is
+type GetAppspacesResp struct {
+	Appspaces []AppspaceMeta `json:"appspaces"`
+}
+
 func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	appspaces, err := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
 	if err != nil {
@@ -145,10 +160,15 @@ const charset = "abcdefghijklmnopqrstuvwxyz"
 var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-// PostAppspaceReq is
+// PostAppspaceReq is sent when creating a new appspace
 type PostAppspaceReq struct {
 	AppID   domain.AppID   `json:"app_id"`
-	Version domain.Version `json:"version"`
+	Version domain.Version `json:"app_version"`
+}
+
+//PostAppspaceResp is the return data after creating a new appspace
+type PostAppspaceResp struct {
+	AppspaceID domain.AppspaceID `json:"appspace_id"`
 }
 
 func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -164,20 +184,24 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	app, err := a.AppModel.GetFromID(reqData.AppID)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			// means we didn't find the application.
+			http.Error(res, "App not found", http.StatusGone)
+		} else {
+			http.Error(res, err.Error(), 500)
 		}
-		http.Error(res, err.Error(), 500)
 		return
 	}
 	if app.OwnerID != routeData.Authentication.UserID {
-		http.Error(res, "Application not owned by logged in user", http.StatusUnauthorized)
-		// this could just be internal error? because this shouldn't happen unless we made a mistake?
+		http.Error(res, "Application not owned by logged in user", http.StatusForbidden)
 		return
 	}
 
 	version, err := a.AppModel.GetVersion(app.AppID, reqData.Version)
 	if err != nil {
-		http.Error(res, "", http.StatusInternalServerError)
+		if err == sql.ErrNoRows {
+			http.Error(res, "Version not found", http.StatusGone)
+		} else {
+			http.Error(res, "", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -205,8 +229,9 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 
 	// migrate to whatever version was selected
 	// TODO: Must block appspace from being used until migration is done
+	// I think this is done by appspace status
 
-	job, err := a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
+	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
@@ -214,16 +239,8 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 
 	a.MigrationJobController.WakeUp()
 
-	// return appspace Meta
 	resp := PostAppspaceResp{
-		JobID: job.JobID,
-		AppspaceMeta: AppspaceMeta{
-			AppspaceID: int(appspace.AppspaceID),
-			AppID:      int(appspace.AppID),
-			AppVersion: appspace.AppVersion,
-			Subdomain:  appspace.Subdomain,
-			Paused:     appspace.Paused,
-			Created:    appspace.Created}}
+		AppspaceID: appspace.AppspaceID}
 
 	writeJSON(res, resp)
 }
