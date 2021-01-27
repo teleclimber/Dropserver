@@ -8,10 +8,13 @@
 
 <script lang="ts">
 
-import { defineComponent, ref, reactive, onMounted } from 'vue';
+import { defineComponent, ref, Ref, reactive, onMounted } from 'vue';
 
 import type { SelectedFile } from '../../models/apps';
 
+interface WebkitFile extends File {
+	webkitRelativePath: string;
+}
 
 export default defineComponent({
 	name: 'SelectFiles',
@@ -20,8 +23,10 @@ export default defineComponent({
 	},
 	emits: ['changed'],
 	setup(props, ctx) {
-		const input_elem = ref(null);
+		const input_elem :Ref<HTMLInputElement|null> = ref(null);
 		function selected() {
+			if( input_elem.value === null ) return;
+
 			const files = <FileList>input_elem.value.files;
 			const prefix = getPrefix(files);
 			const chop_length = prefix ? prefix.length +1 : 0;
