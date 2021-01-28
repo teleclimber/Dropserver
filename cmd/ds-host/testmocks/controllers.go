@@ -20,6 +20,7 @@ type MigrationJobController interface {
 type AppspaceStatus interface {
 	SetHostStop(stop bool)
 	Ready(appspaceID domain.AppspaceID) bool
+	Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
 	WaitStopped(appspaceID domain.AppspaceID)
 }
 

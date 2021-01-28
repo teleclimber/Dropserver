@@ -133,6 +133,20 @@ func (mr *MockAppspaceStatusMockRecorder) SetHostStop(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostStop", reflect.TypeOf((*MockAppspaceStatus)(nil).SetHostStop), arg0)
 }
 
+// Track mocks base method
+func (m *MockAppspaceStatus) Track(arg0 domain.AppspaceID) domain.AppspaceStatusEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Track", arg0)
+	ret0, _ := ret[0].(domain.AppspaceStatusEvent)
+	return ret0
+}
+
+// Track indicates an expected call of Track
+func (mr *MockAppspaceStatusMockRecorder) Track(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Track", reflect.TypeOf((*MockAppspaceStatus)(nil).Track), arg0)
+}
+
 // WaitStopped mocks base method
 func (m *MockAppspaceStatus) WaitStopped(arg0 domain.AppspaceID) {
 	m.ctrl.T.Helper()

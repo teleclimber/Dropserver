@@ -598,6 +598,13 @@ type ReverseServiceI interface {
 	HandleMessage(twine.ReceivedMessageI)
 }
 
+// TwineService attach to a twine instance to handle two-way communication
+// with a remote twine client
+type TwineService interface {
+	Start(UserID, *twine.Twine)
+	HandleMessage(twine.ReceivedMessageI)
+}
+
 // Events...
 
 //AppspacePausedEvent is the payload for appspace paused event

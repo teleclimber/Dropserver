@@ -2,24 +2,28 @@ package userroutes
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/teleclimber/DropServer/internal/twine"
 )
 
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
-	AuthRoutes        domain.RouteHandler
-	ApplicationRoutes domain.RouteHandler
-	AppspaceRoutes    domain.RouteHandler
-	AdminRoutes       domain.RouteHandler
-	LiveDataRoutes    domain.RouteHandler
-	UserModel         domain.UserModel
-	UserAPI           http.Handler
-	Views             domain.Views
-	Validator         domain.Validator
+	AuthRoutes          domain.RouteHandler
+	ApplicationRoutes   domain.RouteHandler
+	AppspaceRoutes      domain.RouteHandler
+	AdminRoutes         domain.RouteHandler
+	LiveDataRoutes      domain.RouteHandler
+	AppspaceStatusTwine domain.TwineService
+	UserModel           domain.UserModel
+	Views               domain.Views
+	Validator           domain.Validator
 }
 
 // ServeHTTP handles http traffic to the user routes
@@ -80,6 +84,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
 		}
+	case "twine":
+		u.startTwineService(res, req, routeData)
 	default:
 		res.WriteHeader(http.StatusNotFound)
 	}
@@ -174,4 +180,46 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 	}
 
 	res.WriteHeader(http.StatusOK)
+}
+
+const appspaceStatusService = 11
+
+// startTwineService connects a new twine instance to the twine services
+func (u *UserRoutes) startTwineService(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	t, err := twine.NewWebsocketServer(res, req)
+	if err != nil {
+		u.getLogger("startTwineService, twine.NewWebsocketServer(res, req) ").Error(err)
+		http.Error(res, "Failed to start Twine server", http.StatusInternalServerError)
+		return
+	}
+
+	_, ok := <-t.ReadyChan
+	if !ok {
+		u.getLogger("startTwineService").Error(errors.New("Twine ReadyChan closed"))
+		http.Error(res, "Failed to start Twine server", http.StatusInternalServerError)
+		return
+	}
+
+	go u.AppspaceStatusTwine.Start(routeData.Authentication.UserID, t)
+
+	go func() {
+		for m := range t.MessageChan {
+			switch m.ServiceID() {
+			case appspaceStatusService:
+				go u.AppspaceStatusTwine.HandleMessage(m)
+			default:
+				u.getLogger("Twine incoming message").Error(fmt.Errorf("Service not found: %v", m.ServiceID()))
+				m.SendError("Service not found")
+			}
+		}
+	}()
+
+}
+
+func (u *UserRoutes) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("UserRoutes")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

@@ -35,8 +35,8 @@ module.exports = {
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
-			"/live/**": {
-				target: "ws://user.dropserver.develop:3000",
+			"/twine": {
+				target: "https://user.dropserver.develop:3000",
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost",
 				ws: true,
@@ -46,11 +46,6 @@ module.exports = {
 					// Have to set Origin for websocket's check origin 
 					// Note that "changeOrigin" acutally sets the Host field, not the "Origin".
 				}
-			},
-			"/live": {
-				target: "https://user.dropserver.develop:3000",
-				changeOrigin: true,
-				cookieDomainRewrite: ".localhost",
 			}
 		}
 	}

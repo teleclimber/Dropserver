@@ -190,6 +190,13 @@ func (s *AppspaceStatus) SetTempPause(appspaceID domain.AppspaceID, paused bool)
 	}
 }
 
+// Track causes appspace id to monitored and future events will be sent
+// It returns an event struct that represents the current state
+func (s *AppspaceStatus) Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent {
+	stat := s.getStatus(appspaceID)
+	return getEvent(appspaceID, stat.data)
+}
+
 func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) *status {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
@@ -341,14 +348,18 @@ func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, curStatus *s
 }
 
 func (s *AppspaceStatus) sendChangedEvent(appspaceID domain.AppspaceID, status statusData) {
-	go s.AppspaceStatusEvents.Send(appspaceID, domain.AppspaceStatusEvent{
+	go s.AppspaceStatusEvents.Send(appspaceID, getEvent(appspaceID, status))
+}
+
+func getEvent(appspaceID domain.AppspaceID, status statusData) domain.AppspaceStatusEvent {
+	return domain.AppspaceStatusEvent{
 		AppspaceID:       appspaceID,
 		Paused:           status.paused,
 		TempPaused:       status.tempPaused,
 		AppVersionSchema: status.appVersionSchema,
 		AppspaceSchema:   status.dataSchema,
 		Migrating:        status.migrating,
-		Problem:          status.problem})
+		Problem:          status.problem}
 }
 
 // WaitStopped returns when an appspace has stopped

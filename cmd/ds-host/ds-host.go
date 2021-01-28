@@ -36,6 +36,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
+	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
@@ -330,15 +331,22 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
 
+	appspaceStatusTwine := &twineservices.AppspaceStatusService{
+		AppspaceModel:        appspaceModel,
+		AppspaceStatus:       appspaceStatus,
+		AppspaceStatusEvents: appspaceStatusEvents,
+	}
+
 	userRoutes := &userroutes.UserRoutes{
-		AuthRoutes:        authRoutes,
-		AdminRoutes:       adminRoutes,
-		ApplicationRoutes: applicationRoutes,
-		AppspaceRoutes:    appspaceUserRoutes,
-		LiveDataRoutes:    liveDataRoutes,
-		UserModel:         userModel,
-		Views:             views,
-		Validator:         validator}
+		AuthRoutes:          authRoutes,
+		AdminRoutes:         adminRoutes,
+		ApplicationRoutes:   applicationRoutes,
+		AppspaceRoutes:      appspaceUserRoutes,
+		LiveDataRoutes:      liveDataRoutes,
+		AppspaceStatusTwine: appspaceStatusTwine,
+		UserModel:           userModel,
+		Views:               views,
+		Validator:           validator}
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,
