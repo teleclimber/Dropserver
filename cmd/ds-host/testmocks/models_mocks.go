@@ -670,6 +670,21 @@ func (mr *MockMigrationJobModelMockRecorder) Create(arg0, arg1, arg2, arg3 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockMigrationJobModel)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
+// GetForAppspace mocks base method
+func (m *MockMigrationJobModel) GetForAppspace(arg0 domain.AppspaceID) ([]*domain.MigrationJob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetForAppspace", arg0)
+	ret0, _ := ret[0].([]*domain.MigrationJob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetForAppspace indicates an expected call of GetForAppspace
+func (mr *MockMigrationJobModelMockRecorder) GetForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForAppspace", reflect.TypeOf((*MockMigrationJobModel)(nil).GetForAppspace), arg0)
+}
+
 // GetJob mocks base method
 func (m *MockMigrationJobModel) GetJob(arg0 domain.JobID) (*domain.MigrationJob, error) {
 	m.ctrl.T.Helper()
@@ -698,6 +713,21 @@ func (m *MockMigrationJobModel) GetPending() ([]*domain.MigrationJob, error) {
 func (mr *MockMigrationJobModelMockRecorder) GetPending() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPending", reflect.TypeOf((*MockMigrationJobModel)(nil).GetPending))
+}
+
+// GetRunning mocks base method
+func (m *MockMigrationJobModel) GetRunning() ([]domain.MigrationJob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRunning")
+	ret0, _ := ret[0].([]domain.MigrationJob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRunning indicates an expected call of GetRunning
+func (mr *MockMigrationJobModelMockRecorder) GetRunning() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRunning", reflect.TypeOf((*MockMigrationJobModel)(nil).GetRunning))
 }
 
 // SetFinished mocks base method

@@ -22,8 +22,8 @@ func TestLoadStatus(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	migrationJobs := testmocks.NewMockMigrationJobController(mockCtrl)
-	migrationJobs.EXPECT().GetRunningJobs().Return([]domain.MigrationStatusData{{AppspaceID: appspaceID}})
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel.EXPECT().GetRunning().Return([]domain.MigrationJob{{AppspaceID: appspaceID}}, nil)
 
 	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
@@ -31,7 +31,7 @@ func TestLoadStatus(t *testing.T) {
 	s := &AppspaceStatus{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
-		MigrationJobs:      migrationJobs,
+		MigrationJobModel:  migrationJobModel,
 		AppspaceInfoModels: appspaceInfoModels,
 	}
 
@@ -112,7 +112,7 @@ func TestPauseEvent(t *testing.T) {
 	pauseChan := make(chan domain.AppspacePausedEvent)
 	go s.handleAppspacePause(pauseChan)
 
-	migrateChan := make(chan domain.MigrationStatusData)
+	migrateChan := make(chan domain.MigrationJob)
 	go s.handleMigrationJobUpdate(migrateChan)
 
 	s.status[appspaceID] = &status{
@@ -163,8 +163,8 @@ func TestMigrationEvent(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	migrationJobs := testmocks.NewMockMigrationJobController(mockCtrl)
-	migrationJobs.EXPECT().GetRunningJobs().Return([]domain.MigrationStatusData{})
+	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
+	migrationJobModel.EXPECT().GetRunning().Return([]domain.MigrationJob{}, nil)
 
 	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
@@ -177,17 +177,17 @@ func TestMigrationEvent(t *testing.T) {
 		AppspaceModel:        appspaceModel,
 		AppModel:             appModel,
 		AppspaceInfoModels:   appspaceInfoModels,
-		MigrationJobs:        migrationJobs,
+		MigrationJobModel:    migrationJobModel,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		status:               make(map[domain.AppspaceID]*status),
 	}
 
-	migrateChan := make(chan domain.MigrationStatusData)
+	migrateChan := make(chan domain.MigrationJob)
 	go s.handleMigrationJobUpdate(migrateChan)
 
 	s.status[appspaceID] = &status{data: status1}
 
-	migrateChan <- domain.MigrationStatusData{
+	migrateChan <- domain.MigrationJob{
 		AppspaceID: appspaceID,
 		Finished:   nulltypes.NewTime(time.Now(), false)} // send null Finished time, indicating ongoing migration
 
@@ -200,7 +200,7 @@ func TestMigrationEvent(t *testing.T) {
 	}
 	status.lock.Unlock()
 
-	migrateChan <- domain.MigrationStatusData{
+	migrateChan <- domain.MigrationJob{
 		AppspaceID: appspaceID,
 		Finished:   nulltypes.NewTime(time.Now(), true), // send a valid Finished time to indicate migration is complete
 	}

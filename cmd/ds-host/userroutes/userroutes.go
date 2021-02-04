@@ -18,9 +18,10 @@ type UserRoutes struct {
 	AuthRoutes          domain.RouteHandler
 	ApplicationRoutes   domain.RouteHandler
 	AppspaceRoutes      domain.RouteHandler
+	MigrationJobRoutes  domain.RouteHandler
 	AdminRoutes         domain.RouteHandler
-	LiveDataRoutes      domain.RouteHandler
 	AppspaceStatusTwine domain.TwineService
+	MigrationJobTwine   domain.TwineService
 	UserModel           domain.UserModel
 	Views               domain.Views
 	Validator           domain.Validator
@@ -33,12 +34,9 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// Would like to make that abundantly clear in code structure.
 	// There should be a single point where we check auth, and if no good, bail.
 
-	head, tail := shiftpath.ShiftPath(routeData.URLTail)
+	head, _ := shiftpath.ShiftPath(routeData.URLTail)
 	if head == "signup" || head == "appspacelogin" || head == "login" || head == "logout" { // also resetpw
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
-	} else if head == "live" {
-		routeData.URLTail = tail
-		u.LiveDataRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		if routeData.Authentication != nil && routeData.Authentication.UserAccount {
 			u.serveLoggedInRoutes(res, req, routeData)
@@ -81,6 +79,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
 		case "appspace":
 			u.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		case "migration-job":
+			u.MigrationJobRoutes.ServeHTTP(res, req, routeData)
 		default:
 			http.Error(res, head+" not implemented", http.StatusNotImplemented)
 		}
@@ -183,6 +183,7 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 }
 
 const appspaceStatusService = 11
+const migrationJobService = 12
 
 // startTwineService connects a new twine instance to the twine services
 func (u *UserRoutes) startTwineService(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -201,12 +202,15 @@ func (u *UserRoutes) startTwineService(res http.ResponseWriter, req *http.Reques
 	}
 
 	go u.AppspaceStatusTwine.Start(routeData.Authentication.UserID, t)
+	go u.MigrationJobTwine.Start(routeData.Authentication.UserID, t)
 
 	go func() {
 		for m := range t.MessageChan {
 			switch m.ServiceID() {
 			case appspaceStatusService:
 				go u.AppspaceStatusTwine.HandleMessage(m)
+			case migrationJobService:
+				go u.MigrationJobTwine.HandleMessage(m)
 			default:
 				u.getLogger("Twine incoming message").Error(fmt.Errorf("Service not found: %v", m.ServiceID()))
 				m.SendError("Service not found")

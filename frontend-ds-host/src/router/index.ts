@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Home from '../views/Home.vue';
 import Appspaces from '../views/Appspaces.vue';
 import ManageAppspace from '../views/ManageAppspace.vue';
+import MigrateAppspace from '../views/MigrateAppspace.vue';
 import NewAppspace from '../views/NewAppspace.vue';
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
@@ -21,6 +22,10 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/appspace/:id',
 		name: 'manage-appspace',
 		component: ManageAppspace
+	},{
+		path: '/appspace/:id/migrate',
+		name: 'migrate-appspace',
+		component: MigrateAppspace
 	},{
 		path: '/new-appspace/',
 		name: 'new-appspace',

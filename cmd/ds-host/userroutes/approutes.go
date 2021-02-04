@@ -148,7 +148,7 @@ func (a *ApplicationRoutes) getApplication(res http.ResponseWriter, app *domain.
 	}
 	appResp.Versions = make([]VersionMeta, len(appVersions))
 	for j, appVersion := range appVersions {
-		appResp.Versions[j] = makeAppVersionResp(*appVersion)
+		appResp.Versions[j] = makeVersionMeta(*appVersion)
 	}
 
 	writeJSON(res, appResp)
@@ -183,7 +183,7 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 		}
 		appResp.Versions = make([]VersionMeta, len(appVersions))
 		for j, appVersion := range appVersions {
-			appResp.Versions[j] = makeAppVersionResp(*appVersion)
+			appResp.Versions[j] = makeVersionMeta(*appVersion)
 		}
 		respData.Apps[i] = appResp
 	}
@@ -226,7 +226,7 @@ func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Re
 				return
 			}
 
-			respData.AppVersions[i] = makeAppVersionResp(*appVersion)
+			respData.AppVersions[i] = makeVersionMeta(*appVersion)
 		}
 
 		writeJSON(res, respData)
@@ -470,7 +470,7 @@ func makeAppResp(app domain.App) ApplicationMeta {
 		Created: app.Created}
 }
 
-func makeAppVersionResp(appVersion domain.AppVersion) VersionMeta {
+func makeVersionMeta(appVersion domain.AppVersion) VersionMeta {
 	return VersionMeta{
 		AppID:      appVersion.AppID,
 		AppName:    appVersion.AppName,

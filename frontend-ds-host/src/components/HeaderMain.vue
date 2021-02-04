@@ -50,6 +50,7 @@ export default defineComponent({
 				case "appspaces": return "Appspaces";
 				case "new-appspace": return "New Appspace";
 				case "manage-appspace": return "Manage Appspace";	// this should actually reflect the appspace name, or something like that.
+				case "migrate-appspace": return "Migrate Appspace";
 			}
 			return route.name;	// default
 		}

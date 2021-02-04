@@ -476,15 +476,15 @@ type JobID int
 
 // MigrationJob describes a pending or ongoing appspace migration job
 type MigrationJob struct {
-	JobID      JobID                `db:"job_id"`
-	OwnerID    UserID               `db:"owner_id"`
-	AppspaceID AppspaceID           `db:"appspace_id"`
-	ToVersion  Version              `db:"to_version"`
-	Created    time.Time            `db:"created"`
-	Started    nulltypes.NullTime   `db:"started"`
-	Finished   nulltypes.NullTime   `db:"finished"`
-	Priority   bool                 `db:"priority"`
-	Error      nulltypes.NullString `db:"error"`
+	JobID      JobID                `db:"job_id" json:"job_id"`
+	OwnerID    UserID               `db:"owner_id" json:"owner_id"`
+	AppspaceID AppspaceID           `db:"appspace_id" json:"appspace_id"`
+	ToVersion  Version              `db:"to_version" json:"to_version"`
+	Created    time.Time            `db:"created" json:"created"`
+	Started    nulltypes.NullTime   `db:"started" json:"started"`
+	Finished   nulltypes.NullTime   `db:"finished" json:"finished"`
+	Priority   bool                 `db:"priority" json:"priority"`
+	Error      nulltypes.NullString `db:"error" json:"error"`
 }
 
 // AppspaceRouteHandler is a JSON friendly struct

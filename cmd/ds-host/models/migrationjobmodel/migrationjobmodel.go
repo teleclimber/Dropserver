@@ -14,16 +14,20 @@ import (
 type MigrationJobModel struct {
 	DB *domain.DB
 
+	// add migration job events?
+	MigrationJobEvents interface {
+		Send(domain.MigrationJob)
+	}
+
 	stmt struct {
-		create *sqlx.Stmt
-		getJob *sqlx.Stmt
-		//selectOwner    *sqlx.Stmt //later
-		selectAppspace     *sqlx.Stmt
-		getPendingAppspace *sqlx.Stmt
-		getPending         *sqlx.Stmt
-		setStarted         *sqlx.Stmt
-		setFinished        *sqlx.Stmt
-		deleteJob          *sqlx.Stmt
+		create         *sqlx.Stmt
+		getJob         *sqlx.Stmt
+		selectAppspace *sqlx.Stmt
+		getPending     *sqlx.Stmt
+		getRunning     *sqlx.Stmt
+		setStarted     *sqlx.Stmt
+		setFinished    *sqlx.Stmt
+		deleteJob      *sqlx.Stmt
 	}
 }
 
@@ -37,9 +41,12 @@ func (m *MigrationJobModel) PrepareStatements() {
 
 	m.stmt.getJob = p.Prep(`SELECT * FROM migrationjobs WHERE job_id = ?`)
 
-	m.stmt.getPendingAppspace = p.Prep(`SELECT * FROM migrationjobs WHERE appspace_id = ? AND started IS NULL`)
+	m.stmt.selectAppspace = p.Prep(`SELECT * FROM migrationjobs WHERE appspace_id = ?`)
 
 	m.stmt.getPending = p.Prep(`SELECT * FROM migrationjobs WHERE started IS NULL
+		ORDER BY priority DESC, created DESC`)
+
+	m.stmt.getRunning = p.Prep(`SELECT * FROM migrationjobs WHERE started IS NOT NULL AND finished IS NULL
 		ORDER BY priority DESC, created DESC`)
 
 	m.stmt.setStarted = p.Prep(`UPDATE migrationjobs SET started = datetime("now") WHERE job_id = ? AND started IS NULL`)
@@ -66,14 +73,14 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 	}
 
 	var job domain.MigrationJob
-	get := tx.Stmtx(m.stmt.getPendingAppspace)
+	get := tx.Stmtx(m.stmt.selectAppspace)
 	err = get.QueryRowx(appspaceID).StructScan(&job)
 	if err != nil && err != sql.ErrNoRows {
 		m.getLogger("Create(), QueryRowx()").Error(err)
 		tx.Rollback()
 		return nil, err
 	}
-	if err == nil { // means it got a row, right?
+	if err == nil && !job.Started.Valid { // means it got a row, right?
 		del := tx.Stmtx(m.stmt.deleteJob)
 		_, err := del.Exec(job.JobID)
 		if err != nil {
@@ -105,6 +112,8 @@ func (m *MigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.Apps
 		return nil, err
 	}
 
+	go m.sendJobAsEvent(domain.JobID(jobID))
+
 	return m.GetJob(domain.JobID(jobID))
 }
 
@@ -123,23 +132,15 @@ func (m *MigrationJobModel) GetJob(jobID domain.JobID) (*domain.MigrationJob, er
 	return &ret, nil
 }
 
-// GetForAppspace returns an appspace's job if there is one
-// Returns nil, nil if no job is found
-// Should it return finished jobs?
-// Should it return jobs that have been started?
-// func (m *MigrationJobModel) GetForAppspace(appspaceID domain.AppspaceID) (*domain.MigrationJob, error) {
-// 	var job domain.MigrationJob
-
-// 	err := m.stmt.selectAppspace.QueryRowx(appspaceID).StructScan(&job)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-
-// 	return &job, nil
-// }
+// GetForAppspace returns an appspace's jobs if there are any
+func (m *MigrationJobModel) GetForAppspace(appspaceID domain.AppspaceID) ([]*domain.MigrationJob, error) {
+	var jobs []*domain.MigrationJob
+	err := m.stmt.selectAppspace.Select(&jobs, appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
 
 // GetPending returns an array of pending jobs
 func (m *MigrationJobModel) GetPending() ([]*domain.MigrationJob, error) {
@@ -148,6 +149,19 @@ func (m *MigrationJobModel) GetPending() ([]*domain.MigrationJob, error) {
 	err := m.stmt.getPending.Select(&ret)
 	if err != nil && err != sql.ErrNoRows {
 		m.getLogger("GetPending()").Error(err)
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// GetRunning returns an array of running jobs
+func (m *MigrationJobModel) GetRunning() ([]domain.MigrationJob, error) {
+	ret := []domain.MigrationJob{}
+
+	err := m.stmt.getRunning.Select(&ret)
+	if err != nil && err != sql.ErrNoRows {
+		m.getLogger("GetRunning()").Error(err)
 		return nil, err
 	}
 
@@ -174,6 +188,9 @@ func (m *MigrationJobModel) SetStarted(jobID domain.JobID) (bool, error) {
 	if num != 1 {
 		return false, nil
 	}
+
+	go m.sendJobAsEvent(jobID)
+
 	return true, nil
 }
 
@@ -192,6 +209,27 @@ func (m *MigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.Nul
 	if num != 1 {
 		return domain.ErrNoRowsAffected
 	}
+	go m.sendJobAsEvent(jobID)
+	return nil
+}
+
+// StartupFinishStartedJobs looks for jobs that have been started but not finished
+// and finishes them with the specified error.
+// This is meant to be run on startup, efore the jobs begin to execute.
+// It cleans up messes left by a crashed ds.
+func (m *MigrationJobModel) StartupFinishStartedJobs(str string) error {
+	jobs, err := m.GetRunning()
+	if err != nil {
+		return err
+	}
+
+	errStr := nulltypes.NewString(str, true)
+	for _, job := range jobs {
+		err = m.SetFinished(job.JobID, errStr)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -204,6 +242,18 @@ func (m *MigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.Nul
 // 	}
 // 	return nil
 // }
+
+func (m *MigrationJobModel) sendJobAsEvent(jobID domain.JobID) {
+	if m.MigrationJobEvents == nil {
+		return
+	}
+	job, err := m.GetJob(jobID)
+	if err != nil {
+		m.getLogger("Create(), m.getJob()").Error(err)
+		return
+	}
+	m.MigrationJobEvents.Send(*job)
+}
 
 func (m *MigrationJobModel) getLogger(note string) *record.DsLogger {
 	r := record.NewDsLogger().AddNote("MigrationJobModel")

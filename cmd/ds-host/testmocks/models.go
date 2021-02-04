@@ -69,8 +69,9 @@ type MigrationJobModel interface {
 	Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
 	GetJob(domain.JobID) (*domain.MigrationJob, error)
 	GetPending() ([]*domain.MigrationJob, error)
+	GetRunning() ([]domain.MigrationJob, error)
 	SetStarted(domain.JobID) (bool, error)
 	SetFinished(domain.JobID, nulltypes.NullString) error
-	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
+	GetForAppspace(appspaceID domain.AppspaceID) ([]*domain.MigrationJob, error)
 	// Delete(AppspaceID) Error
 }

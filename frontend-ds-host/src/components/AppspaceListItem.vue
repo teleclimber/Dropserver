@@ -2,9 +2,10 @@
 	<div class="md:mb-6">
 		<h2 class="text-xl">{{appspace.subdomain}}.something.sometld</h2>
 		<p>Created: {{appspace.created_dt.toLocaleString()}}</p>
-		<p>App Version: {{app_version.app_name}}, version: {{appspace.app_version}} (schema: {{app_version.schema}}, API: {{app_version.api_version}})</p>
+		<p>App Version: {{app_version.app_name}}, version: {{app_version.version}} (schema: {{app_version.schema}}, API: {{app_version.api_version}})</p>
 		<p>{{ appspace.paused ? 'Paused' : 'Not Paused (ready)' }}</p>
-		<p>Upgrade available?</p>
+		<p v-if="appspace.upgrade">Upgrade available: {{appspace.upgrade.version}}</p>
+		<p v-else>No upgrade available</p>
 		<p><router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}">Manage</router-link></p>
 	</div>
 </template>

@@ -298,6 +298,10 @@ export default class TwineWebsocketClient {
 			message = this.makeMessage(raw, newMsg);
 			await message.reply(commands.pong, undefined);
 			break;
+
+		case commands.msgError:
+			console.error("Twine protocol: got message error.");
+			break;
 	
 		default:
 			throw new Error("what is this protocol command? "+raw.command);

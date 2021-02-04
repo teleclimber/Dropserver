@@ -34,6 +34,7 @@ func (s *AppspaceStatusService) Start(authUser domain.UserID, t *twine.Twine) {
 const subscribeStatus = 11
 const unsubscribeStatus = 13
 
+// HandleMessage handles incoming twine message
 func (s *AppspaceStatusService) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case subscribeStatus:

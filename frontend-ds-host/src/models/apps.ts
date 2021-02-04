@@ -32,7 +32,7 @@ export class App {
 		this.created_dt = new Date(raw.created_dt);
 
 		if( Array.isArray(raw.versions) ) {
-			this.versions = raw.versions.map((rawVer:any) => {
+			this.versions = raw.versions.reverse().map((rawVer:any) => {
 				const av = new AppVersion();
 				av.setFromRaw(rawVer);
 				return av;

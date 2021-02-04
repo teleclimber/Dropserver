@@ -303,3 +303,41 @@ func TestSetFinishedError(t *testing.T) {
 		t.Error("expect correct error string")
 	}
 }
+
+func TestGetForAppspace(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &MigrationJobModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	uID := domain.UserID(7)
+	asID1 := domain.AppspaceID(11)
+	asID2 := domain.AppspaceID(12)
+
+	_, err := model.Create(uID, asID1, "0.0.1", true)
+	if err != nil {
+		t.Error(err)
+	}
+
+	job2, err := model.Create(uID, asID2, "0.0.9", false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	jobs, err := model.GetForAppspace(asID2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 {
+		t.Error("should have gotten 1 jobs")
+	}
+	if jobs[0].JobID != job2.JobID {
+		t.Error("got wrong job")
+	}
+}

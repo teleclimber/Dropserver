@@ -39,10 +39,6 @@ type JobController struct {
 	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
 	SandboxMaker   SandboxMakerI
 
-	MigrationEvents interface {
-		Send(domain.MigrationStatusData)
-	}
-
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
 	ticker      *time.Ticker
@@ -145,10 +141,6 @@ func (c *JobController) eventManifold() { // eventBus?
 			c.runningMux.Unlock()
 
 			go c.startNext()
-		}
-
-		if c.MigrationEvents != nil {
-			c.MigrationEvents.Send(makeMigrationStatusData(d))
 		}
 	}
 }

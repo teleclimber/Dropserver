@@ -110,7 +110,7 @@ func main() {
 	appspacePausedEvent := &events.AppspacePausedEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
-	migrationStatusEvents := &events.MigrationJobStatusEvents{}
+	migrationJobEvents := &events.MigrationJobEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -195,8 +195,10 @@ func main() {
 	appspaceInfoModels.Init()
 
 	migrationJobModel := &migrationjobmodel.MigrationJobModel{
-		DB: db}
+		MigrationJobEvents: migrationJobEvents,
+		DB:                 db}
 	migrationJobModel.PrepareStatements()
+	migrationJobModel.StartupFinishStartedJobs("Job found unfinished at startup")
 
 	sandboxManager := &sandbox.Manager{
 		AppspaceLogger: appspaceLogger,
@@ -212,8 +214,7 @@ func main() {
 		AppspaceInfoModels: appspaceInfoModels,
 		SandboxManager:     sandboxManager,
 		SandboxMaker:       migrationSandboxMaker,
-		MigrationJobModel:  migrationJobModel,
-		MigrationEvents:    migrationStatusEvents}
+		MigrationJobModel:  migrationJobModel}
 
 	// auth
 	authenticator := &authenticator.Authenticator{
@@ -222,12 +223,6 @@ func main() {
 
 	appspaceLogin := &appspacelogin.AppspaceLogin{}
 	appspaceLogin.Start()
-
-	liveDataRoutes := &userroutes.LiveDataRoutes{
-		//JobController:     migrationJobCtl,
-		MigrationJobModel: migrationJobModel,
-		Authenticator:     authenticator}
-	liveDataRoutes.Init()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -242,8 +237,6 @@ func main() {
 		appspaceLogin.Stop()
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
-
-		liveDataRoutes.Stop()
 
 		os.Exit(0)
 	}()
@@ -281,13 +274,18 @@ func main() {
 		AppModel:           appModel,
 		AppspaceInfoModels: appspaceInfoModels,
 		//AppspaceRouter: see below
-		MigrationJobs:        migrationJobCtl,
-		MigrationJobsEvents:  migrationStatusEvents,
+		MigrationJobModel:    migrationJobModel,
+		MigrationJobEvents:   migrationJobEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspacePausedEvent:  appspacePausedEvent,
 		AppspaceStatusEvents: appspaceStatusEvents,
 	}
 	appspaceStatus.Init()
+
+	migrationMinder := &appspacestatus.MigrationMinder{
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+	}
 
 	migrationJobCtl.AppspaceStatus = appspaceStatus
 
@@ -326,15 +324,28 @@ func main() {
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
+		MigrationMinder:        migrationMinder,
 		AppspaceMetaDB:         appspaceMetaDb,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
 
+	migrationJobRoutes := &userroutes.MigrationJobRoutes{
+		AppModel:               appModel,
+		AppspaceModel:          appspaceModel,
+		MigrationJobModel:      migrationJobModel,
+		MigrationJobController: migrationJobCtl,
+	}
+
 	appspaceStatusTwine := &twineservices.AppspaceStatusService{
 		AppspaceModel:        appspaceModel,
 		AppspaceStatus:       appspaceStatus,
 		AppspaceStatusEvents: appspaceStatusEvents,
+	}
+	migrationJobTwine := &twineservices.MigrationJobService{
+		AppspaceModel:      appspaceModel,
+		MigrationJobModel:  migrationJobModel,
+		MigrationJobEvents: migrationJobEvents,
 	}
 
 	userRoutes := &userroutes.UserRoutes{
@@ -342,8 +353,9 @@ func main() {
 		AdminRoutes:         adminRoutes,
 		ApplicationRoutes:   applicationRoutes,
 		AppspaceRoutes:      appspaceUserRoutes,
-		LiveDataRoutes:      liveDataRoutes,
+		MigrationJobRoutes:  migrationJobRoutes,
 		AppspaceStatusTwine: appspaceStatusTwine,
+		MigrationJobTwine:   migrationJobTwine,
 		UserModel:           userModel,
 		Views:               views,
 		Validator:           validator}

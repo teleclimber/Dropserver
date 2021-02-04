@@ -23,3 +23,11 @@ type AppspaceStatusEvents interface {
 	UnsubscribeChannel(chan<- domain.AppspaceStatusEvent)
 	Send(domain.AppspaceID, domain.AppspaceStatusEvent)
 }
+
+// MigrationJobEvents interface for mocking
+type MigrationJobEvents interface {
+	Send(event domain.MigrationJob)
+	Subscribe(ch chan<- domain.MigrationJob)
+	SubscribeAppspace(appspaceID domain.AppspaceID, ch chan<- domain.MigrationJob)
+	Unsubscribe(ch chan<- domain.MigrationJob)
+}

@@ -96,11 +96,11 @@ type AppspaceStatus struct {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
 	}
-	MigrationJobs interface {
-		GetRunningJobs() []domain.MigrationStatusData
+	MigrationJobModel interface {
+		GetRunning() ([]domain.MigrationJob, error)
 	}
-	MigrationJobsEvents interface {
-		Subscribe(chan<- domain.MigrationStatusData)
+	MigrationJobEvents interface {
+		Subscribe(chan<- domain.MigrationJob)
 	}
 
 	//AppVersionEvent for when an app version can change its schema/whatever live
@@ -132,9 +132,9 @@ func (s *AppspaceStatus) Init() {
 	go s.handleAppspaceFiles(asFilesCh)
 	s.AppspaceFilesEvents.Subscribe(asFilesCh)
 
-	migrationJobsCh := make(chan domain.MigrationStatusData)
+	migrationJobsCh := make(chan domain.MigrationJob)
 	go s.handleMigrationJobUpdate(migrationJobsCh)
-	s.MigrationJobsEvents.Subscribe(migrationJobsCh)
+	s.MigrationJobEvents.Subscribe(migrationJobsCh)
 
 	if s.AppVersionEvents != nil {
 		appVersionCh := make(chan domain.AppID)
@@ -231,7 +231,11 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	}
 	data.paused = appspace.Paused
 
-	jobs := s.MigrationJobs.GetRunningJobs()
+	jobs, err := s.MigrationJobModel.GetRunning()
+	if err != nil {
+		data.problem = true
+		return data
+	}
 	for _, job := range jobs {
 		if job.AppspaceID == appspaceID && !job.Finished.Valid {
 			data.migrating = true
@@ -283,7 +287,7 @@ func (s *AppspaceStatus) handleAppspaceFiles(ch <-chan domain.AppspaceID) {
 	}
 }
 
-func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationStatusData) {
+func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationJob) {
 	for d := range ch {
 		status := s.getTrackedStatus(d.AppspaceID)
 		if status != nil {

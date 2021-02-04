@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 
+	"github.com/blang/semver/v4"
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -171,6 +173,18 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 		m.getLogger("GetVersionsForApp()").AppID(appID).Error(err)
 		return nil, err
 	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		iSemver, err := semver.New(string(ret[i].Version)) // this is not efficient, but ok for now
+		if err != nil {
+			return false
+		}
+		jSemver, err := semver.New(string(ret[j].Version))
+		if err != nil {
+			return false
+		}
+		return iSemver.Compare(*jSemver) == -1
+	})
 
 	return ret, nil
 }

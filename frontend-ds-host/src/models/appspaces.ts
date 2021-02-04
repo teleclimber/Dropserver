@@ -2,6 +2,8 @@ import { reactive } from 'vue';
 
 import {get, post} from '../controllers/userapi';
 
+import { AppVersion } from './app_versions';
+
 // these are owner's appspaces, not remotes.
 
 // hierarchical data:
@@ -38,10 +40,14 @@ export class Appspace {
 	paused = false;
 	app_id = 0;
 	app_version = '';
+	upgrade :AppVersion|undefined;
 
 	async fetch(id: number) {
 		const resp_data = await get('/appspace/'+id);
 		this.setFromRaw(resp_data);
+	}
+	async refresh() {
+		await this.fetch(this.id);
 	}
 	setFromRaw(raw :any) {
 		this.id = Number(raw.appspace_id);
@@ -51,18 +57,19 @@ export class Appspace {
 		this.app_id = Number(raw.app_id);
 		this.app_version = raw.app_version+'';
 
+		if( raw.upgrade ) {
+			this.upgrade = new AppVersion;
+			this.upgrade.setFromRaw(raw.upgrade)
+		}
+
 		this.loaded = true;
 	}
 	
 	// actions:
 	async setPause(pause :boolean) {
-		const data = post('/appspace/'+this.id+'/pause', {pause});
+		const data = await post('/appspace/'+this.id+'/pause', {pause});
 		this.paused = pause;
 	}
-}
-
-export function ReactiveAppspace() {
-	return reactive(new Appspace);
 }
 
 export class Appspaces {

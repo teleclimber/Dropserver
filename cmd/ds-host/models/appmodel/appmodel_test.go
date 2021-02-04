@@ -207,9 +207,9 @@ func TestGetVersionForApp(t *testing.T) {
 		schema   int
 		location string
 	}{
-		{7, "0.0.1", 1, "foo-location"},
 		{7, "0.0.2", 2, "2foo-location"},
 		{7, "0.0.3", 3, "3foo-location"},
+		{7, "0.0.1", 1, "1foo-location"},
 		{11, "0.0.1", 1, "bar-location"},
 	}
 
@@ -226,6 +226,9 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 	if len(vers) != 3 {
 		t.Error("Got wrong number of results: should be 3")
+	}
+	if vers[0].Version != domain.Version("0.0.1") {
+		t.Error("Go wrong sort order")
 	}
 
 	vers, err = appModel.GetVersionsForApp(1)

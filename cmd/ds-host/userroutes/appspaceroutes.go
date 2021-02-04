@@ -20,6 +20,7 @@ type AppspaceMeta struct {
 	Subdomain  string         `json:"subdomain"`
 	Created    time.Time      `json:"created_dt"`
 	Paused     bool           `json:"paused"`
+	Upgrade    *VersionMeta   `json:"upgrade,omitempty"`
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -37,6 +38,9 @@ type AppspaceRoutes struct {
 		Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromSubdomain(string) (*domain.Appspace, error)
+	}
+	MigrationMinder interface {
+		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
 	}
 	AppspaceMetaDB    domain.AppspaceMetaDB
 	MigrationJobModel interface {
@@ -70,7 +74,7 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 		case http.MethodPost:
 			a.postNewAppspace(res, req, routeData)
 		default:
-			http.Error(res, "bad method for /application", http.StatusBadRequest)
+			http.Error(res, "bad method for /appspace", http.StatusBadRequest)
 		}
 	} else {
 		head, tail := shiftpath.ShiftPath(routeData.URLTail)
@@ -81,8 +85,6 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			a.getAppspace(res, req, routeData, appspace)
 		case "pause":
 			a.changeAppspacePause(res, req, routeData, appspace)
-		case "version":
-			a.changeAppspaceVersion(res, req, routeData, appspace)
 		default:
 			http.Error(res, "", http.StatusNotImplemented)
 		}
@@ -90,13 +92,16 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	respData := AppspaceMeta{
-		AppspaceID: int(appspace.AppspaceID),
-		AppID:      int(appspace.AppID),
-		AppVersion: appspace.AppVersion,
-		Subdomain:  appspace.Subdomain, // yeah, subdomain versus name. Gonna need to do some work here.
-		Paused:     appspace.Paused,
-		Created:    appspace.Created}
+	respData := makeAppspaceMeta(*appspace)
+	upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if ok {
+		upgradeMeta := makeVersionMeta(upgrade)
+		respData.Upgrade = &upgradeMeta
+	}
 
 	writeJSON(res, respData)
 }
@@ -117,13 +122,17 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		Appspaces: make([]AppspaceMeta, 0)}
 
 	for _, appspace := range appspaces {
-		respData.Appspaces = append(respData.Appspaces, AppspaceMeta{
-			AppspaceID: int(appspace.AppspaceID),
-			AppID:      int(appspace.AppID),
-			AppVersion: appspace.AppVersion,
-			Subdomain:  appspace.Subdomain, // yeah, subdomain versus name. Gonna need to do some work here.
-			Paused:     appspace.Paused,
-			Created:    appspace.Created})
+		appspaceMeta := makeAppspaceMeta(*appspace)
+		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if ok {
+			upgradeMeta := makeVersionMeta(upgrade)
+			appspaceMeta.Upgrade = &upgradeMeta
+		}
+		respData.Appspaces = append(respData.Appspaces, appspaceMeta)
 	}
 
 	writeJSON(res, respData)
@@ -267,38 +276,6 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	res.WriteHeader(http.StatusOK)
 }
 
-func (a *AppspaceRoutes) changeAppspaceVersion(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	if req.Method != http.MethodPost {
-		http.Error(res, "expected POST", http.StatusBadRequest)
-		return
-	}
-
-	reqData := PostAppspaceVersionReq{}
-	err := readJSON(req, &reqData)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// minimally validate version string? At least to see if it's not a huge string that would bog down the DB
-
-	_, err = a.AppModel.GetVersion(appspace.AppID, reqData.Version)
-	if err != nil {
-		http.Error(res, err.Error(), 500)
-		return
-	}
-
-	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, reqData.Version, true)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	a.MigrationJobController.WakeUp()
-
-	res.WriteHeader(http.StatusOK)
-}
-
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 	for i := 0; i < 10; i++ {
 		sub = randomSubomainString()
@@ -308,6 +285,16 @@ func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 		}
 	}
 	return
+}
+
+func makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
+	return AppspaceMeta{
+		AppspaceID: int(appspace.AppspaceID),
+		AppID:      int(appspace.AppID),
+		AppVersion: appspace.AppVersion,
+		Subdomain:  appspace.Subdomain,
+		Paused:     appspace.Paused,
+		Created:    appspace.Created}
 }
 
 func randomSubomainString() string {
