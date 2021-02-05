@@ -14,17 +14,26 @@
 			</a>
 		</div>
 		<nav>
-			<ul class="">
+			<ul v-if="in_admin" class="">
+				<NavItem to="/admin">Admin Home</NavItem>
+				<NavItem to="/admin/users">Users</NavItem>
+				<NavItem to="/admin/settings">Settings</NavItem>
+
+			</ul>
+			<ul v-else class="">
 				<NavItem to="/appspace">Appspaces</NavItem>
 				<NavItem to="/app">Apps</NavItem>
+				<NavItem v-if="user.is_admin" to="/admin">Admin</NavItem>
 			</ul>
 		</nav>
 	</aside>
 </template>
 
 <script lang="ts">
-import { defineComponent, watch } from 'vue';
+import { defineComponent, watch, computed } from 'vue';
 import {useRoute} from 'vue-router';
+
+import user from '../models/user';
 
 import {nav_open, closeNav} from '../controllers/nav';
 
@@ -39,13 +48,21 @@ export default defineComponent({
 	},
 	setup() {
 		// have to do this here inside a setup(), otherwise it doesn't work.
+		
 		const route = useRoute();
 		watch( () => route.name, () => {
 			closeNav();
 		});
 
+		const in_admin = computed( () => {
+			console.log(route.path);
+			return route.path.startsWith('/admin');
+		});
+
 		return {
-			nav_open, closeNav
+			nav_open, closeNav,
+			user,
+			in_admin
 		};
 	}
 });

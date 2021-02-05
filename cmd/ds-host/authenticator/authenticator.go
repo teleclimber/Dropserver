@@ -89,8 +89,8 @@ func (a *Authenticator) Authenticate(req *http.Request) (auth domain.Authenticat
 // UnsetForAccount is the opposite of SetForAccount
 // deletes cookie, wipes cookie from DB?
 func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Request) {
-	cookie, err := a.getCookie(req)
-	if err == nil {
+	cookie, _ := a.getCookie(req)
+	if cookie != nil {
 		a.CookieModel.Delete(cookie.CookieID)
 		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), "user."+a.Config.Server.Host)
 	}

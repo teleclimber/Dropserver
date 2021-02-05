@@ -108,7 +108,12 @@ func (a *AdminRoutes) getUsers(res http.ResponseWriter, req *http.Request, route
 		usersResp = append(usersResp, ur)
 	}
 
-	writeJSON(res, AdminGetUsersResp{Users: usersResp})
+	writeJSON(res, usersResp)
+}
+
+// SettingsResp represents admin settings
+type SettingsResp struct {
+	RegistrationOpen bool `json:"registration_open"`
 }
 
 func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -118,14 +123,18 @@ func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, ro
 		return
 	}
 
-	respData := GetSettingsResp{
-		Settings: *settings}
+	respData := SettingsResp{
+		RegistrationOpen: settings.RegistrationOpen,
+	}
 
 	writeJSON(res, respData)
 }
 
+// TODO this is really not the right way to go about patching settings.
+// We should really have a route for each setting to post against.
+// Work for another day
 func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	reqData := &PostSettingsReq{}
+	reqData := &domain.Settings{}
 	err := readJSON(req, reqData)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -134,9 +143,10 @@ func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, 
 
 	// gotta validate the fields that aren't bool.
 
-	dsErr := a.SettingsModel.Set(&reqData.Settings)
+	dsErr := a.SettingsModel.Set(reqData)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
+		return
 	}
 
 	res.WriteHeader(http.StatusOK)
@@ -165,25 +175,29 @@ func (a *AdminRoutes) getInvitations(res http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	writeJSON(res, AdminGetUserInvitationsResp{
-		UserInvitations: invites})
+	writeJSON(res, invites)
+}
+
+// PostInvitation is for incoming post requests to create invitation
+type PostInvitation struct {
+	Email string `json:"email"`
 }
 
 func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	reqData := &AdminPostUserInvitationReq{}
+	reqData := &PostInvitation{}
 	err := readJSON(req, reqData)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	dsErr := a.Validator.Email(reqData.UserInvitation.Email)
+	dsErr := a.Validator.Email(reqData.Email)
 	if dsErr != nil {
 		http.Error(res, "email validation error: "+dsErr.PublicString(), http.StatusBadRequest)
 		return
 	}
 
-	dsErr = a.UserInvitationModel.Create(reqData.UserInvitation.Email)
+	dsErr = a.UserInvitationModel.Create(reqData.Email)
 	if dsErr != nil {
 		dsErr.HTTPError(res)
 		return

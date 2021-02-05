@@ -100,6 +100,13 @@ func (u *UserRoutes) serveRedirectToLogin(res http.ResponseWriter, req *http.Req
 	}
 }
 
+// UserData is single user
+type UserData struct {
+	Email   string `json:"email"`
+	UserID  int    `json:"user_id"`
+	IsAdmin bool   `json:"is_admin"`
+}
+
 // getUserData returns a json with {email: ""...""} I think, so far.
 func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	// check if there is anything in routeData tail?

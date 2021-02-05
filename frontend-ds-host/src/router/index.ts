@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Home from '../views/Home.vue';
+import User from '../views/User.vue';
 import Appspaces from '../views/Appspaces.vue';
 import ManageAppspace from '../views/ManageAppspace.vue';
 import MigrateAppspace from '../views/MigrateAppspace.vue';
@@ -9,11 +10,19 @@ import ManageApp from '../views/ManageApp.vue';
 import NewAppVersion from '../views/NewAppVersion.vue';
 import NewApp from '../views/NewApp.vue';
 
+import AdminHome from '../views/admin/AdminHome.vue';
+import Users from '../views/admin/Users.vue';
+import AdminSettings from '../views/admin/AdminSettings.vue';
+
 const routes: Array<RouteRecordRaw> = [
 	{
 		path: '/',
 		name: 'home',
 		component: Home
+	},{
+		path: '/user',
+		name: 'user',
+		component: User
 	},{
 		path: '/appspace',
 		name: 'appspaces',
@@ -46,6 +55,18 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/new-app',
 		name: 'new-app',
 		component: NewApp
+	},{
+		path: '/admin',
+		name: 'admin',
+		component: AdminHome
+	},{
+		path: '/admin/users',
+		name: 'admin-users',
+		component: Users
+	},{
+		path: '/admin/settings',
+		name: 'admin-settings',
+		component: AdminSettings
 	}
 ];
 
