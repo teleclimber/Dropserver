@@ -96,7 +96,6 @@ export class MigrationJobs {
 					if( !this.jobs.has(job_id) ) this.jobs.set(job_id, new MigrationJob);
 					const job = this.jobs.get(job_id);
 					job!.setFromRaw(raw);
-					console.log("job updated", job);
 					m.sendOK();
 					break;
 			

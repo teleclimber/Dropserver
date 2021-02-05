@@ -78,8 +78,6 @@ class AVCollector {
 		}, 200);
 	}
 	async loadNeeded() {
-		console.log("loading app versions");
-		
 		const needed : string[] = [];
 		this.status.forEach((status, id) => {
 			if( status === LoadStatus.Needed ) {

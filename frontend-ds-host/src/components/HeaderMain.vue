@@ -21,12 +21,12 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
 			</svg>
 		</a>
-		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800">{{getHead()}}</h1>
+		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800 flex-no-wrap whitespace-nowrap">{{getHead()}}</h1>
 
-		<div class="justify-self-end self-center pr-2 flex-initial ">
-			<router-link :to="{name:'user'}" v-if="user.loaded">{{user.email}}</router-link>
-			<span v-else>loading...</span>
-			<a href="/logout" class="pl-2">logout</a>
+		<div class="justify-self-end self-center pr-4 md:pr-6 flex-initial ">
+			<div class="w-8 h-8 md:w-12 md:h-12 rounded-full bg-blue-100 border-2 border-blue-300 flex justify-center content-center cursor-pointer hover:bg-blue-200" @click="openUserMenu">
+				<span v-if="user.loaded" class="text-xl md:text-4xl text-blue-500">{{user.email.substr(0, 1)}}</span>
+			</div>
 		</div>
 	</header>
 </template>
@@ -37,7 +37,7 @@ import {useRoute} from 'vue-router';
 
 import user from '../models/user';
 
-import {openNav} from '../controllers/nav';
+import {openNav, openUserMenu} from '../controllers/nav';
 
 export default defineComponent({
 	name: 'HeaderMain',
@@ -68,7 +68,8 @@ export default defineComponent({
 		return {
 			user,
 			getHead,
-			openNav
+			openNav,
+			openUserMenu,
 		}
 	}
 });

@@ -21,6 +21,7 @@
 			<router-view/>
 		</div>
 	</div>
+	<UserDropDownMenu v-if="user_menu_open"></UserDropDownMenu>
 </template>
 
 
@@ -29,15 +30,21 @@ import { defineComponent } from "vue";
 
 import NavMain from "./components/NavMain.vue";
 import HeaderMain from "./components/HeaderMain.vue";
+import UserDropDownMenu from './components/UserDropDownMenu.vue';
+
+import { user_menu_open } from './controllers/nav';
 
 export default defineComponent({
 	name: "App",
 	components: {
 		NavMain,
 		HeaderMain,
+		UserDropDownMenu,
 	},
 	setup() {
-
+		return {
+			user_menu_open,
+		}
 	}
 });
 </script>

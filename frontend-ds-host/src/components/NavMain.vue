@@ -18,12 +18,10 @@
 				<NavItem to="/admin">Admin Home</NavItem>
 				<NavItem to="/admin/users">Users</NavItem>
 				<NavItem to="/admin/settings">Settings</NavItem>
-
 			</ul>
 			<ul v-else class="">
 				<NavItem to="/appspace">Appspaces</NavItem>
 				<NavItem to="/app">Apps</NavItem>
-				<NavItem v-if="user.is_admin" to="/admin">Admin</NavItem>
 			</ul>
 		</nav>
 	</aside>
@@ -47,15 +45,12 @@ export default defineComponent({
 		DropserverLogo
 	},
 	setup() {
-		// have to do this here inside a setup(), otherwise it doesn't work.
-		
 		const route = useRoute();
 		watch( () => route.name, () => {
 			closeNav();
 		});
 
 		const in_admin = computed( () => {
-			console.log(route.path);
 			return route.path.startsWith('/admin');
 		});
 
