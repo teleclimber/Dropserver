@@ -13,6 +13,7 @@ import { reactive } from 'vue';
 
 export class AppVersion {
 	loaded = false;
+	// need an "error" flag too.
 
 	app_id = 0;
 	version ='';
@@ -38,10 +39,6 @@ export class AppVersion {
 	
 }
 
-export function ReactiveAppVersion() {
-	return reactive(new AppVersion);
-}
-
 enum LoadStatus {
 	Needed,
 	Loading,
@@ -60,7 +57,7 @@ class AVCollector {
 		let av = this.avs.get(id_string);
 		if( av !== undefined ) return av;
 		
-		av = reactive(new AppVersion);
+		av = reactive(new AppVersion);	// is this necessary?
 		av.app_id = app_id;
 		av.version = version;
 		

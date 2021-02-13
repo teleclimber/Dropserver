@@ -21,3 +21,14 @@ export function openUserMenu() {
 export function closeUserMenu() {
 	user_menu_open.value = false;
 }
+
+// Title
+
+export const page_title = ref("");
+
+export function setTitle(title :string) {
+	page_title.value = title;
+}
+export function unsetTitle() {
+	page_title.value = "";
+}

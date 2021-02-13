@@ -84,4 +84,13 @@ export class AppspaceStatus {
 		this.app_version_schema = Number(raw.app_version_schema),
 		this.problem = !!raw.problem
 	}
+	get as_string() :string {
+		if( !this.loaded ) return "loading";
+		if( this.problem ) return "problem";
+		if( this.migrating ) return "migrating";
+		if( this.app_version_schema !== this.appspace_schema ) return "migrate";
+		if( this.paused ) return "paused";
+		if( this.temp_paused ) return "busy";
+		return "ready";
+	};
 }

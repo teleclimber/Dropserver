@@ -16,6 +16,8 @@ import {AppVersion} from './app_versions';
 
 export class App {
 	loaded = false;
+	// need an error, in case of fetching an id that is wrong.
+	
 	app_id = 0;
 	name= '';
 	created_dt = new Date;
@@ -44,8 +46,9 @@ export class App {
 }
 
 export class Apps {
+	loaded = false;
 	apps : Map<number,App> = new Map();
-
+	
 	async fetchForOwner() {
 		const resp_data = await get('/application');
 		resp_data.apps.forEach( (raw:any) => {
@@ -53,6 +56,7 @@ export class Apps {
 			app.setFromRaw(raw);
 			this.apps.set(app.app_id, app);
 		});
+		this.loaded = true;
 	}
 
 	get asArray() : App[] {
@@ -61,11 +65,6 @@ export class Apps {
 		return Array.from(this.apps.values());
 	}
 }
-
-export function ReactiveApps() {
-	return reactive(new Apps);
-}
-
 
 export type SelectedFile = {
 	file: File,
@@ -93,6 +92,8 @@ export async function uploadNewApplication(selected_files: SelectedFile[]): Prom
 	const resp_data = await post('/application', form_data);
 	const resp = <UploadVersionResp>resp_data;
 
+	if( Array.isArray(resp.errors) && resp.errors.length === 0 ) resp.errors = undefined;
+
 	return resp;
 }
 
@@ -111,6 +112,8 @@ export async function uploadNewAppVersion(app_id:number, selected_files: Selecte
 
 	const resp_data = await post('/application/'+app_id+'/version', form_data);
 	const resp = <UploadVersionResp>resp_data;
+
+	if( Array.isArray(resp.errors) && resp.errors.length === 0 ) resp.errors = undefined;
 
 	return resp;
 }

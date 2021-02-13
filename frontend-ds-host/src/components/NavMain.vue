@@ -20,8 +20,8 @@
 				<NavItem to="/admin/settings">Settings</NavItem>
 			</ul>
 			<ul v-else class="">
-				<NavItem to="/appspace">Appspaces</NavItem>
-				<NavItem to="/app">Apps</NavItem>
+				<NavItem to="/appspace" :active="active_section === 'appspaces'">Appspaces</NavItem>
+				<NavItem to="/app" :active="active_section === 'apps'">Apps</NavItem>
 			</ul>
 		</nav>
 	</aside>
@@ -54,10 +54,17 @@ export default defineComponent({
 			return route.path.startsWith('/admin');
 		});
 
+		const active_section = computed( () => {
+			const p = route.path;
+			if( p.startsWith("/appspace") || p.startsWith("/new-appspace")) return "appspaces";
+			if( p.startsWith("/app") || p.startsWith("/new-app")) return "apps";
+		});
+
 		return {
 			nav_open, closeNav,
 			user,
-			in_admin
+			in_admin,
+			active_section
 		};
 	}
 });

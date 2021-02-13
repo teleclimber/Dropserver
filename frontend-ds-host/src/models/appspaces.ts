@@ -73,6 +73,8 @@ export class Appspace {
 }
 
 export class Appspaces {
+	loaded = false;
+
 	as : Map<number,Appspace> = new Map();
 
 	async fetchForOwner() {
@@ -82,6 +84,7 @@ export class Appspaces {
 			appspace.setFromRaw(raw);
 			this.as.set(appspace.id, appspace);
 		});
+		this.loaded = true;
 	}
 
 	get asArray() : Appspace[] {

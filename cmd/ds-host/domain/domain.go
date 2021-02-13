@@ -429,7 +429,7 @@ type AppFilesMetadata struct {
 	AppName         string                   `json:"name"`
 	AppVersion      Version                  `json:"version"`
 	SchemaVersion   int                      `json:"schema"`
-	APIVersion      APIVersion               `json:"api"`
+	APIVersion      APIVersion               `json:"api_version"`
 	Migrations      []int                    `json:"migrations"`
 	UserPermissions []AppspaceUserPermission `json:"user_permissions"`
 }

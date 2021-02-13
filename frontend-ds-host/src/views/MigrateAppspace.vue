@@ -1,60 +1,98 @@
 <template>
 	<ViewWrap>
-		<p>Appsace: {{appspace.subdomain}}</p>
-		<div v-if="migration_job">
-			<p>There is a migration job: {{migration_job.job_id}} {{migration_job.finished === null ? '' : 'Finished'}}
-				{{migration_job.started === null ? '' : 'Started'}}
-				{{ migration_job.to_version }}
-				<router-link :to="{name: 'migrate-appspace', params:{id:appspace.id}}">Close</router-link>
-			</p>
-		</div>
-		<div v-else>
-			<p>Current App Version: {{cur_app_version.app_name}}, version: {{cur_app_version.version}} (schema: {{cur_app_version.schema}}, API: {{cur_app_version.api_version}})</p>
-			<p v-if="to_version">To App Version: {{to_app_version.app_name}}, version: {{to_app_version.version}} (schema: {{to_app_version.schema}}, API: {{to_app_version.api_version}})</p>
-			<p v-else>No version chosen</p>
-			<p v-if="!show_all_versions">
-				<button @click="showAllVersions(true)">Choose different version</button>
-			</p>
-		</div>
-		<div v-if="to_version && !show_all_versions && !migration_job">
-			<p v-if="cur_app_version.schema !== to_app_version.schema">
-				This version change requires migrating your data from schema {{cur_app_version.schema}} to {{to_app_version.schema}}.
-			</p>
-			<p>[Optionally schedule migration]</p>
-			<button @click="migrate()">Start Migration</button>
-		</div>
+		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Change Application Version</h3>
+				<div>
+					<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn">Close</router-link>
+				</div>
+			</div>
 
-		<div v-if="show_all_versions">
-			<p><button @click="showAllVersions(false)">Close</button></p>
-			<ul>
-				<li v-for="ver in app.versions" :key="ver.version" :class="{'bg-yellow-100': ver.version === appspace.app_version}">
-					{{ver.version}} created {{ver.created_dt.toLocaleString()}}
-					<router-link v-if="ver.version !== appspace.app_version" :to="{name: 'migrate-appspace', params:{id:appspace.id}, query:{to_version:ver.version}}">Choose Version</router-link>
-				</li>
-			</ul>
-			<p v-if="!app.loaded">Loading application versions</p>
+
+			<div v-if="migration_job" class="px-4 py-5 sm:px-6">
+				<div v-if="migration_job.finished === null" class="bg-yellow-100 py-5 flex rounded-xl">
+					<div class="w-12 sm:w-16 flex justify-center">
+						<svg class="w-8 h-8 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+					</div>
+					<div>
+						<h3 class="text-yellow-600 text-lg font-medium">Migration Job Running</h3>
+						<p>Migrating to version {{ migration_job.to_version }}.</p>
+						<!-- need a cancel button -->
+					</div>
+				</div>
+				<div v-else class="bg-green-100 py-5 flex rounded-xl">
+					<div class="w-12 sm:w-16 flex justify-center">
+						<svg class="w-8 h-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+					</div>
+					<div>
+						<h3 class="text-green-700 text-lg font-medium">Migration Job Finished</h3>
+						<p>Migrated to version {{ migration_job.to_version }}.</p>
+					</div>
+				</div>
+			</div>
+			<div v-else>
+				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
+					<div class="font-medium text-gray-500">Current Version:</div>
+					<VersionDetails :app_version="cur_app_version" class="col-span-3"></VersionDetails>
+				</div>
+				<div v-if="to_version" class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
+					<div class="font-medium text-gray-500">Selected Version:</div>
+					<VersionDetails :app_version="to_app_version" class="col-span-3"></VersionDetails>
+					<p v-if="!show_all_versions" class="flex justify-end col-span-4 py-1">
+						<button @click="showAllVersions(true)" class="btn">Choose different version</button>
+					</p>
+				</div>
+			</div>
+
+			<div v-if="to_version && !show_all_versions && !migration_job" class="border-t border-gray-200 px-4 py-5 sm:px-6">
+				<p v-if="cur_app_version.schema !== to_app_version.schema">
+					This version change requires migrating your data from schema {{cur_app_version.schema}} to {{to_app_version.schema}}.
+				</p>
+				<p>[Optionally schedule migration]</p>
+				<p class="pt-5 flex justify-end">
+					<button @click="migrate()" class="btn btn-blue">Start Migration</button>
+				</p>
+			</div>
+
+			<!-- use PickVersion here -->
+			<div class="px-4 py-5 sm:px-6 sm:grid grid-cols-4" v-if="show_all_versions">
+				<div class="font-medium text-gray-500">
+					Choose a version:
+				</div>
+				<PickVersion :versions="app.versions" :current="appspace.app_version" class="col-span-3" @version="pickVersion" @close="showAllVersions(false)"></PickVersion>
+				<p v-if="!app.loaded">Loading application versions</p>
+			</div>
 		</div>
-		
 	</ViewWrap>
 </template>
 
 <script lang="ts">
 import {useRoute} from 'vue-router';
 import { defineComponent, ref, Ref, reactive, computed, onUnmounted, watchEffect, isReactive } from 'vue';
+import router from '../router';
 
 import { Appspace } from '../models/appspaces';
 import { App } from '../models/apps';
 import { AppVersion, AppVersionCollector } from '../models/app_versions';
 import { MigrationJob, MigrationJobs, createMigrationJob } from '../models/migration_jobs';
+import {setTitle} from '../controllers/nav';
 
 import { AppspaceStatus } from '../twine-services/appspace_status';
 
 import ViewWrap from '../components/ViewWrap.vue';
+import VersionDetails from '../components/VersionDetails.vue';
+import PickVersion from '../components/PickAppVersion.vue';
 
 export default defineComponent({
 	name: 'MigrateAppspace',
 	components: {
-		ViewWrap
+		ViewWrap,
+		VersionDetails,
+		PickVersion
 	},
 	setup(props) {
 		const to_version :Ref<string|undefined> = ref(undefined);
@@ -91,6 +129,10 @@ export default defineComponent({
 				app.fetch(appspace.app_id);
 			}
 		}
+		function pickVersion(version:string) {
+			show_all_versions.value = false;
+			router.push({name: 'migrate-appspace', params:{id:appspace.id}, query:{to_version:version}});
+		}
 
 		watchEffect( async () => {
 			sticky_job_id.value = undefined;
@@ -101,6 +143,8 @@ export default defineComponent({
 			await appspace.fetch(appspace_id);
 						
 			status.connectStatus(appspace_id);
+
+			setTitle(appspace.subdomain+".domain.sometld");
 
 			to_version.value = typeof route.query.to_version == 'string' && route.query.to_version !== appspace.app_version ? route.query.to_version : undefined; 
 			if( to_version.value ) {
@@ -115,6 +159,10 @@ export default defineComponent({
 
 		watchEffect( () => {
 			if( appspace.loaded ) cur_app_version.value = AppVersionCollector.get(appspace.app_id, appspace.app_version);
+		});
+
+		onUnmounted( () => {
+			setTitle("");
 		});
 
 		async function migrate() {
@@ -134,6 +182,7 @@ export default defineComponent({
 			to_version,
 			show_all_versions,
 			showAllVersions,
+			pickVersion,
 			app,
 			migrate,
 			migration_job,
