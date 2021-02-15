@@ -2,7 +2,6 @@ package userroutes
 
 import (
 	"database/sql"
-	"errors"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -63,7 +62,7 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 
 	appspace, err := a.getAppspaceFromPath(routeData)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		returnError(res, err)
 		return
 	}
 
@@ -148,16 +147,19 @@ func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData
 
 	appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
 	if err != nil {
-		return nil, err
+		return nil, errBadRequest
 	}
 	appspaceID := domain.AppspaceID(appspaceIDInt)
 
 	appspace, err := a.AppspaceModel.GetFromID(appspaceID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNotFound
+		}
 		return nil, err
 	}
 	if appspace.OwnerID != routeData.Authentication.UserID {
-		return nil, errors.New("unauthorized")
+		return nil, errForbidden
 	}
 
 	return appspace, nil

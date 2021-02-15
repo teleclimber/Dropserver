@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"bytes"
+	"database/sql"
 	"errors"
 	"io"
 	"net/http"
@@ -42,9 +43,6 @@ type Versions struct {
 	AppVersions []VersionMeta `json:"app_versions"`
 }
 
-var errBadRequest = errors.New("bad request")
-var errUnauthorized = errors.New("unauthorized")
-
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppGetter interface {
@@ -79,13 +77,7 @@ func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request
 
 	app, err := a.getAppFromPath(routeData)
 	if err != nil {
-		if errors.Is(err, errBadRequest) {
-			http.Error(res, "bad request", http.StatusBadRequest)
-		} else if errors.Is(err, errUnauthorized) {
-			http.Error(res, "unauthorized", http.StatusUnauthorized)
-		} else {
-			http.Error(res, "", http.StatusInternalServerError)
-		}
+		returnError(res, err)
 		return
 	}
 	method := req.Method
@@ -413,10 +405,13 @@ func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) 
 
 	app, err := a.AppModel.GetFromID(appID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNotFound
+		}
 		return nil, err
 	}
 	if app.OwnerID != routeData.Authentication.UserID {
-		return nil, errUnauthorized
+		return nil, errForbidden
 	}
 
 	return app, nil
@@ -434,6 +429,9 @@ func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteDa
 
 	version, err := a.AppModel.GetVersion(appID, domain.Version(versionStr))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errNotFound
+		}
 		return nil, err
 	}
 

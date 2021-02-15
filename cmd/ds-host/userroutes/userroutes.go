@@ -13,6 +13,23 @@ import (
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
+var errNotFound = errors.New("not found")
+var errBadRequest = errors.New("bad request") // feels like this should be wrapped or something, so we can also have access to the original error?
+var errForbidden = errors.New("forbidden")
+
+func returnError(res http.ResponseWriter, err error) {
+	switch err {
+	case errNotFound:
+		http.Error(res, "not found", http.StatusNotFound)
+	case errBadRequest:
+		http.Error(res, "bad request", http.StatusBadRequest)
+	case errForbidden:
+		http.Error(res, "forbidden", http.StatusForbidden)
+	default:
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
 	AuthRoutes          domain.RouteHandler

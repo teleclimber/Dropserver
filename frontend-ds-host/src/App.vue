@@ -22,6 +22,8 @@
 		</div>
 	</div>
 	<UserDropDownMenu v-if="user_menu_open"></UserDropDownMenu>
+	<UserLoggedOutOverlay v-if="!user.logged_in"></UserLoggedOutOverlay>
+	<ReqErrorOverlay></ReqErrorOverlay>
 </template>
 
 
@@ -31,8 +33,11 @@ import { defineComponent } from "vue";
 import NavMain from "./components/NavMain.vue";
 import HeaderMain from "./components/HeaderMain.vue";
 import UserDropDownMenu from './components/UserDropDownMenu.vue';
+import UserLoggedOutOverlay from './components/UserLoggedOutOverlay.vue';
+import ReqErrorOverlay from './components/RequestErrorOverlay.vue';
 
 import { user_menu_open } from './controllers/nav';
+import user from './models/user';
 
 export default defineComponent({
 	name: "App",
@@ -40,10 +45,13 @@ export default defineComponent({
 		NavMain,
 		HeaderMain,
 		UserDropDownMenu,
+		UserLoggedOutOverlay,
+		ReqErrorOverlay
 	},
 	setup() {
 		return {
 			user_menu_open,
+			user
 		}
 	}
 });

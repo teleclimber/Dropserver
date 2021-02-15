@@ -94,7 +94,12 @@ func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
 	var app domain.App
 	err := m.stmt.selectID.QueryRowx(appID).StructScan(&app)
 	if err != nil {
-		m.getLogger("GetFromID()").AppID(appID).Error(err)
+		log := m.getLogger("GetFromID()").AppID(appID)
+		if err != sql.ErrNoRows {
+			log.Error(err)
+		} else {
+			log.Debug(err.Error())
+		}
 		return nil, err
 	}
 	return &app, nil

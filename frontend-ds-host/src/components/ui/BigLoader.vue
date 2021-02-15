@@ -37,5 +37,7 @@
 }
 </style>
 <template>
-	<div class="animated-loader"><div></div><div></div><div></div></div>
+	<div class="w-full h-96 flex justify-center items-center">
+		<div class="animated-loader"><div></div><div></div><div></div></div>
+	</div>
 </template>

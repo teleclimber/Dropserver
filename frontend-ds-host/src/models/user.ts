@@ -8,6 +8,7 @@ import {reactive} from 'vue';
 
 class User {
 	loaded = false;
+	logged_in = true;	// assumed true until a request fails.
 
 	user_id = -1;
 	email = "";
@@ -23,6 +24,9 @@ class User {
 		this.is_admin = !!raw.is_admin;
 		
 		this.loaded = true;
+	}
+	setUnauthorized() {
+		this.logged_in = false;
 	}
 }
 

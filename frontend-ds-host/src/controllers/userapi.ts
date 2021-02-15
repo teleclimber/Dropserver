@@ -1,13 +1,36 @@
+import {reactive } from 'vue';
 import axios from 'axios';
 import type {AxiosResponse} from 'axios';
+
+type Err = {
+	method: string,
+	path: string,
+	code:number,
+	message: string
+}
+class ReqErrStack_ {
+	errs: Err[] = [];
+
+	push(err:Err) {
+		this.errs.push(err);
+	}
+}
+export const ReqErrStack = reactive(new ReqErrStack_);
+
+
+import user from '../models/user';
 
 const ax = axios.create();
 ax.interceptors.response.use(function (response) {
 		return response;
 	}, function (error) {
-		if( error.response && error.response.status == 401 ) {
-			alert('You are not logged in')
-			window.location.href = '/login';
+		if( error.response && error.response.status >= 400 ) {
+			const resp = error.response;
+			if( resp.status == 401 ) user.setUnauthorized();
+			else {
+				ReqErrStack.push({method:resp.config.method, path:resp.config.url, code: resp.status, message: resp.data});
+				console.log("pushed error to stack");
+			}
 		}
 
 		return Promise.reject(error);
@@ -16,7 +39,7 @@ ax.interceptors.response.use(function (response) {
 const path_prefix = '/api';
 
 const options = {
-	headers: {'Content-Type': 'application/vnd.api+json'}
+	headers: {'Content-Type': 'application/json'}
 	// also add accept
 };
 
@@ -33,14 +56,11 @@ export async function get(path :string) :Promise<any> {	// string for now, we ca
 	}
 	catch(e) {
 		// handle error
-		console.error(e);
+		console.error('caught error in get request '+path, e);
 		return;
 	}
 
-	// if 401 then notify page user needs to log in.
-
 	return resp.data;
-
 }
 
 export async function patch(path:string, data:any) :Promise<any> {
