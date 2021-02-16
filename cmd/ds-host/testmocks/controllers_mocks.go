@@ -34,20 +34,6 @@ func (m *MockMigrationJobController) EXPECT() *MockMigrationJobControllerMockRec
 	return m.recorder
 }
 
-// GetRunningJobs mocks base method
-func (m *MockMigrationJobController) GetRunningJobs() []domain.MigrationStatusData {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRunningJobs")
-	ret0, _ := ret[0].([]domain.MigrationStatusData)
-	return ret0
-}
-
-// GetRunningJobs indicates an expected call of GetRunningJobs
-func (mr *MockMigrationJobControllerMockRecorder) GetRunningJobs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRunningJobs", reflect.TypeOf((*MockMigrationJobController)(nil).GetRunningJobs))
-}
-
 // Start mocks base method
 func (m *MockMigrationJobController) Start() {
 	m.ctrl.T.Helper()

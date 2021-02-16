@@ -20,6 +20,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -92,7 +93,7 @@ func main() {
 	appspacePausedEvents := &events.AppspacePausedEvents{}
 	appspaceRouteEvents := &AppspaceRouteEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
-	migrationJobEvents := &events.MigrationJobStatusEvents{}
+	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
 
@@ -153,7 +154,9 @@ func main() {
 	devAuth := &DevAuthenticator{
 		noAuth: true} // start as public
 
-	devMigrationJobModel := &DevMigrationJobModel{}
+	devMigrationJobModel := &DevMigrationJobModel{
+		MigrationJobEvents: migrationJobEvents,
+	}
 
 	devAppspaceModel.Appspace = domain.Appspace{
 		OwnerID:     ownerID,
@@ -185,8 +188,7 @@ func main() {
 		AppspaceModel:      devAppspaceModel,
 		AppspaceStatus:     nil, //set below
 		SandboxMaker:       nil, // added below
-		SandboxManager:     devSandboxManager,
-		MigrationEvents:    migrationJobEvents}
+		SandboxManager:     devSandboxManager}
 
 	//devAppspaceStatus := &DevAppspaceStatus{}
 	appspaceStatus := &appspacestatus.AppspaceStatus{
@@ -196,8 +198,8 @@ func main() {
 		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspaceRouter:       nil, //added below
-		MigrationJobs:        migrateJobController,
-		MigrationJobsEvents:  migrationJobEvents,
+		MigrationJobModel:    devMigrationJobModel,
+		MigrationJobEvents:   migrationJobEvents,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		AppVersionEvents:     appVersionEvents,
 	}
@@ -273,6 +275,12 @@ func main() {
 		AppspaceUserModels:      appspaceUserModels,
 		DevAppspaceContactModel: devAppspaceContactModel}
 
+	migrationJobTwine := &twineservices.MigrationJobService{
+		AppspaceModel:      devAppspaceModel,
+		MigrationJobModel:  devMigrationJobModel,
+		MigrationJobEvents: migrationJobEvents,
+	}
+
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
 		AppFilesModel:          appFilesModel,
@@ -293,7 +301,7 @@ func main() {
 		RouteHitService:        routeHitService,
 		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
-		MigrationJobsEvents:    migrationJobEvents}
+		MigrationJobService:    migrationJobTwine}
 	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
 
 	// Create server.

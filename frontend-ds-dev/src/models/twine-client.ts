@@ -8,12 +8,17 @@ interface LocalService {
 const ws_addr = 'ws://'+location.hostname+(location.port ? ':'+location.port: '')+'/dropserver-dev/livedata/';
 
 class TwineClient {
+	_ready = false;
+	_ready_resolves :(() => void)[] = [];
 	twine:TwineWebsocketClient =  new TwineWebsocketClient(ws_addr);
 	local_services : Map<Number,LocalService> = new Map;
 
-	start() {
+	async start() {
 		this.serviceDispatcher();
-		this.twine.startClient();
+		await this.twine.startClient();
+		this._ready = true;
+		console.log("twine ready!", this._ready_resolves.length);
+		this._ready_resolves.forEach( r => r() )
 	}
 
 	registerService(serviceID:Number, service :LocalService) {
@@ -27,6 +32,14 @@ class TwineClient {
 			if( serv === undefined ) m.sendError("No registered service");
 			else serv.handleMessage(m);
 		}
+	}
+
+	async ready() :Promise<void> {
+		if( this._ready ) return Promise.resolve();
+		console.log("twine not ready");
+		return new Promise( (resolve:() => void, reject) => {
+			this._ready_resolves.push(resolve);
+		});
 	}
 }
 

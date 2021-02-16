@@ -95,16 +95,6 @@ func (c *JobController) Stop() {
 	close(c.fanIn)
 }
 
-// GetRunningJobs returns an array of currently started and unfinished jobs
-func (c *JobController) GetRunningJobs() (rj []domain.MigrationStatusData) {
-	c.runningMux.Lock()
-	defer c.runningMux.Unlock()
-	for _, job := range c.runningJobs {
-		rj = append(rj, makeMigrationStatusData(job.getCurStatusData()))
-	}
-	return
-}
-
 var statString = map[domain.MigrationJobStatus]string{ // TODO: this is duplicated, particularly with json response
 	domain.MigrationStarted:  "started",
 	domain.MigrationRunning:  "running",
@@ -127,6 +117,7 @@ func (c *JobController) eventManifold() { // eventBus?
 		if d.status == domain.MigrationFinished {
 			err := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
 			if err != nil {
+				c.getLogger("eventManifold").AddNote("MigrationJobModel.SetFinished error: ").Debug(err.Error())
 				//c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
 				// ^^ this is already logged by model. No need to log.
 				// But should probably warn user that something is not right.
@@ -439,12 +430,6 @@ func (r *runningJob) setStatus(status domain.MigrationJobStatus) {
 	defer r.statusMux.Unlock()
 
 	r.status = status
-	switch status {
-	case domain.MigrationStarted:
-		r.migrationJob.Started = nulltypes.NewTime(time.Now(), true)
-	case domain.MigrationFinished:
-		r.migrationJob.Finished = nulltypes.NewTime(time.Now(), true)
-	}
 
 	statusData := r.getCurStatusData()
 

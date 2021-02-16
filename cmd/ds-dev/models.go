@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -144,6 +145,10 @@ func (m *DevAppspaceContactModel) ProxyIsOwner(appspaceID domain.AppspaceID, pro
 
 // DevMigrationJobModel tracks a single migration job at a time
 type DevMigrationJobModel struct {
+	MigrationJobEvents interface {
+		Send(domain.MigrationJob)
+	}
+
 	nextJobID int
 	job       *domain.MigrationJob
 }
@@ -162,6 +167,7 @@ func (m *DevMigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.A
 		ToVersion:  toVersion,
 		Priority:   priority,
 	}
+	go m.sendJobAsEvent()
 	return nil, nil
 }
 
@@ -179,12 +185,21 @@ func (m *DevMigrationJobModel) GetPending() ([]*domain.MigrationJob, error) {
 	return nil, nil
 }
 
+func (m *DevMigrationJobModel) GetRunning() ([]domain.MigrationJob, error) {
+	ret := []domain.MigrationJob{}
+	if m.job != nil && m.job.Started.Valid && !m.job.Finished.Valid {
+		ret = append(ret, *m.job)
+	}
+	return ret, nil
+}
+
 func (m *DevMigrationJobModel) SetStarted(jobID domain.JobID) (bool, error) {
 	if m.job != nil {
 		if m.job.Started.Valid {
 			return false, nil
 		}
 		m.job.Started = nulltypes.NewTime(time.Now(), true)
+		go m.sendJobAsEvent()
 		return true, nil
 	}
 	return false, nil
@@ -197,7 +212,13 @@ func (m *DevMigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.
 		}
 		m.job.Finished = nulltypes.NewTime(time.Now(), true)
 		m.job.Error = errStr
+		fmt.Println("set job to finished and sending")
+		go m.sendJobAsEvent()
 		return nil
 	}
 	return errors.New("no job??")
+}
+
+func (m *DevMigrationJobModel) sendJobAsEvent() {
+	m.MigrationJobEvents.Send(*m.job)
 }

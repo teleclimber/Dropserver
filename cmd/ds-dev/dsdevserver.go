@@ -16,7 +16,7 @@ import (
 const routeEventService = 11      // that's hits on a route
 const appspaceControlService = 12 // incmoing? For appspace control (pause, migrate)
 const baseDataService = 13
-const migrationStatusService = 14
+const migrationJobService = 14
 const appspaceLogService = 15
 const appspaceRouteService = 16 // keeps a live list of appspace routes from appspace meta db
 const userControlService = 17   //incoming / outgoing
@@ -64,10 +64,6 @@ type DropserverDevServer struct {
 		SetTempPause(domain.AppspaceID, bool)
 		WaitStopped(domain.AppspaceID)
 	}
-	MigrationJobsEvents interface {
-		Subscribe(chan<- domain.MigrationStatusData)
-		Unsubscribe(chan<- domain.MigrationStatusData)
-	}
 	AppspaceLogEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
@@ -77,11 +73,14 @@ type DropserverDevServer struct {
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 	}
 
-	// Services:
+	// Dev Services:
 	AppMetaService  twineService
 	RoutesService   twineService
 	UserService     twineService
 	RouteHitService twineService
+
+	// Services:
+	MigrationJobService domain.TwineService
 
 	appPath      string
 	appspacePath string
@@ -175,19 +174,13 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go s.UserService.Start(t)
 	go s.RouteHitService.Start(t)
 
+	go s.MigrationJobService.Start(ownerID, t)
+
 	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
 	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)
 	go func() {
 		for logEvent := range appspaceLogEventChan {
 			go s.sendAppspaceLogEvent(t, logEvent)
-		}
-	}()
-
-	migrationEventsChan := make(chan domain.MigrationStatusData)
-	s.MigrationJobsEvents.Subscribe(migrationEventsChan)
-	go func() {
-		for migrationEvent := range migrationEventsChan {
-			go s.sendMigrationEvent(t, migrationEvent)
 		}
 	}()
 
@@ -199,6 +192,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 				go s.handleAppspaceCtrlMessage(m)
 			case userControlService:
 				go s.UserService.HandleMessage(m)
+			case migrationJobService:
+				go s.MigrationJobService.HandleMessage(m)
 			default:
 				m.SendError("Service not found")
 			}
@@ -220,9 +215,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 
 		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
 		close(appspaceLogEventChan)
-
-		s.MigrationJobsEvents.Unsubscribe(migrationEventsChan)
-		close(migrationEventsChan)
 
 		fmt.Println("unsubscribed")
 	}()
@@ -376,20 +368,6 @@ func (s *DropserverDevServer) sendAppspaceLogEvent(twine *twine.Twine, statusEve
 	_, err = twine.SendBlock(appspaceLogService, sandboxLogEventCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppspaceLogEvent SendBlock Error: " + err.Error())
-	}
-}
-
-const migrationStatusEventCmd = 11
-
-func (s *DropserverDevServer) sendMigrationEvent(twine *twine.Twine, migrationEvent domain.MigrationStatusData) {
-	bytes, err := json.Marshal(migrationEvent)
-	if err != nil {
-		fmt.Println("sendMigrationEvent json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(migrationStatusService, migrationStatusEventCmd, bytes)
-	if err != nil {
-		fmt.Println("sendMigrationEvent SendBlock Error: " + err.Error())
 	}
 }
 

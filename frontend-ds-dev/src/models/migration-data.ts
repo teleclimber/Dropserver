@@ -20,8 +20,26 @@ type MigrationStatusData = {
 class MigrationData {
 	jobs :MigrationStatusData[];
 	constructor() {
-		twineClient.registerService(14, this);
+		twineClient.registerService(14, this);	// may be unnecessary
 		this.jobs = reactive([]);
+		
+		this.handleRefMessages();
+	}
+	async handleRefMessages() {
+		await twineClient.ready();
+		const payload = new TextEncoder().encode(JSON.stringify({appspace_id:15}))
+		const sent = await twineClient.twine.send(14, 12, payload);
+		for await (const m of sent.incomingMessages()) {
+			switch (m.command) {
+				case route_commands.migration_event:
+					this.handleMigrationEvent(m);
+					break;
+			
+				default:
+					m.sendError("What is this command?");
+					throw new Error("what is this command? "+m.command);
+			}
+		}
 	}
 	handleMessage(m:ReceivedMessageI) {
 		switch(m.command){

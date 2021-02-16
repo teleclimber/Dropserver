@@ -12,27 +12,6 @@ import (
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
-func TestGetRunningJobs(t *testing.T) {
-	c := &JobController{
-		runningJobs: make(map[domain.JobID]*runningJob)}
-
-	appspaceID := domain.AppspaceID(7)
-
-	c.runningJobs[domain.JobID(5)] = &runningJob{
-		migrationJob: &domain.MigrationJob{
-			AppspaceID: appspaceID,
-		},
-	}
-
-	jobs := c.GetRunningJobs()
-	if len(jobs) != 1 {
-		t.Error("expected one job")
-	}
-	if jobs[0].AppspaceID != appspaceID {
-		t.Error("bad appspace ID")
-	}
-}
-
 func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

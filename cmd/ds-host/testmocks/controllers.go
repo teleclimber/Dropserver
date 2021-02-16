@@ -13,7 +13,6 @@ type MigrationJobController interface {
 	Start()
 	Stop()
 	WakeUp()
-	GetRunningJobs() []domain.MigrationStatusData
 }
 
 // AppspaceStatus for mocking

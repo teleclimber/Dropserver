@@ -39,7 +39,7 @@
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Application: {{ app.loaded ? app.name : 'loading...' }}</h3>
 					<div>
-						<router-link :to="{name: 'new-appspace'}" class="btn">Back</router-link>
+						<router-link :to="{name: 'new-appspace'}" class="btn">Pick Application</router-link>
 					</div>
 				</div>
 
