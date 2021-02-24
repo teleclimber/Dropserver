@@ -22,6 +22,7 @@
 			<ul v-else class="">
 				<NavItem to="/appspace" :active="active_section === 'appspaces'">Appspaces</NavItem>
 				<NavItem to="/app" :active="active_section === 'apps'">Apps</NavItem>
+				<NavItem to="/contact" :active="active_section === 'contacts'">Contacts</NavItem>
 			</ul>
 		</nav>
 	</aside>
@@ -58,6 +59,8 @@ export default defineComponent({
 			const p = route.path;
 			if( p.startsWith("/appspace") || p.startsWith("/new-appspace")) return "appspaces";
 			if( p.startsWith("/app") || p.startsWith("/new-app")) return "apps";
+			if( p.startsWith('/contact') ) return 'contacts';
+			return '';
 		});
 
 		return {

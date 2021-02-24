@@ -52,8 +52,8 @@ func (m *ContactModel) PrepareStatements() {
 
 	// User contacts:
 	m.stmt.createContact = p.Prep(`INSERT INTO contacts 
-		(user_id, name, display_name) 
-		VALUES (?, ?, ?)`)
+		(user_id, name, display_name, created) 
+		VALUES (?, ?, ?, datetime("now"))`)
 
 	m.stmt.updateContact = p.Prep(`UPDATE contacts SET 
 		name = ?, display_name = ? 
@@ -61,7 +61,7 @@ func (m *ContactModel) PrepareStatements() {
 
 	m.stmt.deleteContact = p.Prep(`DELETE FROM contacts WHERE user_id = ? AND contact_id = ?`)
 
-	m.stmt.getContact = p.Prep(`SELECT * FROM contacts WHERE user_id = ? AND contact_id = ?`)
+	m.stmt.getContact = p.Prep(`SELECT * FROM contacts WHERE contact_id = ?`)
 
 	m.stmt.getUserContacts = p.Prep(`SELECT * FROM contacts WHERE user_id = ?`)
 
@@ -102,7 +102,7 @@ func (m *ContactModel) Create(userID domain.UserID, name string, displayName str
 
 	contactID := domain.ContactID(lastID)
 
-	contact, err := m.Get(userID, contactID)
+	contact, err := m.Get(contactID)
 	if err != nil {
 		logger.AddNote("Get()").Error(err)
 		return domain.Contact{}, err
@@ -136,13 +136,13 @@ func (m *ContactModel) Delete(userID domain.UserID, contactID domain.ContactID) 
 }
 
 // Get returns a single contact
-func (m *ContactModel) Get(userID domain.UserID, contactID domain.ContactID) (domain.Contact, error) {
+func (m *ContactModel) Get(contactID domain.ContactID) (domain.Contact, error) {
 	var contact domain.Contact
 
-	err := m.stmt.getContact.QueryRowx(userID, contactID).StructScan(&contact)
+	err := m.stmt.getContact.QueryRowx(contactID).StructScan(&contact)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			m.getLogger("Get()").UserID(userID).Error(err)
+			m.getLogger("Get()").Error(err)
 		}
 		return domain.Contact{}, err
 	}

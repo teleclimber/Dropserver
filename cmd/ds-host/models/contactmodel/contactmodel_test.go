@@ -26,7 +26,7 @@ func TestGetFromNonExistentID(t *testing.T) {
 	defer contactModel.DB.Handle.Close()
 
 	// There should be an error, but no panics
-	_, err := contactModel.Get(domain.UserID(7), domain.ContactID(11))
+	_, err := contactModel.Get(domain.ContactID(11))
 	if err == nil {
 		t.Error("Expected an error")
 	}
@@ -88,7 +88,7 @@ func TestUpdateContact(t *testing.T) {
 		t.Error(err)
 	}
 
-	contact, err = contactModel.Get(userID, contact.ContactID)
+	contact, err = contactModel.Get(contact.ContactID)
 	if err != nil {
 		t.Error(err)
 	}

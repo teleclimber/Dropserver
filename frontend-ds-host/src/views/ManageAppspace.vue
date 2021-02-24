@@ -92,7 +92,6 @@ export default defineComponent({
 		}
 
 		onMounted( async () => {
-			console.log("on mounted");
 			const appspace_id = Number(route.params.id);
 			await appspace.fetch(appspace_id);
 			app_version.value = AppVersionCollector.get(appspace.app_id, appspace.app_version);

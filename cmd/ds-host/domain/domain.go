@@ -522,6 +522,7 @@ type Contact struct {
 	ContactID   ContactID `db:"contact_id"`
 	Name        string    `db:"name"`
 	DisplayName string    `db:"display_name"`
+	Created     time.Time `db:"created"`
 }
 
 // AppspaceContact is a user of an appspace who is a contact of the owner

@@ -23,4 +23,5 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0
+	gopkg.in/validator.v2 v2.0.0-20200605151824-2b28d334fa05
 )

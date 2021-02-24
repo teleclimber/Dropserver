@@ -515,18 +515,18 @@ func (mr *MockAppspaceContactModelMockRecorder) DeleteAppspaceContact(arg0, arg1
 }
 
 // Get mocks base method
-func (m *MockAppspaceContactModel) Get(arg0 domain.UserID, arg1 domain.ContactID) (domain.Contact, error) {
+func (m *MockAppspaceContactModel) Get(arg0 domain.ContactID) (domain.Contact, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1)
+	ret := m.ctrl.Call(m, "Get", arg0)
 	ret0, _ := ret[0].(domain.Contact)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
-func (mr *MockAppspaceContactModelMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAppspaceContactModelMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAppspaceContactModel)(nil).Get), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAppspaceContactModel)(nil).Get), arg0)
 }
 
 // GetAppspaceContacts mocks base method

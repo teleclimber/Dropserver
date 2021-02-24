@@ -158,7 +158,7 @@ func main() {
 		DB: db}
 	cookieModel.PrepareStatements()
 
-	contactModel := contactmodel.ContactModel{
+	contactModel := &contactmodel.ContactModel{
 		DB: db}
 	contactModel.PrepareStatements()
 
@@ -330,6 +330,10 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
 
+	contactRoutes := &userroutes.ContactRoutes{
+		ContactModel: contactModel,
+	}
+
 	migrationJobRoutes := &userroutes.MigrationJobRoutes{
 		AppModel:               appModel,
 		AppspaceModel:          appspaceModel,
@@ -353,6 +357,7 @@ func main() {
 		AdminRoutes:         adminRoutes,
 		ApplicationRoutes:   applicationRoutes,
 		AppspaceRoutes:      appspaceUserRoutes,
+		ContactRoutes:       contactRoutes,
 		MigrationJobRoutes:  migrationJobRoutes,
 		AppspaceStatusTwine: appspaceStatusTwine,
 		MigrationJobTwine:   migrationJobTwine,

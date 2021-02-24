@@ -35,6 +35,7 @@ type UserRoutes struct {
 	AuthRoutes          domain.RouteHandler
 	ApplicationRoutes   domain.RouteHandler
 	AppspaceRoutes      domain.RouteHandler
+	ContactRoutes       domain.RouteHandler
 	MigrationJobRoutes  domain.RouteHandler
 	AdminRoutes         domain.RouteHandler
 	AppspaceStatusTwine domain.TwineService
@@ -96,6 +97,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
 		case "appspace":
 			u.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		case "contact":
+			u.ContactRoutes.ServeHTTP(res, req, routeData)
 		case "migration-job":
 			u.MigrationJobRoutes.ServeHTTP(res, req, routeData)
 		default:

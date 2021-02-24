@@ -52,14 +52,19 @@ export default defineComponent({
 			switch(route.name) {
 				case "home": return "Home";
 				case "user": return "User Settings";
+
 				case "apps": return "Apps";
 				case "manage-app": return "Manage App";
 				case "new-app": return "New Application";	// upload or get from URL
 				case "new-app-version": return "Upload New Version";	// New versions are only for manually uploaded apps
+				
 				case "appspaces": return "Appspaces";
 				case "new-appspace": return "New Appspace";
 				case "manage-appspace": return "Manage Appspace";	// this should actually reflect the appspace name, or something like that.
 				case "migrate-appspace": return "Migrate Appspace";
+
+				case 'contacts': return "Contacts";
+				case 'new-contact': return "Add Contact";
 
 				case "admin": return "Instance Dashboard";
 				case "admin-users": return "Instance Users";

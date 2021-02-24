@@ -2,10 +2,11 @@
 	<ViewWrap>
 		<router-link to="new-appspace" class="btn btn-blue">New Appspace</router-link>
 
-		<template v-if="appspaces.loaded">
-			<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a"></AppspaceListItem>
-		</template>
-		<BigLoader v-else></BigLoader>
+		<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a"></AppspaceListItem>
+		<BigLoader v-if="!appspaces.loaded"></BigLoader>
+		<MessageSad v-else="appspaces.asArray.length === 0" head="No Appspaces" class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
+			There are no appspaces in this account. Please create one!
+		</MessageSad>
 	</ViewWrap>
 </template>
 
@@ -16,6 +17,7 @@ import { Appspaces } from '../models/appspaces';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
+import MessageSad from '../components/ui/MessageSad.vue';
 import AppspaceListItem from '../components/AppspaceListItem.vue';
 
 export default defineComponent({
@@ -23,6 +25,7 @@ export default defineComponent({
 	components: {
 		ViewWrap,
 		BigLoader,
+		MessageSad,
 		AppspaceListItem
 	},
 	setup() {

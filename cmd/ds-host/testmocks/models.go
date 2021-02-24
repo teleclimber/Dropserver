@@ -54,7 +54,7 @@ type AppspaceContactModel interface {
 	Create(userID domain.UserID, name string, displayName string) (domain.Contact, error)
 	Update(userID domain.UserID, contactID domain.ContactID, name string, displayName string) error
 	Delete(userID domain.UserID, contactID domain.ContactID) error
-	Get(userID domain.UserID, contactID domain.ContactID) (domain.Contact, error)
+	Get(contactID domain.ContactID) (domain.Contact, error)
 	GetForUser(userID domain.UserID) ([]domain.Contact, error)
 	InsertAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID, proxyID domain.ProxyID) error
 	DeleteAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID) error

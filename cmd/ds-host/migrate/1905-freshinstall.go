@@ -94,11 +94,11 @@ func freshInstallUp(args *stepArgs) domain.Error {
 		"user_id" INTEGER NOT NULL,
 		"contact_id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 		"name" TEXT,
-		"display_name" TEXT
+		"display_name" TEXT,
+		"created" DATETIME
 	)`)
 	args.dbExec(`CREATE INDEX contact_user_id ON contacts (user_id)`)
-	// maybe we need some timestamps on this? created, modified
-	// Might need a "block" flag
+	// Might need a "block" flag and other controls?
 
 	// then add auth tables
 	// CREATE TABLE contact_ds_auth (

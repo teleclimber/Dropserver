@@ -26,7 +26,7 @@
 
 			<BigLoader v-if="!apps.loaded"></BigLoader>
 
-			<MessageSad v-if="apps.loaded && apps.asArray.length === 0" head="There are no applications" class="mb-6 shadow sm:rounded-xl">
+			<MessageSad v-if="apps.loaded && apps.asArray.length === 0" head="There are no applications" class="my-6 shadow sm:rounded-xl">
 				You do not have any applications yet. Please visit the 
 				<router-link class="text-blue-600 underline" to="/app">Apps</router-link>
 				page and get some!

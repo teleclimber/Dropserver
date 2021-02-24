@@ -1,14 +1,20 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Home from '../views/Home.vue';
 import User from '../views/User.vue';
+
 import Appspaces from '../views/Appspaces.vue';
 import ManageAppspace from '../views/ManageAppspace.vue';
 import MigrateAppspace from '../views/MigrateAppspace.vue';
 import NewAppspace from '../views/NewAppspace.vue';
+
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
 import NewAppVersion from '../views/NewAppVersion.vue';
 import NewApp from '../views/NewApp.vue';
+
+import Contacts from '../views/Contacts.vue';
+import ManageContact from '../views/ManageContact.vue';
+import NewContact from '../views/NewContact.vue';
 
 import AdminHome from '../views/admin/AdminHome.vue';
 import Users from '../views/admin/Users.vue';
@@ -55,6 +61,18 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/new-app',
 		name: 'new-app',
 		component: NewApp
+	},{
+		path: '/contact',
+		name: 'contacts',
+		component: Contacts
+	},{
+		path: '/contact/:contact_id',
+		name: 'manage-contact',
+		component: ManageContact
+	},{
+		path: '/contact-new',
+		name: 'new-contact',
+		component: NewContact
 	},{
 		path: '/admin',
 		name: 'admin',
