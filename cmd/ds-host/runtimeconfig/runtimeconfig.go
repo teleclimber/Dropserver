@@ -22,6 +22,10 @@ var configDefault = []byte(`{
 		"host": "localhost",
 		"no-ssl": false
 	},
+	"subdomains": {
+		"user-accounts": "dropid",
+		"static-assets": "static"
+	},
 	"sandbox": {
 		"num": 3
 	},
@@ -81,8 +85,18 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	if port != 80 && port != 443 {
 		host += fmt.Sprintf(":%d", port)
 	}
-	rtc.Exec.PublicStaticAddress = "//static." + host
-	rtc.Exec.UserRoutesAddress = "//user." + host
+	domain := host
+	if rtc.Subdomains.UserAccounts != "" {
+		domain = rtc.Subdomains.UserAccounts + "." + domain
+	}
+	rtc.Exec.UserRoutesDomain = domain
+
+	domain = host
+	if rtc.Subdomains.StaticAssets != "" {
+		domain = rtc.Subdomains.StaticAssets + "." + domain
+	}
+	rtc.Exec.PublicStaticDomain = domain
+
 }
 
 func loadDefault() *domain.RuntimeConfig {
@@ -165,3 +179,5 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 		panic("Prometheus port can not be 0")
 	}
 }
+
+// getters:

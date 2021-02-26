@@ -28,7 +28,7 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 		return err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires, "user."+a.Config.Server.Host)
+	a.setCookie(res, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain)
 
 	return nil
 }
@@ -92,7 +92,7 @@ func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Reque
 	cookie, _ := a.getCookie(req)
 	if cookie != nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), "user."+a.Config.Server.Host)
+		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain)
 	}
 }
 

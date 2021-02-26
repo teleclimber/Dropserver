@@ -102,7 +102,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	fmt.Println(subdomains, req.URL)
 
 	topSub := subdomains[len(subdomains)-1]
-	if topSub == "static" {
+	if topSub == s.Config.Subdomains.StaticAssets {
 		s.publicStaticHandler.ServeHTTP(res, req)
 		return
 	}
@@ -115,7 +115,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		Authentication: &auth}
 
 	switch topSub {
-	case "user":
+	case s.Config.Subdomains.UserAccounts:
 		s.UserRoutes.ServeHTTP(res, req, routeData)
 	default:
 		// It's an appspace subdomain

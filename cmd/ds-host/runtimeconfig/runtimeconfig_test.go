@@ -38,8 +38,11 @@ func TestSetExecValues(t *testing.T) {
 
 	setExecValues(rtc, "/abc/def/bin/")
 
-	if rtc.Exec.PublicStaticAddress != "//static.localhost:3000" {
-		t.Error("pubilc assets dir not as expected", rtc.Exec)
+	if rtc.Exec.UserRoutesDomain != "dropid.localhost:3000" {
+		t.Error("user routes domain not as expected", rtc.Exec)
+	}
+	if rtc.Exec.PublicStaticDomain != "static.localhost:3000" {
+		t.Error("pubilc assets domain not as expected", rtc.Exec)
 	}
 }
 

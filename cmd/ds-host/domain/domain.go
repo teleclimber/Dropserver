@@ -37,6 +37,10 @@ type RuntimeConfig struct {
 		SslCert string `json:"ssl-cert"`
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
+	Subdomains struct {
+		UserAccounts string `json:"user-accounts"`
+		StaticAssets string `json:"static-assets"` // this can't just be a subdomain, has to be full domain, (but you could use a cname in DNS, right)
+	} `json:"subdomains"`
 	Sandbox struct {
 		Num        int    `json:"num"`
 		SocketsDir string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
@@ -51,8 +55,8 @@ type RuntimeConfig struct {
 		GoTemplatesDir      string
 		WebpackTemplatesDir string
 		StaticAssetsDir     string
-		PublicStaticAddress string
-		UserRoutesAddress   string
+		PublicStaticDomain  string
+		UserRoutesDomain    string
 		SandboxCodePath     string
 		SandboxRunnerPath   string
 		MigratorScriptPath  string

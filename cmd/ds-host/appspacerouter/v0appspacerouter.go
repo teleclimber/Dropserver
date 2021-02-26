@@ -103,7 +103,7 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				u := *req.URL
 				u.Host = req.Host // is this OK?
 				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
-				http.Redirect(&statusRes, req, r.Config.Exec.UserRoutesAddress+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
+				http.Redirect(&statusRes, req, "//"+r.Config.Exec.UserRoutesDomain+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
 				return
 			}
 		}
