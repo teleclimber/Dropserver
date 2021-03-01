@@ -27,9 +27,8 @@ ax.interceptors.response.use(function (response) {
 		if( error.response && error.response.status >= 400 ) {
 			const resp = error.response;
 			if( resp.status == 401 ) user.setUnauthorized();
-			else {
+			else if( resp.status != 404 ) {
 				ReqErrStack.push({method:resp.config.method, path:resp.config.url, code: resp.status, message: resp.data});
-				console.log("pushed error to stack");
 			}
 		}
 
@@ -48,17 +47,12 @@ const options = {
 
 // it's possible this should actually be used by data models.
 
+
+// Maybe we don't need any of this, 
+// Just export ax and have models consume directly (I think path prefix can be set in Axios)
 export async function get(path :string) :Promise<any> {	// string for now, we can get more fany with a getter object later.
 
-	let resp:AxiosResponse;
-	try {
-		resp = await ax.get( path_prefix + path );
-	}
-	catch(e) {
-		// handle error
-		console.error('caught error in get request '+path, e);
-		return;
-	}
+	const resp = await ax.get( path_prefix + path );
 
 	return resp.data;
 }
@@ -70,12 +64,9 @@ export async function patch(path:string, data:any) :Promise<any> {
 		resp = await ax.patch( path_prefix + path, data, options );
 	}
 	catch(e) {
-		// handle error
 		console.error(e);
 		return;
 	}
-
-	// if 401 then notify page user needs to log in.
 
 	return resp.data;
 }
@@ -88,12 +79,9 @@ export async function post(path:string, data:any) :Promise<any> {
 		resp = await ax.post( path_prefix + path, data, options );
 	}
 	catch(e) {
-		// handle error
 		console.error(e);
 		return;
 	}
-
-	// if 401 then notify page user needs to log in.
 
 	return resp.data;
 }

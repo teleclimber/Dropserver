@@ -3,7 +3,7 @@
 		<router-link to="new-app" class="btn btn-blue">Upload New App</router-link>
 		<AppListItem v-for="app in apps.asArray" :key="app.app_id" :app="app"></AppListItem>
 		<BigLoader v-if="!apps.loaded"></BigLoader>
-		<MessageSad v-else="apps.asArray.length === 0" head="No Applications" class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
+		<MessageSad v-else-if="apps.asArray.length === 0" head="No Applications" class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
 			There are no applications in this account. Please upload one!
 		</MessageSad>
 	</ViewWrap>

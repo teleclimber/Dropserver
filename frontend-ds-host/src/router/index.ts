@@ -16,6 +16,9 @@ import Contacts from '../views/Contacts.vue';
 import ManageContact from '../views/ManageContact.vue';
 import NewContact from '../views/NewContact.vue';
 
+import NewDropID from '../views/NewDropID.vue';
+import ManageDropID from '../views/ManageDropID.vue';
+
 import AdminHome from '../views/admin/AdminHome.vue';
 import Users from '../views/admin/Users.vue';
 import AdminSettings from '../views/admin/AdminSettings.vue';
@@ -73,6 +76,14 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/contact-new',
 		name: 'new-contact',
 		component: NewContact
+	},{
+		path: '/dropid-new',
+		name: 'new-dropid',
+		component: NewDropID
+	},{
+		path: '/dropid',
+		name: 'dropid',
+		component: ManageDropID
 	},{
 		path: '/admin',
 		name: 'admin',

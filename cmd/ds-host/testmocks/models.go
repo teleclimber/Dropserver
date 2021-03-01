@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
 
 // AppFilesModel represents the application's files saved to disk
 type AppFilesModel interface {
@@ -62,6 +62,15 @@ type AppspaceContactModel interface {
 	GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.ContactID, error)
 	GetContactAppspaces(contactID domain.ContactID) ([]domain.AppspaceContact, error)
 	GetAppspaceContacts(appspaceID domain.AppspaceID) ([]domain.AppspaceContact, error)
+}
+
+// DropIDModel CRUD ops for a user's DropIDs.
+type DropIDModel interface {
+	Create(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
+	Update(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
+	Get(handle string, dom string) (domain.DropID, error)
+	GetForUser(userID domain.UserID) ([]domain.DropID, error)
+	Delete(userID domain.UserID, handle string, dom string) error
 }
 
 // MigrationJobModel handles writing jobs to the db

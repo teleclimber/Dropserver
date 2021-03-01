@@ -27,6 +27,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
@@ -161,6 +162,10 @@ func main() {
 	contactModel := &contactmodel.ContactModel{
 		DB: db}
 	contactModel.PrepareStatements()
+
+	dropIDModel := &dropidmodel.DropIDModel{
+		DB: db}
+	dropIDModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
 		Config: runtimeConfig}
@@ -334,6 +339,14 @@ func main() {
 		ContactModel: contactModel,
 	}
 
+	domainNameRoutes := &userroutes.DomainNameRoutes{
+		Config: runtimeConfig,
+	}
+
+	dropIDRoutes := &userroutes.DropIDRoutes{
+		DropIDModel: dropIDModel,
+	}
+
 	migrationJobRoutes := &userroutes.MigrationJobRoutes{
 		AppModel:               appModel,
 		AppspaceModel:          appspaceModel,
@@ -358,6 +371,8 @@ func main() {
 		ApplicationRoutes:   applicationRoutes,
 		AppspaceRoutes:      appspaceUserRoutes,
 		ContactRoutes:       contactRoutes,
+		DomainRoutes:        domainNameRoutes,
+		DropIDRoutes:        dropIDRoutes,
 		MigrationJobRoutes:  migrationJobRoutes,
 		AppspaceStatusTwine: appspaceStatusTwine,
 		MigrationJobTwine:   migrationJobTwine,

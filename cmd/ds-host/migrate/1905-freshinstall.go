@@ -28,9 +28,19 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	args.dbExec(`CREATE TABLE "users" (
 		"user_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 		"email" TEXT,
-		"password" TEXT 
+		"password" TEXT
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX user_emails ON users (email)`)
+
+	args.dbExec(`CREATE TABLE "dropids" (
+		"user_id" INTEGER,
+		"handle" TEXT,
+		"domain" TEXT,
+		"display_name" TEXT,
+		"created" DATETIME
+	)`)
+	args.dbExec(`CREATE INDEX dropids_users ON dropids (user_id)`)
+	args.dbExec(`CREATE UNIQUE INDEX dropids_handle_domains ON dropids (handle, domain)`)
 
 	args.dbExec(`CREATE TABLE "admin_users" (
 		"user_id" INTEGER

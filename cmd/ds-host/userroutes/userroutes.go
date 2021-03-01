@@ -36,6 +36,8 @@ type UserRoutes struct {
 	ApplicationRoutes   domain.RouteHandler
 	AppspaceRoutes      domain.RouteHandler
 	ContactRoutes       domain.RouteHandler
+	DomainRoutes        domain.RouteHandler
+	DropIDRoutes        domain.RouteHandler
 	MigrationJobRoutes  domain.RouteHandler
 	AdminRoutes         domain.RouteHandler
 	AppspaceStatusTwine domain.TwineService
@@ -93,6 +95,10 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 			default:
 				res.WriteHeader(http.StatusNotFound)
 			}
+		case "domainname":
+			u.DomainRoutes.ServeHTTP(res, req, routeData)
+		case "dropid":
+			u.DropIDRoutes.ServeHTTP(res, req, routeData)
 		case "application":
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
 		case "appspace":

@@ -177,7 +177,7 @@ func (m *ContactModel) InsertAppspaceContact(appspaceID domain.AppspaceID, conta
 func (m *ContactModel) DeleteAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID) error {
 	_, err := m.stmt.deleteAppspaceContact.Exec(appspaceID, contactID)
 	if err != nil {
-		m.getLogger("InsertAppspaceContact()").AddNote("Exec").Error(err)
+		m.getLogger("DeleteAppspaceContact()").AddNote("Exec").Error(err)
 		return err
 	}
 	return nil
