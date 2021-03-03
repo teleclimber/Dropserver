@@ -2,6 +2,7 @@ package appspacerouter
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -18,7 +19,7 @@ type AppspaceRouter struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
 	AppspaceModel interface {
-		GetFromSubdomain(string) (*domain.Appspace, error)
+		GetFromDomain(string) (*domain.Appspace, error)
 	}
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
@@ -43,16 +44,13 @@ func (r *AppspaceRouter) Init() {
 
 // ServeHTTP handles http traffic to the appspace
 func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	subdomains := *routeData.Subdomains
-	appspaceSubdomain := subdomains[len(subdomains)-1]
-
-	appspace, err := r.AppspaceModel.GetFromSubdomain(appspaceSubdomain)
+	appspace, err := r.AppspaceModel.GetFromDomain(strings.ToLower(req.Host))
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if appspace == nil {
-		http.Error(res, "Appspace does not exist", http.StatusNotFound)
+		http.Error(res, "Appspace does not exist: "+req.Host, http.StatusNotFound)
 		return
 	}
 

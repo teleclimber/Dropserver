@@ -79,24 +79,21 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
 	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
 
-	//  subdomain sorting out:
-	host := rtc.Server.Host
-	port := rtc.Server.Port
-	if port != 80 && port != 443 {
-		host += fmt.Sprintf(":%d", port)
+	//  domains and ports sorting out:
+	rtc.Exec.PortString = ""
+	if rtc.Server.Port != 80 && rtc.Server.Port != 443 {
+		rtc.Exec.PortString = fmt.Sprintf(":%d", rtc.Server.Port)
 	}
-	domain := host
+
+	rtc.Exec.UserRoutesDomain = rtc.Server.Host
 	if rtc.Subdomains.UserAccounts != "" {
-		domain = rtc.Subdomains.UserAccounts + "." + domain
+		rtc.Exec.UserRoutesDomain = rtc.Subdomains.UserAccounts + "." + rtc.Server.Host
 	}
-	rtc.Exec.UserRoutesDomain = domain
 
-	domain = host
+	rtc.Exec.PublicStaticDomain = rtc.Server.Host
 	if rtc.Subdomains.StaticAssets != "" {
-		domain = rtc.Subdomains.StaticAssets + "." + domain
+		rtc.Exec.PublicStaticDomain = rtc.Subdomains.StaticAssets + "." + rtc.Server.Host
 	}
-	rtc.Exec.PublicStaticDomain = domain
-
 }
 
 func loadDefault() *domain.RuntimeConfig {

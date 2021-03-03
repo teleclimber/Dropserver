@@ -93,7 +93,7 @@ func TestServeHTTP200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Host = "as1.teleclimber.dropserver.org" //not necessary??
+	req.Host = "as1.ds.dev" //not necessary??
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
@@ -153,11 +153,10 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		Metrics:        metrics}
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",           // parametrize
-		Subdomains: &[]string{"as1"}, // parametrize, or override in test fn.
+		URLTail:    "/abc", // parametrize
 		App:        &domain.App{Name: "app1"},
 		AppVersion: &domain.AppVersion{},
-		Appspace:   &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
+		Appspace:   &domain.Appspace{Domain: "as1.ds.dev", AppID: domain.AppID(1)},
 		RouteConfig: &domain.AppspaceRouteConfig{
 			Handler: domain.AppspaceRouteHandler{
 				File: "@app/module-abc.ts",

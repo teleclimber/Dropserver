@@ -28,11 +28,11 @@ type AppModel interface {
 // AppspaceModel is the interface for the appspace model
 type AppspaceModel interface {
 	GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	GetFromSubdomain(string) (*domain.Appspace, error)
+	GetFromDomain(string) (*domain.Appspace, error)
 	GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 	GetForApp(domain.AppID) ([]*domain.Appspace, error)
 	GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error)
-	Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, error)
+	Create(domain.Appspace) (*domain.Appspace, error)
 	Pause(domain.AppspaceID, bool) error
 	SetVersion(domain.AppspaceID, domain.Version) error
 }

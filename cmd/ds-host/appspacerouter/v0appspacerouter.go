@@ -103,7 +103,8 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 				u := *req.URL
 				u.Host = req.Host // is this OK?
 				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
-				http.Redirect(&statusRes, req, "//"+r.Config.Exec.UserRoutesDomain+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
+				http.Redirect(&statusRes, req, "//"+r.Config.Exec.UserRoutesDomain+r.Config.Exec.PortString+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
+				// TODO: this is not right. Fix when we redo appspace logins.
 				return
 			}
 		}
@@ -147,7 +148,7 @@ func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, route
 		return nil, errors.New("wrong appspace")
 	}
 
-	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.Subdomain)
+	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.Domain)
 	if err != nil {
 		return nil, err
 	}

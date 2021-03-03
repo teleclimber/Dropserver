@@ -87,6 +87,14 @@
 						[not implemented]
 					</div>
 				</div>
+				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
+					<div class="font-medium text-gray-500">
+						DropID:
+					</div>
+					<div class="col-span-3">
+						[pick from user's existing DropIds]
+					</div>
+				</div>
 				<div class="px-4 py-5 sm:px-6 border-t border-gray-200 flex justify-between items-center">
 					<router-link class="btn" to="/appspace">cancel</router-link>
 					<button @click="create" class="btn-blue">Create</button>
@@ -129,25 +137,24 @@ export default defineComponent({
 		const show_all_versions = ref(false);
 
 		const apps = reactive(new Apps);
-		const app :Ref<App|undefined> = ref();
+		const app = ref(new App);	// does app really need to be potentially unefined? We are using step to determine what to show.
 		const app_version :Ref<AppVersion|undefined> = ref();
 
 		watchEffect(() => {
 			if( route.query.app_id !== undefined ) {
-				app.value = reactive(new App);
 				const app_id = Number(route.query.app_id);
 				app.value.fetch(app_id);
 				step.value = 'settings';
 			}
 			else {
-				app.value = undefined;
+				app.value = new App;
 				apps.fetchForOwner();
 				step.value = 'pick-app';
 			}
 		});
 
 		const picked_version = computed( () => {
-			if( app.value != undefined && typeof route.query.version === 'string' && route.query.version !== '' ) {
+			if( app.value.loaded && typeof route.query.version === 'string' && route.query.version !== '' ) {
 				return route.query.version;
 			} else {
 				return '';
@@ -155,14 +162,14 @@ export default defineComponent({
 		});
 
 		const using_latest_version = computed( () => {
-			if( app.value === undefined || !app.value.loaded ) return false;
+			if( !app.value.loaded ) return false;
 			if( picked_version.value === '' ) return true;
 			if( app.value.versions[0].version === picked_version.value ) return true;
 			return false;
 		});
 
 		watchEffect( () => {
-			if( app.value === undefined || !app.value.loaded ) return; // || !app.value.error
+			if( !app.value.loaded ) return; // || !app.value.error
 			if( picked_version.value !== '' ) {
 				const av = app.value.versions.find( (v) => v.version === picked_version.value );
 				if( av === undefined ) return;	//show error with version not found.
@@ -176,17 +183,17 @@ export default defineComponent({
 		});
 
 		function pickVersion(version:string) {
-			if( app.value === undefined ) return;
+			if( !app.value.loaded ) return;
 			show_all_versions.value = false;
 			router.push({name: 'new-appspace', query:{app_id:app.value.app_id, version:version}});
 		}
 		function pickLatestVersion() {
-			if( app.value === undefined  || !app.value.loaded ) return;
+			if( !app.value.loaded ) return;
 			router.push({name: 'new-appspace', query:{app_id:app.value.app_id, version:app.value.versions[0].version}});
 		}
 
 		async function create() {
-			if( app.value === undefined || !app.value.loaded || app_version.value === undefined ) return;
+			if( !app.value.loaded || app_version.value === undefined ) return;
 			const appspace_id = await createAppspace(app.value.app_id, app_version.value.version);
 			router.push({name: 'manage-appspace', params:{id: appspace_id+''}});
 		}

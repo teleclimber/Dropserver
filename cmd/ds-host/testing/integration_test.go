@@ -48,7 +48,7 @@ func TestIntegration1(t *testing.T) {
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
 
-	appspace := &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)}
+	appspace := &domain.Appspace{Domain: "as1.ds.dev", AppID: domain.AppID(1)}
 	appVersion := &domain.AppVersion{LocationKey: "loc123"}
 
 	metrics := domain.NewMockMetricsI(mockCtrl)
@@ -71,8 +71,7 @@ func TestIntegration1(t *testing.T) {
 	sM.Init()
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",           // parametrize
-		Subdomains: &[]string{"as1"}, // parametrize, or override in test fn.
+		URLTail:    "/abc", // parametrize
 		App:        &domain.App{Name: "app1"},
 		AppVersion: appVersion,
 		Appspace:   appspace,
@@ -103,7 +102,7 @@ func TestIntegration1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Host = "as1.teleclimber.dropserver.org" //not necessary??
+	req.Host = "as1.ds.dev" //not necessary??
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()

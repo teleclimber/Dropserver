@@ -430,8 +430,6 @@ func main() {
 		AppspaceRouter: appspaceRouter,
 		Metrics:        &m}
 
-	fmt.Println("starting server")
-
 	// start things up
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 

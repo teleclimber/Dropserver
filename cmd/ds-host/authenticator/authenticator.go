@@ -28,16 +28,16 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 		return err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain)
+	a.setCookie(res, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain+a.Config.Exec.PortString)
 
 	return nil
 }
 
 // SetForAppspace creates a cookie and sends it down
 // It is for access to the appspace only
-func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.ProxyID, appspaceID domain.AppspaceID, subdomain string) (string, error) {
-	if subdomain == "" {
-		return "", errors.New("subdomain can't be blank")
+func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.ProxyID, appspaceID domain.AppspaceID, dom string) (string, error) {
+	if dom == "" {
+		return "", errors.New("domain can't be blank")
 	}
 
 	cookie := domain.Cookie{
@@ -50,7 +50,7 @@ func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.P
 		return "", err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires, subdomain+"."+a.Config.Server.Host)
+	a.setCookie(res, cookieID, cookie.Expires, dom)
 
 	return cookieID, nil
 }
@@ -92,7 +92,7 @@ func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Reque
 	cookie, _ := a.getCookie(req)
 	if cookie != nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain)
+		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain+a.Config.Exec.PortString)
 	}
 }
 

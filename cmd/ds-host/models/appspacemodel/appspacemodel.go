@@ -24,7 +24,7 @@ type AppspaceModel struct {
 		selectOwner      *sqlx.Stmt
 		selectApp        *sqlx.Stmt
 		selectAppVersion *sqlx.Stmt
-		selectSubdomain  *sqlx.Stmt
+		selectDomain     *sqlx.Stmt
 		insert           *sqlx.Stmt
 		pause            *sqlx.Stmt
 		setVersion       *sqlx.Stmt
@@ -39,8 +39,8 @@ func (m *AppspaceModel) PrepareStatements() {
 	//get from ID
 	m.stmt.selectID = p.Prep(`SELECT * FROM appspaces WHERE appspace_id = ?`)
 
-	//get from subdomain
-	m.stmt.selectSubdomain = p.Prep(`SELECT * FROM appspaces WHERE subdomain = ?`)
+	//get from domain
+	m.stmt.selectDomain = p.Prep(`SELECT * FROM appspaces WHERE domain = ?`)
 
 	// get all for an owner
 	m.stmt.selectOwner = p.Prep(`SELECT * FROM appspaces WHERE owner_id = ?`)
@@ -53,7 +53,7 @@ func (m *AppspaceModel) PrepareStatements() {
 
 	// insert appspace:
 	m.stmt.insert = p.Prep(`INSERT INTO appspaces
-		("owner_id", "app_id", "app_version", subdomain, created, location_key) VALUES (?, ?, ?, ?, datetime("now"), ?)`)
+		("owner_id", "dropid_handle", "dropid_domain", "app_id", "app_version", domain, created, location_key) VALUES (?, ?, ?, ?, ?, ?, datetime("now"), ?)`)
 
 	// pause
 	m.stmt.pause = p.Prep(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
@@ -80,17 +80,17 @@ func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspac
 	return &appspace, nil
 }
 
-// GetFromSubdomain gets an AppSpace by looking up the subdomain
+// GetFromDomain gets an AppSpace by looking up the domain
 // It returns nil, nil if no matches found
-func (m *AppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, error) {
+func (m *AppspaceModel) GetFromDomain(dom string) (*domain.Appspace, error) {
 	var appspace domain.Appspace
 
-	err := m.stmt.selectSubdomain.QueryRowx(subdomain).StructScan(&appspace)
+	err := m.stmt.selectDomain.QueryRowx(dom).StructScan(&appspace)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		m.getLogger("GetFromSubdomain(), subdomain: " + subdomain).Error(err)
+		m.getLogger("GetFromDomain(), domain: " + dom).Error(err)
 		return nil, err
 	}
 
@@ -137,12 +137,12 @@ func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Vers
 }
 
 // Create adds an appspace to the database
-func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, version domain.Version, subdomain string, locationKey string) (*domain.Appspace, error) {
-	logger := m.getLogger("Create()").UserID(ownerID).AppID(appID).AppVersion(version).AddNote(fmt.Sprintf("subdomain:%v, locationkey:%v", subdomain, locationKey))
+func (m *AppspaceModel) Create(appspace domain.Appspace) (*domain.Appspace, error) {
+	logger := m.getLogger("Create()").UserID(appspace.OwnerID).AppID(appspace.AppID).AppVersion(appspace.AppVersion).AddNote(fmt.Sprintf("domain:%v, locationkey:%v", appspace.Domain, appspace.LocationKey))
 
-	r, err := m.stmt.insert.Exec(ownerID, appID, version, subdomain, locationKey)
+	r, err := m.stmt.insert.Exec(appspace.OwnerID, appspace.DropIDHandle, appspace.DropIDDomain, appspace.AppID, appspace.AppVersion, appspace.Domain, appspace.LocationKey)
 	if err != nil {
-		if err.Error() == "UNIQUE constraint failed: appspaces.subdomain" {
+		if err.Error() == "UNIQUE constraint failed: appspaces.domain" {
 			return nil, errors.New("Domain not unique")
 		}
 		logger.AddNote("insert").Error(err)
@@ -161,13 +161,13 @@ func (m *AppspaceModel) Create(ownerID domain.UserID, appID domain.AppID, versio
 
 	appspaceID := domain.AppspaceID(lastID)
 
-	appspace, err := m.GetFromID(appspaceID)
+	storedAppspace, err := m.GetFromID(appspaceID)
 	if err != nil {
 		logger.AddNote("GetFromID()").Error(err)
 		return nil, err // this indicates a severe internal problem, not "oh we coudln't find it"
 	}
 
-	return appspace, nil
+	return storedAppspace, nil
 }
 
 // Pause changes the paused status of the appspace

@@ -39,6 +39,9 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.SandboxCodePath = filepath.Join(binDir, "../resources/")
 	rtc.Exec.SandboxRunnerPath = filepath.Join(binDir, "../resources/ds-sandbox-runner.ts")
 	// UserRoutesAddress has to be a bit different from what it is on ds-host
-	rtc.Exec.UserRoutesDomain = fmt.Sprintf("%v:%v/dropserver-dev", rtc.Server.Host, rtc.Server.Port)
+	rtc.Exec.PortString = fmt.Sprintf(":%v", rtc.Server.Port)
+	//rtc.Exec.UserRoutesDomain = fmt.Sprintf("%v:%v/dropserver-dev", rtc.Server.Host, "")
+	//^^^^ this is going to be a problem. Maybe serve user routes on a different port?
+
 	// Sockets?
 }

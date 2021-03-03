@@ -91,8 +91,8 @@ func (m *DevAppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error
 	return nil
 }
 
-// GetFromSubdomain always returns the same appspace
-func (m *DevAppspaceModel) GetFromSubdomain(subdomain string) (*domain.Appspace, error) {
+// GetFromDomain always returns the same appspace
+func (m *DevAppspaceModel) GetFromDomain(dom string) (*domain.Appspace, error) {
 	return &m.Appspace, nil
 }
 

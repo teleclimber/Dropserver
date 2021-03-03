@@ -57,6 +57,7 @@ type RuntimeConfig struct {
 		StaticAssetsDir     string
 		PublicStaticDomain  string
 		UserRoutesDomain    string
+		PortString          string
 		SandboxCodePath     string
 		SandboxRunnerPath   string
 		MigratorScriptPath  string
@@ -253,7 +254,6 @@ type AppspaceRouteData struct {
 	Appspace       *Appspace
 	URLTail        string
 	RouteConfig    *AppspaceRouteConfig
-	Subdomains     *[]string
 }
 
 // RouteHandler is a generic interface for sub route handling.
@@ -406,14 +406,16 @@ type AppGetMeta struct {
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
-	OwnerID     UserID     `db:"owner_id"`
-	AppspaceID  AppspaceID `db:"appspace_id"`
-	AppID       AppID      `db:"app_id"`
-	AppVersion  Version    `db:"app_version"`
-	Subdomain   string
-	Created     time.Time
-	Paused      bool
-	LocationKey string `db:"location_key"`
+	OwnerID      UserID     `db:"owner_id"`
+	AppspaceID   AppspaceID `db:"appspace_id"`
+	AppID        AppID      `db:"app_id"`
+	AppVersion   Version    `db:"app_version"`
+	DropIDHandle string     `db:"dropid_handle"`
+	DropIDDomain string     `db:"dropid_domain"`
+	Domain       string     `db:"domain"`
+	Created      time.Time  `db:"created"`
+	Paused       bool       `db:"paused"`
+	LocationKey  string     `db:"location_key"`
 
 	// Config AppspaceConfig ..this one is harder
 }

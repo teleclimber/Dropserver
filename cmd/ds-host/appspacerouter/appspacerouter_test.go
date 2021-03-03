@@ -39,18 +39,18 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 		AppspaceModel: appspaceModel}
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/abc",
 	}
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Host = "as1.ds.dev"
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(nil, nil)
+	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(nil, nil)
 
 	appspaceRoutes.ServeHTTP(rr, req, routeData)
 
@@ -80,20 +80,20 @@ func TestServeHTTPBadApp(t *testing.T) {
 	appspaceRoutes.Init()
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/abc",
 	}
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Host = "as1.ds.dev"
 
 	rr := httptest.NewRecorder()
 
-	appspaceModel.EXPECT().GetFromSubdomain("as1").Return(&domain.Appspace{
+	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(&domain.Appspace{
 		AppspaceID: appspaceID,
-		Subdomain:  "as1",
+		Domain:     "as1.ds.dev",
 		AppID:      appID}, nil)
 	appModel.EXPECT().GetFromID(appID).Return(nil, errors.New("some error"))
 	appspaceStatus.EXPECT().Ready(appspaceID).Return(true)

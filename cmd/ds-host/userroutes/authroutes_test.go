@@ -137,8 +137,7 @@ func TestLoginPost(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/abc",
 	}
 
 	a.loginPost(rr, req, routeData)

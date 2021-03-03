@@ -88,16 +88,19 @@ func freshInstallUp(args *stepArgs) domain.Error {
 	args.dbExec(`CREATE TABLE "appspaces" (
 		"appspace_id" INTEGER PRIMARY KEY ASC,
 		"owner_id" INTEGER,
+		"dropid_handle" TEXT,
+		"dropid_domain" TEXT,
 		"app_id" INTEGER,
 		"app_version" TEXT,
-		"subdomain" TEXT,
+		"domain" TEXT,
 		"paused" INTEGER DEFAULT 0,
 		"location_key" TEXT,
 		"created" DATETIME
 	)`)
-	args.dbExec(`CREATE UNIQUE INDEX appspace_subdomain ON appspaces (subdomain)`)
+	args.dbExec(`CREATE UNIQUE INDEX appspace_domain ON appspaces (domain)`)
 	// probably index owner_id. and maybe app_id?
 	// should put a unique key constraint on location key?
+	// probably index dropid_handle and domain as well.
 
 	// contacts added by the user:
 	args.dbExec(`CREATE TABLE "contacts" (

@@ -229,18 +229,18 @@ func (m *MockAppspaceModel) EXPECT() *MockAppspaceModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppspaceModel) Create(arg0 domain.UserID, arg1 domain.AppID, arg2 domain.Version, arg3, arg4 string) (*domain.Appspace, error) {
+func (m *MockAppspaceModel) Create(arg0 domain.Appspace) (*domain.Appspace, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "Create", arg0)
 	ret0, _ := ret[0].(*domain.Appspace)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create
-func (mr *MockAppspaceModelMockRecorder) Create(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockAppspaceModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceModel)(nil).Create), arg0)
 }
 
 // GetForApp mocks base method
@@ -288,6 +288,21 @@ func (mr *MockAppspaceModelMockRecorder) GetForOwner(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForOwner", reflect.TypeOf((*MockAppspaceModel)(nil).GetForOwner), arg0)
 }
 
+// GetFromDomain mocks base method
+func (m *MockAppspaceModel) GetFromDomain(arg0 string) (*domain.Appspace, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFromDomain", arg0)
+	ret0, _ := ret[0].(*domain.Appspace)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFromDomain indicates an expected call of GetFromDomain
+func (mr *MockAppspaceModelMockRecorder) GetFromDomain(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromDomain", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromDomain), arg0)
+}
+
 // GetFromID mocks base method
 func (m *MockAppspaceModel) GetFromID(arg0 domain.AppspaceID) (*domain.Appspace, error) {
 	m.ctrl.T.Helper()
@@ -301,21 +316,6 @@ func (m *MockAppspaceModel) GetFromID(arg0 domain.AppspaceID) (*domain.Appspace,
 func (mr *MockAppspaceModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromID", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromID), arg0)
-}
-
-// GetFromSubdomain mocks base method
-func (m *MockAppspaceModel) GetFromSubdomain(arg0 string) (*domain.Appspace, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFromSubdomain", arg0)
-	ret0, _ := ret[0].(*domain.Appspace)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetFromSubdomain indicates an expected call of GetFromSubdomain
-func (mr *MockAppspaceModelMockRecorder) GetFromSubdomain(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromSubdomain", reflect.TypeOf((*MockAppspaceModel)(nil).GetFromSubdomain), arg0)
 }
 
 // Pause mocks base method

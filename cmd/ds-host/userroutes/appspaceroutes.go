@@ -16,7 +16,7 @@ type AppspaceMeta struct {
 	AppspaceID int            `json:"appspace_id"`
 	AppID      int            `json:"app_id"`
 	AppVersion domain.Version `json:"app_version"`
-	Subdomain  string         `json:"subdomain"`
+	Domain     string         `json:"domain"`
 	Created    time.Time      `json:"created_dt"`
 	Paused     bool           `json:"paused"`
 	Upgrade    *VersionMeta   `json:"upgrade,omitempty"`
@@ -34,9 +34,9 @@ type AppspaceRoutes struct {
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-		Create(domain.UserID, domain.AppID, domain.Version, string, string) (*domain.Appspace, error)
+		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
-		GetFromSubdomain(string) (*domain.Appspace, error)
+		GetFromDomain(string) (*domain.Appspace, error)
 	}
 	MigrationMinder interface {
 		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
@@ -219,7 +219,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// OK, so currently we are supposed to generate a subdomain.
 	// This is very temporary because I want to move to user-chosen subdomains.
 	// But let's get things working first.
-	sub := a.getNewSubdomain()
+	dom := a.getNewSubdomain() // TODO NOT this at all~!~!!!~!
 
 	locationKey, err := a.AppspaceFilesModel.CreateLocation()
 	if err != nil {
@@ -227,7 +227,15 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	appspace, err := a.AppspaceModel.Create(routeData.Authentication.UserID, app.AppID, version.Version, sub, locationKey)
+	inAppspace := domain.Appspace{
+		OwnerID:     routeData.Authentication.UserID,
+		AppID:       app.AppID,
+		AppVersion:  version.Version,
+		Domain:      dom,
+		LocationKey: locationKey,
+	}
+
+	appspace, err := a.AppspaceModel.Create(inAppspace)
 	if err != nil {
 		http.Error(res, "", http.StatusInternalServerError)
 		return
@@ -281,7 +289,7 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
 	for i := 0; i < 10; i++ {
 		sub = randomSubomainString()
-		_, err := a.AppspaceModel.GetFromSubdomain(sub)
+		_, err := a.AppspaceModel.GetFromDomain(sub)
 		if err == nil {
 			break
 		}
@@ -294,7 +302,7 @@ func makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
 		AppspaceID: int(appspace.AppspaceID),
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
-		Subdomain:  appspace.Subdomain,
+		Domain:     appspace.Domain,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}
 }

@@ -67,7 +67,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
 		URLTail:        req.URL.Path,
-		Subdomains:     &[]string{"abc"},
 		Authentication: auth}
 
 	head, tail := shiftpath.ShiftPath(req.URL.Path)

@@ -54,28 +54,24 @@ func TestCreate(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	storedAppspace, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if appspace.OwnerID != domain.UserID(1) {
-		t.Error("input does not match output ownerID", appspace)
-	}
-	if appspace.AppID != domain.AppID(10) {
-		t.Error("input does not match output appID", appspace)
-	}
-	if appspace.AppVersion != domain.Version("0.0.1") {
-		t.Error("input does not match output version", appspace)
-	}
-	if appspace.Subdomain != "test-appspace" {
-		t.Error("input name does not match output subdomain", appspace)
-	}
-	if appspace.Paused {
-		t.Error("appspace should be created not paused by default", appspace)
-	}
-	if appspace.LocationKey != "as123" {
-		t.Error("appspace location key mismatch", appspace)
+	inAppspace.AppspaceID = storedAppspace.AppspaceID
+	inAppspace.Created = storedAppspace.Created
+
+	if inAppspace != *storedAppspace {
+		t.Error("input appspace different from stored appspace")
 	}
 }
 
@@ -91,7 +87,15 @@ func TestGetFromID(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	_, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}
@@ -102,7 +106,7 @@ func TestGetFromID(t *testing.T) {
 		t.Error(err)
 	}
 
-	if appspace.AppspaceID != domain.AppspaceID(1) {
+	if appspace.AppID != inAppspace.AppID {
 		t.Error("app.AppID does not match requested ID", appspace)
 	}
 }
@@ -119,18 +123,26 @@ func TestGetFromSubdomain(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	_, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = model.GetFromSubdomain("test-appspace")
+	_, err = model.GetFromDomain("test-appspace")
 	if err != nil {
 		t.Error(err)
 	}
 
 	// test non-existent subdomain
-	appspace, err := model.GetFromSubdomain("foo")
+	appspace, err := model.GetFromDomain("foo")
 	if err != nil {
 		t.Error(err)
 	}
@@ -143,7 +155,7 @@ func TestGetFromSubdomain(t *testing.T) {
 	// TODO: add sentinel error?
 }
 
-func TestGetForOwner(t *testing.T) {
+func TestGetters(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -156,11 +168,11 @@ func TestGetForOwner(t *testing.T) {
 	model.PrepareStatements()
 
 	ins := []struct {
-		userID    domain.UserID
-		appID     domain.AppID
-		version   domain.Version
-		subDomain string
-		location  string
+		userID   domain.UserID
+		appID    domain.AppID
+		version  domain.Version
+		domain   string
+		location string
 	}{
 		{7, 4, "0.0.1", "foo-subdomain", "as123"},
 		{7, 5, "0.0.2", "2foo-subdomain", "as124"},
@@ -169,7 +181,14 @@ func TestGetForOwner(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
+		in := domain.Appspace{
+			OwnerID:     i.userID,
+			AppID:       i.appID,
+			AppVersion:  i.version,
+			Domain:      i.domain,
+			LocationKey: i.location,
+		}
+		_, err := model.Create(in)
 		if err != nil {
 			t.Error(err)
 		}
@@ -190,6 +209,14 @@ func TestGetForOwner(t *testing.T) {
 	if len(appSpaces) != 0 {
 		t.Error("expected ZERO appspaces")
 	}
+
+	appSpaces, err = model.GetForApp(6)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appSpaces) != 2 {
+		t.Error("expected 2 appspaces")
+	}
 }
 
 func TestCreateDupeSubdomain(t *testing.T) {
@@ -204,12 +231,22 @@ func TestCreateDupeSubdomain(t *testing.T) {
 
 	model.PrepareStatements()
 
-	_, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	_, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as789")
+	inAppspace.LocationKey = "as789"
+
+	_, err = model.Create(inAppspace)
 	if err == nil {
 		t.Error("There should have been an error for duplicate subdomain")
 	}
@@ -221,54 +258,54 @@ func TestCreateDupeSubdomain(t *testing.T) {
 
 //TODO: test dupe locationKey?
 
-func TestGetForApp(t *testing.T) {
-	h := migrate.MakeSqliteDummyDB()
-	defer h.Close()
+// func TestGetForApp(t *testing.T) {
+// 	h := migrate.MakeSqliteDummyDB()
+// 	defer h.Close()
 
-	db := &domain.DB{
-		Handle: h}
+// 	db := &domain.DB{
+// 		Handle: h}
 
-	model := &AppspaceModel{
-		DB: db}
+// 	model := &AppspaceModel{
+// 		DB: db}
 
-	model.PrepareStatements()
+// 	model.PrepareStatements()
 
-	ins := []struct {
-		userID    domain.UserID
-		appID     domain.AppID
-		version   domain.Version
-		subDomain string
-		location  string
-	}{
-		{7, 4, "0.0.1", "foo-subdomain", "as123"},
-		{7, 5, "0.0.2", "2foo-subdomain", "as124"},
-		{7, 6, "0.0.3", "3foo-subdomain", "as125"},
-		{11, 6, "0.0.1", "bar-subdomain", "as126"},
-	}
+// 	ins := []struct {
+// 		userID    domain.UserID
+// 		appID     domain.AppID
+// 		version   domain.Version
+// 		subDomain string
+// 		location  string
+// 	}{
+// 		{7, 4, "0.0.1", "foo-subdomain", "as123"},
+// 		{7, 5, "0.0.2", "2foo-subdomain", "as124"},
+// 		{7, 6, "0.0.3", "3foo-subdomain", "as125"},
+// 		{11, 6, "0.0.1", "bar-subdomain", "as126"},
+// 	}
 
-	for _, i := range ins {
-		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
-		if err != nil {
-			t.Error(err)
-		}
-	}
+// 	for _, i := range ins {
+// 		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
+// 		if err != nil {
+// 			t.Error(err)
+// 		}
+// 	}
 
-	appSpaces, err := model.GetForApp(6)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(appSpaces) != 2 {
-		t.Error("expected 2 appspaces")
-	}
+// 	appSpaces, err := model.GetForApp(6)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if len(appSpaces) != 2 {
+// 		t.Error("expected 2 appspaces")
+// 	}
 
-	appSpaces, err = model.GetForApp(1)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(appSpaces) != 0 {
-		t.Error("expected ZERO appspaces")
-	}
-}
+// 	appSpaces, err = model.GetForApp(1)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if len(appSpaces) != 0 {
+// 		t.Error("expected ZERO appspaces")
+// 	}
+// }
 
 func TestPause(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -288,7 +325,15 @@ func TestPause(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	appspace, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}
@@ -302,7 +347,6 @@ func TestPause(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 	if !appspace.Paused {
 		t.Error("appspace should be paused")
 	}
@@ -321,7 +365,15 @@ func TestSetVersion(t *testing.T) {
 
 	model.PrepareStatements()
 
-	appspace, err := model.Create(domain.UserID(1), domain.AppID(10), domain.Version("0.0.1"), "test-appspace", "as123")
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		Domain:      "test-appspace",
+		LocationKey: "as123",
+	}
+
+	appspace, err := model.Create(inAppspace)
 	if err != nil {
 		t.Error(err)
 	}

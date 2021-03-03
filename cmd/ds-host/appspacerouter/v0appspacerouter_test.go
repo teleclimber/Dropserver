@@ -238,7 +238,7 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
 		Appspace: &domain.Appspace{
 			AppspaceID: appspaceID,
-			Subdomain:  "some.host",
+			Domain:     "some.host",
 		}})
 	if err != nil {
 		t.Error(err)
@@ -424,8 +424,7 @@ func TestServeHTTPDropserverRoute(t *testing.T) {
 		DropserverRoutes: dropserverRoutes}
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/dropserver",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/dropserver",
 	}
 
 	req, err := http.NewRequest("GET", "/", nil)
@@ -463,8 +462,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 		SandboxProxy:        sandboxProxy}
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/abc",
 		Appspace: &domain.Appspace{
 			AppspaceID: appspaceID,
 		},

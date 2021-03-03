@@ -163,7 +163,7 @@ func main() {
 		AppspaceID:  appspaceID,
 		AppID:       appID,
 		AppVersion:  devAppModel.Ver.Version,
-		Subdomain:   "",
+		Domain:      "",
 		Created:     time.Now(),
 		LocationKey: "",
 		Paused:      false}

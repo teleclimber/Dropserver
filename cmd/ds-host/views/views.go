@@ -33,8 +33,8 @@ type BaseData struct {
 func (v *Views) PrepareTemplates() {
 
 	v.base = BaseData{
-		PublicStaticPrefix: "//" + v.Config.Exec.PublicStaticDomain,
-		JSAPIURLVar:        "//" + v.Config.Exec.UserRoutesDomain}
+		PublicStaticPrefix: "//" + v.Config.Exec.PublicStaticDomain + v.Config.Exec.PortString,
+		JSAPIURLVar:        "//" + v.Config.Exec.UserRoutesDomain + v.Config.Exec.PortString}
 
 	templatePath := path.Join(v.Config.Exec.GoTemplatesDir, "appspace.html")
 	v.appspaceLoginTemplate = template.Must(template.ParseFiles(templatePath))
