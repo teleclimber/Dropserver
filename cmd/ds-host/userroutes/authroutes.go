@@ -3,21 +3,26 @@ package userroutes
 // should this be its own isolated package?
 // Handle /login /appspace-login /logout
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
-	Views               domain.Views
-	SettingsModel       domain.SettingsModel
-	UserModel           domain.UserModel
+	Views         domain.Views
+	SettingsModel domain.SettingsModel
+	UserModel     interface {
+		Create(email, password string) (domain.User, error)
+		GetFromEmailPassword(email, password string) (domain.User, error)
+	}
 	UserInvitationModel domain.UserInvitationModel
 	Authenticator       interface {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
@@ -157,13 +162,12 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 		return
 	}
 
-	user, dsErr := a.UserModel.GetFromEmailPassword(email, password)
-	if dsErr != nil {
-		code := dsErr.Code()
-		if code == dserror.AuthenticationIncorrect || code == dserror.NoRowsInResultSet {
+	user, err := a.UserModel.GetFromEmailPassword(email, password)
+	if err != nil {
+		if err == usermodel.ErrBadAuth || err == sql.ErrNoRows {
 			a.Views.Login(res, invalidLoginMessage)
 		} else {
-			dsErr.HTTPError(res)
+			returnError(res, err)
 		}
 	} else {
 		// we're in. What we do now depends on whether we have an asl or not.
@@ -244,10 +248,9 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 		return
 	}
 
-	user, dsErr := a.UserModel.Create(email, password)
-	if dsErr != nil {
-		code := dsErr.Code()
-		if code == dserror.EmailExists {
+	user, err := a.UserModel.Create(email, password)
+	if err != nil {
+		if err == usermodel.ErrEmailExists {
 			invalidData.Message = "Account already exists with that email"
 			a.Views.Signup(res, invalidData)
 		} else {

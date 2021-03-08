@@ -42,9 +42,14 @@ type UserRoutes struct {
 	AdminRoutes         domain.RouteHandler
 	AppspaceStatusTwine domain.TwineService
 	MigrationJobTwine   domain.TwineService
-	UserModel           domain.UserModel
-	Views               domain.Views
-	Validator           domain.Validator
+	UserModel           interface {
+		GetFromID(userID domain.UserID) (domain.User, error)
+		UpdatePassword(userID domain.UserID, password string) error
+		GetFromEmailPassword(email, password string) (domain.User, error)
+		IsAdmin(userID domain.UserID) bool
+	}
+	Views     domain.Views
+	Validator domain.Validator
 }
 
 // ServeHTTP handles http traffic to the user routes
@@ -136,9 +141,9 @@ type UserData struct {
 // getUserData returns a json with {email: ""...""} I think, so far.
 func (u *UserRoutes) getUserData(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	// check if there is anything in routeData tail?
-	user, dsErr := u.UserModel.GetFromID(routeData.Authentication.UserID)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	user, err := u.UserModel.GetFromID(routeData.Authentication.UserID)
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
@@ -194,21 +199,21 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	user, dsErr := u.UserModel.GetFromID(routeData.Authentication.UserID)
-	if dsErr != nil {
+	user, err := u.UserModel.GetFromID(routeData.Authentication.UserID)
+	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	_, dsErr = u.UserModel.GetFromEmailPassword(user.Email, data.Old)
-	if dsErr != nil {
+	_, err = u.UserModel.GetFromEmailPassword(user.Email, data.Old)
+	if err != nil {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	dsErr = u.UserModel.UpdatePassword(user.UserID, data.New)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err = u.UserModel.UpdatePassword(user.UserID, data.New)
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 

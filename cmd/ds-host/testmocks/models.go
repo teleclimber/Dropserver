@@ -5,7 +5,20 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
+
+type UserModel interface {
+	Create(email, password string) (domain.User, error)
+	UpdatePassword(userID domain.UserID, password string) error
+	GetFromID(userID domain.UserID) (domain.User, error)
+	GetFromEmail(email string) (domain.User, error)
+	GetFromEmailPassword(email, password string) (domain.User, error)
+	GetAll() ([]domain.User, error)
+	IsAdmin(userID domain.UserID) bool
+	GetAllAdmins() ([]domain.UserID, error)
+	MakeAdmin(userID domain.UserID) error
+	DeleteAdmin(userID domain.UserID) error
+}
 
 // AppFilesModel represents the application's files saved to disk
 type AppFilesModel interface {

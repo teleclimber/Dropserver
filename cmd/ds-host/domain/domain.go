@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -362,21 +362,6 @@ type SettingsModel interface {
 	Get() (*Settings, Error)
 	Set(*Settings) Error
 	SetRegistrationOpen(bool) Error
-}
-
-// UserModel is the interface for user model
-type UserModel interface { //TODO remove domain.Error, also move this
-	PrepareStatements()
-	Create(string, string) (*User, Error)
-	UpdatePassword(UserID, string) Error
-	GetFromID(UserID) (*User, Error)
-	GetFromEmail(string) (*User, Error)
-	GetFromEmailPassword(string, string) (*User, Error)
-	GetAll() ([]*User, Error)
-	IsAdmin(UserID) bool
-	GetAllAdmins() ([]UserID, Error)
-	MakeAdmin(UserID) Error
-	DeleteAdmin(UserID) Error
 }
 
 // UserInvitation represents an invitation for a user to join the DropServer instance

@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
@@ -84,8 +86,8 @@ func TestLoginPostNoRows(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{}, sql.ErrNoRows)
 
 	a := &AuthRoutes{
 		Views:     views,
@@ -115,8 +117,8 @@ func TestLoginPost(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(&domain.User{
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 
@@ -297,8 +299,8 @@ func TestSignupPostEmailExists(t *testing.T) {
 	sm := domain.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(nil, dserror.New(dserror.EmailExists))
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().Create(email, password).Return(domain.User{}, usermodel.ErrEmailExists)
 
 	a := &AuthRoutes{
 		Views:         views,
@@ -333,8 +335,8 @@ func TestSignupPost(t *testing.T) {
 	sm := domain.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(&domain.User{
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().Create(email, password).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 

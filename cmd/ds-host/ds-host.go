@@ -144,9 +144,9 @@ func main() {
 
 	if *addAdminFlag || len(admins) == 0 {
 		//startServer = false
-		_, dsErr := cliHandlers.AddAdmin()
-		if dsErr != nil {
-			fmt.Println(dsErr)
+		err := cliHandlers.AddAdmin()
+		if err != nil {
+			fmt.Println(err)
 			os.Exit(1)
 		}
 		os.Exit(0)

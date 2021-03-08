@@ -11,6 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestUserData(t *testing.T) {
@@ -19,8 +20,8 @@ func TestUserData(t *testing.T) {
 
 	uid := domain.UserID(1)
 
-	um := domain.NewMockUserModel(mockCtrl)
-	um.EXPECT().GetFromID(uid).Return(&domain.User{
+	um := testmocks.NewMockUserModel(mockCtrl)
+	um.EXPECT().GetFromID(uid).Return(domain.User{
 		UserID: uid,
 		Email:  "abc@def"}, nil)
 	um.EXPECT().IsAdmin(uid).Return(false)
@@ -71,11 +72,11 @@ func TestChangePassword(t *testing.T) {
 
 	uid := domain.UserID(1)
 
-	um := domain.NewMockUserModel(mockCtrl)
-	um.EXPECT().GetFromID(uid).Return(&domain.User{
+	um := testmocks.NewMockUserModel(mockCtrl)
+	um.EXPECT().GetFromID(uid).Return(domain.User{
 		UserID: uid,
 		Email:  "abc@def"}, nil)
-	um.EXPECT().GetFromEmailPassword("abc@def", "secretsauce").Return(&domain.User{}, nil)
+	um.EXPECT().GetFromEmailPassword("abc@def", "secretsauce").Return(domain.User{}, nil)
 	um.EXPECT().UpdatePassword(uid, "secretspice").Return(nil)
 
 	v := domain.NewMockValidator(mockCtrl)

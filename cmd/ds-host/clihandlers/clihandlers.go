@@ -1,26 +1,31 @@
 package clihandlers
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // CliHandlers handles cli based factions
 type CliHandlers struct {
-	UserModel domain.UserModel
+	UserModel interface {
+		Create(email, password string) (domain.User, error)
+		GetFromEmail(email string) (domain.User, error)
+		MakeAdmin(userID domain.UserID) error
+	}
 	Validator domain.Validator
 	StdInput  domain.StdInput
 }
 
 // AddAdmin adds a user and sets them as administrator
-func (h *CliHandlers) AddAdmin() (*domain.User, domain.Error) {
+func (h *CliHandlers) AddAdmin() error {
 	var email, pw string
 
 	// ask for email
 	for true {
-		email = h.StdInput.ReadLine("Admin Email:")
+		email = h.StdInput.ReadLine("Admin Email: ")
 		dsErr := h.Validator.Email(email)
 		if dsErr != nil {
 			fmt.Println(dsErr)
@@ -28,12 +33,12 @@ func (h *CliHandlers) AddAdmin() (*domain.User, domain.Error) {
 		}
 
 		// test if exists
-		_, dsErr = h.UserModel.GetFromEmail(email)
-		if dsErr != nil {
-			if dsErr.Code() == dserror.NoRowsInResultSet {
+		_, err := h.UserModel.GetFromEmail(email)
+		if err != nil {
+			if err == sql.ErrNoRows {
 				break
 			} else {
-				return nil, dsErr
+				return err
 			}
 		} else {
 			fmt.Println("email exists")
@@ -42,7 +47,7 @@ func (h *CliHandlers) AddAdmin() (*domain.User, domain.Error) {
 	}
 
 	for true {
-		pw = h.StdInput.ReadLine("Password:")
+		pw = h.StdInput.ReadLine("Password: ")
 		dsErr := h.Validator.Password(pw)
 		if dsErr != nil {
 			fmt.Println(dsErr)
@@ -51,25 +56,25 @@ func (h *CliHandlers) AddAdmin() (*domain.User, domain.Error) {
 		}
 	}
 
-	pw2 := h.StdInput.ReadLine("Please confirm password:")
+	pw2 := h.StdInput.ReadLine("Please confirm password: ")
 	if pw2 != pw {
 		fmt.Println("Passwords do not match :(")
-		return nil, dserror.New(dserror.PasswordsDoNotMatch)
+		return errors.New("Passwords do not match")
 	}
 
-	user, dsErr := h.UserModel.Create(email, pw)
-	if dsErr != nil {
-		return nil, dsErr
+	user, err := h.UserModel.Create(email, pw)
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Created user.")
 
-	dsErr = h.UserModel.MakeAdmin(user.UserID)
-	if dsErr != nil {
-		return nil, dsErr
+	err = h.UserModel.MakeAdmin(user.UserID)
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Made user an admin.")
 
-	return user, nil
+	return nil
 }

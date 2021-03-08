@@ -1,11 +1,11 @@
 package usermodel
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -34,9 +34,9 @@ func TestGetFromIDError(t *testing.T) {
 	userModel.PrepareStatements()
 
 	// There should be an error, but no panics
-	_, dsErr := userModel.GetFromID(10)
-	if dsErr == nil || dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Error(dsErr)
+	_, err := userModel.GetFromID(10)
+	if err == nil || err != sql.ErrNoRows {
+		t.Error(err)
 	}
 }
 
@@ -53,41 +53,41 @@ func TestGetAll(t *testing.T) {
 
 	userModel.PrepareStatements()
 
-	users := []struct{
+	users := []struct {
 		email string
-		pw string
+		pw    string
 		admin bool
-	} {
+	}{
 		{"abc@def", "gobblegobble", false},
 		{"admin@bar", "bibblebibble", true},
 		{"baz@bar", "fifflefiffle", false},
 	}
 
 	for _, u := range users {
-		dbu, dsErr := userModel.Create(u.email, u.pw)
-		if dsErr != nil {
-			t.Fatal(dsErr)
+		dbu, err := userModel.Create(u.email, u.pw)
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		if u.admin {
-			dsErr = userModel.MakeAdmin(dbu.UserID)
-			if dsErr != nil {
-				t.Fatal(dsErr)
+			err = userModel.MakeAdmin(dbu.UserID)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 	}
 
-	all, dsErr := userModel.GetAll()
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	all, err := userModel.GetAll()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(all) != 3 {
 		t.Error("should have 3 users")
 	}
 
-	admins, dsErr := userModel.GetAllAdmins()
-	if dsErr != nil {
-		t.Error(dsErr)
+	admins, err := userModel.GetAllAdmins()
+	if err != nil {
+		t.Error(err)
 	}
 
 	if len(admins) != 1 {
@@ -115,9 +115,9 @@ func TestCreate(t *testing.T) {
 
 	userModel.PrepareStatements()
 
-	user, dsErr := userModel.Create("bob@foo.com", "secretsauce")
-	if dsErr != nil {
-		t.Error(dsErr)
+	user, err := userModel.Create("bob@foo.com", "secretsauce")
+	if err != nil {
+		t.Error(err)
 	}
 
 	if user.Email != "bob@foo.com" {
@@ -137,16 +137,16 @@ func TestCreateDupe(t *testing.T) {
 
 	userModel.PrepareStatements()
 
-	_, dsErr := userModel.Create("bOb@foO.com", "secretsauce")
-	if dsErr != nil {
-		t.Error(dsErr)
+	_, err := userModel.Create("bOb@foO.com", "secretsauce")
+	if err != nil {
+		t.Error(err)
 	}
 
-	_, dsErr = userModel.Create("Bob@Foo.com", "moresauce")
-	if dsErr == nil {
+	_, err = userModel.Create("Bob@Foo.com", "moresauce")
+	if err == nil {
 		t.Error("should have errored")
-	} else if dsErr.Code() != dserror.EmailExists {
-		t.Error("wrong error", dsErr)
+	} else if err != ErrEmailExists {
+		t.Error("wrong error", err)
 	}
 }
 
@@ -154,9 +154,9 @@ func TestGetFromEmail(t *testing.T) {
 	userModel := initBobModel()
 	defer userModel.DB.Handle.Close()
 
-	user, dsErr := userModel.GetFromEmail("bOb@foO.cOm")
-	if dsErr != nil {
-		t.Error(dsErr)
+	user, err := userModel.GetFromEmail("bOb@foO.cOm")
+	if err != nil {
+		t.Error(err)
 	}
 
 	if user.Email != "bob@foo.com" {
@@ -169,11 +169,11 @@ func TestGetFromEmailNoRows(t *testing.T) {
 	defer userModel.DB.Handle.Close()
 
 	// There should be an error, but no panics
-	_, dsErr := userModel.GetFromEmail("alice@bar.cOm")
-	if dsErr == nil {
+	_, err := userModel.GetFromEmail("alice@bar.cOm")
+	if err == nil {
 		t.Error("should have errored")
-	} else if dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Error("wrong error", dsErr)
+	} else if err != sql.ErrNoRows {
+		t.Error("wrong error", err)
 	}
 }
 
@@ -182,30 +182,30 @@ func TestPassword(t *testing.T) {
 	defer userModel.DB.Handle.Close()
 
 	cases := []struct {
-		email     string
-		pw        string
-		found     bool
-		errorCode domain.ErrorCode
+		email string
+		pw    string
+		found bool
+		err   error
 	}{
-		{"bOb@foO.cOm", "secretsauce", true, dserror.InternalError}, // no error actually, but can't nil
-		{"bOb@foO.cOm", "secretSauce", false, dserror.AuthenticationIncorrect},
-		{"bOb@bar.cOm", "secretsauce", false, dserror.NoRowsInResultSet},
+		{"bOb@foO.cOm", "secretsauce", true, nil},
+		{"bOb@foO.cOm", "secretSauce", false, ErrBadAuth},
+		{"bOb@bar.cOm", "secretsauce", false, sql.ErrNoRows},
 	}
 
 	for _, c := range cases {
-		user, dsErr := userModel.GetFromEmailPassword(c.email, c.pw)
+		user, err := userModel.GetFromEmailPassword(c.email, c.pw)
 		if c.found {
-			if dsErr != nil {
-				t.Error(dsErr)
+			if err != nil {
+				t.Error(err)
 			}
 			if user.Email != "bob@foo.com" {
 				t.Error("unexpected data mismatch", user)
 			}
 		} else {
-			if dsErr == nil {
+			if err == nil {
 				t.Error("should have errored with no rows", c, user)
-			} else if dsErr.Code() != c.errorCode {
-				t.Error("wrong error", dsErr, c)
+			} else if err != c.err {
+				t.Error("wrong error", err, c)
 			}
 		}
 	}
@@ -216,22 +216,22 @@ func TestUpdatePassword(t *testing.T) {
 	userModel := initBobModel()
 	defer userModel.DB.Handle.Close()
 
-	bob, dsErr := userModel.GetFromEmail("bob@foo.com")
-	if dsErr != nil {
-		t.Error(dsErr)
+	bob, err := userModel.GetFromEmail("bob@foo.com")
+	if err != nil {
+		t.Error(err)
 	}
 
-	dsErr = userModel.UpdatePassword(bob.UserID, "secretspice")
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = userModel.UpdatePassword(bob.UserID, "secretspice")
+	if err != nil {
+		t.Error(err)
 	}
 
-	bob2, dsErr := userModel.GetFromEmailPassword("bob@foo.com", "secretspice")
-	if dsErr != nil {
-		t.Error(dsErr)
+	bob2, err := userModel.GetFromEmailPassword("bob@foo.com", "secretspice")
+	if err != nil {
+		t.Error(err)
 	}
 
-	if bob2 == nil {
+	if bob2.UserID != bob.UserID {
 		t.Error("Should have returned bob again")
 	}
 }
@@ -247,9 +247,9 @@ func initBobModel() *UserModel {
 
 	userModel.PrepareStatements()
 
-	_, dsErr := userModel.Create("BoB@Foo.Com", "secretsauce")
-	if dsErr != nil {
-		panic(dsErr)
+	_, err := userModel.Create("BoB@Foo.Com", "secretsauce")
+	if err != nil {
+		panic(err)
 	}
 
 	return userModel
@@ -286,9 +286,9 @@ func TestManageAdmin(t *testing.T) {
 
 	uID := domain.UserID(77)
 
-	dsErr := userModel.MakeAdmin(uID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err := userModel.MakeAdmin(uID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	is := userModel.IsAdmin(uID)
@@ -297,15 +297,15 @@ func TestManageAdmin(t *testing.T) {
 	}
 
 	// then do it again to see if it handles dupes elegantly
-	dsErr = userModel.MakeAdmin(uID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = userModel.MakeAdmin(uID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	// then delete the admin
-	dsErr = userModel.DeleteAdmin(uID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = userModel.DeleteAdmin(uID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	is = userModel.IsAdmin(uID)
@@ -313,5 +313,3 @@ func TestManageAdmin(t *testing.T) {
 		t.Error("user should NOT be admin anymore")
 	}
 }
-
-

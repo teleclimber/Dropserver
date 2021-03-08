@@ -10,7 +10,11 @@ import (
 
 // AdminRoutes handles routes for applications uploading, creating, deleting.
 type AdminRoutes struct {
-	UserModel           domain.UserModel
+	UserModel interface {
+		GetAll() ([]domain.User, error)
+		IsAdmin(userID domain.UserID) bool
+		GetAllAdmins() ([]domain.UserID, error)
+	}
 	SettingsModel       domain.SettingsModel
 	UserInvitationModel domain.UserInvitationModel
 	Validator           domain.Validator
@@ -80,15 +84,15 @@ func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, rout
 
 // getUsers returns the list of users on the system
 func (a *AdminRoutes) getUsers(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	users, dsErr := a.UserModel.GetAll()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	users, err := a.UserModel.GetAll()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
-	admins, dsErr := a.UserModel.GetAllAdmins()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	admins, err := a.UserModel.GetAllAdmins()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
