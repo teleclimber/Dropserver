@@ -116,6 +116,29 @@ func (m *DropIDModel) Delete(userID domain.UserID, handle string, dom string) er
 	return nil
 }
 
+// Key is a unique string representation of the provided dropid
+func Key(dropID domain.DropID) string {
+	return dropID.Domain + "/" + dropID.Handle
+}
+
+// SplitKey splits the dropid key into its domain and handle subparts
+func SplitKey(key string) (handle, domain string) {
+	pieces := strings.SplitN(key, "/", 2)
+	if len(pieces) > 0 {
+		domain = pieces[0]
+	}
+	if len(pieces) > 1 {
+		handle = pieces[1]
+	}
+	return
+}
+
+// NormalizeKey turns a string DropID key into its canonical form
+func NormalizeKey(key string) string {
+	handle, dom := SplitKey(key)
+	return Key(domain.DropID{Handle: handle, Domain: dom})
+}
+
 func (m *DropIDModel) getLogger(note string) *record.DsLogger {
 	r := record.NewDsLogger().AddNote("DropIDModel")
 	if note != "" {

@@ -338,6 +338,25 @@ type Cookie struct {
 	// I think "is owner" comes from appspace users table
 }
 
+// DomainData tells how a domain name can be used
+type DomainData struct {
+	DomainName                string `json:"domain_name"`
+	UserOwned                 bool   `json:"user_owned"`
+	ForAppspace               bool   `json:"for_appspace"`
+	AppspaceSubdomainRequired bool   `json:"appspace_subdomain_required"`
+	ForDropID                 bool   `json:"for_dropid"`
+	DropIDSubdomainAllowed    bool   `json:"dropid_subdomain_allowed"`
+	// DropIDHandleRequired
+}
+
+// DomainCheckResult is the result of checking for a domain
+// and subdomain's availability and validity for a particular purpose.
+type DomainCheckResult struct {
+	Valid     bool   `json:"valid"`
+	Available bool   `json:"available"`
+	Message   string `json:"message"`
+}
+
 // SettingsModel is used to get and set settings
 type SettingsModel interface {
 	Get() (*Settings, Error)
@@ -406,16 +425,15 @@ type AppGetMeta struct {
 
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
-	OwnerID      UserID     `db:"owner_id"`
-	AppspaceID   AppspaceID `db:"appspace_id"`
-	AppID        AppID      `db:"app_id"`
-	AppVersion   Version    `db:"app_version"`
-	DropIDHandle string     `db:"dropid_handle"`
-	DropIDDomain string     `db:"dropid_domain"`
-	Domain       string     `db:"domain"`
-	Created      time.Time  `db:"created"`
-	Paused       bool       `db:"paused"`
-	LocationKey  string     `db:"location_key"`
+	OwnerID     UserID     `db:"owner_id"`
+	AppspaceID  AppspaceID `db:"appspace_id"`
+	AppID       AppID      `db:"app_id"`
+	AppVersion  Version    `db:"app_version"`
+	DropID      string     `db:"dropid"`
+	DomainName  string     `db:"domain_name"`
+	Created     time.Time  `db:"created"`
+	Paused      bool       `db:"paused"`
+	LocationKey string     `db:"location_key"`
 
 	// Config AppspaceConfig ..this one is harder
 }

@@ -40,7 +40,7 @@ func (m *AppspaceModel) PrepareStatements() {
 	m.stmt.selectID = p.Prep(`SELECT * FROM appspaces WHERE appspace_id = ?`)
 
 	//get from domain
-	m.stmt.selectDomain = p.Prep(`SELECT * FROM appspaces WHERE domain = ?`)
+	m.stmt.selectDomain = p.Prep(`SELECT * FROM appspaces WHERE domain_name = ?`)
 
 	// get all for an owner
 	m.stmt.selectOwner = p.Prep(`SELECT * FROM appspaces WHERE owner_id = ?`)
@@ -53,7 +53,7 @@ func (m *AppspaceModel) PrepareStatements() {
 
 	// insert appspace:
 	m.stmt.insert = p.Prep(`INSERT INTO appspaces
-		("owner_id", "dropid_handle", "dropid_domain", "app_id", "app_version", domain, created, location_key) VALUES (?, ?, ?, ?, ?, ?, datetime("now"), ?)`)
+		("owner_id", "dropid", "app_id", "app_version", domain_name, created, location_key) VALUES (?, ?, ?, ?, ?, datetime("now"), ?)`)
 
 	// pause
 	m.stmt.pause = p.Prep(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
@@ -138,9 +138,9 @@ func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Vers
 
 // Create adds an appspace to the database
 func (m *AppspaceModel) Create(appspace domain.Appspace) (*domain.Appspace, error) {
-	logger := m.getLogger("Create()").UserID(appspace.OwnerID).AppID(appspace.AppID).AppVersion(appspace.AppVersion).AddNote(fmt.Sprintf("domain:%v, locationkey:%v", appspace.Domain, appspace.LocationKey))
+	logger := m.getLogger("Create()").UserID(appspace.OwnerID).AppID(appspace.AppID).AppVersion(appspace.AppVersion).AddNote(fmt.Sprintf("domain:%v, locationkey:%v", appspace.DomainName, appspace.LocationKey))
 
-	r, err := m.stmt.insert.Exec(appspace.OwnerID, appspace.DropIDHandle, appspace.DropIDDomain, appspace.AppID, appspace.AppVersion, appspace.Domain, appspace.LocationKey)
+	r, err := m.stmt.insert.Exec(appspace.OwnerID, appspace.DropID, appspace.AppID, appspace.AppVersion, appspace.DomainName, appspace.LocationKey)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: appspaces.domain" {
 			return nil, errors.New("Domain not unique")

@@ -2,11 +2,11 @@ package appspacerouter
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
 // route handler for when we know the route is for an app-space.
@@ -44,13 +44,19 @@ func (r *AppspaceRouter) Init() {
 
 // ServeHTTP handles http traffic to the appspace
 func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	appspace, err := r.AppspaceModel.GetFromDomain(strings.ToLower(req.Host))
+	host, err := getcleanhost.GetCleanHost(req.Host)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	appspace, err := r.AppspaceModel.GetFromDomain(host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if appspace == nil {
-		http.Error(res, "Appspace does not exist: "+req.Host, http.StatusNotFound)
+		http.Error(res, "Appspace does not exist: "+host, http.StatusNotFound)
 		return
 	}
 

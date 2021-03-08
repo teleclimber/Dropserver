@@ -48,7 +48,7 @@ func TestIntegration1(t *testing.T) {
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
 
-	appspace := &domain.Appspace{Domain: "as1.ds.dev", AppID: domain.AppID(1)}
+	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)}
 	appVersion := &domain.AppVersion{LocationKey: "loc123"}
 
 	metrics := domain.NewMockMetricsI(mockCtrl)

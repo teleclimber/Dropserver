@@ -144,7 +144,7 @@ export default defineComponent({
 						
 			status.connectStatus(appspace_id);
 
-			setTitle(appspace.subdomain+".domain.sometld");
+			setTitle(appspace.domain_name);
 
 			to_version.value = typeof route.query.to_version == 'string' && route.query.to_version !== appspace.app_version ? route.query.to_version : undefined; 
 			if( to_version.value ) {

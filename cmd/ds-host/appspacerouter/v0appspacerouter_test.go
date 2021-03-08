@@ -238,7 +238,7 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
 		Appspace: &domain.Appspace{
 			AppspaceID: appspaceID,
-			Domain:     "some.host",
+			DomainName: "some.host",
 		}})
 	if err != nil {
 		t.Error(err)

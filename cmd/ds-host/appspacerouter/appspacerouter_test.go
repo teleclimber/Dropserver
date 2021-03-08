@@ -93,7 +93,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 
 	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(&domain.Appspace{
 		AppspaceID: appspaceID,
-		Domain:     "as1.ds.dev",
+		DomainName: "as1.ds.dev",
 		AppID:      appID}, nil)
 	appModel.EXPECT().GetFromID(appID).Return(nil, errors.New("some error"))
 	appspaceStatus.EXPECT().Ready(appspaceID).Return(true)

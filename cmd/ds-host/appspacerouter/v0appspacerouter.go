@@ -148,7 +148,7 @@ func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, route
 		return nil, errors.New("wrong appspace")
 	}
 
-	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.Domain)
+	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.DomainName)
 	if err != nil {
 		return nil, err
 	}

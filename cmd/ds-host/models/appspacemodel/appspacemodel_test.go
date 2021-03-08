@@ -58,7 +58,7 @@ func TestCreate(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 
@@ -91,7 +91,7 @@ func TestGetFromID(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 
@@ -127,7 +127,7 @@ func TestGetFromSubdomain(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 
@@ -185,7 +185,7 @@ func TestGetters(t *testing.T) {
 			OwnerID:     i.userID,
 			AppID:       i.appID,
 			AppVersion:  i.version,
-			Domain:      i.domain,
+			DomainName:  i.domain,
 			LocationKey: i.location,
 		}
 		_, err := model.Create(in)
@@ -235,7 +235,7 @@ func TestCreateDupeSubdomain(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 
@@ -329,7 +329,7 @@ func TestPause(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 
@@ -369,7 +369,7 @@ func TestSetVersion(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		Domain:      "test-appspace",
+		DomainName:  "test-appspace",
 		LocationKey: "as123",
 	}
 

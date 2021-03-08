@@ -18,6 +18,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
@@ -268,6 +269,12 @@ func main() {
 
 	m := record.Metrics{}
 
+	// controllers:
+	domainController := &domaincontroller.DomainController{
+		Config:        runtimeConfig,
+		AppspaceModel: appspaceModel,
+	}
+
 	appGetter := &appgetter.AppGetter{
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
@@ -329,8 +336,10 @@ func main() {
 	appspaceUserRoutes := &userroutes.AppspaceRoutes{
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
+		DropIDModel:            dropIDModel,
 		MigrationMinder:        migrationMinder,
 		AppspaceMetaDB:         appspaceMetaDb,
+		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
@@ -340,11 +349,12 @@ func main() {
 	}
 
 	domainNameRoutes := &userroutes.DomainNameRoutes{
-		Config: runtimeConfig,
+		DomainController: domainController,
 	}
 
 	dropIDRoutes := &userroutes.DropIDRoutes{
-		DropIDModel: dropIDModel,
+		DomainController: domainController,
+		DropIDModel:      dropIDModel,
 	}
 
 	migrationJobRoutes := &userroutes.MigrationJobRoutes{

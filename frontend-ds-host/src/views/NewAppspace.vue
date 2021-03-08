@@ -81,10 +81,25 @@
 
 				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
 					<div class="font-medium text-gray-500">
-						[Sub]Domain:
+						Base Domain:
 					</div>
 					<div class="col-span-3">
-						[not implemented]
+						<select v-model="domain_name" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+							<option value="">Pick Domain Name</option>
+							<option v-for="d in domain_names.for_appspace" :key="d.domain_name" :value="d.domain_name">{{d.domain_name}}</option>
+						</select>
+					</div>
+				</div>
+				<div class="px-4 pb-5 sm:px-6 sm:grid sm:grid-cols-4">
+					<div class="font-medium text-gray-500">
+						Subdomain:
+					</div>
+					<div class="col-span-3">
+						<input type="text" v-model="subdomain" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+						<p class="pt-2 flex justify-between">
+							<div class="text-lg font-medium">{{full_domain}}</div>
+							<div>{{domain_valid}}</div>
+						</p>
 					</div>
 				</div>
 				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
@@ -92,7 +107,10 @@
 						DropID:
 					</div>
 					<div class="col-span-3">
-						[pick from user's existing DropIds]
+						<select v-model="dropid" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+							<option value="">Pick DropID</option>
+							<option v-for="d in dropids.dropids" :key="d.key" :value="d">{{d.key}}</option>
+						</select>
 					</div>
 				</div>
 				<div class="px-4 py-5 sm:px-6 border-t border-gray-200 flex justify-between items-center">
@@ -113,13 +131,16 @@ import router from '../router';
 
 import { App, Apps } from '../models/apps';
 import { AppVersion } from '../models/app_versions';
-import {createAppspace} from '../models/appspaces';
+import { DomainNames, checkAppspaceDomain } from '../models/domainnames';
+import { createAppspace } from '../models/appspaces';
+import type { NewAppspaceData } from '../models/appspaces';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
 import VersionDetails from '../components/VersionDetails.vue';
 import PickVersion from '../components/PickAppVersion.vue';
+import { DropIDs, DropID } from '../models/dropids';
 
 export default defineComponent({
 	name: 'NewAppspace',
@@ -137,8 +158,57 @@ export default defineComponent({
 		const show_all_versions = ref(false);
 
 		const apps = reactive(new Apps);
-		const app = ref(new App);	// does app really need to be potentially unefined? We are using step to determine what to show.
+		const app = ref(new App);
 		const app_version :Ref<AppVersion|undefined> = ref();
+
+		const domain_names = reactive(new DomainNames);
+		domain_names.fetchForOwner();
+
+		const domain_name = ref("");
+		const subdomain = ref("");
+
+		const full_domain = computed( () => {
+			let ret = domain_name.value;
+			if( subdomain.value != "" ) ret = subdomain.value + "."+ domain_name.value;
+			return ret;
+		});
+
+		const domain_valid = ref("");
+		watch( [domain_name, subdomain], async () => {
+			subdomain.value = subdomain.value.trim();
+
+			if( domain_name.value === '' ) {
+				domain_valid.value = '';
+				return;
+			}
+
+			const domain_data = domain_names.for_appspace.find( d => d.domain_name === domain_name.value );
+			if( domain_data === undefined ) return;
+
+			if( subdomain.value === "" && domain_data.appspace_subdomain_required ) {
+				domain_valid.value = 'subdomain required';
+				return;
+			}
+			if( subdomain.value.length > 62 ) {
+				domain_valid.value = 'long';
+				return;
+			}
+			// check for bad chars
+			
+			// Here we query the server to see if the id already exists.
+			// Note this is a pretty poor way to do this.
+			domain_valid.value = 'checking';
+			const check = await checkAppspaceDomain(domain_name.value, subdomain.value)
+			if( !check.valid ) domain_valid.value = "Invalid: "+check.message;
+			else if( !check.available ) domain_valid.value = "Unavailable: "+check.message;
+			else domain_valid.value = "OK";
+		});
+
+		// Dropid
+		const dropid :Ref<DropID|undefined> = ref();
+		const dropids = reactive(new DropIDs);
+		dropids.fetchForOwner();
+
 
 		watchEffect(() => {
 			if( route.query.app_id !== undefined ) {
@@ -194,7 +264,17 @@ export default defineComponent({
 
 		async function create() {
 			if( !app.value.loaded || app_version.value === undefined ) return;
-			const appspace_id = await createAppspace(app.value.app_id, app_version.value.version);
+			// TODO also bail if domain is not valid, etc...
+			if( dropid.value === undefined ) return;
+
+			const data :NewAppspaceData = {
+				app_id: app.value.app_id,
+				app_version: app_version.value.version,
+				domain_name: domain_name.value,
+				subdomain: subdomain.value,
+				dropid: dropid.value.key,
+			};
+			const appspace_id = await createAppspace(data);
 			router.push({name: 'manage-appspace', params:{id: appspace_id+''}});
 		}
 
@@ -205,6 +285,9 @@ export default defineComponent({
 			picked_version,
 			using_latest_version,
 			app_version,
+			domain_names: domain_names,
+			domain_name, subdomain, full_domain, domain_valid,
+			dropid, dropids,
 			create,
 			show_all_versions,
 			pickVersion,

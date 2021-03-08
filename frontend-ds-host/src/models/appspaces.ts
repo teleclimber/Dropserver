@@ -21,25 +21,26 @@ import { AppVersion } from './app_versions';
 // - data for these ids.
 //   ..here should be a preview
 
-// from Go:
 // type AppspaceMeta struct {
 // 	AppspaceID int            `json:"appspace_id"`
 // 	AppID      int            `json:"app_id"`
 // 	AppVersion domain.Version `json:"app_version"`
-// 	Subdomain  string         `json:"subdomain"`
+// 	DomainName string         `json:"domain"`
 // 	Created    time.Time      `json:"created_dt"`
 // 	Paused     bool           `json:"paused"`
+// 	Upgrade    *VersionMeta   `json:"upgrade,omitempty"`
 // }
 
 export class Appspace {
 	loaded = false;
 
 	id = 0;
-	subdomain = "";
-	created_dt = new Date();
-	paused = false;
 	app_id = 0;
 	app_version = '';
+	domain_name = "";
+	dropid = "";
+	created_dt = new Date();
+	paused = false;
 	upgrade :AppVersion|undefined;
 
 	async fetch(id: number) {
@@ -51,7 +52,8 @@ export class Appspace {
 	}
 	setFromRaw(raw :any) {
 		this.id = Number(raw.appspace_id);
-		this.subdomain = raw.subdomain+'';
+		this.domain_name = raw.domain_name+'';
+		this.dropid = raw.dropid+'';
 		this.created_dt = new Date(raw.created_dt);
 		this.paused = !!raw.paused;
 		this.app_id = Number(raw.app_id);
@@ -98,7 +100,14 @@ export function ReactiveAppspaces() {
 	return reactive(new Appspaces);
 }
 
-export async function createAppspace(app_id:number, app_version:string) :Promise<number> {
-	const resp_data = await post('/appspace', {app_id, app_version});
+export type NewAppspaceData = {
+	app_id:number,
+	app_version:string,
+	domain_name: string,
+	subdomain: string,
+	dropid: string,
+}
+export async function createAppspace(data:NewAppspaceData) :Promise<number> {
+	const resp_data = await post('/appspace', data);
 	return Number(resp_data.appspace_id);
 }

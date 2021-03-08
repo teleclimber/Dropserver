@@ -12,8 +12,11 @@
 					</div>
 				</div>
 				<div class="px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-					<dt class="text-sm font-medium text-gray-500">Subdomain</dt>
-					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.subdomain}}</dd>
+					<dt class="text-sm font-medium text-gray-500">Appsace Address:</dt>
+					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.domain_name}}</dd>
+
+					<dt class="text-sm font-medium text-gray-500">Owner DropID:</dt>
+					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.dropid}}</dd>
 
 					<dt class="text-sm font-medium text-gray-500">Created</dt>
 					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.created_dt.toLocaleString()}}</dd>
@@ -67,6 +70,14 @@ import BigLoader from '../components/ui/BigLoader.vue';
 import AppspaceStatusVisualizer from '../components/AppspaceStatusVisualizer.vue';
 import DataDef from '../components/ui/DataDef.vue';
 
+// Manage appspace is going to grow to include all kinds of things:
+// - Chagne Domain -> dedicated UI page
+// - Change DropID -> dedicated UI page
+// - Change App Version -> already has its own page
+// - Appspace Users
+// - Stored Data -> view into files, data backups, download, etc...
+// - Usage -> view into resources used
+
 export default defineComponent({
 	name: 'ManageAppspace',
 	components: {
@@ -96,7 +107,7 @@ export default defineComponent({
 			await appspace.fetch(appspace_id);
 			app_version.value = AppVersionCollector.get(appspace.app_id, appspace.app_version);
 
-			setTitle(appspace.subdomain+".domain.sometld");
+			setTitle(appspace.domain_name);
 			
 			// experimental
 			status.connectStatus(appspace_id);

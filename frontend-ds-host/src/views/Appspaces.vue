@@ -4,7 +4,7 @@
 
 		<AppspaceListItem v-for="a in appspaces.asArray" :key="a.id" :appspace="a"></AppspaceListItem>
 		<BigLoader v-if="!appspaces.loaded"></BigLoader>
-		<MessageSad v-else="appspaces.asArray.length === 0" head="No Appspaces" class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
+		<MessageSad v-else-if="appspaces.asArray.length === 0" head="No Appspaces" class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
 			There are no appspaces in this account. Please create one!
 		</MessageSad>
 	</ViewWrap>

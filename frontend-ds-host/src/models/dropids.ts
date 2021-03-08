@@ -17,12 +17,16 @@ export class DropID {
 	display_name = "";
 	created_dt = new Date();
 
+	key = "";	// key is used to identify the dropid uniquely
+
 	setFromRaw(raw :any) {
 		this.user_id = Number(raw.user_id);
 		this.handle = raw.handle + '';
 		this.domain_name = raw.domain + '';
 		this.display_name = raw.display_name + '';
 		this.created_dt = new Date(raw.created_dt);
+
+		this.key = this.domain_name+"/"+this.handle;
 
 		this.loaded = true;
 	}
@@ -52,7 +56,7 @@ export async function createDropID(handle:string, domain:string, display_name: s
 	return dropid;
 }
 
-export async function checkHandleValid(handle:string, domain:string) :Promise<boolean> {
+export async function checkHandle(handle:string, domain:string) :Promise<boolean> {
 	let q = 'domain='+encodeURIComponent(domain);
 	if( handle !== '' ) q += '&handle='+encodeURIComponent(handle)
 	try {

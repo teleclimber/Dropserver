@@ -2,12 +2,13 @@ package userroutes
 
 import (
 	"database/sql"
-	"math/rand"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -16,7 +17,8 @@ type AppspaceMeta struct {
 	AppspaceID int            `json:"appspace_id"`
 	AppID      int            `json:"app_id"`
 	AppVersion domain.Version `json:"app_version"`
-	Domain     string         `json:"domain"`
+	DomainName string         `json:"domain_name"`
+	DropID     string         `json:"dropid"`
 	Created    time.Time      `json:"created_dt"`
 	Paused     bool           `json:"paused"`
 	Upgrade    *VersionMeta   `json:"upgrade,omitempty"`
@@ -37,6 +39,12 @@ type AppspaceRoutes struct {
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
+	}
+	DomainController interface {
+		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
+	}
+	DropIDModel interface {
+		Get(handle string, dom string) (domain.DropID, error)
 	}
 	MigrationMinder interface {
 		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
@@ -165,16 +173,13 @@ func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData
 	return appspace, nil
 }
 
-// temporary ubdomain gneration stuff
-const charset = "abcdefghijklmnopqrstuvwxyz"
-
-var seededRand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
 // PostAppspaceReq is sent when creating a new appspace
 type PostAppspaceReq struct {
-	AppID   domain.AppID   `json:"app_id"`
-	Version domain.Version `json:"app_version"`
+	AppID      domain.AppID   `json:"app_id"`
+	Version    domain.Version `json:"app_version"`
+	DomainName string         `json:"domain_name"`
+	Subdomain  string         `json:"subdomain"`
+	DropID     string         `json:"dropid"`
 }
 
 //PostAppspaceResp is the return data after creating a new appspace
@@ -189,8 +194,6 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// TODO: validate version before using it with DB. At least for size.
 
 	app, err := a.AppModel.GetFromID(reqData.AppID)
 	if err != nil {
@@ -216,10 +219,37 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	// OK, so currently we are supposed to generate a subdomain.
-	// This is very temporary because I want to move to user-chosen subdomains.
-	// But let's get things working first.
-	dom := a.getNewSubdomain() // TODO NOT this at all~!~!!!~!
+	// Here it would be nice if CheckAppspaceDomain also reserved that name temporarily
+	check, err := a.DomainController.CheckAppspaceDomain(routeData.Authentication.UserID, reqData.DomainName, reqData.Subdomain)
+	if err != nil {
+		returnError(res, err)
+		return
+	}
+	if !check.Valid || !check.Available {
+		http.Error(res, "domain or subdomain no longer valid or available", http.StatusGone)
+		return
+	}
+
+	fullDomain := reqData.DomainName
+	if reqData.Subdomain != "" {
+		fullDomain = reqData.Subdomain + "." + reqData.DomainName
+	}
+
+	// also need to validate dropid
+	dropIDHandle, dropIDDomain := dropidmodel.SplitKey(reqData.DropID)
+	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(res, "DropID not found", http.StatusGone)
+		} else {
+			returnError(res, err)
+		}
+		return
+	}
+	if dropID.UserID != routeData.Authentication.UserID {
+		returnError(res, errors.New("DropID user does not a match for authenticated user"))
+		return
+	}
 
 	locationKey, err := a.AppspaceFilesModel.CreateLocation()
 	if err != nil {
@@ -231,7 +261,8 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		OwnerID:     routeData.Authentication.UserID,
 		AppID:       app.AppID,
 		AppVersion:  version.Version,
-		Domain:      dom,
+		DomainName:  fullDomain,
+		DropID:      reqData.DropID,
 		LocationKey: locationKey,
 	}
 
@@ -247,8 +278,6 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	}
 
 	// migrate to whatever version was selected
-	// TODO: Must block appspace from being used until migration is done
-	// I think this is done by appspace status
 
 	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
 	if err != nil {
@@ -286,31 +315,13 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	res.WriteHeader(http.StatusOK)
 }
 
-func (a *AppspaceRoutes) getNewSubdomain() (sub string) {
-	for i := 0; i < 10; i++ {
-		sub = randomSubomainString()
-		_, err := a.AppspaceModel.GetFromDomain(sub)
-		if err == nil {
-			break
-		}
-	}
-	return
-}
-
 func makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
 	return AppspaceMeta{
 		AppspaceID: int(appspace.AppspaceID),
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
-		Domain:     appspace.Domain,
+		DomainName: appspace.DomainName,
+		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}
-}
-
-func randomSubomainString() string {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
 }

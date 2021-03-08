@@ -9,6 +9,9 @@ import (
 )
 
 type DropIDRoutes struct {
+	DomainController interface {
+		GetDropIDDomains(userID domain.UserID) ([]domain.DomainData, error)
+	}
 	DropIDModel interface {
 		Create(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
 		Update(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
@@ -47,7 +50,22 @@ func (d *DropIDRoutes) handleGet(res http.ResponseWriter, req *http.Request, rou
 			return
 		}
 
-		// TODO verify that the domain is usable by the user making the request.
+		domains, err := d.DomainController.GetDropIDDomains(routeData.Authentication.UserID)
+		if err != nil {
+			returnError(res, err)
+			return
+		}
+		domainOK := false
+		for _, d := range domains {
+			if d.DomainName == domainName {
+				domainOK = true
+				break
+			}
+		}
+		if !domainOK {
+			returnError(res, errForbidden)
+			return
+		}
 
 		handle := ""
 		if len(query["handle"]) == 1 {

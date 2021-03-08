@@ -156,7 +156,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		URLTail:    "/abc", // parametrize
 		App:        &domain.App{Name: "app1"},
 		AppVersion: &domain.AppVersion{},
-		Appspace:   &domain.Appspace{Domain: "as1.ds.dev", AppID: domain.AppID(1)},
+		Appspace:   &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)},
 		RouteConfig: &domain.AppspaceRouteConfig{
 			Handler: domain.AppspaceRouteHandler{
 				File: "@app/module-abc.ts",

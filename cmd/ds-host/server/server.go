@@ -2,14 +2,13 @@ package server
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
 // Server struct sets all parameters about the server
@@ -83,11 +82,11 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		URLTail:        req.URL.Path,
 		Authentication: &auth}
 
-	host, _, err := net.SplitHostPort(req.Host)
+	host, err := getcleanhost.GetCleanHost(req.Host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
 	}
-	host = strings.ToLower(host)
 
 	fmt.Println(host, req.URL)
 
