@@ -196,8 +196,8 @@ func TestSignupPostNotInvited(t *testing.T) {
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: false}, nil)
 
-	im := domain.NewMockUserInvitationModel(mockCtrl)
-	im.EXPECT().Get(email).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+	im := testmocks.NewMockUserInvitationModel(mockCtrl)
+	im.EXPECT().Get(email).Return(domain.UserInvitation{}, sql.ErrNoRows)
 
 	a := &AuthRoutes{
 		SettingsModel:       sm,

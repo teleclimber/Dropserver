@@ -11,7 +11,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -25,8 +24,10 @@ type AuthRoutes struct {
 		Create(email, password string) (domain.User, error)
 		GetFromEmailPassword(email, password string) (domain.User, error)
 	}
-	UserInvitationModel domain.UserInvitationModel
-	Authenticator       interface {
+	UserInvitationModel interface {
+		Get(email string) (domain.UserInvitation, error)
+	}
+	Authenticator interface {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
 		UnsetForAccount(http.ResponseWriter, *http.Request)
 	}
@@ -223,14 +224,14 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 	invalidData.Email = email
 
 	if !settings.RegistrationOpen {
-		_, dsErr := a.UserInvitationModel.Get(email)
-		if dsErr != nil {
-			if dsErr.Code() == dserror.NoRowsInResultSet {
+		_, err := a.UserInvitationModel.Get(email)
+		if err != nil {
+			if err == sql.ErrNoRows {
 				invalidData.Message = "Sorry, this email is not on the invitation list"
 				a.Views.Signup(res, invalidData)
 				return
 			}
-			dsErr.HTTPError(res)
+			returnError(res, err)
 			return
 		}
 	}

@@ -1,8 +1,6 @@
 package settingsmodel
 
 import (
-	"errors"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -18,25 +16,6 @@ type SettingsModel struct {
 		set    *sqlx.Stmt
 		setReg *sqlx.Stmt
 	}
-}
-
-type prepper struct { //move this to the prepper we have written out separately
-	handle *sqlx.DB
-	err    error
-}
-
-func (p *prepper) exec(query string) *sqlx.Stmt {
-	if p.err != nil {
-		return nil
-	}
-
-	stmt, err := p.handle.Preparex(query)
-	if err != nil {
-		p.err = errors.New("Error preparing statmement " + query + " " + err.Error())
-		return nil
-	}
-
-	return stmt
 }
 
 // PrepareStatements prepares the statements

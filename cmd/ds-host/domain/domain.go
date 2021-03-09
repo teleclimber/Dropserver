@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -352,15 +352,6 @@ type DomainCheckResult struct {
 // UserInvitation represents an invitation for a user to join the DropServer instance
 type UserInvitation struct {
 	Email string `db:"email" json:"email"`
-}
-
-// UserInvitationModel is the interface to the UserInvitation model
-type UserInvitationModel interface {
-	PrepareStatements()
-	GetAll() ([]*UserInvitation, Error)
-	Get(email string) (*UserInvitation, Error)
-	Create(email string) Error
-	Delete(email string) Error
 }
 
 // App represents the data structure for an App.

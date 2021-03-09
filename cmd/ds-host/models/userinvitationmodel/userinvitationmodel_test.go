@@ -1,11 +1,11 @@
 package userinvitationmodel
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -33,9 +33,9 @@ func TestGetAllEmpty(t *testing.T) {
 
 	model.PrepareStatements()
 
-	invites, dsErr := model.GetAll()
-	if dsErr != nil {
-		t.Error(dsErr)
+	invites, err := model.GetAll()
+	if err != nil {
+		t.Error(err)
 	}
 	if len(invites) != 0 {
 		t.Error("invites not empty")
@@ -54,15 +54,11 @@ func TestGetNone(t *testing.T) {
 
 	model.PrepareStatements()
 
-	invite, dsErr := model.Get("foo@bar")
-	if dsErr == nil {
+	_, err := model.Get("foo@bar")
+	if err == nil {
 		t.Error("should have gotten error")
-	} else if dsErr.Code() != dserror.NoRowsInResultSet {
-		t.Error("got error but not no-rows", dsErr)
-	}
-
-	if invite != nil {
-		t.Error("invite should be nil")
+	} else if err != sql.ErrNoRows {
+		t.Error("got error but not no-rows", err)
 	}
 }
 
@@ -79,51 +75,51 @@ func TestInsert(t *testing.T) {
 	model.PrepareStatements()
 
 	//create
-	dsErr := model.Create("fOo@bAr")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := model.Create("fOo@bAr")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	//create another
-	dsErr = model.Create("bax@zoink")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = model.Create("bax@zoink")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// check by getting
-	invite, dsErr := model.Get("Foo@baR")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	invite, err := model.Get("Foo@baR")
+	if err != nil {
+		t.Fatal(err)
 	}
 	if invite.Email != "foo@bar" {
 		t.Fatal("did not get right email back")
 	}
 
 	// double invite should be no-op
-	dsErr = model.Create("foO@Bar")
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = model.Create("foO@Bar")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// shoudl be just one row
-	invites, dsErr := model.GetAll()
-	if dsErr != nil {
-		t.Error(dsErr)
+	invites, err := model.GetAll()
+	if err != nil {
+		t.Error(err)
 	}
 	if len(invites) != 2 {
 		t.Error("invites not empty")
 	}
 
 	// now delete
-	dsErr = model.Delete("foo@BAR")
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = model.Delete("foo@BAR")
+	if err != nil {
+		t.Error(err)
 	}
 
 	// shoudl be one rows
-	invites, dsErr = model.GetAll()
-	if dsErr != nil {
-		t.Error(dsErr)
+	invites, err = model.GetAll()
+	if err != nil {
+		t.Error(err)
 	}
 	if len(invites) != 1 {
 		t.Error("invites not empty")

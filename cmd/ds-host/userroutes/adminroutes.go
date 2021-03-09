@@ -1,10 +1,10 @@
 package userroutes
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
@@ -19,8 +19,13 @@ type AdminRoutes struct {
 		Get() (domain.Settings, error)
 		Set(domain.Settings) error
 	}
-	UserInvitationModel domain.UserInvitationModel
-	Validator           domain.Validator
+	UserInvitationModel interface {
+		GetAll() ([]domain.UserInvitation, error)
+		Get(email string) (domain.UserInvitation, error)
+		Create(email string) error
+		Delete(email string) error
+	}
+	Validator domain.Validator
 }
 
 // ServeHTTP handles http traffic to the admin routes
@@ -52,17 +57,17 @@ func (a *AdminRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, rout
 	case "invitation":
 		// here gotta read email from path, as that is how delete works
 		// ..and any other methods we attach to that invitation (like re-send email, ...)
-		invite, dsErr := a.getInvitationFromPath(routeData)
-		if dsErr != nil {
-			if dsErr.Code() == dserror.NoRowsInResultSet {
-				res.WriteHeader(http.StatusNotFound)
+		invite, hasInvite, err := a.getInvitationFromPath(routeData)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				returnError(res, errNotFound)
 				return
 			}
-			dsErr.HTTPError(res)
+			returnError(res, err)
 			return
 		}
 
-		if invite != nil {
+		if hasInvite {
 			switch req.Method {
 			case http.MethodDelete:
 				a.deleteInvitation(res, invite)
@@ -160,25 +165,27 @@ func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, 
 }
 
 // invitations
-func (a *AdminRoutes) getInvitationFromPath(routeData *domain.AppspaceRouteData) (*domain.UserInvitation, domain.Error) {
+func (a *AdminRoutes) getInvitationFromPath(routeData *domain.AppspaceRouteData) (domain.UserInvitation, bool, error) {
 	email, tail := shiftpath.ShiftPath(routeData.URLTail)
 	routeData.URLTail = tail
 
+	var invite domain.UserInvitation
+
 	if email == "" {
-		return nil, nil
+		return invite, false, nil
 	}
 
-	invite, dsErr := a.UserInvitationModel.Get(email)
-	if dsErr != nil {
-		return nil, dsErr
+	invite, err := a.UserInvitationModel.Get(email)
+	if err != nil {
+		return invite, true, err
 	}
 
-	return invite, nil
+	return invite, true, nil
 }
 func (a *AdminRoutes) getInvitations(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	invites, dsErr := a.UserInvitationModel.GetAll()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	invites, err := a.UserInvitationModel.GetAll()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
@@ -204,19 +211,19 @@ func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	dsErr = a.UserInvitationModel.Create(reqData.Email)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err = a.UserInvitationModel.Create(reqData.Email)
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
 	res.WriteHeader(http.StatusOK)
 }
 
-func (a *AdminRoutes) deleteInvitation(res http.ResponseWriter, invite *domain.UserInvitation) {
-	dsErr := a.UserInvitationModel.Delete(invite.Email)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+func (a *AdminRoutes) deleteInvitation(res http.ResponseWriter, invite domain.UserInvitation) {
+	err := a.UserInvitationModel.Delete(invite.Email)
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 

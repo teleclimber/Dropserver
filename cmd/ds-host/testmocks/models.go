@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,SettingsModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
 
 type UserModel interface {
 	Create(email, password string) (domain.User, error)
@@ -25,6 +25,15 @@ type SettingsModel interface {
 	Get() (domain.Settings, error)
 	Set(domain.Settings) error
 	SetRegistrationOpen(bool) error
+}
+
+// UserInvitationModel is the interface to the UserInvitation model
+type UserInvitationModel interface {
+	PrepareStatements()
+	GetAll() ([]domain.UserInvitation, error)
+	Get(email string) (domain.UserInvitation, error)
+	Create(email string) error
+	Delete(email string) error
 }
 
 // AppFilesModel represents the application's files saved to disk
