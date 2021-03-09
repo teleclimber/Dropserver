@@ -78,16 +78,6 @@ type DB struct {
 // ErrorCode represents integer codes for each error mesage
 type ErrorCode int
 
-// Error is dropserver error type
-type Error interface {
-	//Error() string
-	Code() ErrorCode
-	ExtraMessage() string
-	PublicString() string
-	ToStandard() error
-	HTTPError(http.ResponseWriter)
-}
-
 // LogLevel represents the logging severity level
 type LogLevel int
 

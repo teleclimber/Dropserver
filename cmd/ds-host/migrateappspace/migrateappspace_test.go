@@ -136,10 +136,6 @@ func TestStartNextNoJobs(t *testing.T) {
 	}
 
 	c.startNext()
-
-	//
-	// appspaceModel := domain.NewMockAppspaceModel(mockCtrl)
-	// appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, dserror.New(dserror.NoRowsInResultSet))
 }
 
 func TestStartNextOneJob(t *testing.T) {

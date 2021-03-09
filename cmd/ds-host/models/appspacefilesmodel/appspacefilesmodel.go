@@ -63,7 +63,7 @@ func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 
 // 	err := os.RemoveAll(filepath.Join(appsPath, locationKey))
 // 	if err != nil {
-// 		return dserror.FromStandard(err)
+// 		return err
 // 	}
 
 // 	return nil

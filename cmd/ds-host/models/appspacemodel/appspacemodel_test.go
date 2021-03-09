@@ -149,9 +149,6 @@ func TestGetFromSubdomain(t *testing.T) {
 	if appspace != nil {
 		t.Error("Should return nil trying to get non-existent subdomain")
 	}
-	// else if err.Code() != dserror.NoRowsInResultSet {
-	// 	t.Error("wrong error for non-existent subdomain: ", err)
-	// }
 	// TODO: add sentinel error?
 }
 
@@ -250,9 +247,6 @@ func TestCreateDupeSubdomain(t *testing.T) {
 	if err == nil {
 		t.Error("There should have been an error for duplicate subdomain")
 	}
-	// else if err.Code() != dserror.DomainNotUnique {
-	// 	t.Error("Wrong error", err)
-	// }
 	// TODO add sentinel error?
 }
 

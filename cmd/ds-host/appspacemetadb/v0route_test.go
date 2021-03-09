@@ -57,10 +57,7 @@ func TestV0RouteCreate(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error on duplicate route")
 	}
-	// TODO: figure out how to do sentinel errors
-	// if dsErr.Code() != dserror.AppspaceRouteExists {
-	// 	t.Fatal("Expected error to be route exists.")
-	// }
+	// TODO: this should be a seintinel error?
 
 	err = r.Create([]string{"patch"}, "/abc", auth, handler)
 	if err != nil {
