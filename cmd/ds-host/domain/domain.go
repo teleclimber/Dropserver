@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -255,14 +255,6 @@ type AppspaceRouteData struct {
 // ..but would it not muddy the meaning of the Fields?
 type RouteHandler interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, *AppspaceRouteData)
-}
-
-// Validator is an interface for validation module
-type Validator interface {
-	Init()
-	Email(string) Error
-	Password(string) Error
-	DBName(string) Error
 }
 
 ///////////////////////////////////

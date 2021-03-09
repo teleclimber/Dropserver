@@ -6,6 +6,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // AdminRoutes handles routes for applications uploading, creating, deleting.
@@ -25,7 +26,6 @@ type AdminRoutes struct {
 		Create(email string) error
 		Delete(email string) error
 	}
-	Validator domain.Validator
 }
 
 // ServeHTTP handles http traffic to the admin routes
@@ -205,9 +205,9 @@ func (a *AdminRoutes) postInvitation(res http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	dsErr := a.Validator.Email(reqData.Email)
-	if dsErr != nil {
-		http.Error(res, "email validation error: "+dsErr.PublicString(), http.StatusBadRequest)
+	err = validator.Email(reqData.Email)
+	if err != nil {
+		http.Error(res, "email validation error", http.StatusBadRequest)
 		return
 	}
 

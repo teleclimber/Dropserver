@@ -111,13 +111,10 @@ func (s *V0Service) handleCreateDB(message twine.ReceivedMessageI) {
 		return
 	}
 
-	validator := &validator.Validator{}
-	validator.Init()
-
 	dbName := strings.ToLower(data.DBName)
-	dsErr := validator.DBName(dbName)
-	if dsErr != nil {
-		message.SendError("failed to decode query data json: " + dsErr.PublicString())
+	err = validator.DBName(dbName)
+	if err != nil {
+		message.SendError("dbname validation error")
 		return
 	}
 
@@ -138,13 +135,10 @@ func (s *V0Service) handleDeleteDB(message twine.ReceivedMessageI) {
 		return
 	}
 
-	validator := &validator.Validator{}
-	validator.Init()
-
 	dbName := strings.ToLower(data.DBName)
-	dsErr := validator.DBName(dbName)
-	if dsErr != nil {
-		message.SendError("failed to decode query data json: " + dsErr.PublicString())
+	err = validator.DBName(dbName)
+	if err != nil {
+		message.SendError("dbname validation error")
 		return
 	}
 

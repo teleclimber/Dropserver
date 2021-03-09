@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // CliHandlers handles cli based factions
@@ -15,8 +16,8 @@ type CliHandlers struct {
 		GetFromEmail(email string) (domain.User, error)
 		MakeAdmin(userID domain.UserID) error
 	}
-	Validator domain.Validator
-	StdInput  domain.StdInput
+	//Validator domain.Validator
+	StdInput domain.StdInput
 }
 
 // AddAdmin adds a user and sets them as administrator
@@ -26,7 +27,7 @@ func (h *CliHandlers) AddAdmin() error {
 	// ask for email
 	for true {
 		email = h.StdInput.ReadLine("Admin Email: ")
-		dsErr := h.Validator.Email(email)
+		dsErr := validator.Email(email)
 		if dsErr != nil {
 			fmt.Println(dsErr)
 			continue
@@ -48,7 +49,7 @@ func (h *CliHandlers) AddAdmin() error {
 
 	for true {
 		pw = h.StdInput.ReadLine("Password: ")
-		dsErr := h.Validator.Password(pw)
+		dsErr := validator.Password(pw)
 		if dsErr != nil {
 			fmt.Println(dsErr)
 		} else {

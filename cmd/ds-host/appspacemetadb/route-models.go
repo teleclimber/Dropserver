@@ -9,7 +9,6 @@ import (
 // AppspaceRouteModels can return a routes model for a given appspace id
 type AppspaceRouteModels struct {
 	Config         *domain.RuntimeConfig
-	Validator      domain.Validator
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
@@ -39,7 +38,6 @@ func (g *AppspaceRouteModels) GetV0(appspaceID domain.AppspaceID) domain.V0Route
 	rm, ok := g.modelsV0[appspaceID]
 	if !ok {
 		rm = &V0RouteModel{
-			Validator:      g.Validator,
 			AppspaceMetaDB: g.AppspaceMetaDB,
 			RouteEvents:    g.RouteEvents,
 			appspaceID:     appspaceID,

@@ -9,7 +9,6 @@ import (
 // AppspaceUserModels can return a user model for a given appspace id
 type AppspaceUserModels struct {
 	Config         *domain.RuntimeConfig //unused?
-	Validator      domain.Validator
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
@@ -35,7 +34,6 @@ func (g *AppspaceUserModels) GetV0(appspaceID domain.AppspaceID) domain.V0UserMo
 	rm, ok := g.modelsV0[appspaceID]
 	if !ok {
 		rm = &V0UserModel{
-			Validator:      g.Validator,
 			AppspaceMetaDB: g.AppspaceMetaDB,
 			appspaceID:     appspaceID,
 		}

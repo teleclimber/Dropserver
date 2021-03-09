@@ -18,10 +18,6 @@ func TestAddAdmin(t *testing.T) {
 	userModel.EXPECT().Create("foo@bar.com", "secretsauce").Return(domain.User{}, nil)
 	userModel.EXPECT().MakeAdmin(gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email("foo@bar.com").Return(nil)
-	validator.EXPECT().Password("secretsauce").Return(nil)
-
 	stdInput := domain.NewMockStdInput(mockCtrl)
 	stdInput.EXPECT().ReadLine("Admin Email: ").Return("foo@bar.com")
 	stdInput.EXPECT().ReadLine("Password: ").Return("secretsauce")
@@ -29,7 +25,6 @@ func TestAddAdmin(t *testing.T) {
 
 	h := &CliHandlers{
 		UserModel: userModel,
-		Validator: validator,
 		StdInput:  stdInput,
 	}
 

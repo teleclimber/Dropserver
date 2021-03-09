@@ -43,7 +43,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/stdinput"
-	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -102,8 +101,8 @@ func main() {
 	record.Init(runtimeConfig) // ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	validator := &validator.Validator{}
-	validator.Init()
+	// validator := &validator.Validator{}
+	// validator.Init()
 
 	stdInput := &stdinput.StdInput{}
 
@@ -129,8 +128,8 @@ func main() {
 
 	cliHandlers := clihandlers.CliHandlers{
 		UserModel: userModel,
-		Validator: validator,
-		StdInput:  stdInput}
+		//Validator: validator,
+		StdInput: stdInput}
 
 	// Check we have admins before going further.
 	admins, dsErr := userModel.GetAllAdmins()
@@ -190,8 +189,8 @@ func main() {
 	appspaceLogger.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		Config:        runtimeConfig,
-		Validator:     validator,
+		Config: runtimeConfig,
+		//Validator:     validator,
 		AppspaceModel: appspaceModel}
 	appspaceMetaDb.Init()
 
@@ -318,14 +317,12 @@ func main() {
 		UserModel:           userModel,
 		UserInvitationModel: userInvitationModel,
 		Authenticator:       authenticator,
-		AppspaceLogin:       appspaceLogin,
-		Validator:           validator}
+		AppspaceLogin:       appspaceLogin}
 
 	adminRoutes := &userroutes.AdminRoutes{
 		UserModel:           userModel,
 		SettingsModel:       settingsModel,
-		UserInvitationModel: userInvitationModel,
-		Validator:           validator}
+		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppGetter:     appGetter,
@@ -387,8 +384,7 @@ func main() {
 		AppspaceStatusTwine: appspaceStatusTwine,
 		MigrationJobTwine:   migrationJobTwine,
 		UserModel:           userModel,
-		Views:               views,
-		Validator:           validator}
+		Views:               views}
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,
@@ -397,14 +393,12 @@ func main() {
 
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
-		AppspaceMetaDB: appspaceMetaDb,
-		Validator:      validator}
+		AppspaceMetaDB: appspaceMetaDb}
 	appspaceRouteModels.Init()
 
 	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb,
-		Validator:      validator,
 	}
 	appspaceUserModels.Init()
 

@@ -11,6 +11,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 var errNotFound = errors.New("not found")
@@ -48,8 +49,7 @@ type UserRoutes struct {
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 	}
-	Views     domain.Views
-	Validator domain.Validator
+	Views domain.Views
 }
 
 // ServeHTTP handles http traffic to the user routes
@@ -187,13 +187,13 @@ func (u *UserRoutes) changeUserPassword(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	dsErr := u.Validator.Password(data.Old)
+	dsErr := validator.Password(data.Old)
 	if dsErr != nil {
 		res.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	dsErr = u.Validator.Password(data.New)
+	dsErr = validator.Password(data.New)
 	if dsErr != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return

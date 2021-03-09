@@ -79,12 +79,8 @@ func TestChangePassword(t *testing.T) {
 	um.EXPECT().GetFromEmailPassword("abc@def", "secretsauce").Return(domain.User{}, nil)
 	um.EXPECT().UpdatePassword(uid, "secretspice").Return(nil)
 
-	v := domain.NewMockValidator(mockCtrl)
-	v.EXPECT().Password(gomock.Any()).Return(nil).Times(2)
-
 	u := UserRoutes{
-		UserModel: um,
-		Validator: v}
+		UserModel: um}
 
 	routeData := domain.AppspaceRouteData{
 		Authentication: &domain.Authentication{

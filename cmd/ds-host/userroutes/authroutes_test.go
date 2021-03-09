@@ -12,7 +12,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // login POST handling
@@ -26,12 +25,8 @@ func TestLoginPostBadEmail(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
-
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		Views: views}
 
 	rr := httptest.NewRecorder()
 
@@ -48,18 +43,13 @@ func TestLoginPostBadPassword(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	email := "oy@foo.bar"
-	password := "password123"
+	password := "password"
 
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
-
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		Views: views}
 
 	rr := httptest.NewRecorder()
 
@@ -82,16 +72,11 @@ func TestLoginPostNoRows(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
 	userModel := testmocks.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{}, sql.ErrNoRows)
 
 	a := &AuthRoutes{
 		Views:     views,
-		Validator: validator,
 		UserModel: userModel}
 
 	rr := httptest.NewRecorder()
@@ -113,10 +98,6 @@ func TestLoginPost(t *testing.T) {
 	password := "password123"
 	userID := domain.UserID(1)
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
 	userModel := testmocks.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{
 		UserID: userID,
@@ -126,7 +107,6 @@ func TestLoginPost(t *testing.T) {
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{
-		Validator:     validator,
 		Authenticator: authenticator,
 		UserModel:     userModel}
 
@@ -160,16 +140,12 @@ func TestSignupPostBadEmail(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
-		Views:         views,
-		Validator:     validator}
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -190,9 +166,6 @@ func TestSignupPostNotInvited(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: false}, nil)
 
@@ -202,8 +175,7 @@ func TestSignupPostNotInvited(t *testing.T) {
 	a := &AuthRoutes{
 		SettingsModel:       sm,
 		UserInvitationModel: im,
-		Views:               views,
-		Validator:           validator}
+		Views:               views}
 
 	rr := httptest.NewRecorder()
 
@@ -225,17 +197,12 @@ func TestSignupPostBadPassword(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
-		Views:         views,
-		Validator:     validator}
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -258,17 +225,12 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
-		Views:         views,
-		Validator:     validator}
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -292,10 +254,6 @@ func TestSignupPostEmailExists(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
@@ -305,8 +263,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	a := &AuthRoutes{
 		Views:         views,
 		SettingsModel: sm,
-		UserModel:     userModel,
-		Validator:     validator}
+		UserModel:     userModel}
 
 	rr := httptest.NewRecorder()
 
@@ -328,10 +285,6 @@ func TestSignupPost(t *testing.T) {
 	password := "password123"
 	userID := domain.UserID(100)
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
@@ -346,8 +299,7 @@ func TestSignupPost(t *testing.T) {
 	a := &AuthRoutes{
 		SettingsModel: sm,
 		UserModel:     userModel,
-		Authenticator: authenticator,
-		Validator:     validator}
+		Authenticator: authenticator}
 
 	rr := httptest.NewRecorder()
 

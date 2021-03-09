@@ -22,7 +22,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
-	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // Some lifecycle sequences:
@@ -56,9 +55,6 @@ const appspaceID = domain.AppspaceID(15)
 func main() {
 
 	m := record.Metrics{}
-
-	validator := &validator.Validator{}
-	validator.Init()
 
 	flag.Parse()
 
@@ -121,8 +117,7 @@ func main() {
 	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		AppspaceModel: devAppspaceModel,
-		Config:        runtimeConfig,
-		Validator:     validator}
+		Config:        runtimeConfig}
 	appspaceMetaDb.Init()
 
 	appspaceFiles := &DevAppspaceFiles{
@@ -141,8 +136,7 @@ func main() {
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb,
-		RouteEvents:    appspaceRouteEvents,
-		Validator:      validator}
+		RouteEvents:    appspaceRouteEvents}
 	appspaceRouteModels.Init()
 
 	appspaceUserModels := &appspacemetadb.AppspaceUserModels{

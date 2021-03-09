@@ -12,6 +12,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // AuthRoutes handles all routes related to authentication
@@ -31,7 +32,6 @@ type AuthRoutes struct {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
 		UnsetForAccount(http.ResponseWriter, *http.Request)
 	}
-	Validator     domain.Validator
 	AppspaceLogin interface {
 		LogIn(string, domain.UserID) (domain.AppspaceLoginToken, error)
 	}
@@ -149,7 +149,7 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 		Message:            "Login incorrect"}
 
 	email := strings.ToLower(req.Form.Get("email"))
-	dsErr := a.Validator.Email(email)
+	dsErr := validator.Email(email)
 	if dsErr != nil {
 		// actually re-render page with generic error
 		a.Views.Login(res, invalidLoginMessage)
@@ -159,7 +159,7 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 	invalidLoginMessage.Email = email
 
 	password := req.Form.Get("password")
-	dsErr = a.Validator.Password(password)
+	dsErr = validator.Password(password)
 	if dsErr != nil {
 		a.Views.Login(res, invalidLoginMessage)
 		return
@@ -215,7 +215,7 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 		RegistrationOpen: settings.RegistrationOpen}
 
 	email := strings.ToLower(req.Form.Get("email"))
-	dsErr := a.Validator.Email(email)
+	dsErr := validator.Email(email)
 	if dsErr != nil {
 		invalidData.Message = "Please use a valid email"
 		a.Views.Signup(res, invalidData)
@@ -237,8 +237,8 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 	}
 
 	password := req.Form.Get("password")
-	dsErr = a.Validator.Password(password)
-	if dsErr != nil {
+	err = validator.Password(password)
+	if err != nil {
 		invalidData.Message = "Please use a valid password" // would be really nice to tell people how the passwrod is invalid
 		a.Views.Signup(res, invalidData)
 		return
@@ -257,7 +257,7 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 			invalidData.Message = "Account already exists with that email"
 			a.Views.Signup(res, invalidData)
 		} else {
-			dsErr.HTTPError(res)
+			returnError(res, err)
 		}
 	} else {
 		// we're in

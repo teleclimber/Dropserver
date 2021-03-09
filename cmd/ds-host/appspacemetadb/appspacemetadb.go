@@ -19,8 +19,8 @@ import (
 
 // AppspaceMetaDB opens and tracks connections to appspace meta DBs
 type AppspaceMetaDB struct {
-	Config        *domain.RuntimeConfig
-	Validator     domain.Validator
+	Config *domain.RuntimeConfig
+	//Validator     domain.Validator
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}

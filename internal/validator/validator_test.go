@@ -2,102 +2,82 @@ package validator
 
 import (
 	"testing"
-
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 func TestPassword(t *testing.T) {
-	v := &Validator{}
-	v.Init()
 
-	valErr := dserror.New(dserror.InputValidationError)
 	cases := []struct {
-		pw    string
-		dsErr domain.Error
+		pw  string
+		err bool
 	}{
-		{"", valErr},
-		{"abc", valErr},
-		{"abcabcabcabc", nil},
-		{"             ", nil},
+		{"", true},
+		{"abc", true},
+		{"abcabcabcabc", false},
+		{"             ", false},
 	}
 
 	for _, c := range cases {
-		dsErr := v.Password(c.pw)
-		if c.dsErr == nil && dsErr != nil {
-			t.Error("should not have gotten error", dsErr)
-		} else if c.dsErr != nil && dsErr == nil {
+		err := Password(c.pw)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
 			t.Error("should have gotten error")
-		} else if c.dsErr != dsErr {
-			t.Error("wrong error", dsErr)
 		}
 	}
 }
 
 func TestEmail(t *testing.T) {
-	v := &Validator{}
-	v.Init()
-
-	valErr := dserror.New(dserror.InputValidationError)
 	cases := []struct {
 		email string
-		dsErr domain.Error
+		err   bool
 	}{
-		{"", valErr},
-		{"abc", valErr},
-		{"abcabcabcabc", valErr},
-		{"             ", valErr},
-		{"a@b.c", nil},
+		{"", true},
+		{"abc", true},
+		{"abcabcabcabc", true},
+		{"             ", true},
+		{"a@b.c", false},
 	}
 
 	for _, c := range cases {
-		dsErr := v.Email(c.email)
-		if c.dsErr == nil && dsErr != nil {
-			t.Error("should not have gotten error", dsErr)
-		} else if c.dsErr != nil && dsErr == nil {
+		err := Email(c.email)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
 			t.Error("should have gotten error")
-		} else if c.dsErr != dsErr {
-			t.Error("wrong error", dsErr)
 		}
 	}
 }
 
 func TestDBName(t *testing.T) {
-	v := &Validator{}
-	v.Init()
-
-	valErr := dserror.New(dserror.InputValidationError)
 	cases := []struct {
-		db    string
-		dsErr domain.Error
+		db  string
+		err bool
 	}{
-		{"abc", nil},
-		{"abcabcabcabc", nil},
-		{"", valErr},
-		{"      ", valErr},
-		{"abc def", valErr},
-		{"abc-def", valErr},
-		{"abc*def", valErr},
-		{"abc/def", valErr},
-		{"abc.def", valErr},
-		{"..def", valErr},
+		{"abc", false},
+		{"abcabcabcabc", false},
+		{"", true},
+		{"      ", true},
+		{"abc def", true},
+		{"abc-def", true},
+		{"abc*def", true},
+		{"abc/def", true},
+		{"abc.def", true},
+		{"..def", true},
 		//\/:*?"<>|
-		{"abc:def", valErr},
-		{"abc?def", valErr},
-		{"abc\"def", valErr},
-		{"abc<def", valErr},
-		{"abc>def", valErr},
-		{"abc|def", valErr},
+		{"abc:def", true},
+		{"abc?def", true},
+		{"abc\"def", true},
+		{"abc<def", true},
+		{"abc>def", true},
+		{"abc|def", true},
 	}
 
 	for _, c := range cases {
-		dsErr := v.DBName(c.db)
-		if c.dsErr == nil && dsErr != nil {
-			t.Error("should not have gotten error", dsErr)
-		} else if c.dsErr != nil && dsErr == nil {
+		err := DBName(c.db)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
 			t.Error("should have gotten error")
-		} else if c.dsErr != dsErr {
-			t.Error("wrong error", dsErr)
 		}
 	}
 }

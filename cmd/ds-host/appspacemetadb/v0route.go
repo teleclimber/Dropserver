@@ -24,7 +24,6 @@ const (
 // V0RouteModel responds to requests about appspace routes for an appspace
 // It can cache results (eventually) for rapid reponse times without hitting the DB.
 type V0RouteModel struct {
-	Validator      domain.Validator
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)
 	}
