@@ -32,27 +32,27 @@ func TestSet(t *testing.T) {
 
 	settingsModel.PrepareStatements()
 
-	dsErr := settingsModel.Set(&domain.Settings{RegistrationOpen: true})
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := settingsModel.Set(domain.Settings{RegistrationOpen: true})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	settings, dsErr := settingsModel.Get()
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	settings, err := settingsModel.Get()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if !settings.RegistrationOpen {
 		t.Fatal("registration open was supposed to be true")
 	}
 
-	dsErr = settingsModel.Set(&domain.Settings{RegistrationOpen: false})
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = settingsModel.Set(domain.Settings{RegistrationOpen: false})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	settings, dsErr = settingsModel.Get()
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	settings, err = settingsModel.Get()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if settings.RegistrationOpen {
 		t.Fatal("registration open was supposed to be false")
@@ -71,27 +71,27 @@ func TestSetRegistrationOpen(t *testing.T) {
 
 	settingsModel.PrepareStatements()
 
-	dsErr := settingsModel.SetRegistrationOpen(true)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err := settingsModel.SetRegistrationOpen(true)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	settings, dsErr := settingsModel.Get()
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	settings, err := settingsModel.Get()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if !settings.RegistrationOpen {
 		t.Fatal("registration open was supposed to be true")
 	}
 
-	dsErr = settingsModel.SetRegistrationOpen(false)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	err = settingsModel.SetRegistrationOpen(false)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	settings, dsErr = settingsModel.Get()
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	settings, err = settingsModel.Get()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if settings.RegistrationOpen {
 		t.Fatal("registration open was supposed to be false")

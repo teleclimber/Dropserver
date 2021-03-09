@@ -18,8 +18,10 @@ import (
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
 	Views         domain.Views
-	SettingsModel domain.SettingsModel
-	UserModel     interface {
+	SettingsModel interface {
+		Get() (domain.Settings, error)
+	}
+	UserModel interface {
 		Create(email, password string) (domain.User, error)
 		GetFromEmailPassword(email, password string) (domain.User, error)
 	}
@@ -185,9 +187,9 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 }
 
 func (a *AuthRoutes) getSignup(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	settings, dsErr := a.SettingsModel.Get()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	settings, err := a.SettingsModel.Get()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
@@ -202,9 +204,9 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 
 	req.ParseForm()
 
-	settings, dsErr := a.SettingsModel.Get()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	settings, err := a.SettingsModel.Get()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
@@ -212,7 +214,7 @@ func (a *AuthRoutes) postSignup(res http.ResponseWriter, req *http.Request, rout
 		RegistrationOpen: settings.RegistrationOpen}
 
 	email := strings.ToLower(req.Form.Get("email"))
-	dsErr = a.Validator.Email(email)
+	dsErr := a.Validator.Email(email)
 	if dsErr != nil {
 		invalidData.Message = "Please use a valid email"
 		a.Views.Signup(res, invalidData)

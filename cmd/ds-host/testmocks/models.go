@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,SettingsModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceContactModel,DropIDModel,MigrationJobModel
 
 type UserModel interface {
 	Create(email, password string) (domain.User, error)
@@ -18,6 +18,13 @@ type UserModel interface {
 	GetAllAdmins() ([]domain.UserID, error)
 	MakeAdmin(userID domain.UserID) error
 	DeleteAdmin(userID domain.UserID) error
+}
+
+// SettingsModel is used to get and set settings
+type SettingsModel interface {
+	Get() (domain.Settings, error)
+	Set(domain.Settings) error
+	SetRegistrationOpen(bool) error
 }
 
 // AppFilesModel represents the application's files saved to disk

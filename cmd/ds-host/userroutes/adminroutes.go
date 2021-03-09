@@ -15,7 +15,10 @@ type AdminRoutes struct {
 		IsAdmin(userID domain.UserID) bool
 		GetAllAdmins() ([]domain.UserID, error)
 	}
-	SettingsModel       domain.SettingsModel
+	SettingsModel interface {
+		Get() (domain.Settings, error)
+		Set(domain.Settings) error
+	}
 	UserInvitationModel domain.UserInvitationModel
 	Validator           domain.Validator
 }
@@ -121,9 +124,9 @@ type SettingsResp struct {
 }
 
 func (a *AdminRoutes) getSettings(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	settings, dsErr := a.SettingsModel.Get()
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	settings, err := a.SettingsModel.Get()
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 
@@ -147,9 +150,9 @@ func (a *AdminRoutes) patchSettings(res http.ResponseWriter, req *http.Request, 
 
 	// gotta validate the fields that aren't bool.
 
-	dsErr := a.SettingsModel.Set(reqData)
-	if dsErr != nil {
-		dsErr.HTTPError(res)
+	err = a.SettingsModel.Set(*reqData)
+	if err != nil {
+		returnError(res, err)
 		return
 	}
 

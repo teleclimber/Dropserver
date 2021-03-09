@@ -163,8 +163,8 @@ func TestSignupPostBadEmail(t *testing.T) {
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
@@ -193,8 +193,8 @@ func TestSignupPostNotInvited(t *testing.T) {
 	validator := domain.NewMockValidator(mockCtrl)
 	validator.EXPECT().Email(email).Return(nil)
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: false}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: false}, nil)
 
 	im := domain.NewMockUserInvitationModel(mockCtrl)
 	im.EXPECT().Get(email).Return(nil, dserror.New(dserror.NoRowsInResultSet))
@@ -229,8 +229,8 @@ func TestSignupPostBadPassword(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
@@ -262,8 +262,8 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,
@@ -296,8 +296,8 @@ func TestSignupPostEmailExists(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().Create(email, password).Return(domain.User{}, usermodel.ErrEmailExists)
@@ -332,8 +332,8 @@ func TestSignupPost(t *testing.T) {
 	validator.EXPECT().Email(email).Return(nil)
 	validator.EXPECT().Password(password).Return(nil)
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
 	userModel.EXPECT().Create(email, password).Return(domain.User{
@@ -389,8 +389,8 @@ func TestGetSignupRoute(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	sm := domain.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(&domain.Settings{RegistrationOpen: true}, nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
 		SettingsModel: sm,

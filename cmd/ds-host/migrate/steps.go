@@ -10,11 +10,6 @@ import (
 // this could potentially be a linked list or simething,
 // ..and could be created in procedurlal code, which could catch duplicated
 
-// type MigrationStepI interface {
-// 	Up(*Migrator) domain.Error
-// 	Down(*Migrator) domain.Error
-// }
-
 type stepArgs struct {
 	db    *domain.DB
 	dbErr error

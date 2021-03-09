@@ -118,9 +118,7 @@ func (c *JobController) eventManifold() { // eventBus?
 			err := c.MigrationJobModel.SetFinished(d.origJob.JobID, d.errString)
 			if err != nil {
 				c.getLogger("eventManifold").AddNote("MigrationJobModel.SetFinished error: ").Debug(err.Error())
-				//c.Logger.Log(domain.ERROR, nil, "Run migration job: failed to set finished: "+dsErr.PublicString())
-				// ^^ this is already logged by model. No need to log.
-				// But should probably warn user that something is not right.
+				// should probably warn user that something is not right.
 			}
 
 			c.runningMux.Lock()
@@ -171,18 +169,12 @@ func (c *JobController) startNext() {
 
 	jobs, err := c.MigrationJobModel.GetPending()
 	if err != nil {
-		//c.Logger.Log(domain.ERROR, nil, "Error getting pending jobs: "+dsErr.PublicString())
-		// ^^ already logged by model.
 		return
 	}
 
 	var runJob *domain.MigrationJob
 	for _, j := range jobs {
 		ok, _ := c.MigrationJobModel.SetStarted(j.JobID)
-		// if dsErr != nil {
-		// 	c.Logger.Log(domain.ERROR, nil, "Error setting job to started: "+dsErr.PublicString())
-		// already logged by model
-		// }
 		if ok {
 			// check if a job is already running on that appspace
 			// TODO: wouldn't you check that before calling setStarted??

@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -347,13 +347,6 @@ type DomainCheckResult struct {
 	Valid     bool   `json:"valid"`
 	Available bool   `json:"available"`
 	Message   string `json:"message"`
-}
-
-// SettingsModel is used to get and set settings
-type SettingsModel interface {
-	Get() (*Settings, Error)
-	Set(*Settings) Error
-	SetRegistrationOpen(bool) Error
 }
 
 // UserInvitation represents an invitation for a user to join the DropServer instance
