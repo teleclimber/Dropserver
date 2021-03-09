@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
@@ -15,16 +16,20 @@ import (
 // Migrator manages the migration process
 type Migrator struct {
 	OrderedSteps []string
-	StringSteps map[string]migrationStep
-	Config *domain.RuntimeConfig
-	DBManager domain.DBManagerI
+	StringSteps  map[string]migrationStep
+	Config       *domain.RuntimeConfig
+	DBManager    interface {
+		GetHandle() *domain.DB
+		GetSchema() string
+		SetSchema(string) error
+	}
 
 	// import other things that migration steps need to touch
 }
 
 // LastStepName returns the last (current) schema name
 func (m *Migrator) LastStepName() string {
-	return m.OrderedSteps[len(m.OrderedSteps) -1]
+	return m.OrderedSteps[len(m.OrderedSteps)-1]
 }
 
 // Migrate transforms the DB and anything else to match schema at "to"
@@ -35,7 +40,7 @@ func (m *Migrator) Migrate(to string) domain.Error {
 	// -- nodejs version created backups. We should make that optional
 	// launch migrations
 
-	from := m.DBManager.GetSchema()	// may need to return an error? or is blank string th eonly thing that matters?
+	from := m.DBManager.GetSchema() // may need to return an error? or is blank string th eonly thing that matters?
 
 	var fromIndex = -1
 	if from != "" {
@@ -61,14 +66,14 @@ func (m *Migrator) Migrate(to string) domain.Error {
 	}
 
 	if toIndex > fromIndex {
-		for i:=fromIndex+1; i<=toIndex; i++ {
+		for i := fromIndex + 1; i <= toIndex; i++ {
 			dsErr := m.doStep(i, true)
 			if dsErr != nil {
 				return dsErr
 			}
 		}
 	} else {
-		for i:=fromIndex; i>toIndex; i-- {
+		for i := fromIndex; i > toIndex; i-- {
 			dsErr := m.doStep(i, false)
 			if dsErr != nil {
 				return dsErr
@@ -87,7 +92,7 @@ func (m *Migrator) doStep(index int, up bool) domain.Error {
 	}
 
 	args := &stepArgs{
-		db: m.DBManager.GetHandle()	}
+		db: m.DBManager.GetHandle()}
 
 	var dsErr domain.Error
 	if up {
@@ -99,7 +104,7 @@ func (m *Migrator) doStep(index int, up bool) domain.Error {
 	// ^^ I would like to check for the existence of function before we call it
 	// otherwise panics are hard to reason about.
 	// Other option is to use an interface somehow
-	
+
 	if dsErr != nil {
 		// do some cleaning up?
 		return dsErr
@@ -108,19 +113,18 @@ func (m *Migrator) doStep(index int, up bool) domain.Error {
 	if up {
 		fmt.Println("Completed migration step: up", stepStr)
 	} else {
-		stepStr = m.OrderedSteps[index -1]
+		stepStr = m.OrderedSteps[index-1]
 		fmt.Println("Completed migration step: down", stepStr)
 	}
 
-	dsErr = m.DBManager.SetSchema(stepStr)
-	if dsErr != nil {
-		return dsErr
+	err := m.DBManager.SetSchema(stepStr)
+	if err != nil {
+		return dserror.FromStandard(err)
 	}
 
 	// ^^ should we really do this here?
 	// it could be easier to have Migrate do it once, instead of at each step?
 	// Also, migrate should set it to something recognizable as in-transit?
-	
 
 	return nil
 }
@@ -133,6 +137,3 @@ func (m *Migrator) indexOf(strStep string) (index int, ok bool) {
 	}
 	return -1, false
 }
-
-
-

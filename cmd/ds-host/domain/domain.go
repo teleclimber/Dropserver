@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain DBManagerI,MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,SettingsModel,UserInvitationModel,Validator,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -73,14 +73,6 @@ type APIVersion int
 // OK, but it does not need to be wrapped in a struct!
 type DB struct {
 	Handle *sqlx.DB
-}
-
-// DBManagerI is Migration interface
-type DBManagerI interface {
-	Open() (*DB, Error)
-	GetHandle() *DB
-	GetSchema() string
-	SetSchema(string) Error
 }
 
 // ErrorCode represents integer codes for each error mesage

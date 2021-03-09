@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
@@ -51,7 +52,7 @@ func TestDoStepUp(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("b")
 
@@ -86,7 +87,7 @@ func TestDoStepDown(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
 
@@ -119,7 +120,7 @@ func TestDoStepError(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 
 	m := Migrator{
@@ -158,7 +159,7 @@ func TestMigrateFresh(t *testing.T) {
 		"a": aStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("")
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
@@ -195,7 +196,7 @@ func TestMigrateDown(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("b")
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
