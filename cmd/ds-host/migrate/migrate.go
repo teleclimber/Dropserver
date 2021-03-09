@@ -1,10 +1,10 @@
 package migrate
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // handles migrations of dropserver data.
@@ -34,7 +34,7 @@ func (m *Migrator) LastStepName() string {
 
 // Migrate transforms the DB and anything else to match schema at "to"
 // if to is "" it will migrate to the last step.
-func (m *Migrator) Migrate(to string) domain.Error {
+func (m *Migrator) Migrate(to string) error {
 	// get current migration level
 	// find from and to in orderedMigrations
 	// -- nodejs version created backups. We should make that optional
@@ -47,7 +47,7 @@ func (m *Migrator) Migrate(to string) domain.Error {
 		var ok bool
 		fromIndex, ok = m.indexOf(from)
 		if !ok {
-			return dserror.New(dserror.MigrationNameNotFound, "Migration string: "+from)
+			return errors.New("Migration string not found. Migration string: " + from)
 		}
 	}
 
@@ -58,25 +58,25 @@ func (m *Migrator) Migrate(to string) domain.Error {
 
 	toIndex, ok := m.indexOf(to)
 	if !ok {
-		return dserror.New(dserror.MigrationNameNotFound, "Migration string: "+to)
+		return errors.New("Migration string not found. Migration string: " + to)
 	}
 
 	if fromIndex == toIndex {
-		return dserror.New(dserror.MigrationNotPossible, "from and to are the same")
+		return errors.New("Migration nonsensical: from and to are the same")
 	}
 
 	if toIndex > fromIndex {
 		for i := fromIndex + 1; i <= toIndex; i++ {
-			dsErr := m.doStep(i, true)
-			if dsErr != nil {
-				return dsErr
+			err := m.doStep(i, true)
+			if err != nil {
+				return err
 			}
 		}
 	} else {
 		for i := fromIndex; i > toIndex; i-- {
-			dsErr := m.doStep(i, false)
-			if dsErr != nil {
-				return dsErr
+			err := m.doStep(i, false)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -84,30 +84,30 @@ func (m *Migrator) Migrate(to string) domain.Error {
 	return nil
 }
 
-func (m *Migrator) doStep(index int, up bool) domain.Error {
+func (m *Migrator) doStep(index int, up bool) error {
 	stepStr := m.OrderedSteps[index]
 	mStep, ok := m.StringSteps[stepStr]
 	if !ok {
-		return dserror.New(dserror.InternalError, fmt.Sprintf("Could not find migration step at %d", index))
+		return fmt.Errorf("Could not find migration step at %d", index)
 	}
 
 	args := &stepArgs{
 		db: m.DBManager.GetHandle()}
 
-	var dsErr domain.Error
+	var err error
 	if up {
-		dsErr = mStep.up(args)
+		err = mStep.up(args)
 	} else {
-		dsErr = mStep.down(args)
+		err = mStep.down(args)
 	}
 
 	// ^^ I would like to check for the existence of function before we call it
 	// otherwise panics are hard to reason about.
 	// Other option is to use an interface somehow
 
-	if dsErr != nil {
+	if err != nil {
 		// do some cleaning up?
-		return dsErr
+		return err
 	}
 
 	if up {
@@ -117,9 +117,9 @@ func (m *Migrator) doStep(index int, up bool) domain.Error {
 		fmt.Println("Completed migration step: down", stepStr)
 	}
 
-	err := m.DBManager.SetSchema(stepStr)
+	err = m.DBManager.SetSchema(stepStr)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 
 	// ^^ should we really do this here?

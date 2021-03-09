@@ -83,9 +83,9 @@ func main() {
 	if *migrateFlag {
 		//startServer = false
 
-		dsErr := migrator.Migrate("")
-		if dsErr != nil {
-			fmt.Println("Error Migrating", dsErr.PublicString(), dsErr.ExtraMessage())
+		err := migrator.Migrate("")
+		if err != nil {
+			fmt.Println("Error Migrating", err.Error())
 			os.Exit(1)
 		}
 
