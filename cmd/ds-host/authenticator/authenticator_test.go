@@ -12,19 +12,20 @@ import (
 )
 
 func TestSetCookie(t *testing.T) {
-	a := &Authenticator{}
+	a := &Authenticator{
+		Config: getConfig()}
 
 	rr := httptest.NewRecorder()
 
 	cookieID := "abc"
 	expires := time.Date(2019, time.Month(5), 29, 6, 2, 0, 0, time.UTC)
-	a.setCookie(rr, cookieID, expires)
+	a.setCookie(rr, cookieID, expires, "abc")
 
 	sch, ok := rr.HeaderMap["Set-Cookie"]
 	if !ok {
 		t.Error("Set Cookie Header not set", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
@@ -37,6 +38,7 @@ func TestRefreshCookie(t *testing.T) {
 	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	rr := httptest.NewRecorder()
@@ -47,37 +49,30 @@ func TestRefreshCookie(t *testing.T) {
 	if !ok {
 		t.Error("Set Cookie Header not set", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
 
 // testing for GetForAccount
 func TestGetForAccountNoCookie(t *testing.T) {
-
-	rr := httptest.NewRecorder()
-
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	a := &Authenticator{}
+	a := &Authenticator{
+		Config: getConfig()}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should Not be ok")
-	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
+		t.Error("No cookie should be returned")
 	}
 }
 
 func TestGetForAccountNoDBCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -93,22 +88,19 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 	cm.EXPECT().Get("abc").Return(nil, nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
-	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
+		t.Error("No cookie should be returned")
 	}
 }
 
+// this test is not so revealing since our more strict interpretation of "Authenticate"
 func TestGetForAccountNotUser(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -127,24 +119,24 @@ func TestGetForAccountNotUser(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
 	}, nil)
+	//cm.EXPECT().UpdateExpires("abc", gomock.Any())
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
+	auth := a.Authenticate(req)
+	if !auth.Authenticated {
+		t.Error("cookie should not be nil")
 	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	if auth.UserAccount {
+		t.Error("cookie should not be for user account")
 	}
 }
 
 func TestGetForAccountExpired(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -165,22 +157,18 @@ func TestGetForAccountExpired(t *testing.T) {
 	}, nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
-	ok := a.GetForAccount(rr, req, &domain.AppspaceRouteData{})
-	if ok {
-		t.Error("should not be ok")
-	}
-	if rr.Code != http.StatusUnauthorized {
-		t.Error("status of response not as expected", rr)
+	auth := a.Authenticate(req)
+	if auth.Authenticated {
+		t.Error("cookie should be nil")
 	}
 }
 
-func TestGetForAccount(t *testing.T) {
+func TestAuthenticate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -199,19 +187,19 @@ func TestGetForAccount(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: true,
 	}, nil)
-	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
+	//cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	routeData := &domain.AppspaceRouteData{}
 
-	ok := a.GetForAccount(rr, req, routeData)
-	if !ok {
-		t.Error("should be ok")
+	auth := a.Authenticate(req)
+	if !auth.Authenticated {
+		t.Error("cookie should not be nil")
 	}
-
-	if routeData.Cookie.CookieID != "abc" {
+	if auth.CookieID != "abc" {
 		t.Error("route data not as expected", routeData)
 	}
 }
@@ -238,6 +226,7 @@ func TestSetForAccount(t *testing.T) {
 	cm.EXPECT().Create(gomock.Any()).Return("abc", nil)
 
 	a := Authenticator{
+		Config:      getConfig(),
 		CookieModel: cm}
 
 	rr := httptest.NewRecorder()
@@ -250,7 +239,37 @@ func TestSetForAccount(t *testing.T) {
 	if !ok {
 		t.Error("cookie not set?", rr.HeaderMap)
 	}
-	if !strings.HasPrefix(sch[0], "session_token=abc; Expires=") {
+	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
+}
+
+func TestUnsetForAccount(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	cm := domain.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get(gomock.Any()).Return(&domain.Cookie{
+		CookieID:    "abc123",
+		UserAccount: true,
+		Expires:     time.Now().Add(120 * time.Second)}, nil)
+	cm.EXPECT().Delete("abc123")
+
+	a := Authenticator{
+		Config:      getConfig(),
+		CookieModel: cm}
+
+	rr := httptest.NewRecorder()
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: "abc123", MaxAge: 120})
+
+	a.UnsetForAccount(rr, req)
+}
+
+func getConfig() *domain.RuntimeConfig {
+	rtc := domain.RuntimeConfig{}
+	rtc.Server.Host = "dropserver.org"
+
+	return &rtc
 }

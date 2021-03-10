@@ -1,0 +1,22 @@
+@tailwind base;
+
+@tailwind components;
+
+.btn {
+	@apply text-indigo-600 text-xs font-bold uppercase;
+}
+.btn:hover {
+	@apply text-indigo-700 bg-indigo-100;
+}
+
+.btn-blue {
+	@apply py-2 px-4 rounded bg-blue-800 text-indigo-100 text-xs font-bold uppercase;
+}
+.btn-blue:hover {
+	@apply bg-blue-700 text-white;
+}
+.btn-blue:disabled {
+	@apply bg-gray-600;
+}
+
+@tailwind utilities;

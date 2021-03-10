@@ -34,9 +34,9 @@ func TestGetNoRows(t *testing.T) {
 	cookieModel.PrepareStatements()
 
 	// There should be an error, but no panics
-	c, dsErr := cookieModel.Get("foo")
-	if dsErr != nil {
-		t.Error(dsErr)
+	c, err := cookieModel.Get("foo")
+	if err != nil {
+		t.Error(err)
 	}
 	if c != nil {
 		t.Error("cookie should have been nil")
@@ -114,14 +114,14 @@ func TestUpdateExpires(t *testing.T) {
 	}
 
 	expires := time.Date(2019, time.Month(5), 29, 6, 2, 0, 0, time.UTC)
-	dsErr := cookieModel.UpdateExpires(cookieID, expires)
-	if dsErr != nil {
-		t.Error(dsErr)
+	err = cookieModel.UpdateExpires(cookieID, expires)
+	if err != nil {
+		t.Error(err)
 	}
 
-	c2, dsErr := cookieModel.Get(cookieID)
-	if dsErr != nil {
-		t.Error(dsErr)
+	c2, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
 	}
 
 	if c2.Expires != expires {
@@ -129,7 +129,51 @@ func TestUpdateExpires(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	cookieModel := &CookieModel{
+		DB: db}
+
+	cookieModel.PrepareStatements()
+
+	c := domain.Cookie{
+		UserID:      domain.UserID(100),
+		UserAccount: true,
+		Expires:     time.Now()}
+
+	cookieID, err := cookieModel.Create(c)
+	if err != nil {
+		t.Error(err)
+	}
+
+	c2, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
+	}
+	if c2 == nil {
+		t.Error("should have gotten a cookie")
+	}
+
+	err = cookieModel.Delete(cookieID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	c3, err := cookieModel.Get(cookieID)
+	if err != nil {
+		t.Error(err)
+	}
+	if c3 != nil {
+		t.Error("should have been nil because we deleted it")
+	}
+
+}
+
 // more things to test:
 // - appspace_id
 // - bad input of appspace_id + user_account?
-

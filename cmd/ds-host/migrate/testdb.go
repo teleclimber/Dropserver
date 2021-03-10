@@ -31,9 +31,9 @@ func MakeSqliteDummyDB() *sqlx.DB {
 
 	for _, s := range OrderedSteps {
 		strStep := StringSteps[s]
-		dsErr := strStep.up(args)
-		if dsErr != nil {
-			panic(dsErr)
+		err := strStep.up(args)
+		if err != nil {
+			panic(err)
 		}
 	}
 

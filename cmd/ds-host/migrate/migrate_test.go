@@ -1,11 +1,12 @@
 package migrate
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestIndexOf(t *testing.T) {
@@ -41,7 +42,7 @@ func TestDoStepUp(t *testing.T) {
 	called := false
 
 	bStep := migrationStep{
-		up: func(a *stepArgs) domain.Error {
+		up: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
@@ -51,7 +52,7 @@ func TestDoStepUp(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("b")
 
@@ -60,9 +61,9 @@ func TestDoStepUp(t *testing.T) {
 		StringSteps:  stringSteps,
 		DBManager:    dbm}
 
-	dsErr := m.doStep(1, true)
-	if dsErr != nil {
-		t.Error("should not have gotten error", dsErr)
+	err := m.doStep(1, true)
+	if err != nil {
+		t.Error("should not have gotten error", err)
 	}
 	if !called {
 		t.Error("migration function not called")
@@ -76,7 +77,7 @@ func TestDoStepDown(t *testing.T) {
 	called := false
 
 	bStep := migrationStep{
-		down: func(a *stepArgs) domain.Error {
+		down: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
@@ -86,7 +87,7 @@ func TestDoStepDown(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
 
@@ -95,9 +96,9 @@ func TestDoStepDown(t *testing.T) {
 		StringSteps:  stringSteps,
 		DBManager:    dbm}
 
-	dsErr := m.doStep(1, false)
-	if dsErr != nil {
-		t.Error("should not have gotten error", dsErr)
+	err := m.doStep(1, false)
+	if err != nil {
+		t.Error("should not have gotten error", err)
 	}
 	if !called {
 		t.Error("migration function not called")
@@ -110,8 +111,8 @@ func TestDoStepError(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	bStep := migrationStep{
-		up: func(a *stepArgs) domain.Error {
-			return dserror.New(dserror.MigrationNotPossible)
+		up: func(a *stepArgs) error {
+			return errors.New("Migration not possible")
 		}}
 
 	orderedSteps := []string{"a", "b"}
@@ -119,7 +120,7 @@ func TestDoStepError(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 
 	m := Migrator{
@@ -127,8 +128,8 @@ func TestDoStepError(t *testing.T) {
 		StringSteps:  stringSteps,
 		DBManager:    dbm}
 
-	dsErr := m.doStep(1, true)
-	if dsErr == nil {
+	err := m.doStep(1, true)
+	if err == nil {
 		t.Error("should have gotten error")
 	}
 }
@@ -148,7 +149,7 @@ func TestMigrateFresh(t *testing.T) {
 	called := false
 
 	aStep := migrationStep{
-		up: func(a *stepArgs) domain.Error {
+		up: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
@@ -158,7 +159,7 @@ func TestMigrateFresh(t *testing.T) {
 		"a": aStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("")
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
@@ -168,9 +169,9 @@ func TestMigrateFresh(t *testing.T) {
 		StringSteps:  stringSteps,
 		DBManager:    dbm}
 
-	dsErr := m.Migrate("")
-	if dsErr != nil {
-		t.Error("should not have gotten error", dsErr)
+	err := m.Migrate("")
+	if err != nil {
+		t.Error("should not have gotten error", err)
 	}
 	if !called {
 		t.Error("migration function not called")
@@ -185,7 +186,7 @@ func TestMigrateDown(t *testing.T) {
 	called := false
 
 	bStep := migrationStep{
-		down: func(a *stepArgs) domain.Error {
+		down: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
@@ -195,7 +196,7 @@ func TestMigrateDown(t *testing.T) {
 		"b": bStep,
 	}
 
-	dbm := domain.NewMockDBManagerI(mockCtrl)
+	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("b")
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
@@ -205,9 +206,9 @@ func TestMigrateDown(t *testing.T) {
 		StringSteps:  stringSteps,
 		DBManager:    dbm}
 
-	dsErr := m.Migrate("a")
-	if dsErr != nil {
-		t.Error("should not have gotten error", dsErr)
+	err := m.Migrate("a")
+	if err != nil {
+		t.Error("should not have gotten error", err)
 	}
 	if !called {
 		t.Error("migration function not called")

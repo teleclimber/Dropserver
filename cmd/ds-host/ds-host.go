@@ -6,28 +6,43 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
-	"sync"
 	"syscall"
 
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
-	"github.com/teleclimber/DropServer/cmd/ds-host/database"
-	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appgetter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
-	"github.com/teleclimber/DropServer/cmd/ds-host/trusted"
-	"github.com/teleclimber/DropServer/cmd/ds-host/views"
-	"github.com/teleclimber/DropServer/cmd/ds-host/server"
-	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceroutes"
-	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
+	"github.com/teleclimber/DropServer/cmd/ds-host/database"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
+	"github.com/teleclimber/DropServer/cmd/ds-host/events"
+	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/asroutesmodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
-	"github.com/teleclimber/DropServer/internal/validator"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/server"
+	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
+	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
+	"github.com/teleclimber/DropServer/cmd/ds-host/views"
+	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	"github.com/teleclimber/DropServer/internal/stdinput"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -36,13 +51,21 @@ var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
 var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
 
+var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
+
+var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
+
+var noSslFlag = flag.Bool("no-ssl", false, "Disable SSL (for dev use only)")
+
 func main() {
+	//startServer := true	// currnetly actually not used.
+
 	flag.Parse()
 
-	runtimeConfig := runtimeconfig.Load(*configFlag)
+	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag, *noSslFlag)
 
 	dbManager := &database.Manager{
-		Config: runtimeConfig }
+		Config: runtimeConfig}
 
 	db, err := dbManager.Open()
 	if err != nil {
@@ -52,22 +75,21 @@ func main() {
 
 	migrator := &migrate.Migrator{
 		OrderedSteps: migrate.OrderedSteps,
-		StringSteps: migrate.StringSteps,
-		Config: runtimeConfig,
-		DBManager: dbManager }
+		StringSteps:  migrate.StringSteps,
+		Config:       runtimeConfig,
+		DBManager:    dbManager}
 
 	if *migrateFlag {
-		
-		dsErr := migrator.Migrate("")
-		if dsErr != nil {
-			fmt.Println("Error Migrating", dsErr.PublicString(), dsErr.ExtraMessage())
+		//startServer = false
+
+		err := migrator.Migrate("")
+		if err != nil {
+			fmt.Println("Error Migrating", err.Error())
 			os.Exit(1)
 		}
 
 		sc := dbManager.GetSchema()
 		fmt.Println("schema after migration:", sc)
-
-		os.Exit(0)
 	}
 
 	// now check schema?
@@ -76,58 +98,136 @@ func main() {
 		os.Exit(1)
 	}
 
-	record.Init(runtimeConfig)	// ok, but that's not how we should do it.
+	record.Init(runtimeConfig) // ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	logger := record.NewLogClient(runtimeConfig)
+	// validator := &validator.Validator{}
+	// validator.Init()
 
-	logger.Log(domain.INFO, nil, "ds-host is starting")
+	stdInput := &stdinput.StdInput{}
 
-	validator := &validator.Validator{}
-	validator.Init()
+	// events
+	appspaceFilesEvents := &events.AppspaceFilesEvents{}
+	appspacePausedEvent := &events.AppspacePausedEvents{}
+	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	appspaceLogEvents := &events.AppspaceLogEvents{}
+	migrationJobEvents := &events.MigrationJobEvents{}
 
 	// models
+	settingsModel := &settingsmodel.SettingsModel{
+		DB: db}
+	settingsModel.PrepareStatements()
+
+	userInvitationModel := &userinvitationmodel.UserInvitationModel{
+		DB: db}
+	userInvitationModel.PrepareStatements()
+
 	userModel := &usermodel.UserModel{
-		DB: db,
-		Logger: logger }
+		DB: db}
 	userModel.PrepareStatements()
 
+	cliHandlers := clihandlers.CliHandlers{
+		UserModel: userModel,
+		//Validator: validator,
+		StdInput: stdInput}
+
+	// Check we have admins before going further.
+	admins, dsErr := userModel.GetAllAdmins()
+	if dsErr != nil {
+		fmt.Println(dsErr)
+		os.Exit(1)
+	}
+	if len(admins) == 0 {
+		fmt.Println("There are currently no admin users, please create one.")
+	}
+
+	if *addAdminFlag || len(admins) == 0 {
+		//startServer = false
+		err := cliHandlers.AddAdmin()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	if *addAdminFlag {
+		os.Exit(0)
+	}
+
 	cookieModel := &cookiemodel.CookieModel{
-		DB: db,
-		Logger: logger }
+		DB: db}
 	cookieModel.PrepareStatements()
 
+	contactModel := &contactmodel.ContactModel{
+		DB: db}
+	contactModel.PrepareStatements()
+
+	dropIDModel := &dropidmodel.DropIDModel{
+		DB: db}
+	dropIDModel.PrepareStatements()
+
+	appFilesModel := &appfilesmodel.AppFilesModel{
+		Config: runtimeConfig}
+
 	appModel := &appmodel.AppModel{
-		DB: db,
-		Logger: logger }
+		DB: db}
 	appModel.PrepareStatements()
 
+	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
+		Config: runtimeConfig}
+
 	appspaceModel := &appspacemodel.AppspaceModel{
-		DB: db,
-		Logger: logger }
+		DB:            db,
+		AsPausedEvent: appspacePausedEvent}
 	appspaceModel.PrepareStatements()
 
-	//generateHostAppSpaces(100, appModel, appspaceModel, logger)
+	appspaceLogger := &appspacelogger.AppspaceLogger{
+		AppspaceModel:     appspaceModel,
+		AppspaceLogEvents: appspaceLogEvents,
+		Config:            runtimeConfig}
+	appspaceLogger.Init()
 
-	var initWg sync.WaitGroup
-	initWg.Add(2)
-
-	trustedClient := trusted.RPCClient{
-		Logger: logger }
-
-	trustedManager := trusted.Trusted{
+	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
 		Config: runtimeConfig,
-		RPCClient: &trustedClient }
+		//Validator:     validator,
+		AppspaceModel: appspaceModel}
+	appspaceMetaDb.Init()
 
-	trustedManager.Init(&initWg)
+	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb}
+	appspaceInfoModels.Init()
 
-	asRoutesModel := &asroutesmodel.ASRoutesModel{
-		Logger: logger,
-		TrustedClient: &trustedClient }
+	migrationJobModel := &migrationjobmodel.MigrationJobModel{
+		MigrationJobEvents: migrationJobEvents,
+		DB:                 db}
+	migrationJobModel.PrepareStatements()
+	migrationJobModel.StartupFinishStartedJobs("Job found unfinished at startup")
 
-	sM := sandbox.Manager{
-		Config: runtimeConfig,
-		Logger: logger }
+	sandboxManager := &sandbox.Manager{
+		AppspaceLogger: appspaceLogger,
+		Config:         runtimeConfig}
+
+	migrationSandboxMaker := &migrateappspace.SandboxMaker{
+		AppspaceLogger: appspaceLogger,
+		Config:         runtimeConfig}
+
+	migrationJobCtl := &migrateappspace.JobController{
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		AppspaceInfoModels: appspaceInfoModels,
+		SandboxManager:     sandboxManager,
+		SandboxMaker:       migrationSandboxMaker,
+		MigrationJobModel:  migrationJobModel}
+
+	// auth
+	authenticator := &authenticator.Authenticator{
+		CookieModel: cookieModel,
+		Config:      runtimeConfig}
+
+	appspaceLogin := &appspacelogin.AppspaceLogin{}
+	appspaceLogin.Start()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -136,21 +236,19 @@ func main() {
 		fmt.Println("Caught signal, quitting.", sig)
 		pprof.StopCPUProfile()
 
-		var stopWg sync.WaitGroup
-		stopWg.Add(1)
-		trustedManager.Stop(&stopWg)
-		sM.StopAll()	//should take a waitgroup
-		stopWg.Wait()
-		
+		sandboxManager.StopAll()
 		fmt.Println("All sandbox stopped")
-		os.Exit(0) //temporary I suppose. need to cleanly shut down all the things.
+
+		appspaceLogin.Stop()
+
+		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
+
+		os.Exit(0)
 	}()
 
-	go sM.Init(&initWg)
+	sandboxManager.Init()
 
-	initWg.Wait()
-
-	fmt.Println("Main after constainers start")
+	record.Debug("Main after sandbox manager start")
 
 	// maybe we can start profiler here?
 	if *cpuprofile != "" {
@@ -168,74 +266,179 @@ func main() {
 		//defer pprof.StopCPUProfile()
 	}
 
-
 	m := record.Metrics{}
+
+	// controllers:
+	domainController := &domaincontroller.DomainController{
+		Config:        runtimeConfig,
+		AppspaceModel: appspaceModel,
+	}
+
+	appGetter := &appgetter.AppGetter{
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+	}
+	appGetter.Init()
+
+	appspaceStatus := &appspacestatus.AppspaceStatus{
+		AppspaceModel:      appspaceModel,
+		AppModel:           appModel,
+		AppspaceInfoModels: appspaceInfoModels,
+		//AppspaceRouter: see below
+		MigrationJobModel:    migrationJobModel,
+		MigrationJobEvents:   migrationJobEvents,
+		AppspaceFilesEvents:  appspaceFilesEvents,
+		AppspacePausedEvent:  appspacePausedEvent,
+		AppspaceStatusEvents: appspaceStatusEvents,
+	}
+	appspaceStatus.Init()
+
+	migrationMinder := &appspacestatus.MigrationMinder{
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+	}
+
+	migrationJobCtl.AppspaceStatus = appspaceStatus
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
-		SandboxManager: &sM,
-		Logger: logger,
-		Metrics: &m	}
+		SandboxManager: sandboxManager,
+		Metrics:        &m}
 
-	// auth
-	authenticator := &authenticator.Authenticator{
-		CookieModel: cookieModel }
-
-	// Views 
+	// Views
 	views := &views.Views{
-		Logger: logger,
-		Config: runtimeConfig }
+		Config: runtimeConfig}
 	views.PrepareTemplates()
 
 	// Create routes
 	authRoutes := &userroutes.AuthRoutes{
-		Views: views,
-		UserModel: userModel,
-		Authenticator: authenticator,
-		Validator: validator}
+		Views:               views,
+		SettingsModel:       settingsModel,
+		UserModel:           userModel,
+		UserInvitationModel: userInvitationModel,
+		Authenticator:       authenticator,
+		AppspaceLogin:       appspaceLogin}
+
+	adminRoutes := &userroutes.AdminRoutes{
+		UserModel:           userModel,
+		SettingsModel:       settingsModel,
+		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		TrustedClient: &trustedClient,
-		AppModel: appModel,
-		Logger: logger }
-	userRoutes := &userroutes.UserRoutes{
-		Authenticator: authenticator,
-		AuthRoutes: authRoutes,
-		ApplicationRoutes: applicationRoutes,
-		Views: views,
-		Logger: logger }
+		AppGetter:     appGetter,
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel}
 
-	dropserverASRoutes := &appspaceroutes.DropserverRoutes{}
-	appspaceRoutes := &appspaceroutes.AppspaceRoutes{
-		AppModel:	appModel,
-		AppspaceModel: appspaceModel,
-		ASRoutesModel: asRoutesModel,
-		DropserverRoutes: dropserverASRoutes,
-		SandboxProxy: sandboxProxy,
-		Logger: logger }
+	appspaceUserRoutes := &userroutes.AppspaceRoutes{
+		AppspaceFilesModel:     appspaceFilesModel,
+		AppspaceModel:          appspaceModel,
+		DropIDModel:            dropIDModel,
+		MigrationMinder:        migrationMinder,
+		AppspaceMetaDB:         appspaceMetaDb,
+		DomainController:       domainController,
+		MigrationJobModel:      migrationJobModel,
+		MigrationJobController: migrationJobCtl,
+		AppModel:               appModel}
+
+	contactRoutes := &userroutes.ContactRoutes{
+		ContactModel: contactModel,
+	}
+
+	domainNameRoutes := &userroutes.DomainNameRoutes{
+		DomainController: domainController,
+	}
+
+	dropIDRoutes := &userroutes.DropIDRoutes{
+		DomainController: domainController,
+		DropIDModel:      dropIDModel,
+	}
+
+	migrationJobRoutes := &userroutes.MigrationJobRoutes{
+		AppModel:               appModel,
+		AppspaceModel:          appspaceModel,
+		MigrationJobModel:      migrationJobModel,
+		MigrationJobController: migrationJobCtl,
+	}
+
+	appspaceStatusTwine := &twineservices.AppspaceStatusService{
+		AppspaceModel:        appspaceModel,
+		AppspaceStatus:       appspaceStatus,
+		AppspaceStatusEvents: appspaceStatusEvents,
+	}
+	migrationJobTwine := &twineservices.MigrationJobService{
+		AppspaceModel:      appspaceModel,
+		MigrationJobModel:  migrationJobModel,
+		MigrationJobEvents: migrationJobEvents,
+	}
+
+	userRoutes := &userroutes.UserRoutes{
+		AuthRoutes:          authRoutes,
+		AdminRoutes:         adminRoutes,
+		ApplicationRoutes:   applicationRoutes,
+		AppspaceRoutes:      appspaceUserRoutes,
+		ContactRoutes:       contactRoutes,
+		DomainRoutes:        domainNameRoutes,
+		DropIDRoutes:        dropIDRoutes,
+		MigrationJobRoutes:  migrationJobRoutes,
+		AppspaceStatusTwine: appspaceStatusTwine,
+		MigrationJobTwine:   migrationJobTwine,
+		UserModel:           userModel,
+		Views:               views}
+
+	appspaceDB := &appspacedb.AppspaceDB{
+		Config: runtimeConfig,
+	}
+	appspaceDB.Init()
+
+	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb}
+	appspaceRouteModels.Init()
+
+	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
+		Config:         runtimeConfig,
+		AppspaceMetaDB: appspaceMetaDb,
+	}
+	appspaceUserModels.Init()
+
+	v0appspaceRouter := &appspacerouter.V0{
+		AppspaceRouteModels: appspaceRouteModels,
+		VxUserModels:        appspaceUserModels,
+		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
+		SandboxProxy:        sandboxProxy,
+		Authenticator:       authenticator,
+		AppspaceLogin:       appspaceLogin,
+		Config:              runtimeConfig}
+
+	appspaceRouter := &appspacerouter.AppspaceRouter{
+		AppModel:       appModel,
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: appspaceStatus,
+		V0:             v0appspaceRouter}
+	appspaceRouter.Init()
+	appspaceStatus.AppspaceRouter = appspaceRouter
+
+	services := &vxservices.VXServices{
+		RouteModels:  appspaceRouteModels,
+		UserModels:   appspaceUserModels,
+		V0AppspaceDB: appspaceDB.V0}
+	sandboxManager.Services = services
+	migrationSandboxMaker.Services = services
 
 	// Create server.
 	server := &server.Server{
-		Config: runtimeConfig,
-		UserRoutes: userRoutes,
-		AppspaceRoutes: appspaceRoutes,
-		Metrics: &m,
-		Logger: logger }
+		Authenticator:  authenticator,
+		Config:         runtimeConfig,
+		UserRoutes:     userRoutes,
+		AppspaceRouter: appspaceRouter,
+		Metrics:        &m}
+
+	// start things up
+	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
 
 	fmt.Println("Leaving main func")
 }
-
-// func generateHostAppSpaces(n int, am domain.AppModel, asm domain.AppspaceModel, logger domain.LogCLientI) {
-// 	logger.Log(domain.WARN, nil, "Generating app spaces and apps:"+strconv.Itoa(n))
-// 	var appSpace, app string
-// 	for i := 1; i <= n; i++ {
-// 		appSpace = fmt.Sprintf("as%d", i)
-// 		app = fmt.Sprintf("app%d", i)
-// 		//am.Create( &domain.App{Name:app})
-// 		//asm.Create( &domain.Appspace{Name:appSpace, AppName: app})
-// 	}
-// }
-

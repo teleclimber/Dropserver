@@ -1,9 +1,14 @@
 package sandboxproxy
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,20 +31,61 @@ import (
 //
 
 type testMocks struct {
-	sandboxProxy  *SandboxProxy
-	sandboxServer *httptest.Server
-	sbLogger      *domain.MockLogCLientI
-	routeData     *domain.AppspaceRouteData
+	tempDir        string
+	sandbox        *domain.MockSandboxI
+	sandboxManager *domain.MockSandboxManagerI
+	sandboxProxy   *SandboxProxy
+	sandboxServer  *http.Server
+	routeData      *domain.AppspaceRouteData
+}
+
+func TestSandboxBadStart(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	ch := make(chan domain.SandboxI)
+	close(ch) //sandbox manager closes the channel to indicate bad start.
+
+	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
+	sandboxManager.EXPECT().GetForAppSpace(gomock.Any(), gomock.Any()).Return(ch)
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+
+	routeData := &domain.AppspaceRouteData{
+		AppVersion: &domain.AppVersion{},
+		Appspace:   &domain.Appspace{}}
+
+	metrics := domain.NewMockMetricsI(mockCtrl)
+	metrics.EXPECT().HostHandleReq(gomock.Any())
+
+	sandboxProxy := SandboxProxy{
+		SandboxManager: sandboxManager,
+		Metrics:        metrics,
+	}
+
+	sandboxProxy.ServeHTTP(rr, req, routeData)
+
+	// cehck response code
 }
 
 func TestServeHTTP200(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	tm := createMocks(mockCtrl, sandboxHandler200)
-	defer tm.sandboxServer.Close()
-
-	tm.sbLogger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
+	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
+		modFile := r.Header.Get("appspace-module")
+		if modFile != "@app/module-abc.ts" {
+			t.Error("wrong modfile: " + modFile)
+		}
+		w.WriteHeader(200)            // parametrize
+		fmt.Fprintf(w, "Hello World") // return w? Or parametrize the handler.
+	})
+	defer closeMocks(tm)
 
 	// from https://blog.questionable.services/article/testing-http-handlers-go/
 	// craft a request
@@ -47,7 +93,7 @@ func TestServeHTTP200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Host = "as1.teleclimber.dropserver.org" //not necessary??
+	req.Host = "as1.ds.dev" //not necessary??
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
@@ -72,10 +118,11 @@ func TestServeHTTP404(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	tm := createMocks(mockCtrl, sandboxHandler404)
-	defer tm.sandboxServer.Close()
-
-	tm.sbLogger.EXPECT().Log(domain.INFO, gomock.Any(), gomock.Any())
+	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("got request in dummy sandbox server")
+		w.WriteHeader(404)
+	})
+	defer closeMocks(tm)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -91,36 +138,51 @@ func TestServeHTTP404(t *testing.T) {
 	}
 }
 
-func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter, *http.Request)) testMocks {
+func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter, *http.Request)) *testMocks {
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		panic(err)
+	}
+	serverSocket := filepath.Join(tempDir, "server.sock")
+
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
-	logger := domain.NewMockLogCLientI(mockCtrl)
 	metrics := domain.NewMockMetricsI(mockCtrl)
 
 	sandboxProxy := &SandboxProxy{
 		SandboxManager: sandboxManager,
-		Logger:         logger,
 		Metrics:        metrics}
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:     "/abc",           // parametrize
-		Subdomains:  &[]string{"as1"}, // parametrize, or override in test fn.
-		App:         &domain.App{Name: "app1"},
-		Appspace:    &domain.Appspace{Subdomain: "as1", AppID: domain.AppID(1)},
-		RouteConfig: &domain.RouteConfig{}}
+		URLTail:    "/abc", // parametrize
+		App:        &domain.App{Name: "app1"},
+		AppVersion: &domain.AppVersion{},
+		Appspace:   &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)},
+		RouteConfig: &domain.AppspaceRouteConfig{
+			Handler: domain.AppspaceRouteHandler{
+				File: "@app/module-abc.ts",
+			},
+		}}
 
 	metrics.EXPECT().HostHandleReq(gomock.Any())
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
-	sandbox.EXPECT().GetName().Return("1")
-	sandbox.EXPECT().GetTransport().Return(http.DefaultTransport)
+	sandbox.EXPECT().GetTransport().Return(&http.Transport{
+		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+			return net.Dial("unix", serverSocket)
+		},
+	})
 
 	// dummy server to stand in for sandbox
-	ts := httptest.NewServer(http.HandlerFunc(sbHandler))
+	//ts := httptest.NewServer(http.HandlerFunc(sbHandler))
 
-	sandbox.EXPECT().GetAddress().Return(ts.URL)
+	server := http.Server{
+		Handler: http.HandlerFunc(sbHandler)}
 
-	sbLogger := domain.NewMockLogCLientI(mockCtrl)
-	sandbox.EXPECT().GetLogClient().Return(sbLogger)
+	unixListener, err := net.Listen("unix", serverSocket)
+	if err != nil {
+		panic(err)
+	}
+	go server.Serve(unixListener)
 
 	taskCh := make(chan bool)
 	sandbox.EXPECT().TaskBegin().Return(taskCh)
@@ -129,7 +191,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		fmt.Println("task done")
 	}()
 
-	sandboxManager.EXPECT().GetForAppSpace("app1", "as1").DoAndReturn(func(a, b string) chan domain.SandboxI {
+	sandboxManager.EXPECT().GetForAppSpace(gomock.Any(), gomock.Any()).DoAndReturn(func(av *domain.AppVersion, as *domain.Appspace) chan domain.SandboxI {
 		sandboxChan := make(chan domain.SandboxI)
 		go func() {
 			sandboxChan <- sandbox
@@ -137,22 +199,18 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		return sandboxChan
 	})
 
-	return testMocks{
-		sandboxProxy:  sandboxProxy,
-		sandboxServer: ts,
-		sbLogger:      sbLogger,
-		routeData:     routeData,
+	return &testMocks{
+		tempDir:        tempDir,
+		sandbox:        sandbox,
+		sandboxManager: sandboxManager,
+		sandboxProxy:   sandboxProxy,
+		sandboxServer:  &server,
+		routeData:      routeData,
 	}
 
 }
 
-func sandboxHandler200(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("got request in dummy sandbox server")
-	w.WriteHeader(200)            // parametrize
-	fmt.Fprintf(w, "Hello World") // return w? Or parametrize the handler.
-}
-
-func sandboxHandler404(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("got request in dummy sandbox server")
-	w.WriteHeader(404)
+func closeMocks(tm *testMocks) {
+	os.RemoveAll(tm.tempDir)
+	tm.sandboxServer.Close()
 }

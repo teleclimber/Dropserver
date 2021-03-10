@@ -20,7 +20,7 @@
 
 			<h2>Create Account</h2>
 
-			{{if .SignupViewData.RegistrationClosed}}
+			{{if not .SignupViewData.RegistrationOpen}}
 				<div class="reg-closed">
 					Account creation is open to invited users only.
 					Your email must be recognized to proceed.

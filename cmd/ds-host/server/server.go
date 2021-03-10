@@ -5,29 +5,31 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig
+	Authenticator interface {
+		Authenticate(*http.Request) domain.Authentication
+	}
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     domain.RouteHandler
-	AppspaceRoutes domain.RouteHandler
+	AppspaceRouter domain.RouteHandler
 
 	Metrics domain.MetricsI
-	Logger  domain.LogCLientI
 
-	rootDomainPieces    []string
 	publicStaticHandler http.Handler
 }
 
 // Start starts up the server so it listens for connections
 func (s *Server) Start() { //return a server type
-	s.init()
+	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.Exec.StaticAssetsDir))
 
 	cfg := s.Config.Server
 
@@ -38,19 +40,20 @@ func (s *Server) Start() { //return a server type
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		fmt.Println(err)
+	fmt.Println("Server listening on port " + addr)
+	fmt.Println("Static Assets domain: " + s.Config.Exec.PublicStaticDomain)
+	fmt.Println("User Routes domain: " + s.Config.Exec.UserRoutesDomain)
+
+	var err error
+	if s.Config.Server.NoSsl {
+		err = http.ListenAndServe(addr, nil)
+	} else {
+		err = http.ListenAndServeTLS(addr, s.Config.Server.SslCert, s.Config.Server.SslKey, nil)
+	}
+	if err != nil {
+		s.getLogger("Start(), http.ListenAndServe[TLS]").Error(err)
 		os.Exit(1)
 	}
-}
-
-func (s *Server) init() {
-	host := strings.ToLower(s.Config.Server.Host)
-	s.rootDomainPieces = strings.Split(host, ".")
-	reverse(s.rootDomainPieces)
-
-	// static server
-	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.Exec.StaticAssetsDir))
 }
 
 // needed server graceful shutdown
@@ -64,7 +67,7 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	//
 
 	// temporary CORS header to allow frontend dev.
-	// TODO: Make this a config option.
+	// TODO: Make this a config option!
 	res.Header().Set("Access-Control-Allow-Origin", "*")
 
 	// switch on top level routes:
@@ -73,85 +76,36 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// - auth
 	// - appspace...
 
-	// Here I think we need to split url into subdomains
-	// ..remove our root domain if present
-	// ..check agains known subdomains (user, admin...) and route accordingly
-	// ..check against our blacklist subdomains and drop accordingly
-	// ..then pass remainder to appspace routes.
-	subdomains, ok := getSubdomains(req.Host, s.rootDomainPieces)
-	if !ok {
-		http.Error(res, "Error getting subdomains from host string", http.StatusInternalServerError)
-		s.Logger.Log(domain.DEBUG, map[string]string{}, "Error getting subdomains from host string: "+req.Host)
-		return
-	} else if len(subdomains) == 0 {
-		// no subdomain. It's the site itself?
-		http.Error(res, "Not found", http.StatusNotFound)
+	auth := s.Authenticator.Authenticate(req)
+
+	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
+		URLTail:        req.URL.Path,
+		Authentication: &auth}
+
+	host, err := getcleanhost.GetCleanHost(req.Host)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	topSub := subdomains[len(subdomains)-1]
-	switch topSub {
-	case "static":
+	fmt.Println(host, req.URL)
+
+	switch host {
+	case s.Config.Exec.PublicStaticDomain:
 		s.publicStaticHandler.ServeHTTP(res, req)
-	case "user":
-		routeData := &domain.AppspaceRouteData{
-			URLTail:    req.URL.Path,
-			Subdomains: &subdomains}
-
+	case s.Config.Exec.UserRoutesDomain:
 		s.UserRoutes.ServeHTTP(res, req, routeData)
-
-	case "admin":
-		http.Error(res, "admin not implemented", http.StatusNotImplemented)
 	default:
-		// first filter through blacklist of subdomains
-		// ..though probably do that in appspace routes handler, not here.
-
-		routeData := &domain.AppspaceRouteData{
-			URLTail:    req.URL.Path,
-			Subdomains: &subdomains}
-
-		s.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		// It's an appspace subdomain
+		// first filter through blacklist of domains
+		s.AppspaceRouter.ServeHTTP(res, req, routeData)
 	}
 }
 
-func getSubdomains(reqHost string, rootDomainPieces []string) (subdomains []string, ok bool) {
-	// also, consider that it might be a third-party domain.
-	// so: explode host into pieces,
-	// ..walk known host domain pieces [org, dropserver]
-
-	ok = true
-
-	numRoot := len(rootDomainPieces)
-
-	reqHost = strings.ToLower(reqHost)
-
-	reqHost = strings.Split(reqHost, ":")[0] // in case host includes port
-	hostPieces := strings.Split(reqHost, ".")
-	numPieces := len(hostPieces)
-
-	if numPieces < numRoot {
-		ok = false
-	} else {
-		for i, p := range rootDomainPieces {
-			if hostPieces[numPieces-i-1] != p {
-				ok = false
-				break
-			}
-		}
+func (s *Server) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("Server")
+	if note != "" {
+		r.AddNote(note)
 	}
-
-	if ok {
-		subdomains = hostPieces[:numPieces-numRoot]
-	}
-
-	return
-}
-
-// util
-// from https://stackoverflow.com/questions/34816489/reverse-slice-of-strings
-func reverse(ss []string) {
-	last := len(ss) - 1
-	for i := 0; i < len(ss)/2; i++ {
-		ss[i], ss[last-i] = ss[last-i], ss[i]
-	}
+	return r
 }

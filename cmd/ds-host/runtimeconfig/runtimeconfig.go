@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -20,13 +19,15 @@ import (
 var configDefault = []byte(`{
 	"server": {
 		"port": 3000,
-		"host": "localhost"
+		"host": "localhost",
+		"no-ssl": false
+	},
+	"subdomains": {
+		"user-accounts": "dropid",
+		"static-assets": "static"
 	},
 	"sandbox": {
 		"num": 3
-	},
-	"loki": {
-		"port": 3100
 	},
 	"prometheus": {
 		"port": 2112
@@ -34,7 +35,7 @@ var configDefault = []byte(`{
 }`)
 
 // Load opens the json passed and merges it with defaults
-func Load(configFile string) *domain.RuntimeConfig {
+func Load(configFile string, execPath string, noSsl bool) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
 
@@ -49,32 +50,50 @@ func Load(configFile string) *domain.RuntimeConfig {
 		mergeLocal(rtc, configHandle)
 	}
 
+	rtc.Server.NoSsl = noSsl
+
 	validateConfig(rtc)
 
-	execPath, err := os.Executable()
-	if err != nil {
-		panic(err)
+	if execPath == "" {
+		ex, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		execPath = filepath.Dir(ex)
 	}
 
-	setExecValues(rtc, filepath.Dir(execPath))
+	setExecValues(rtc, execPath)
 
 	return rtc
 }
 
 func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up runtime paths
-	rtc.Exec.GoTemplatesDir = path.Join(binDir, "../resources/go-templates")
-	rtc.Exec.WebpackTemplatesDir = path.Join(binDir, "../resources/webpack-html")
-	rtc.Exec.StaticAssetsDir = path.Join(binDir, "../static")
+	rtc.Exec.GoTemplatesDir = filepath.Join(binDir, "../resources/go-templates")
+	rtc.Exec.WebpackTemplatesDir = filepath.Join(binDir, "../resources/webpack-html")
+	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static")
+	rtc.Exec.SandboxCodePath = filepath.Join(binDir, "../resources/")
+	rtc.Exec.SandboxRunnerPath = filepath.Join(binDir, "../resources/ds-sandbox-runner.ts")
 
-	//  subdomain sorting out:
-	host := rtc.Server.Host
-	port := rtc.Server.Port
-	if port != 80 && port != 443 {
-		host += fmt.Sprintf(":%d", port)
+	// set up user data paths:
+	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
+	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
+
+	//  domains and ports sorting out:
+	rtc.Exec.PortString = ""
+	if rtc.Server.Port != 80 && rtc.Server.Port != 443 {
+		rtc.Exec.PortString = fmt.Sprintf(":%d", rtc.Server.Port)
 	}
-	rtc.Exec.PublicStaticAddress = "//static." + host
-	rtc.Exec.UserRoutesAddress = "//user." + host
+
+	rtc.Exec.UserRoutesDomain = rtc.Server.Host
+	if rtc.Subdomains.UserAccounts != "" {
+		rtc.Exec.UserRoutesDomain = rtc.Subdomains.UserAccounts + "." + rtc.Server.Host
+	}
+
+	rtc.Exec.PublicStaticDomain = rtc.Server.Host
+	if rtc.Subdomains.StaticAssets != "" {
+		rtc.Exec.PublicStaticDomain = rtc.Subdomains.StaticAssets + "." + rtc.Server.Host
+	}
 }
 
 func loadDefault() *domain.RuntimeConfig {
@@ -101,6 +120,14 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 
 	if rtc.DataDir == "" {
 		panic("You need to specify a data directory")
+	}
+	_, err := os.Stat(rtc.DataDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			panic("data directory does not exist: " + rtc.DataDir)
+		} else {
+			panic(err)
+		}
 	}
 
 	// Server:
@@ -130,18 +157,18 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	if addr := net.ParseIP(host); addr != nil {
 		panic("host can not be an IP")
 	}
+	if !rtc.Server.NoSsl {
+		if rtc.Server.SslCert == "" || rtc.Server.SslKey == "" {
+			panic("please specify SSL cert and key, or set no-ssl to true.")
+		}
+	}
 
 	// Sandbox:
 	if rtc.Sandbox.Num == 0 {
 		panic("you need at least one sandbox")
 	}
-
-	// Loki:
-	if rtc.Loki.Address == "" { // would be btter if we could disable Loki
-		panic("you need an address for Loki")
-	}
-	if rtc.Loki.Port == 0 {
-		panic("you need a port for Loki")
+	if rtc.Sandbox.SocketsDir == "" {
+		panic("sockets dir can not be blank")
 	}
 
 	// Prometheus:
@@ -149,3 +176,5 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 		panic("Prometheus port can not be 0")
 	}
 }
+
+// getters:

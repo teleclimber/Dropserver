@@ -1,0 +1,1 @@
+dlv debug --wd=./dist/bin/ --headless --listen=:2345 --log --api-version=2 github.com/teleclimber/DropServer/cmd/ds-host -- -config=/home/developer/ds-config.json -exec-path=/home/developer/dropserver-code/dist/bin/

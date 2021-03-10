@@ -1,19 +1,20 @@
 package sandboxproxy
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
-	SandboxManager domain.SandboxManagerI // not needed at server level
-	Logger         domain.LogCLientI
-	Metrics        domain.MetricsI
+	SandboxManager interface {
+		GetForAppSpace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
+	} // not needed at server level
+	Metrics domain.MetricsI
 }
 
 // ServeHTTP forwards the request to a sandbox
@@ -21,47 +22,48 @@ type SandboxProxy struct {
 func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, routeData *domain.AppspaceRouteData) {
 	defer s.Metrics.HostHandleReq(time.Now())
 
-	appName := routeData.App.Name
-	appspaceName := routeData.Appspace.Subdomain
+	// The responsibiility for knowing whether an appspace is ready or not, is upstream (in appspaceroutes)
 
-	fmt.Println("in request handler", appspaceName, appName)
-
-	sandboxChan := s.SandboxManager.GetForAppSpace(appName, appspaceName)
+	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
-	sbName := sb.GetName()
-	sbAddress := sb.GetAddress()
+	if sb == nil {
+		// sandbox failed to start or something
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	sbTransport := sb.GetTransport()
 
 	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
 
 	reqTaskCh := sb.TaskBegin()
+	defer func() {
+		reqTaskCh <- true
+	}()
 
 	header := cloneHeader(oReq.Header)
-	//header["ds-user-id"] = []string{"teleclimber"}
-	header["app-space-script"] = []string{routeData.RouteConfig.Location}
-	header["app-space-fn"] = []string{routeData.RouteConfig.Function}
+	header["appspace-module"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
+	header["appspace-function"] = []string{routeData.RouteConfig.Handler.Function}
+	if routeData.Authentication != nil && routeData.Authentication.ProxyID != "" {
+		header["user-id"] = []string{string(routeData.Authentication.ProxyID)}
+	}
 
-	cReq, err := http.NewRequest(oReq.Method, sbAddress, oReq.Body)
+	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)
 	if err != nil {
-		sb.GetLogClient().Log(domain.ERROR, map[string]string{
-			"app-space": appspaceName, "app": appName},
-			"http.NewRequest error: "+err.Error())
-
-		fmt.Println("http.NewRequest error", sbName, oReq.Method, sbAddress, err)
-		//os.Exit(1)
-		// don't exit, but need to think about how to deal with this gracefully.
+		s.getLogger("ServeHTTP(), http.NewRequest()").Error(err)
+		// Maybe add app id and appspace id?
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	cReq.Header = header
 
 	cRes, err := sbTransport.RoundTrip(cReq)
 	if err != nil {
-		sb.GetLogClient().Log(domain.ERROR, map[string]string{
-			"app-space": appspaceName, "app": appName},
-			"sb.Transport.RoundTrip(cReq) error: "+err.Error())
-		fmt.Println("sb.Transport.RoundTrip(cReq) error", sbName, err)
-		//os.Exit(1)
+		s.getLogger("ServeHTTP(), sbTransport.RoundTrip()").Error(err)
+		oRes.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	// futz around with headers
@@ -72,12 +74,14 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 	io.Copy(oRes, cRes.Body)
 
 	cRes.Body.Close()
+}
 
-	reqTaskCh <- true
-
-	sb.GetLogClient().Log(domain.INFO, map[string]string{
-		"app-space": appspaceName, "app": appName},
-		"Request handled")
+func (s *SandboxProxy) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("SandboxProxy")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // From https://golang.org/src/net/http/httputil/reverseproxy.go

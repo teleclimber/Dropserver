@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,7 +10,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 // login POST handling
@@ -23,12 +25,8 @@ func TestLoginPostBadEmail(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
-
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		Views: views}
 
 	rr := httptest.NewRecorder()
 
@@ -45,18 +43,13 @@ func TestLoginPostBadPassword(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	email := "oy@foo.bar"
-	password := "password123"
+	password := "password"
 
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
-
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		Views: views}
 
 	rr := httptest.NewRecorder()
 
@@ -79,16 +72,11 @@ func TestLoginPostNoRows(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(nil, dserror.New(dserror.NoRowsInResultSet))
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{}, sql.ErrNoRows)
 
 	a := &AuthRoutes{
 		Views:     views,
-		Validator: validator,
 		UserModel: userModel}
 
 	rr := httptest.NewRecorder()
@@ -110,20 +98,15 @@ func TestLoginPost(t *testing.T) {
 	password := "password123"
 	userID := domain.UserID(1)
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
-
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(&domain.User{
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().GetFromEmailPassword(gomock.Any(), gomock.Any()).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 
-	authenticator := domain.NewMockAuthenticator(mockCtrl)
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{
-		Validator:     validator,
 		Authenticator: authenticator,
 		UserModel:     userModel}
 
@@ -136,13 +119,12 @@ func TestLoginPost(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc",
-		Subdomains: &[]string{"as1"},
+		URLTail: "/abc",
 	}
 
 	a.loginPost(rr, req, routeData)
 
-	if rr.Code != http.StatusMovedPermanently {
+	if rr.Code != http.StatusFound {
 		t.Error("wrong status", rr.Code)
 	}
 }
@@ -158,12 +140,12 @@ func TestSignupPostBadEmail(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(dserror.New(dserror.InputValidationError))
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -172,8 +154,37 @@ func TestSignupPostBadEmail(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+}
 
+func TestSignupPostNotInvited(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	email := "oy@foo.bar"
+
+	views := domain.NewMockViews(mockCtrl)
+	views.EXPECT().Signup(gomock.Any(), gomock.Any())
+
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: false}, nil)
+
+	im := testmocks.NewMockUserInvitationModel(mockCtrl)
+	im.EXPECT().Get(email).Return(domain.UserInvitation{}, sql.ErrNoRows)
+
+	a := &AuthRoutes{
+		SettingsModel:       sm,
+		UserInvitationModel: im,
+		Views:               views}
+
+	rr := httptest.NewRecorder()
+
+	form := url.Values{}
+	form.Add("email", email)
+	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostBadPassword(t *testing.T) {
@@ -186,13 +197,12 @@ func TestSignupPostBadPassword(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(dserror.New(dserror.InputValidationError))
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -202,7 +212,7 @@ func TestSignupPostBadPassword(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostPasswordMismatch(t *testing.T) {
@@ -215,13 +225,12 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	a := &AuthRoutes{
-		Views:     views,
-		Validator: validator}
+		SettingsModel: sm,
+		Views:         views}
 
 	rr := httptest.NewRecorder()
 
@@ -232,7 +241,7 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPostEmailExists(t *testing.T) {
@@ -245,17 +254,16 @@ func TestSignupPostEmailExists(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(nil, dserror.New(dserror.EmailExists))
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().Create(email, password).Return(domain.User{}, usermodel.ErrEmailExists)
 
 	a := &AuthRoutes{
-		Views:     views,
-		UserModel: userModel,
-		Validator: validator}
+		Views:         views,
+		SettingsModel: sm,
+		UserModel:     userModel}
 
 	rr := httptest.NewRecorder()
 
@@ -266,7 +274,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 func TestSignupPost(t *testing.T) {
@@ -277,22 +285,21 @@ func TestSignupPost(t *testing.T) {
 	password := "password123"
 	userID := domain.UserID(100)
 
-	validator := domain.NewMockValidator(mockCtrl)
-	validator.EXPECT().Email(email).Return(nil)
-	validator.EXPECT().Password(password).Return(nil)
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
-	userModel := domain.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(&domain.User{
+	userModel := testmocks.NewMockUserModel(mockCtrl)
+	userModel.EXPECT().Create(email, password).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 
-	authenticator := domain.NewMockAuthenticator(mockCtrl)
+	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAccount(gomock.Any(), userID)
 
 	a := &AuthRoutes{
+		SettingsModel: sm,
 		UserModel:     userModel,
-		Authenticator: authenticator,
-		Validator:     validator}
+		Authenticator: authenticator}
 
 	rr := httptest.NewRecorder()
 
@@ -303,7 +310,7 @@ func TestSignupPost(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.signupPost(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req, &domain.AppspaceRouteData{})
 }
 
 // reg closed email in
@@ -334,8 +341,12 @@ func TestGetSignupRoute(t *testing.T) {
 	views := domain.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
+	sm := testmocks.NewMockSettingsModel(mockCtrl)
+	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
+
 	a := &AuthRoutes{
-		Views: views}
+		SettingsModel: sm,
+		Views:         views}
 
 	req := httptest.NewRequest("GET", "/signup", nil)
 

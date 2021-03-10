@@ -54,8 +54,8 @@ func TestStepsCheckDBError(t *testing.T) {
 		fmt.Println("testing error checking on ", s)
 		strStep := StringSteps[s]
 		args.dbErr = errors.New("db error")
-		dsErr := strStep.up(args)
-		if dsErr == nil {
+		err := strStep.up(args)
+		if err == nil {
 			t.Error("step should have returned an error", s)
 		}
 	}
@@ -82,9 +82,9 @@ func TestAllSteps(t *testing.T) {
 	for _, s := range OrderedSteps {
 		fmt.Println("testing migration step", s)
 		strStep := StringSteps[s]
-		dsErr := strStep.up(args)
-		if dsErr != nil {
-			t.Error("Step returned an error", s, dsErr)
+		err := strStep.up(args)
+		if err != nil {
+			t.Error("Step returned an error", s, err)
 		}
 	}
 }

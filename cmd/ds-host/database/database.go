@@ -8,17 +8,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
 )
 
 // Manager manages the connection for the database
 type Manager struct {
 	Config *domain.RuntimeConfig
-	handle *sqlx.DB 
+	handle *sqlx.DB
 }
 
 // Open connects to Database and returns the handle
-func (dbm *Manager) Open() (*domain.DB, domain.Error) {
+func (dbm *Manager) Open() (*domain.DB, error) {
 	// In the context of app startup, DB errors are like user errors, where the user is the admin.
 	// Could give nice errors using error codes.
 
@@ -44,7 +43,7 @@ func (dbm *Manager) Open() (*domain.DB, domain.Error) {
 // maybe a close function?
 
 // GetHandle returns the db handle
-func (dbm *Manager) GetHandle() *domain.DB {	// return error in case the handle is nil?
+func (dbm *Manager) GetHandle() *domain.DB { // return error in case the handle is nil?
 	// handle may not exist if we were unable to open the DB
 	return &domain.DB{
 		Handle: dbm.handle}
@@ -53,7 +52,7 @@ func (dbm *Manager) GetHandle() *domain.DB {	// return error in case the handle 
 
 // GetSchema returns the schema as its written in the db metadata table.
 func (dbm *Manager) GetSchema() string {
-	
+
 	if dbm.handle == nil {
 		fmt.Println("GetSchema handle is nil")
 		return ""
@@ -82,12 +81,10 @@ func (dbm *Manager) GetSchema() string {
 }
 
 // SetSchema sets the schema on the db metada table.
-func (dbm *Manager) SetSchema(schema string) domain.Error {
+func (dbm *Manager) SetSchema(schema string) error {
 	_, err := dbm.handle.Exec(`UPDATE params SET value=? WHERE name="db_schema"`, schema)
 	if err != nil {
-		return dserror.FromStandard(err)
+		return err
 	}
 	return nil
 }
-
-

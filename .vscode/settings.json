@@ -1,6 +1,6 @@
 {
 	"go.gopath": "/Users/ollie/go/",
-	"go.inferGopath": true,
+	"go.inferGopath": false,
 	"go.liveErrors": {
 		"enabled": false,
 		"delay": 500
@@ -8,20 +8,26 @@
 	"go.buildOnSave": "workspace",
 	"go.installDependenciesWhenBuilding": false,
 
-	"go.testFlags": [],
+    "go.testFlags": ["-race"],
+    "go.testTimeout": "8s",
+    "go.coverMode": "atomic",
 
-	"go.useLanguageServer": true,
-    "go.alternateTools": {
-        "go-langserver": "bingo"
+    "go.useLanguageServer": true,
+
+    "deno.enable": false,
+    "deno.enablePatterns": ["resources/**"],
+    "deno.unstable": true,
+
+    "jest.rootPath": "frontend/",
+    
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#4e2d20",
+        "activityBar.activeBackground": "#4e2d20",
+        "activityBar.activeBorder": "#2e7141",
+        "activityBar.foreground": "#e7e7e7",
+        "activityBar.inactiveForeground": "#e7e7e799",
+        "activityBarBadge.background": "#2e7141",
+        "activityBarBadge.foreground": "#e7e7e7"
     },
-    "go.languageServerFlags": [
-        "-enhance-signature-help",
-        "-trace",
-        "-format-style=goimports",
-    ],
-    "go.languageServerExperimentalFeatures": {
-        "format": true,
-        "autoComplete": true
-    }
-
+    "peacock.color": "#2a1811",
 }

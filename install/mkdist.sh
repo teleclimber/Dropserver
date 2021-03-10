@@ -15,4 +15,3 @@ cp -r public-static/* dist/static/
 
 cp -r frontend/dist/resources/* dist/resources/webpack-html/
 cp -r frontend/dist/static/* dist/static/
-

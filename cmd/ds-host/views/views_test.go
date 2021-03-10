@@ -88,9 +88,9 @@ func TestSignupData(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	v.Signup(rr, domain.SignupViewData{
-		RegistrationClosed: true,
-		Message:            msgStr,
-		Email:              emailStr})
+		RegistrationOpen: false,
+		Message:          msgStr,
+		Email:            emailStr})
 
 	bodyStr := rr.Body.String()
 

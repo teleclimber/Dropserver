@@ -2,6 +2,8 @@ package runtimeconfig
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -36,16 +38,25 @@ func TestSetExecValues(t *testing.T) {
 
 	setExecValues(rtc, "/abc/def/bin/")
 
-	if rtc.Exec.PublicStaticAddress != "//static.localhost:3000" {
-		t.Error("pubilc assets dir not as expected", rtc.Exec)
+	if rtc.Exec.UserRoutesDomain != "dropid.localhost" {
+		t.Error("user routes domain not as expected", rtc.Exec)
+	}
+	if rtc.Exec.PublicStaticDomain != "static.localhost" {
+		t.Error("pubilc assets domain not as expected", rtc.Exec)
 	}
 }
 
-func TestValidateConfig(t *testing.T) {
-	rtc := getPassingDefault()
+func TestValidateHost(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	rtc := getPassingDefault(dir)
 	tv(t, rtc, "default", false)
 
-	rtc = getPassingDefault()
+	rtc = getPassingDefault(dir)
 	cases := []struct {
 		host        string
 		shouldPanic bool
@@ -68,10 +79,28 @@ func TestValidateConfig(t *testing.T) {
 	// mostly testing fo rproblems with host validation
 	// because it impacts a lot of things.
 }
-func getPassingDefault() *domain.RuntimeConfig {
+func TestValidateSsl(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	rtc := getPassingDefault(dir)
+	tv(t, rtc, "default", false)
+
+	rtc.Server.NoSsl = false
+	tv(t, rtc, "no cert or key", true)
+
+	rtc.Server.SslCert = "some.crt"
+	rtc.Server.SslKey = "the.key"
+	tv(t, rtc, "ssl with cert and key", false)
+}
+func getPassingDefault(dir string) *domain.RuntimeConfig {
 	rtc := loadDefault()
-	rtc.DataDir = "/abc/def"
-	rtc.Loki.Address = "yada"
+	rtc.DataDir = dir
+	rtc.Sandbox.SocketsDir = "blah"
+	rtc.Server.NoSsl = true
 	return rtc
 }
 func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic bool) {

@@ -1,9 +1,15 @@
 package appmodel
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"sort"
+
+	"github.com/blang/semver/v4"
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/dserror"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // Note we will have application
@@ -15,49 +21,64 @@ import (
 type AppModel struct {
 	DB *domain.DB
 	// need config to select db type?
-	Logger domain.LogCLientI
 
 	stmt struct {
-		selectID      *sqlx.Stmt
-		insertApp     *sqlx.Stmt
-		selectVersion *sqlx.Stmt
-		insertVersion *sqlx.Stmt
+		selectID         *sqlx.Stmt
+		selectOwner      *sqlx.Stmt
+		insertApp        *sqlx.Stmt
+		selectVersion    *sqlx.Stmt
+		selectAppVerions *sqlx.Stmt
+		insertVersion    *sqlx.Stmt
+		deleteVersion    *sqlx.Stmt
 	}
+}
+
+type prepper struct {
+	handle *sqlx.DB
+	err    error
+}
+
+func (p *prepper) exec(query string) *sqlx.Stmt {
+	if p.err != nil {
+		return nil
+	}
+
+	stmt, err := p.handle.Preparex(query)
+	if err != nil {
+		p.err = errors.New("Error preparing statmement " + query + " " + err.Error())
+		return nil
+	}
+
+	return stmt
 }
 
 // PrepareStatements prepares the statements
 func (m *AppModel) PrepareStatements() {
-	// Here is the place to get clever with statements if using multiple DBs.
-
-	var err error
+	p := prepper{handle: m.DB.Handle}
 
 	//get from ID
-	m.stmt.selectID, err = m.DB.Handle.Preparex(`SELECT * FROM apps WHERE app_id = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM apps..."+err.Error())
-		panic(err)
-	}
+	m.stmt.selectID = p.exec(`SELECT * FROM apps WHERE app_id = ?`)
+
+	//get for a given owner user ID
+	m.stmt.selectOwner = p.exec(`SELECT * FROM apps WHERE owner_id = ?`)
 
 	// insert app:
-	m.stmt.insertApp, err = m.DB.Handle.Preparex(`INSERT INTO apps 
+	m.stmt.insertApp = p.exec(`INSERT INTO apps 
 		("owner_id", "name", "created") VALUES (?, ?, datetime("now"))`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO apps..."+err.Error())
-		panic(err)
-	}
 
 	// get version
-	m.stmt.selectVersion, err = m.DB.Handle.Preparex(`SELECT * FROM app_versions WHERE app_id = ? AND version = ?`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement SELECT * FROM app_versions..."+err.Error())
-		panic(err)
-	}
+	m.stmt.selectVersion = p.exec(`SELECT * FROM app_versions WHERE app_id = ? AND version = ?`)
 
-	m.stmt.insertVersion, err = m.DB.Handle.Preparex(`INSERT INTO app_versions
-		("app_id", "version", "location_key", created) VALUES (?, ?, ?, datetime("now"))`)
-	if err != nil {
-		m.Logger.Log(domain.ERROR, nil, "Error preparing statement INSERT INTO app_versions..."+err.Error())
-		panic(err)
+	// get versions for app
+	m.stmt.selectAppVerions = p.exec(`SELECT * FROM app_versions WHERE app_id = ?`)
+
+	m.stmt.insertVersion = p.exec(`INSERT INTO app_versions
+		("app_id", "version", "schema", "api", "location_key", created) VALUES (?, ?, ?, ?, ?, datetime("now"))`)
+
+	m.stmt.deleteVersion = p.exec(`DELETE FROM app_versions WHERE app_id = ? AND version = ?`)
+
+	if p.err != nil {
+		panic(p.err)
 	}
 }
 
@@ -68,77 +89,148 @@ func (m *AppModel) PrepareStatements() {
 // Some of the other methods from nodejs impl prob belong in trusted
 
 // GetFromID gets the app using its unique ID on the system
-func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, domain.Error) {
+// It returns an error if ID is not found
+func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
 	var app domain.App
-
 	err := m.stmt.selectID.QueryRowx(appID).StructScan(&app)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		log := m.getLogger("GetFromID()").AppID(appID)
+		if err != sql.ErrNoRows {
+			log.Error(err)
+		} else {
+			log.Debug(err.Error())
+		}
+		return nil, err
 	}
-	// ^^ here we should differentiate between no rows returned and every other error
-
 	return &app, nil
+}
+
+// GetForOwner returns array of application data for a given user
+func (m *AppModel) GetForOwner(userID domain.UserID) ([]*domain.App, error) {
+	ret := []*domain.App{}
+
+	err := m.stmt.selectOwner.Select(&ret, userID)
+	if err != nil {
+		m.getLogger("GetForOwner()").UserID(userID).Error(err)
+		return nil, err
+	}
+
+	return ret, nil
 }
 
 // Create adds an app to the database
 // This should return an unique ID, right?
 // Other arguments: owner, and possibly other things like create date
 // Should we have CreateArgs type struct to guarantee proper data passing? -> yes
-func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, domain.Error) {
+func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, error) {
 	// location key isn't here. It's in a version.
 	// do we check name and locationKey for epty string or excess length?
 	// -> probably, yes. Or where should that actually happen?
 
 	r, err := m.stmt.insertApp.Exec(ownerID, name)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		m.getLogger("Create(), insertApp.Exec()").UserID(ownerID).Error(err)
+		return nil, err
 	}
 
 	lastID, err := r.LastInsertId()
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		m.getLogger("Create(), r.LastInsertId()").UserID(ownerID).Error(err)
+		return nil, err
 	}
 	if lastID >= 0xFFFFFFFF {
-		return nil, dserror.New(dserror.OutOFBounds, "Last Insert ID from DB greater than uint32")
+		m.getLogger("Create()").Log(fmt.Sprintf("Last insert ID out of bounds: %v", lastID))
+		return nil, errors.New("Last Insert ID from DB greater than uint32")
 	}
 
-	appID := domain.AppID(lastID) //uint32(lastID)
+	appID := domain.AppID(lastID)
 
-	app, dsErr := m.GetFromID(appID)
-	if dsErr != nil {
-		return nil, dsErr
+	app, err := m.GetFromID(appID)
+	if err != nil {
+		m.getLogger("Create(), GetFromID()").Error(err)
+		return nil, err
 	}
 
 	return app, nil
 }
 
 // GetVersion returns the version for the app
-func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
 	var appVersion domain.AppVersion
 
 	err := m.stmt.selectVersion.QueryRowx(appID, version).StructScan(&appVersion)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		if err != sql.ErrNoRows {
+			m.getLogger("GetVersion()").AppID(appID).AppVersion(version).Error(err)
+		}
+		return nil, err
 	}
 
 	return &appVersion, nil
+}
+
+// GetVersionsForApp returns an array of versions of code for that application
+func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, error) {
+	ret := []*domain.AppVersion{}
+
+	err := m.stmt.selectAppVerions.Select(&ret, appID)
+	if err != nil {
+		m.getLogger("GetVersionsForApp()").AppID(appID).Error(err)
+		return nil, err
+	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		iSemver, err := semver.New(string(ret[i].Version)) // this is not efficient, but ok for now
+		if err != nil {
+			return false
+		}
+		jSemver, err := semver.New(string(ret[j].Version))
+		if err != nil {
+			return false
+		}
+		return iSemver.Compare(*jSemver) == -1
+	})
+
+	return ret, nil
 }
 
 // CreateVersion adds a new version for an app in the DB
 // has appid, version, location key, create date
 // use appid and version as primary keys
 // index on appid as well
-func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, locationKey string) (*domain.AppVersion, domain.Error) {
+func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, schema int, api domain.APIVersion, locationKey string) (*domain.AppVersion, error) {
+	// TODO: this should fail if version exists
+	// .. but that should be caught by the route first.
 
-	_, err := m.stmt.insertVersion.Exec(appID, version, locationKey)
+	_, err := m.stmt.insertVersion.Exec(appID, version, schema, api, locationKey)
 	if err != nil {
-		return nil, dserror.FromStandard(err)
+		m.getLogger("CreateVersion(), insertVersion").AppID(appID).AppVersion(version).Error(err)
+		return nil, err
 	}
 
-	appVersion, dsErr := m.GetVersion(appID, version)
-	if dsErr != nil {
-		return nil, dsErr
+	appVersion, err := m.GetVersion(appID, version)
+	if err != nil {
+		m.getLogger("CreateVersion(), GetVersion").AppID(appID).AppVersion(version).Error(err)
+		return nil, err
 	}
 
 	return appVersion, nil
+}
+
+// DeleteVersion removes a version from the DB
+func (m *AppModel) DeleteVersion(appID domain.AppID, version domain.Version) error {
+	_, err := m.stmt.deleteVersion.Exec(appID, version)
+	if err != nil {
+		m.getLogger("DeleteVersion()").AppID(appID).AppVersion(version).Error(err)
+		return err
+	}
+	return nil
+}
+
+func (m *AppModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppModel")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }

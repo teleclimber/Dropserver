@@ -5,6 +5,38 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"type": "node",
+			"name": "vscode-jest-tests-xxxx",	// remove -xxx and add also rename the one for ds-dev. Jest expectes a launch config named as such.
+			"request": "launch",
+			"program": "${workspaceFolder}/frontend/node_modules/jest/bin/jest",
+			"args": [
+				"--runInBand"
+			],
+			"cwd": "${workspaceFolder}/frontend/",
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen",
+			"disableOptimisticBPs": true
+		},{
+			"type": "node",
+			"name": "vscode-jest-tests",
+			"request": "launch",
+			"program": "${workspaceFolder}/frontend-ds-dev/node_modules/jest/bin/jest",
+			"args": [
+				"--runInBand"
+			],
+			"cwd": "${workspaceFolder}/frontend-ds-dev/",
+			"console": "integratedTerminal",
+			"internalConsoleOptions": "neverOpen",
+			"disableOptimisticBPs": true
+		},{
+			"type": "node",
+			"name": "Deno test twine",
+			"request": "launch",
+			"runtimeExecutable": "deno",
+			"cwd": "${workspaceFolder}/resources/",
+			"runtimeArgs": ["test", "--inspect-brk", "--allow-net", "--unstable", "twine-test.ts"],
+			"port": 9229
+		},{
 			"name": "Launch test package",
 			"type": "go",
 			"request": "launch",
@@ -12,15 +44,46 @@
 			"program": "${fileDirname}}"
 		},
 		{
-			"name": "Remote",
+			"name": "ds-host remote",
 			"type": "go",
-			"request": "launch",
+			"request": "attach",
 			"mode": "remote",
 			"host": "10.211.55.9",
 			"port": 2345,
-			"program": "${fileDirname}",
-			"env": {},
-			"args": []
-		}
+			"remotePath": "/home/developer/dropserver-code",
+		},{
+			"name": "ds-dev local launch",
+			"type": "go",
+			"request": "launch",
+			"mode": "debug",
+			"program": "${workspaceFolder}/cmd/ds-dev",
+			"args": [
+				"-exec-path=/Users/ollie/Documents/Code/DropServer/dist/bin/",
+
+				"-app=/Users/ollie/Documents/Projects/PersonalServerApps/apps/NewDeno/0.3.0",
+				"-appspace=/Users/ollie/Documents/Projects/PersonalServerApps/appspaces/NewDeno/",
+				
+				//"-app=/Users/ollie/Documents/Code/Leftovers/",
+				
+			]
+
+
+		},
+		// {
+		// 	"name": "ds-dev local attach",// can't seem to get this to work
+		// 	"type": "go",
+		// 	"request": "attach",
+		// 	"mode": "local",
+		// 	"host": "127.0.0.1",
+		// 	"port": 2345,
+		// 	"processId": 22060
+		// 	//"program": "${workspaceFolder}/cmd/ds-host",
+		// 	//"remotePath": "/home/developer/dropserver-code",
+		// 	//"env": {},
+		// 	//"args": ["-config=/home/developer/ds-config.json"]
+		// 	// "showLog": true,
+		// 	// "trace": "log",
+		// 	// "logOutput": "rpc"
+		// },
 	]
 }
