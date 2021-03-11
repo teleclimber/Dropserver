@@ -12,12 +12,13 @@ import (
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
+// TODO is this deprecated in favor of host-based appspace user model?
+
 const (
 	getUserCmd = 12
 )
 
-// V0UserModel responds to requests about appspace routes for an appspace
-// It can cache results (eventually) for rapid reponse times without hitting the DB.
+// V0UserModel responds to requests about appspace users for the appspace
 type V0UserModel struct {
 	AppspaceMetaDB interface {
 		GetConn(domain.AppspaceID) (domain.DbConn, error)

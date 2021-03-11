@@ -6,6 +6,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+// TODO is this deprecated in favor of appspace user model on host?
+
 // AppspaceUserModels can return a user model for a given appspace id
 type AppspaceUserModels struct {
 	Config         *domain.RuntimeConfig //unused?

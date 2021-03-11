@@ -129,104 +129,104 @@ func TestMultiContact(t *testing.T) {
 	}
 }
 
-func TestAppspaceContactNoRows(t *testing.T) {
-	contactModel := makeContactModel()
-	defer contactModel.DB.Handle.Close()
+// func TestAppspaceContactNoRows(t *testing.T) {
+// 	contactModel := makeContactModel()
+// 	defer contactModel.DB.Handle.Close()
 
-	appspaceID := domain.AppspaceID(11)
-	contactID := domain.ContactID(7)
-	_, err := contactModel.GetContactProxy(appspaceID, contactID)
-	if err == nil {
-		t.Error("expected error no rows")
-	} else if err != sql.ErrNoRows {
-		t.Error(err)
-	}
+// 	appspaceID := domain.AppspaceID(11)
+// 	contactID := domain.ContactID(7)
+// 	_, err := contactModel.GetContactProxy(appspaceID, contactID)
+// 	if err == nil {
+// 		t.Error("expected error no rows")
+// 	} else if err != sql.ErrNoRows {
+// 		t.Error(err)
+// 	}
 
-	_, err = contactModel.GetByProxy(appspaceID, domain.ProxyID("abc"))
-	if err == nil {
-		t.Error("expected error no rows")
-	} else if err != sql.ErrNoRows {
-		t.Error(err)
-	}
-}
+// 	_, err = contactModel.GetByProxy(appspaceID, domain.ProxyID("abc"))
+// 	if err == nil {
+// 		t.Error("expected error no rows")
+// 	} else if err != sql.ErrNoRows {
+// 		t.Error(err)
+// 	}
+// }
 
-func TestAppspaceContact(t *testing.T) {
-	contactModel := makeContactModel()
-	defer contactModel.DB.Handle.Close()
+// func TestAppspaceContact(t *testing.T) {
+// 	contactModel := makeContactModel()
+// 	defer contactModel.DB.Handle.Close()
 
-	appspaceID := domain.AppspaceID(11)
-	contactID := domain.ContactID(7)
-	proxyID := domain.ProxyID("abc")
-	err := contactModel.InsertAppspaceContact(appspaceID, contactID, proxyID)
-	if err != nil {
-		t.Error(err)
-	}
+// 	appspaceID := domain.AppspaceID(11)
+// 	contactID := domain.ContactID(7)
+// 	proxyID := domain.ProxyID("abc")
+// 	err := contactModel.InsertAppspaceContact(appspaceID, contactID, proxyID)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
 
-	err = contactModel.InsertAppspaceContact(appspaceID, contactID, proxyID)
-	if err == nil {
-		t.Error("expected error because exact dupe")
-	}
+// 	err = contactModel.InsertAppspaceContact(appspaceID, contactID, proxyID)
+// 	if err == nil {
+// 		t.Error("expected error because exact dupe")
+// 	}
 
-	contactID2 := domain.ContactID(77)
-	proxyID2 := domain.ProxyID("def")
-	err = contactModel.InsertAppspaceContact(appspaceID, contactID2, proxyID)
-	if err == nil {
-		t.Error("expected error because dupe proxy ID")
-	}
+// 	contactID2 := domain.ContactID(77)
+// 	proxyID2 := domain.ProxyID("def")
+// 	err = contactModel.InsertAppspaceContact(appspaceID, contactID2, proxyID)
+// 	if err == nil {
+// 		t.Error("expected error because dupe proxy ID")
+// 	}
 
-	err = contactModel.InsertAppspaceContact(appspaceID, contactID2, proxyID2)
-	if err != nil {
-		t.Error(err)
-	}
+// 	err = contactModel.InsertAppspaceContact(appspaceID, contactID2, proxyID2)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
 
-	p, err := contactModel.GetContactProxy(appspaceID, contactID)
-	if err != nil {
-		t.Error(err)
-	}
-	if p != proxyID {
-		t.Error("got wrong proxy ID")
-	}
+// 	p, err := contactModel.GetContactProxy(appspaceID, contactID)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if p != proxyID {
+// 		t.Error("got wrong proxy ID")
+// 	}
 
-	c, err := contactModel.GetByProxy(appspaceID, proxyID2)
-	if err != nil {
-		t.Error(err)
-	}
-	if c != contactID2 {
-		t.Error("got wrong contact ID")
-	}
+// 	c, err := contactModel.GetByProxy(appspaceID, proxyID2)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if c != contactID2 {
+// 		t.Error("got wrong contact ID")
+// 	}
 
-	ac, err := contactModel.GetContactAppspaces(contactID)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(ac) != 1 {
-		t.Error("expected 1 appspace contact")
-	}
-	if ac[0].ProxyID != proxyID {
-		t.Error("wrong proxy ID")
-	}
+// 	ac, err := contactModel.GetContactAppspaces(contactID)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if len(ac) != 1 {
+// 		t.Error("expected 1 appspace contact")
+// 	}
+// 	if ac[0].ProxyID != proxyID {
+// 		t.Error("wrong proxy ID")
+// 	}
 
-	ac, err = contactModel.GetAppspaceContacts(appspaceID)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(ac) != 2 {
-		t.Error("expected 2 appspace contact")
-	}
+// 	ac, err = contactModel.GetAppspaceContacts(appspaceID)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if len(ac) != 2 {
+// 		t.Error("expected 2 appspace contact")
+// 	}
 
-	err = contactModel.DeleteAppspaceContact(appspaceID, contactID2)
-	if err != nil {
-		t.Error(err)
-	}
+// 	err = contactModel.DeleteAppspaceContact(appspaceID, contactID2)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
 
-	ac, err = contactModel.GetAppspaceContacts(appspaceID)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(ac) != 1 {
-		t.Error("expected 1 appspace contact")
-	}
-}
+// 	ac, err = contactModel.GetAppspaceContacts(appspaceID)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
+// 	if len(ac) != 1 {
+// 		t.Error("expected 1 appspace contact")
+// 	}
+// }
 
 func makeContactModel() *ContactModel {
 	contactModel := &ContactModel{

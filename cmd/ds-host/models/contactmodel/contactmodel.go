@@ -31,17 +31,17 @@ type ContactModel struct {
 	// need config to select db type?
 
 	stmt struct {
-		createContact         *sqlx.Stmt
-		updateContact         *sqlx.Stmt
-		deleteContact         *sqlx.Stmt
-		getContact            *sqlx.Stmt
-		getUserContacts       *sqlx.Stmt
-		insertAppspaceContact *sqlx.Stmt
-		deleteAppspaceContact *sqlx.Stmt
-		getAppspaceContact    *sqlx.Stmt
-		getByProxy            *sqlx.Stmt
-		getContactAppspaces   *sqlx.Stmt
-		getAppspaceContacts   *sqlx.Stmt
+		createContact   *sqlx.Stmt
+		updateContact   *sqlx.Stmt
+		deleteContact   *sqlx.Stmt
+		getContact      *sqlx.Stmt
+		getUserContacts *sqlx.Stmt
+		// insertAppspaceContact *sqlx.Stmt
+		// deleteAppspaceContact *sqlx.Stmt
+		// getAppspaceContact    *sqlx.Stmt
+		// getByProxy            *sqlx.Stmt
+		// getContactAppspaces   *sqlx.Stmt
+		// getAppspaceContacts   *sqlx.Stmt
 	}
 }
 
@@ -66,17 +66,17 @@ func (m *ContactModel) PrepareStatements() {
 	m.stmt.getUserContacts = p.Prep(`SELECT * FROM contacts WHERE user_id = ?`)
 
 	// Appspace contacts
-	m.stmt.insertAppspaceContact = p.Prep(`INSERT INTO appspace_contacts (appspace_id, contact_id, proxy_id) VALUES (?, ?, ?)`)
+	// m.stmt.insertAppspaceContact = p.Prep(`INSERT INTO appspace_contacts (appspace_id, contact_id, proxy_id) VALUES (?, ?, ?)`)
 
-	m.stmt.deleteAppspaceContact = p.Prep(`DELETE FROM appspace_contacts WHERE appspace_id = ? AND contact_id = ?`)
+	// m.stmt.deleteAppspaceContact = p.Prep(`DELETE FROM appspace_contacts WHERE appspace_id = ? AND contact_id = ?`)
 
-	m.stmt.getAppspaceContact = p.Prep(`SELECT proxy_id FROM appspace_contacts WHERE appspace_id = ? AND contact_id = ?`)
+	// m.stmt.getAppspaceContact = p.Prep(`SELECT proxy_id FROM appspace_contacts WHERE appspace_id = ? AND contact_id = ?`)
 
-	m.stmt.getByProxy = p.Prep(`SELECT contact_id FROM appspace_contacts WHERE appspace_id = ? AND proxy_id = ?`)
+	// m.stmt.getByProxy = p.Prep(`SELECT contact_id FROM appspace_contacts WHERE appspace_id = ? AND proxy_id = ?`)
 
-	m.stmt.getContactAppspaces = p.Prep(`SELECT * FROM appspace_contacts WHERE contact_id = ?`)
+	// m.stmt.getContactAppspaces = p.Prep(`SELECT * FROM appspace_contacts WHERE contact_id = ?`)
 
-	m.stmt.getAppspaceContacts = p.Prep(`SELECT * FROM appspace_contacts WHERE appspace_id = ?`)
+	// m.stmt.getAppspaceContacts = p.Prep(`SELECT * FROM appspace_contacts WHERE appspace_id = ?`)
 }
 
 // Create a new contact
@@ -164,52 +164,52 @@ func (m *ContactModel) GetForUser(userID domain.UserID) ([]domain.Contact, error
 }
 
 // InsertAppspaceContact inserts
-func (m *ContactModel) InsertAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID, proxyID domain.ProxyID) error {
-	_, err := m.stmt.insertAppspaceContact.Exec(appspaceID, contactID, proxyID)
-	if err != nil {
-		m.getLogger("InsertAppspaceContact()").AddNote("Exec").Error(err)
-		return err
-	}
-	return nil
-}
+// func (m *ContactModel) InsertAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID, proxyID domain.ProxyID) error {
+// 	_, err := m.stmt.insertAppspaceContact.Exec(appspaceID, contactID, proxyID)
+// 	if err != nil {
+// 		m.getLogger("InsertAppspaceContact()").AddNote("Exec").Error(err)
+// 		return err
+// 	}
+// 	return nil
+// }
 
-// DeleteAppspaceContact deletes
-func (m *ContactModel) DeleteAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID) error {
-	_, err := m.stmt.deleteAppspaceContact.Exec(appspaceID, contactID)
-	if err != nil {
-		m.getLogger("DeleteAppspaceContact()").AddNote("Exec").Error(err)
-		return err
-	}
-	return nil
-}
+// // DeleteAppspaceContact deletes
+// func (m *ContactModel) DeleteAppspaceContact(appspaceID domain.AppspaceID, contactID domain.ContactID) error {
+// 	_, err := m.stmt.deleteAppspaceContact.Exec(appspaceID, contactID)
+// 	if err != nil {
+// 		m.getLogger("DeleteAppspaceContact()").AddNote("Exec").Error(err)
+// 		return err
+// 	}
+// 	return nil
+// }
 
-// GetContactProxy returns the proxy id for the appspace and contact id
-func (m *ContactModel) GetContactProxy(appspaceID domain.AppspaceID, contactID domain.ContactID) (domain.ProxyID, error) {
-	var p domain.ProxyID
-	err := m.stmt.getAppspaceContact.Get(&p, appspaceID, contactID)
-	return p, err
-}
+// // GetContactProxy returns the proxy id for the appspace and contact id
+// func (m *ContactModel) GetContactProxy(appspaceID domain.AppspaceID, contactID domain.ContactID) (domain.ProxyID, error) {
+// 	var p domain.ProxyID
+// 	err := m.stmt.getAppspaceContact.Get(&p, appspaceID, contactID)
+// 	return p, err
+// }
 
-// GetByProxy returns the contact id given an appspace id and proxy id
-func (m *ContactModel) GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.ContactID, error) {
-	var c domain.ContactID
-	err := m.stmt.getByProxy.Get(&c, appspaceID, proxyID)
-	return c, err
-}
+// // GetByProxy returns the contact id given an appspace id and proxy id
+// func (m *ContactModel) GetByProxy(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.ContactID, error) {
+// 	var c domain.ContactID
+// 	err := m.stmt.getByProxy.Get(&c, appspaceID, proxyID)
+// 	return c, err
+// }
 
-// GetContactAppspaces returns all the appspaces that the passed contact is in
-func (m *ContactModel) GetContactAppspaces(contactID domain.ContactID) ([]domain.AppspaceContact, error) {
-	ret := []domain.AppspaceContact{}
-	err := m.stmt.getContactAppspaces.Select(&ret, contactID)
-	return ret, err
-}
+// // GetContactAppspaces returns all the appspaces that the passed contact is in
+// func (m *ContactModel) GetContactAppspaces(contactID domain.ContactID) ([]domain.AppspaceContact, error) {
+// 	ret := []domain.AppspaceContact{}
+// 	err := m.stmt.getContactAppspaces.Select(&ret, contactID)
+// 	return ret, err
+// }
 
-// GetAppspaceContacts returns all the contacts that are in a passed appspace
-func (m *ContactModel) GetAppspaceContacts(appspaceID domain.AppspaceID) ([]domain.AppspaceContact, error) {
-	ret := []domain.AppspaceContact{}
-	err := m.stmt.getAppspaceContacts.Select(&ret, appspaceID)
-	return ret, err
-}
+// // GetAppspaceContacts returns all the contacts that are in a passed appspace
+// func (m *ContactModel) GetAppspaceContacts(appspaceID domain.AppspaceID) ([]domain.AppspaceContact, error) {
+// 	ret := []domain.AppspaceContact{}
+// 	err := m.stmt.getAppspaceContacts.Select(&ret, appspaceID)
+// 	return ret, err
+// }
 
 func (m *ContactModel) getLogger(note string) *record.DsLogger {
 	r := record.NewDsLogger().AddNote("ContactModel")

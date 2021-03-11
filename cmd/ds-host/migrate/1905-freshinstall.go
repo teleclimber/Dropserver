@@ -109,33 +109,30 @@ func freshInstallUp(args *stepArgs) error {
 	args.dbExec(`CREATE INDEX contact_user_id ON contacts (user_id)`)
 	// Might need a "block" flag and other controls?
 
-	// then add auth tables
-	// CREATE TABLE contact_ds_auth (
-	//	"contact_id" INTEGER NOT NULL,
-	// 	"username" TEXT,
-	// 	"url" TEXT,
-	// 	"token" TEXT,
-	// )
-	// plus other things like datetime established,
-	// Whether contact is 2-way..
-
-	// Other tables: contact_email_auth,
-
-	// appspace_users linkes contacts (or owner) to proxy ids.
-	args.dbExec(`CREATE TABLE "appspace_contacts" (
+	args.dbExec(`CREATE TABLE "appspace_users" (
 		"appspace_id" INTEGER NOT NULL,
-		"contact_id" INTEGER,
-		"proxy_id" TEXT
+		"proxy_id" TEXT,
+		"auth_type" TEXT,
+		"auth_id" TEXT,
+		"display_name" TEXT NOT NULL DEFAULT "",
+		"permissions" TEXT NOT NULL DEFAULT "",
+		"created" DATETIME,
+		"last_seen" DATETIME,
+		PRIMARY KEY (appspace_id, proxy_id)
 	)`)
-	args.dbExec(`CREATE UNIQUE INDEX appspace_proxy_id ON appspace_contacts (appspace_id, proxy_id)`)
-	args.dbExec(`CREATE INDEX user_contact_id ON appspace_contacts (contact_id)`)
+	args.dbExec(`CREATE UNIQUE INDEX appspace_proxy_id ON appspace_users (appspace_id, proxy_id)`)
+	args.dbExec(`CREATE UNIQUE INDEX appspace_auth_id ON appspace_users (appspace_id, auth_type, auth_id)`)
+	args.dbExec(`CREATE INDEX appspace_users_appspace ON appspace_users (appspace_id)`)
+	args.dbExec(`CREATE INDEX user_auth_id ON appspace_users (auth_type, auth_id)`)
+	// you also can't have two users with the same auth id. Otherwise, upon authenticating, what proxy id do you assign?
+	// Some more posible columns:
+	// - self-reg versus invited
+	// - self-reg status
+	// - block
 
 	// Do we need a "block" flag? We'd need it on appspaces (kind of like a "pause" but for a user)
 	// Also would need a block flag at the contact level, which blocks contact from all appspaces.
 	// The per-appspace block would be in the appspace meta data itself, so that non-contacts can be blocked.
-
-	// We may need to separatecontact urls and auth stuff into separate tables to enable multiple ways for contacts to log in, etc..
-	// Also need a "mutual_contacts" or something like that? For when a contact is an actual user's contact.
 
 	// migration jobs
 	args.dbExec(`CREATE TABLE "migrationjobs" (

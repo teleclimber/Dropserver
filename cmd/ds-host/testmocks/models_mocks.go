@@ -828,20 +828,6 @@ func (mr *MockAppspaceContactModelMockRecorder) Delete(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceContactModel)(nil).Delete), arg0, arg1)
 }
 
-// DeleteAppspaceContact mocks base method
-func (m *MockAppspaceContactModel) DeleteAppspaceContact(arg0 domain.AppspaceID, arg1 domain.ContactID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteAppspaceContact", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteAppspaceContact indicates an expected call of DeleteAppspaceContact
-func (mr *MockAppspaceContactModelMockRecorder) DeleteAppspaceContact(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAppspaceContact", reflect.TypeOf((*MockAppspaceContactModel)(nil).DeleteAppspaceContact), arg0, arg1)
-}
-
 // Get mocks base method
 func (m *MockAppspaceContactModel) Get(arg0 domain.ContactID) (domain.Contact, error) {
 	m.ctrl.T.Helper()
@@ -857,66 +843,6 @@ func (mr *MockAppspaceContactModelMockRecorder) Get(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAppspaceContactModel)(nil).Get), arg0)
 }
 
-// GetAppspaceContacts mocks base method
-func (m *MockAppspaceContactModel) GetAppspaceContacts(arg0 domain.AppspaceID) ([]domain.AppspaceContact, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAppspaceContacts", arg0)
-	ret0, _ := ret[0].([]domain.AppspaceContact)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAppspaceContacts indicates an expected call of GetAppspaceContacts
-func (mr *MockAppspaceContactModelMockRecorder) GetAppspaceContacts(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppspaceContacts", reflect.TypeOf((*MockAppspaceContactModel)(nil).GetAppspaceContacts), arg0)
-}
-
-// GetByProxy mocks base method
-func (m *MockAppspaceContactModel) GetByProxy(arg0 domain.AppspaceID, arg1 domain.ProxyID) (domain.ContactID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByProxy", arg0, arg1)
-	ret0, _ := ret[0].(domain.ContactID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByProxy indicates an expected call of GetByProxy
-func (mr *MockAppspaceContactModelMockRecorder) GetByProxy(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByProxy", reflect.TypeOf((*MockAppspaceContactModel)(nil).GetByProxy), arg0, arg1)
-}
-
-// GetContactAppspaces mocks base method
-func (m *MockAppspaceContactModel) GetContactAppspaces(arg0 domain.ContactID) ([]domain.AppspaceContact, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContactAppspaces", arg0)
-	ret0, _ := ret[0].([]domain.AppspaceContact)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContactAppspaces indicates an expected call of GetContactAppspaces
-func (mr *MockAppspaceContactModelMockRecorder) GetContactAppspaces(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContactAppspaces", reflect.TypeOf((*MockAppspaceContactModel)(nil).GetContactAppspaces), arg0)
-}
-
-// GetContactProxy mocks base method
-func (m *MockAppspaceContactModel) GetContactProxy(arg0 domain.AppspaceID, arg1 domain.ContactID) (domain.ProxyID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContactProxy", arg0, arg1)
-	ret0, _ := ret[0].(domain.ProxyID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContactProxy indicates an expected call of GetContactProxy
-func (mr *MockAppspaceContactModelMockRecorder) GetContactProxy(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContactProxy", reflect.TypeOf((*MockAppspaceContactModel)(nil).GetContactProxy), arg0, arg1)
-}
-
 // GetForUser mocks base method
 func (m *MockAppspaceContactModel) GetForUser(arg0 domain.UserID) ([]domain.Contact, error) {
 	m.ctrl.T.Helper()
@@ -930,20 +856,6 @@ func (m *MockAppspaceContactModel) GetForUser(arg0 domain.UserID) ([]domain.Cont
 func (mr *MockAppspaceContactModelMockRecorder) GetForUser(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForUser", reflect.TypeOf((*MockAppspaceContactModel)(nil).GetForUser), arg0)
-}
-
-// InsertAppspaceContact mocks base method
-func (m *MockAppspaceContactModel) InsertAppspaceContact(arg0 domain.AppspaceID, arg1 domain.ContactID, arg2 domain.ProxyID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertAppspaceContact", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// InsertAppspaceContact indicates an expected call of InsertAppspaceContact
-func (mr *MockAppspaceContactModelMockRecorder) InsertAppspaceContact(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertAppspaceContact", reflect.TypeOf((*MockAppspaceContactModel)(nil).InsertAppspaceContact), arg0, arg1, arg2)
 }
 
 // Update mocks base method
