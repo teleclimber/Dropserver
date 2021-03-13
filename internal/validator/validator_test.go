@@ -48,6 +48,35 @@ func TestEmail(t *testing.T) {
 	}
 }
 
+func TestDomainName(t *testing.T) {
+	cases := []struct {
+		domain string
+		err    bool
+	}{
+		{"abc", true},
+		{"abc.def", false},
+		{"abc.DEF", false},
+		{"abc.def.ghi", false},
+		{"abc.déf.ghi", true},
+		{"0abc.def", false},
+		{"a-b-c.def", false},
+		{"-abc.def", true},
+		{"a_b_c.def", false},
+		{"_abc.def", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.domain, func(t *testing.T) {
+			err := DomainName(c.domain)
+			if !c.err && err != nil {
+				t.Error("should not have gotten error", err)
+			} else if c.err && err == nil {
+				t.Error("should have gotten error")
+			}
+		})
+	}
+}
+
 func TestDBName(t *testing.T) {
 	cases := []struct {
 		db  string

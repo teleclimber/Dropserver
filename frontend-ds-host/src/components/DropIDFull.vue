@@ -7,7 +7,7 @@
 			</div>
 		</div>
 		<div>
-			Handle: {{dropid.display_name}}
+			Display Name: {{dropid.display_name}}
 		</div>
 
 	</div>

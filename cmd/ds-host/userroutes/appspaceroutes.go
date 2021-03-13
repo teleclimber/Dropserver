@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 //AppspaceMeta is
@@ -26,6 +26,9 @@ type AppspaceMeta struct {
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
+	AppspaceUserRoutes interface {
+		ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace)
+	}
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
@@ -92,6 +95,8 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			a.getAppspace(res, req, routeData, appspace)
 		case "pause":
 			a.changeAppspacePause(res, req, routeData, appspace)
+		case "user":
+			a.AppspaceUserRoutes.ServeHTTP(res, req, routeData, appspace)
 		default:
 			http.Error(res, "", http.StatusNotImplemented)
 		}
@@ -236,7 +241,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	}
 
 	// also need to validate dropid
-	dropIDHandle, dropIDDomain := dropidmodel.SplitKey(reqData.DropID)
+	dropIDHandle, dropIDDomain := validator.SplitDropID(reqData.DropID)
 	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
 	if err != nil {
 		if err == sql.ErrNoRows {

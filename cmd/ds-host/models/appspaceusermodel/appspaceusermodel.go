@@ -11,6 +11,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/sqlxprepper"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // ErrAuthIDExists is returned when the appspace already has a user with that auth_id string
@@ -97,13 +98,14 @@ func (m *AppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID dom
 	if err != nil {
 		return err
 	}
-	err = validateProxyID(proxyID)
+	err = validator.UserProxyID(string(proxyID))
 	if err != nil {
 		return err
 	}
 
 	_, err = m.stmt.updateMeta.Stmt.Exec(displayName, strings.Join(permissions, ","), appspaceID, proxyID)
 	if err != nil {
+		m.getLogger("UpdateMeta").AddNote("updateMeta.Stmt.Exec").AppspaceID(appspaceID).Error(err)
 		return err
 	}
 	return nil
@@ -125,13 +127,25 @@ func (m *AppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.Pro
 
 // GetForAppspace returns an appspace's list of users.
 func (m *AppspaceUserModel) GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
-	var appspaceUsers []domain.AppspaceUser
+	appspaceUsers := []domain.AppspaceUser{}
 	err := m.stmt.getForAppspace.Select(&appspaceUsers, appspaceID)
 	if err != nil {
 		m.getLogger("GetForAppspace()").AppspaceID(appspaceID).Error(err)
 		return nil, err
 	}
 	return appspaceUsers, nil
+}
+
+// Delete the appspace user
+// Note: need more thought on what it measn to "delete":
+// What happens with the user's data on the appspace?
+func (m *AppspaceUserModel) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error {
+	_, err := m.stmt.delete.Exec(appspaceID, proxyID)
+	if err != nil {
+		m.getLogger("Delete()").AppspaceID(appspaceID).Error(err)
+		return err
+	}
+	return nil
 }
 
 func (m *AppspaceUserModel) getLogger(note string) *record.DsLogger {
@@ -142,24 +156,11 @@ func (m *AppspaceUserModel) getLogger(note string) *record.DsLogger {
 	return r
 }
 
-// TODO gotta move thse to validtoe
-func validateProxyID(proxyID domain.ProxyID) error {
-	if proxyID == "" {
-		return errors.New("proxy id is empty")
-	}
-	if len(string(proxyID)) > 10 {
-		return errors.New("proxy id longer than 10 chars")
-	}
-	// TODO check the makeup of proxy id chars. Should be a strict set
-
-	// This should all be taken care of by the validator package!!
-	return nil
-}
-
 func validatePermissions(permissions []string) error {
 	for _, p := range permissions {
-		if len(p) == 0 || len(p) > 20 {
-			return errors.New("invalid permission: " + p)
+		err := validator.AppspacePermission(p)
+		if err != nil {
+			return err
 		}
 	}
 	return nil

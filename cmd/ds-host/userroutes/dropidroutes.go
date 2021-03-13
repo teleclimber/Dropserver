@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"gopkg.in/validator.v2"
+	"github.com/teleclimber/DropServer/internal/validator"
+	validatorExternal "gopkg.in/validator.v2"
 )
 
 type DropIDRoutes struct {
@@ -45,10 +46,12 @@ func (d *DropIDRoutes) handleGet(res http.ResponseWriter, req *http.Request, rou
 			return
 		}
 		domainName := domainNames[0]
-		if err := validator.Valid(domainName, "nonzero,max=100"); err != nil {
+
+		if err := validator.DomainName(domainName); err != nil {
 			returnError(res, errBadRequest)
 			return
 		}
+		domainName = validator.NormalizeDomainName(domainName)
 
 		domains, err := d.DomainController.GetDropIDDomains(routeData.Authentication.UserID)
 		if err != nil {
@@ -69,11 +72,11 @@ func (d *DropIDRoutes) handleGet(res http.ResponseWriter, req *http.Request, rou
 
 		handle := ""
 		if len(query["handle"]) == 1 {
-			handle = query["handle"][0]
-		}
-		if err := validator.Valid(handle, "max=100"); err != nil {
-			returnError(res, errBadRequest)
-			return
+			handle = validator.NormalizeDropIDHandle(query["handle"][0])
+			if err := validator.DropIDHandle(handle); err != nil {
+				returnError(res, errBadRequest)
+				return
+			}
 		}
 
 		dropID, err := d.DropIDModel.Get(handle, domainName)
@@ -114,7 +117,7 @@ func (d *DropIDRoutes) handlePost(res http.ResponseWriter, req *http.Request, ro
 		return
 	}
 
-	if errs := validator.Validate(reqData); errs != nil {
+	if errs := validatorExternal.Validate(reqData); errs != nil {
 		http.Error(res, errs.Error(), http.StatusBadRequest)
 		return
 	}

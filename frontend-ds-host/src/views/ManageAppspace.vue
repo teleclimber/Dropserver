@@ -46,6 +46,7 @@
 				
 			</div>
 
+			<ManageAppspaceUsers :app="app" :appspace="appspace"></ManageAppspaceUsers>
 			
 		</template>
 		<BigLoader v-else></BigLoader> 
@@ -62,12 +63,12 @@ import { App } from '../models/apps';
 import { AppVersion, AppVersionCollector } from '../models/app_versions';
 import {setTitle} from '../controllers/nav';
 
-import twineClient from '../twine-services/twine_client';
 import { AppspaceStatus } from '../twine-services/appspace_status';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
 import AppspaceStatusVisualizer from '../components/AppspaceStatusVisualizer.vue';
+import ManageAppspaceUsers from '../components/ManageAppspaceUsers.vue';
 import DataDef from '../components/ui/DataDef.vue';
 
 // Manage appspace is going to grow to include all kinds of things:
@@ -84,6 +85,7 @@ export default defineComponent({
 		ViewWrap,
 		BigLoader,
 		AppspaceStatusVisualizer,
+		ManageAppspaceUsers,
 		DataDef
 	},
 	setup() {

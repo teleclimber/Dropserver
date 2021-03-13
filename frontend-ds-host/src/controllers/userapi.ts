@@ -59,14 +59,7 @@ export async function get(path :string) :Promise<any> {	// string for now, we ca
 
 export async function patch(path:string, data:any) :Promise<any> {
 
-	let resp:AxiosResponse;
-	try {
-		resp = await ax.patch( path_prefix + path, data, options );
-	}
-	catch(e) {
-		console.error(e);
-		return;
-	}
+	const resp = await ax.patch( path_prefix + path, data, options );
 
 	return resp.data;
 }

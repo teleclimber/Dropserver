@@ -26,6 +26,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspaceusermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
@@ -101,9 +102,6 @@ func main() {
 	record.Init(runtimeConfig) // ok, but that's not how we should do it.
 	// ^^ preserve this for metrics, but get rid of it eventually
 
-	// validator := &validator.Validator{}
-	// validator.Init()
-
 	stdInput := &stdinput.StdInput{}
 
 	// events
@@ -128,8 +126,7 @@ func main() {
 
 	cliHandlers := clihandlers.CliHandlers{
 		UserModel: userModel,
-		//Validator: validator,
-		StdInput: stdInput}
+		StdInput:  stdInput}
 
 	// Check we have admins before going further.
 	admins, dsErr := userModel.GetAllAdmins()
@@ -182,6 +179,10 @@ func main() {
 		AsPausedEvent: appspacePausedEvent}
 	appspaceModel.PrepareStatements()
 
+	appspaceUserModel := &appspaceusermodel.AppspaceUserModel{
+		DB: db}
+	appspaceUserModel.PrepareStatements()
+
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel:     appspaceModel,
 		AppspaceLogEvents: appspaceLogEvents,
@@ -189,8 +190,7 @@ func main() {
 	appspaceLogger.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		Config: runtimeConfig,
-		//Validator:     validator,
+		Config:        runtimeConfig,
 		AppspaceModel: appspaceModel}
 	appspaceMetaDb.Init()
 
@@ -330,7 +330,11 @@ func main() {
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel}
 
-	appspaceUserRoutes := &userroutes.AppspaceRoutes{
+	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
+		AppspaceUserModel: appspaceUserModel,
+	}
+	userAppspaceRoutes := &userroutes.AppspaceRoutes{
+		AppspaceUserRoutes:     userAppspaceUserRoutes,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
 		DropIDModel:            dropIDModel,
@@ -376,7 +380,7 @@ func main() {
 		AuthRoutes:          authRoutes,
 		AdminRoutes:         adminRoutes,
 		ApplicationRoutes:   applicationRoutes,
-		AppspaceRoutes:      appspaceUserRoutes,
+		AppspaceRoutes:      userAppspaceRoutes,
 		ContactRoutes:       contactRoutes,
 		DomainRoutes:        domainNameRoutes,
 		DropIDRoutes:        dropIDRoutes,
