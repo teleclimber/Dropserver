@@ -62,6 +62,8 @@ func TestFrontend(t *testing.T) {
 		t.Fatal("expected status 200, got " + res.Status)
 	}
 
+	res.Body.Close()
+
 	// TODO: this test is wrong. It gets a 200 OK because it receives a directory listing.
 	// But we want to kill dir listings for frontend assets.
 
