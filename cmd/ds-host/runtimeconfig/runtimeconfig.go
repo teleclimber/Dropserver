@@ -90,10 +90,12 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 		rtc.Exec.UserRoutesDomain = rtc.Subdomains.UserAccounts + "." + rtc.Server.Host
 	}
 
-	rtc.Exec.PublicStaticDomain = rtc.Server.Host
-	if rtc.Subdomains.StaticAssets != "" {
-		rtc.Exec.PublicStaticDomain = rtc.Subdomains.StaticAssets + "." + rtc.Server.Host
-	}
+	// do we need to make room for more possibilities wrt domains?
+	// - serve everything from host directly
+	// - serve only static assets from CDN (not feasible due to dynamic renaming necessary in built frontend files)
+	// - serve everything from CDN except API calls
+	// - pass everything through CDN plain and simple.
+
 }
 
 func loadDefault() *domain.RuntimeConfig {

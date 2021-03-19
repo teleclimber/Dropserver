@@ -108,26 +108,26 @@ func TestSignupData(t *testing.T) {
 	}
 }
 
-func TestUserHome(t *testing.T) {
-	v := getV()
+// func TestUserHome(t *testing.T) {
+// 	v := getV()
 
-	v.PrepareTemplates()
+// 	v.PrepareTemplates()
 
-	rr := httptest.NewRecorder()
+// 	rr := httptest.NewRecorder()
 
-	v.UserHome(rr)
+// 	v.UserHome(rr)
 
-	bodyStr := rr.Body.String()
+// 	bodyStr := rr.Body.String()
 
-	if !strings.Contains(bodyStr, "</html>") {
-		t.Error("End of template disappeared from html")
-	}
-}
+// 	if !strings.Contains(bodyStr, "</html>") {
+// 		t.Error("End of template disappeared from html")
+// 	}
+// }
 
 func getV() *Views {
 	v := &Views{
 		Config: &domain.RuntimeConfig{}}
-	v.Config.Exec.GoTemplatesDir = "../../../resources/go-templates"
-	v.Config.Exec.WebpackTemplatesDir = "../../../frontend/dist/resources"
+	// v.Config.Exec.GoTemplatesDir = "../../../resources/go-templates"
+	// v.Config.Exec.WebpackTemplatesDir = "../../../frontend/dist/resources"
 	return v
 }

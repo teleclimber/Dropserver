@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,6 +14,40 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
+
+func TestIndex(t *testing.T) {
+	u := UserRoutes{}
+
+	rr := httptest.NewRecorder()
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	routeData := domain.AppspaceRouteData{
+		URLTail: "/",
+		Authentication: &domain.Authentication{
+			Authenticated: true,
+			UserAccount:   true,
+		},
+	}
+
+	u.ServeHTTP(rr, req, &routeData)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
+	}
+
+	body, err := ioutil.ReadAll(rr.Body)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !strings.Contains(string(body), "<!DOCTYPE html>") {
+		t.Error("body does nto contain <!DOCTYPE html>")
+	}
+}
 
 func TestUserData(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

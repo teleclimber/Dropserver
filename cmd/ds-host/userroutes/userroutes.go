@@ -9,6 +9,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/twine"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -49,7 +50,6 @@ type UserRoutes struct {
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 	}
-	Views domain.Views
 }
 
 // ServeHTTP handles http traffic to the user routes
@@ -82,9 +82,13 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 	head, tail := shiftpath.ShiftPath(routeData.URLTail)
 	switch head {
 	case "":
-		u.Views.UserHome(res)
-	case "admin":
-		u.Views.Admin(res)
+		htmlBytes, err := dshostfrontend.FS.ReadFile("dist/index.html")
+		if err != nil {
+			returnError(res, err)
+			return
+		}
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		res.Write(htmlBytes)
 	case "api":
 		head, tail = shiftpath.ShiftPath(tail)
 		routeData.URLTail = tail

@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,Views,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -55,7 +55,6 @@ type RuntimeConfig struct {
 		GoTemplatesDir      string
 		WebpackTemplatesDir string
 		StaticAssetsDir     string
-		PublicStaticDomain  string
 		UserRoutesDomain    string
 		PortString          string
 		SandboxCodePath     string
@@ -186,16 +185,6 @@ type AppspaceLoginToken struct {
 	ProxyID       ProxyID
 	LoginToken    TimedToken
 	RedirectToken TimedToken
-}
-
-// Views interface
-type Views interface {
-	PrepareTemplates()
-	AppspaceLogin(http.ResponseWriter, AppspaceLoginViewData)
-	Login(http.ResponseWriter, LoginViewData)
-	Signup(http.ResponseWriter, SignupViewData)
-	UserHome(http.ResponseWriter)
-	Admin(http.ResponseWriter)
 }
 
 // AppspaceLoginViewData is used to pass messages and parameters to the login page

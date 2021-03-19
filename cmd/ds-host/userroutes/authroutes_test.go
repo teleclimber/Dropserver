@@ -22,7 +22,7 @@ func TestLoginPostBadEmail(t *testing.T) {
 
 	email := "oy@foo.bar"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
 	a := &AuthRoutes{
@@ -45,7 +45,7 @@ func TestLoginPostBadPassword(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
 	a := &AuthRoutes{
@@ -69,7 +69,7 @@ func TestLoginPostNoRows(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
@@ -137,7 +137,7 @@ func TestSignupPostBadEmail(t *testing.T) {
 
 	email := "oy@foo.bar"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
@@ -163,7 +163,7 @@ func TestSignupPostNotInvited(t *testing.T) {
 
 	email := "oy@foo.bar"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
@@ -194,7 +194,7 @@ func TestSignupPostBadPassword(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
@@ -222,7 +222,7 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
@@ -251,7 +251,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	email := "oy@foo.bar"
 	password := "password123"
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)
@@ -321,7 +321,7 @@ func TestGetLoginRoute(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Login(gomock.Any(), gomock.Any())
 
 	a := &AuthRoutes{
@@ -338,7 +338,7 @@ func TestGetSignupRoute(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	views := domain.NewMockViews(mockCtrl)
+	views := testmocks.NewMockViews(mockCtrl)
 	views.EXPECT().Signup(gomock.Any(), gomock.Any())
 
 	sm := testmocks.NewMockSettingsModel(mockCtrl)

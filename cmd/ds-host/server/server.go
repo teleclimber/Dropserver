@@ -1,13 +1,17 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
@@ -17,6 +21,9 @@ type Server struct {
 	Authenticator interface {
 		Authenticate(*http.Request) domain.Authentication
 	}
+	Views interface {
+		GetStaticFS() fs.FS
+	}
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     domain.RouteHandler
@@ -24,35 +31,66 @@ type Server struct {
 
 	Metrics domain.MetricsI
 
-	publicStaticHandler http.Handler
+	mux    *http.ServeMux
+	server *http.Server
 }
 
-// Start starts up the server so it listens for connections
-func (s *Server) Start() { //return a server type
-	s.publicStaticHandler = http.FileServer(http.Dir(s.Config.Exec.StaticAssetsDir))
+func (s *Server) Init() {
+	s.mux = http.NewServeMux()
 
-	cfg := s.Config.Server
+	s.mux.Handle(
+		s.Config.Exec.UserRoutesDomain+"/static/",
+		http.StripPrefix("/static/", http.FileServer(http.FS(s.Views.GetStaticFS()))))
 
-	// Proxy:
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	frontendFS, fserr := fs.Sub(dshostfrontend.FS, "dist")
+	if fserr != nil {
+		panic(fserr)
+	}
+	s.mux.Handle(
+		s.Config.Exec.UserRoutesDomain+"/frontend-assets/",
+		http.FileServer(http.FS(frontendFS)))
+
+	// Everything else:
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.ServeHTTP(w, r)
 	})
+}
+
+// Start up the server so it listens for connections
+func (s *Server) Start() { //return a server type
+	cfg := s.Config.Server
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
 	fmt.Println("Server listening on port " + addr)
-	fmt.Println("Static Assets domain: " + s.Config.Exec.PublicStaticDomain)
 	fmt.Println("User Routes domain: " + s.Config.Exec.UserRoutesDomain)
+
+	s.server = &http.Server{
+		Addr:    addr,
+		Handler: s.mux}
 
 	var err error
 	if s.Config.Server.NoSsl {
-		err = http.ListenAndServe(addr, nil)
+		err = s.server.ListenAndServe()
 	} else {
-		err = http.ListenAndServeTLS(addr, s.Config.Server.SslCert, s.Config.Server.SslKey, nil)
+		err = s.server.ListenAndServeTLS(s.Config.Server.SslCert, s.Config.Server.SslKey)
 	}
 	if err != nil {
 		s.getLogger("Start(), http.ListenAndServe[TLS]").Error(err)
 		os.Exit(1)
+	}
+}
+
+func (s *Server) Shutdown() {
+	if s.server == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := s.server.Shutdown(ctx)
+	if err != nil {
+		panic(err) // for now.
 	}
 }
 
@@ -91,8 +129,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	fmt.Println(host, req.URL)
 
 	switch host {
-	case s.Config.Exec.PublicStaticDomain:
-		s.publicStaticHandler.ServeHTTP(res, req)
 	case s.Config.Exec.UserRoutesDomain:
 		s.UserRoutes.ServeHTTP(res, req, routeData)
 	default:

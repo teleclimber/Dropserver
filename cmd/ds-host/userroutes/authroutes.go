@@ -17,7 +17,11 @@ import (
 
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
-	Views         domain.Views
+	Views interface {
+		AppspaceLogin(http.ResponseWriter, domain.AppspaceLoginViewData)
+		Login(http.ResponseWriter, domain.LoginViewData)
+		Signup(http.ResponseWriter, domain.SignupViewData)
+	}
 	SettingsModel interface {
 		Get() (domain.Settings, error)
 	}

@@ -243,6 +243,8 @@ func main() {
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
+		// TODO server stop
+
 		os.Exit(0)
 	}()
 
@@ -387,8 +389,7 @@ func main() {
 		MigrationJobRoutes:  migrationJobRoutes,
 		AppspaceStatusTwine: appspaceStatusTwine,
 		MigrationJobTwine:   migrationJobTwine,
-		UserModel:           userModel,
-		Views:               views}
+		UserModel:           userModel}
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,
@@ -434,9 +435,11 @@ func main() {
 	server := &server.Server{
 		Authenticator:  authenticator,
 		Config:         runtimeConfig,
+		Views:          views,
 		UserRoutes:     userRoutes,
 		AppspaceRouter: appspaceRouter,
 		Metrics:        &m}
+	server.Init()
 
 	// start things up
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run

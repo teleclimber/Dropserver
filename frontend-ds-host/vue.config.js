@@ -1,5 +1,6 @@
 module.exports = {
   publicPath: '/',
+  assetsDir: 'frontend-assets/',
   devServer: {
 		hot: true,
 		proxy: {

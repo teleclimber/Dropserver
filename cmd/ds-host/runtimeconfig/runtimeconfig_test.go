@@ -41,9 +41,6 @@ func TestSetExecValues(t *testing.T) {
 	if rtc.Exec.UserRoutesDomain != "dropid.localhost" {
 		t.Error("user routes domain not as expected", rtc.Exec)
 	}
-	if rtc.Exec.PublicStaticDomain != "static.localhost" {
-		t.Error("pubilc assets domain not as expected", rtc.Exec)
-	}
 }
 
 func TestValidateHost(t *testing.T) {

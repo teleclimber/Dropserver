@@ -1,6 +1,6 @@
 cd "$(dirname "$0")"/../ || exit
 
-# run pkger to bundle frontend files to the ds-dev binary
+# run pkger to bundle static asset files
 pkger
 
 if [ "$1" == "debug" ]; then
