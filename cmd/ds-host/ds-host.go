@@ -336,6 +336,7 @@ func main() {
 		AppspaceUserModel: appspaceUserModel,
 	}
 	userAppspaceRoutes := &userroutes.AppspaceRoutes{
+		Config:                 *runtimeConfig,
 		AppspaceUserRoutes:     userAppspaceUserRoutes,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,

@@ -17,7 +17,7 @@
 	<div class="md:ds-full-layout w-full md:h-screen">
 		<NavMain></NavMain>
 		<HeaderMain></HeaderMain>
-		<div class="pt-16 md:pt-0 md:overflow-y-scroll">
+		<div class="pt-16 md:pt-0 bg-gray-100 md:overflow-y-scroll">
 			<router-view/>
 		</div>
 	</div>

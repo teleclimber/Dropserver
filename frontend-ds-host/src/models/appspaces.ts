@@ -38,6 +38,8 @@ export class Appspace {
 	app_id = 0;
 	app_version = '';
 	domain_name = "";
+	no_ssl = false;
+	port_string = "";
 	dropid = "";
 	created_dt = new Date();
 	paused = false;
@@ -53,6 +55,8 @@ export class Appspace {
 	setFromRaw(raw :any) {
 		this.id = Number(raw.appspace_id);
 		this.domain_name = raw.domain_name+'';
+		this.no_ssl = !!raw.no_ssl;
+		this.port_string = raw.port_string+'';
 		this.dropid = raw.dropid+'';
 		this.created_dt = new Date(raw.created_dt);
 		this.paused = !!raw.paused;
@@ -81,7 +85,7 @@ export class Appspaces {
 
 	async fetchForOwner() {
 		const resp_data = await get('/appspace');
-		resp_data.appspaces.forEach( (raw:any) => {
+		resp_data.forEach( (raw:any) => {
 			const appspace = new Appspace;
 			appspace.setFromRaw(raw);
 			this.as.set(appspace.id, appspace);

@@ -22,15 +22,7 @@ func TestAuthorize(t *testing.T) {
 	proxyID := domain.ProxyID("abc")
 	appspaceID := domain.AppspaceID(11)
 
-	v0UserModel := testmocks.NewMockV0UserModel(mockCtrl)
-	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID}, nil)
-
-	vXUserModels := testmocks.NewMockVXUserModels(mockCtrl)
-	vXUserModels.EXPECT().GetV0(appspaceID).Return(v0UserModel)
-
-	v0 := &V0{
-		VxUserModels: vXUserModels,
-	}
+	v0 := &V0{}
 
 	routeData := domain.AppspaceRouteData{
 		RouteConfig: &domain.AppspaceRouteConfig{
@@ -39,36 +31,37 @@ func TestAuthorize(t *testing.T) {
 			},
 		},
 	}
-	a := v0.authorize(&routeData, &domain.Authentication{})
+	a := v0.authorizeAppspace(&routeData, domain.Authentication{}, domain.AppspaceUser{})
 	if !a {
 		t.Error("expected public route authorized")
 	}
 
 	routeData.RouteConfig.Auth.Allow = "authorized"
 	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
-	a = v0.authorize(&routeData, &domain.Authentication{})
+	a = v0.authorizeAppspace(&routeData, domain.Authentication{}, domain.AppspaceUser{})
 	if a {
 		t.Error("expected unauthorized because no auth")
 	}
 
-	auth := &domain.Authentication{
-		UserID:  domain.UserID(13),
-		ProxyID: proxyID}
+	auth := domain.Authentication{
+		Authenticated: true,
+		UserID:        domain.UserID(13),
+		ProxyID:       proxyID}
 
-	a = v0.authorize(&routeData, auth)
+	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{})
 	if a {
 		t.Error("expected unauthorized because wrong user for auth")
 	}
 
 	auth.UserID = ownerID
 	auth.AppspaceID = domain.AppspaceID(33)
-	a = v0.authorize(&routeData, auth)
+	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{})
 	if a {
 		t.Error("expected unauthorized because wrong appspace ID")
 	}
 
 	auth.AppspaceID = appspaceID
-	a = v0.authorize(&routeData, auth)
+	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{AppspaceID: appspaceID})
 	if !a {
 		t.Error("expected route authorized")
 	}
@@ -78,47 +71,19 @@ func TestAuthorizePermissions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	proxyID := domain.ProxyID("abc")
-	appspaceID := domain.AppspaceID(11)
+	v0 := &V0{}
 
-	v0UserModel := testmocks.NewMockV0UserModel(mockCtrl)
-
-	vXUserModels := testmocks.NewMockVXUserModels(mockCtrl)
-	vXUserModels.EXPECT().GetV0(appspaceID).AnyTimes().Return(v0UserModel)
-
-	v0 := &V0{
-		VxUserModels: vXUserModels,
-	}
-
-	routeData := domain.AppspaceRouteData{
-		Appspace: &domain.Appspace{
-			AppspaceID: appspaceID},
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Auth: domain.AppspaceRouteAuth{
-				Allow:      "authorized",
-				Permission: "delete",
-			},
-		},
-	}
-
-	auth := &domain.Authentication{
-		AppspaceID: appspaceID,
-		ProxyID:    proxyID}
-
-	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID}, nil)
-	a := v0.authorize(&routeData, auth)
+	a := v0.authorizePermission("delete", domain.AppspaceUser{})
 	if a {
 		t.Error("expected route unauthorized (no permissions)")
 	}
 
-	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID, Permissions: []string{"create"}}, nil)
-	a = v0.authorize(&routeData, auth)
+	a = v0.authorizePermission("delete", domain.AppspaceUser{Permissions: "create,archive"})
 	if a {
 		t.Error("expected route unauthorized (incorrect permissions)")
 	}
 
-	v0UserModel.EXPECT().Get(proxyID).Return(domain.V0User{ProxyID: proxyID, Permissions: []string{"create", "delete"}}, nil)
-	a = v0.authorize(&routeData, auth)
+	a = v0.authorizePermission("delete", domain.AppspaceUser{Permissions: "create,delete"})
 	if !a {
 		t.Error("expected route authorized")
 	}
@@ -137,8 +102,8 @@ func TestProcessLoginTokenNone(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if auth != nil {
-		t.Error("expected auth to be nil")
+	if auth.Authenticated {
+		t.Error("expected authenticated to be false")
 	}
 }
 
@@ -154,8 +119,8 @@ func TestProcessLoginToken(t *testing.T) {
 	if err == nil {
 		t.Error("expected error due to multiple tokens")
 	}
-	if auth != nil {
-		t.Error("expected auth to be nil")
+	if auth.Authenticated {
+		t.Error("expected authenticated to be false")
 	}
 }
 
@@ -179,8 +144,8 @@ func TestProcessLoginTokenBadToken(t *testing.T) {
 	if err == nil {
 		t.Error("expected error")
 	}
-	if auth != nil {
-		t.Error("expected auth to be nil")
+	if auth.Authenticated {
+		t.Error("expected authenticated to be false")
 	}
 }
 
@@ -205,8 +170,8 @@ func TestProcessLoginTokenWrongAppspace(t *testing.T) {
 	if err == nil {
 		t.Error("expected error")
 	}
-	if auth != nil {
-		t.Error("expected auth to be nil")
+	if auth.Authenticated {
+		t.Error("expected authenticated to be false")
 	}
 }
 
@@ -243,8 +208,8 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if auth == nil {
-		t.Error("expected some auth")
+	if !auth.Authenticated {
+		t.Error("expected authenticated to be true")
 	}
 	if auth.AppspaceID != appspaceID {
 		t.Error("wrong appspace ID")
@@ -447,6 +412,7 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	appspaceID := domain.AppspaceID(7)
+	//proxyID := domain.ProxyID("abc")
 
 	routesV0 := domain.NewMockV0RouteModel(mockCtrl)
 	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
@@ -455,11 +421,14 @@ func TestServeHTTPProxyRoute(t *testing.T) {
 	}, nil)
 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)
+	// asUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
+	// asUserModel.EXPECT().Get(appspaceID, proxyID).Return(domain.AppspaceUser{AppspaceID: appspaceID, ProxyID: proxyID}, nil)
 	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 
 	v0 := &V0{
 		AppspaceRouteModels: asRoutesModel,
-		SandboxProxy:        sandboxProxy}
+		//AppspaceUserModel:   asUserModel,
+		SandboxProxy: sandboxProxy}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail: "/abc",

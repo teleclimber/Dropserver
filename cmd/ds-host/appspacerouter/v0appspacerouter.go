@@ -21,8 +21,8 @@ type V0 struct {
 	AppspaceRouteModels interface {
 		GetV0(domain.AppspaceID) domain.V0RouteModel
 	}
-	VxUserModels interface {
-		GetV0(domain.AppspaceID) domain.V0UserModel
+	AppspaceUserModel interface {
+		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	}
 	DropserverRoutes domain.RouteHandler // versioned
 	SandboxProxy     domain.RouteHandler // versioned?
@@ -85,28 +85,30 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 			http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if auth != nil {
+		if auth.Authenticated {
 			cred.ProxyID = auth.ProxyID
-			if !r.authorize(routeData, auth) {
-				// If requester just logged in with a token but is not authroized, then just show as such.
-				// Here we do not redirect because that would cause a redirect loop.
-				http.Error(&statusRes, "Route unauthorized for user", http.StatusUnauthorized)
-				return
-			}
-		} else {
-			if routeData.Authentication != nil {
-				cred.ProxyID = routeData.Authentication.ProxyID
-			}
-			if !r.authorize(routeData, routeData.Authentication) {
-				// if request is for html, then redirect
-				// if it's for json response then send an error code?
-				u := *req.URL
-				u.Host = req.Host // is this OK?
-				token := r.AppspaceLogin.Create(routeData.Appspace.AppspaceID, u)
-				http.Redirect(&statusRes, req, "//"+r.Config.Exec.UserRoutesDomain+r.Config.Exec.PortString+"/appspacelogin?asl="+token.LoginToken.Token, http.StatusTemporaryRedirect)
-				// TODO: this is not right. Fix when we redo appspace logins.
-				return
-			}
+		} else if routeData.Authentication != nil {
+			cred.ProxyID = routeData.Authentication.ProxyID
+			auth = *routeData.Authentication
+		}
+
+		appspaceUser := domain.AppspaceUser{}
+		if auth.Authenticated {
+			appspaceUser, _ = r.AppspaceUserModel.Get(auth.AppspaceID, auth.ProxyID)
+			// don't check error here. If user not found, will be dealt with in authorize functions below
+		}
+
+		if !r.authorizeAppspace(routeData, auth, appspaceUser) {
+			// We probably need different messages for different situations:
+			// - "unable to serve this page" if no auth or no such appspace (to avoid probing for appspace domains)
+			// - "Not permitted" if user has proper auth for appspace, but not the required permission.
+			http.Error(&statusRes, "No page to show", http.StatusUnauthorized)
+			return
+		}
+
+		if !r.authorizePermission(routeData.RouteConfig.Auth.Permission, appspaceUser) {
+			http.Error(&statusRes, "Not permitted", http.StatusUnauthorized)
+			return
 		}
 
 		// if you got this far, route is authorized.
@@ -126,13 +128,13 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 	}
 }
 
-func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) (*domain.Authentication, error) {
+func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) (domain.Authentication, error) {
 	loginTokenValues := req.URL.Query()["dropserver-login-token"]
 	if len(loginTokenValues) == 0 {
-		return nil, nil
+		return domain.Authentication{}, nil
 	}
 	if len(loginTokenValues) > 1 {
-		return nil, errors.New("multiple login tokens") // this should translate to http error "bad request"
+		return domain.Authentication{}, errors.New("multiple login tokens") // this should translate to http error "bad request"
 	}
 
 	token, err := r.AppspaceLogin.CheckRedirectToken(loginTokenValues[0])
@@ -140,26 +142,27 @@ func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, route
 		//http.Error(res, err.Error(), http.StatusBadRequest)
 		// maybe just ignore it? IT could be someone refreshed the page with the token.
 		// -> although that possibility is exactly why we should use a separate route to do appspace login
-		return nil, err
+		return domain.Authentication{}, err
 	}
 
 	if token.AppspaceID != routeData.Appspace.AppspaceID {
 		// do nothing? How do we end up in this situation?
-		return nil, errors.New("wrong appspace")
+		return domain.Authentication{}, errors.New("wrong appspace")
 	}
 
 	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.DomainName)
 	if err != nil {
-		return nil, err
+		return domain.Authentication{}, err
 	}
 
-	return &domain.Authentication{
-		ProxyID:    token.ProxyID,
-		AppspaceID: token.AppspaceID,
-		CookieID:   cookieID}, nil
+	return domain.Authentication{
+		Authenticated: true,
+		ProxyID:       token.ProxyID,
+		AppspaceID:    token.AppspaceID,
+		CookieID:      cookieID}, nil
 }
 
-func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authentication) bool {
+func (r *V0) authorizeAppspace(routeData *domain.AppspaceRouteData, auth domain.Authentication, user domain.AppspaceUser) bool {
 	// And we'll have a bunch of attached creds for request:
 	// - userID / contact ID
 	// - API key (probably included in header)
@@ -168,33 +171,31 @@ func (r *V0) authorize(routeData *domain.AppspaceRouteData, auth *domain.Authent
 
 	// [if no user but api key, repeat for api key (look it up, get permissions, find match)]
 
+	// if it's public route, then always authorized
 	if routeData.RouteConfig.Auth.Allow == "public" {
 		return true
 	}
 
-	if auth == nil || auth.UserAccount || auth.AppspaceID != routeData.Appspace.AppspaceID {
+	// if not public, then route requires auth
+	if !auth.Authenticated || auth.UserAccount || auth.AppspaceID != routeData.Appspace.AppspaceID {
 		return false
 	}
 
-	if routeData.RouteConfig.Auth.Allow == "authorized" {
-		userModel := r.VxUserModels.GetV0(auth.AppspaceID)
-		appspaceUser, err := userModel.Get(auth.ProxyID)
-		if err != nil {
-			return false
-		}
-		if appspaceUser.ProxyID == "" { // appspace user has zero-value (not found)
-			return false
-		}
+	if user == (domain.AppspaceUser{}) { // appspace user has zero-value (not found)
+		return false
+	}
 
-		requiredPermission := routeData.RouteConfig.Auth.Permission
-		if requiredPermission == "" {
-			// no specific permission required.
+	return true
+}
+
+func (r *V0) authorizePermission(requiredPermission string, user domain.AppspaceUser) bool {
+	if requiredPermission == "" {
+		// no specific permission required.
+		return true
+	}
+	for _, p := range strings.Split(user.Permissions, ",") {
+		if p == requiredPermission {
 			return true
-		}
-		for _, p := range appspaceUser.Permissions {
-			if p == requiredPermission {
-				return true
-			}
 		}
 	}
 

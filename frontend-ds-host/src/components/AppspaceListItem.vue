@@ -4,10 +4,6 @@
 			<div>
 				<h3 class="text-2xl leading-6 font-medium text-gray-900">
 					{{appspace.domain_name}}
-					<svg class="inline align-bottom w-7 h-7 text-indigo-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-						<path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-						<path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-					</svg>	
 				</h3>
 				<p class="mt-1 max-w-2xl text-sm text-gray-500">
 					{{app_version.app_name}} v. {{app_version.version}}
@@ -28,6 +24,9 @@
 				</div>
 			</div>
 		</div>
+		<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
+			<a :href="enter_link">{{enter_link}}</a>
+		</div>
 		<div class="px-4 py-5 sm:px-6 flex justify-end border-t border-gray-200">
 			<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn btn-blue">Manage</router-link>
 		</div>
@@ -35,7 +34,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, PropType, ref } from 'vue';
 
 import type {Appspace} from '../models/appspaces';
 import {AppVersionCollector } from '../models/app_versions';
@@ -55,7 +54,11 @@ export default defineComponent({
 		if( !props.appspace.loaded ) console.error("appspace not loaded yet.");
 		const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
 
+		const protocol = props.appspace.no_ssl ? 'http' : 'https';
+		const enter_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
+
 		return {
+			enter_link,
 			app_version
 		}
 	}

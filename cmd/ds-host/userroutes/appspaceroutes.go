@@ -18,6 +18,8 @@ type AppspaceMeta struct {
 	AppID      int            `json:"app_id"`
 	AppVersion domain.Version `json:"app_version"`
 	DomainName string         `json:"domain_name"`
+	NoSSL      bool           `json:"no_ssl"`
+	PortString string         `json:"port_string"`
 	DropID     string         `json:"dropid"`
 	Created    time.Time      `json:"created_dt"`
 	Paused     bool           `json:"paused"`
@@ -26,6 +28,7 @@ type AppspaceMeta struct {
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
+	Config             domain.RuntimeConfig
 	AppspaceUserRoutes interface {
 		ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace)
 	}
@@ -104,7 +107,7 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 }
 
 func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	respData := makeAppspaceMeta(*appspace)
+	respData := a.makeAppspaceMeta(*appspace)
 	upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -118,11 +121,6 @@ func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request,
 	writeJSON(res, respData)
 }
 
-// GetAppspacesResp is
-type GetAppspacesResp struct {
-	Appspaces []AppspaceMeta `json:"appspaces"`
-}
-
 func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	appspaces, err := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
 	if err != nil {
@@ -130,11 +128,10 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	respData := GetAppspacesResp{
-		Appspaces: make([]AppspaceMeta, 0)}
+	respData := make([]AppspaceMeta, 0)
 
 	for _, appspace := range appspaces {
-		appspaceMeta := makeAppspaceMeta(*appspace)
+		appspaceMeta := a.makeAppspaceMeta(*appspace)
 		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -144,7 +141,7 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 			upgradeMeta := makeVersionMeta(upgrade)
 			appspaceMeta.Upgrade = &upgradeMeta
 		}
-		respData.Appspaces = append(respData.Appspaces, appspaceMeta)
+		respData = append(respData, appspaceMeta)
 	}
 
 	writeJSON(res, respData)
@@ -320,12 +317,14 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	res.WriteHeader(http.StatusOK)
 }
 
-func makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
+func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
 	return AppspaceMeta{
 		AppspaceID: int(appspace.AppspaceID),
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
 		DomainName: appspace.DomainName,
+		NoSSL:      a.Config.Server.NoSsl,
+		PortString: a.Config.Exec.PortString,
 		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}
