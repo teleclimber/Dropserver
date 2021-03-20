@@ -14,7 +14,7 @@ const v0usersService = 16 //no more?
 //V0Services is a twine handler for reverse services with API version 0
 type V0Services struct {
 	RouteModel domain.ReverseServiceI
-	UserModel  domain.ReverseServiceI // nomore?
+	UserModel  domain.ReverseServiceI
 	AppspaceDB domain.ReverseServiceI
 }
 

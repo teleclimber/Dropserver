@@ -123,9 +123,9 @@ func TestSandboxCreateRoute(t *testing.T) {
 		Config:        cfg}
 	appspaceMetaDb.Init()
 
-	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
-		AppspaceMetaDB: appspaceMetaDb}
-	appspaceUserModels.Init()
+	vxUserModels := &vxservices.VxUserModels{
+		//AppspaceUserModel: appspaceUserModel,
+	}
 
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         cfg,
@@ -138,7 +138,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
-		UserModels:   appspaceUserModels,
+		UserModels:   vxUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 
 	sM := sandbox.Manager{

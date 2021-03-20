@@ -402,15 +402,9 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb}
 	appspaceRouteModels.Init()
 
-	appspaceUserModels := &appspacemetadb.AppspaceUserModels{
-		Config:         runtimeConfig,
-		AppspaceMetaDB: appspaceMetaDb,
-	}
-	appspaceUserModels.Init()
-
 	v0appspaceRouter := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
-		VxUserModels:        appspaceUserModels,
+		AppspaceUserModel:   appspaceUserModel,
 		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       authenticator,
@@ -425,9 +419,13 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
+	vxUserModels := &vxservices.VxUserModels{
+		AppspaceUserModel: appspaceUserModel,
+	}
+
 	services := &vxservices.VXServices{
 		RouteModels:  appspaceRouteModels,
-		UserModels:   appspaceUserModels,
+		UserModels:   vxUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 	sandboxManager.Services = services
 	migrationSandboxMaker.Services = services
