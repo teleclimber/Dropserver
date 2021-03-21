@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/twine"
@@ -19,12 +17,15 @@ import (
 // UserService is a twine service that sets the desired user params
 // and keeps the frontend up to date with app's declared permissions
 type UserService struct {
-	DevAuthenticator   *DevAuthenticator
-	AppspaceUserModels interface {
-		GetV0(domain.AppspaceID) domain.V0UserModel
+	DevAuthenticator  *DevAuthenticator
+	AppspaceUserModel interface {
+		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
+		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
+		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
+		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	}
-	DevAppspaceContactModel *DevAppspaceContactModel
-	AppspaceFilesEvents     interface {
+	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
 		Unsubscribe(chan<- domain.AppspaceID)
 	}
@@ -46,9 +47,6 @@ func (u *UserService) Start(t *twine.Twine) {
 	// send initial users down
 	u.sendUsers(t)
 
-	// send owner down if set
-	u.sendOwner(t)
-
 	// TODO [later] subscripe to app files changes and resend user permissions when changed
 
 	// Wait for twine to close and shut it all down.
@@ -64,19 +62,12 @@ func (u *UserService) Start(t *twine.Twine) {
 // outgoing commnds:
 const (
 	loadAllUsersCmd = 11
-	loadOwnerCmd    = 12
 )
 
 func (u *UserService) sendUsers(twine *twine.Twine) {
-	v0userModel := u.AppspaceUserModels.GetV0(appspaceID)
-	v0users, err := v0userModel.GetAll()
+	users, err := u.AppspaceUserModel.GetForAppspace(appspaceID)
 	if err != nil {
 		fmt.Println("sendUsers error getting users: " + err.Error())
-	}
-
-	users := make([]DevAppspaceUser, len(v0users))
-	for i, u := range v0users {
-		users[i] = V0ToDevApspaceUser(u)
 	}
 
 	bytes, err := json.Marshal(users)
@@ -85,15 +76,6 @@ func (u *UserService) sendUsers(twine *twine.Twine) {
 	}
 
 	_, err = twine.SendBlock(userControlService, loadAllUsersCmd, bytes)
-	if err != nil {
-		fmt.Println("sendUsers SendBlock Error: " + err.Error())
-	}
-}
-
-func (u *UserService) sendOwner(twine *twine.Twine) {
-	proxyID := u.DevAppspaceContactModel.GetOwnerProxyID()
-
-	_, err := twine.SendBlock(userControlService, loadOwnerCmd, []byte(proxyID))
 	if err != nil {
 		fmt.Println("sendUsers SendBlock Error: " + err.Error())
 	}
@@ -118,16 +100,14 @@ type IncomingUser struct {
 // - CreateUser (displa name, permissions) ..implies generating proxy id
 // - UpdateUser (proxy , display name, permissions)
 // - DeleteUser (proxy)
-// - SelectOwner (proxy) .. sets that in DevAppspaceContactsModel
 // - SelectUser (proxy) .. sets that in DevAuth
 
 // incoming commands
 const (
-	userCreateCmd      = 11
-	userUpdateCmd      = 12
-	userDeleteCmd      = 13
-	userSelectOwnerCmd = 14
-	userSelectUserCmd  = 15
+	userCreateCmd     = 11
+	userUpdateCmd     = 12
+	userDeleteCmd     = 13
+	userSelectUserCmd = 15
 )
 
 func (u *UserService) HandleMessage(m twine.ReceivedMessageI) {
@@ -138,12 +118,10 @@ func (u *UserService) HandleMessage(m twine.ReceivedMessageI) {
 		u.handleUserUpdateMessage(m)
 	case userDeleteCmd:
 		u.handleUserDeleteMessage(m)
-	case userSelectOwnerCmd:
-		u.handleUserSelectOwnerMessage(m)
 	case userSelectUserCmd:
 		u.handleUserSelectUserMessage(m)
 	default:
-		m.SendError("command not recognized")
+		m.SendError(fmt.Sprintf("command not recognized %v", m.CommandID()))
 	}
 }
 
@@ -154,21 +132,25 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	proxyID := randomProxyID()
-	v0userModel := u.AppspaceUserModels.GetV0(appspaceID)
-	err = v0userModel.Create(proxyID, incomingUser.DisplayName, incomingUser.Permissions)
+	proxyID, err := u.AppspaceUserModel.Create(appspaceID, "dropid", "dropid.dummy.develop")
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
-	// send the full user as a reply? would make sense.
-	user, err := v0userModel.Get(proxyID)
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
 
-	payload, err := json.Marshal(V0ToDevApspaceUser(user))
+	// send the full user as a reply? would make sense.
+	user, err := u.AppspaceUserModel.Get(appspaceID, proxyID)
+	if err != nil {
+		m.SendError(err.Error())
+		panic(err)
+	}
+
+	payload, err := json.Marshal(user)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -187,35 +169,25 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	v0userModel := u.AppspaceUserModels.GetV0(appspaceID)
-	err = v0userModel.Update(incomingUser.ProxyID, incomingUser.DisplayName, incomingUser.Permissions)
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
-	} else {
-		m.SendOK()
 	}
+
+	m.SendOK()
 }
 
 func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	proxyID := domain.ProxyID(string(m.Payload()))
 
-	v0userModel := u.AppspaceUserModels.GetV0(appspaceID)
-	err := v0userModel.Delete(proxyID)
+	err := u.AppspaceUserModel.Delete(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	} else {
 		m.SendOK()
 	}
-}
-
-func (u *UserService) handleUserSelectOwnerMessage(m twine.ReceivedMessageI) {
-	proxyID := domain.ProxyID(string(m.Payload()))
-
-	u.DevAppspaceContactModel.SetOwnerProxyID(proxyID)
-
-	m.SendOK()
 }
 
 func (u *UserService) handleUserSelectUserMessage(m twine.ReceivedMessageI) {
@@ -225,34 +197,12 @@ func (u *UserService) handleUserSelectUserMessage(m twine.ReceivedMessageI) {
 		u.DevAuthenticator.SetNoAuth()
 	} else {
 		u.DevAuthenticator.Set(domain.Authentication{
-			AppspaceID:  appspaceID,
-			ProxyID:     proxyID,
-			UserAccount: false,
+			Authenticated: true,
+			AppspaceID:    appspaceID,
+			ProxyID:       proxyID,
+			UserAccount:   false,
 		})
 	}
 
 	m.SendOK()
-}
-
-// V0ToDevApspaceUser converts a V0User to a non-VX userfor the frontend.
-func V0ToDevApspaceUser(v0user domain.V0User) (u DevAppspaceUser) {
-	u.DisplayName = v0user.DisplayName
-	u.Permissions = v0user.Permissions
-	u.ProxyID = v0user.ProxyID
-	return
-}
-
-////////////
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomProxyID() domain.ProxyID {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand2.Intn(len(chars36))]
-	}
-	return domain.ProxyID(string(b))
 }

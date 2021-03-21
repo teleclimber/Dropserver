@@ -144,7 +144,7 @@ func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Reque
 func (s *DropserverDevServer) appspaceLogin(res http.ResponseWriter, req *http.Request) {
 	// Here we can get the token, retrieve the corresponding data,
 
-	res.Write([]byte(fmt.Sprintf("try again:")))
+	res.Write([]byte("try again:"))
 }
 
 func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.Request) {
@@ -317,7 +317,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 // *or* create a lower version with current schema, and re-create the main app-version with new schema?
 // but maybe this takes place automatically on observe of app code?
 
-var errNoMigrationNeeded = errors.New("No migration needed")
+var errNoMigrationNeeded = errors.New("no migration needed")
 
 // If migrating down, then create dummy version with lower version, to-schema.
 // Location key and rest is immaterial as it souldn't get used.

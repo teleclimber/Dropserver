@@ -19,7 +19,7 @@ type RouteHitEventJSON struct {
 	Timestamp   time.Time                   `json:"timestamp"`
 	Request     RequestJSON                 `json:"request"`
 	RouteConfig *domain.AppspaceRouteConfig `json:"route_config"` // this might be nil.OK?
-	User        *DevAppspaceUser            `json:"user"`         //make nil OK
+	User        *domain.AppspaceUser        `json:"user"`         //make nil OK
 	Authorized  bool                        `json:"authorized"`
 	Status      int                         `json:"status"`
 }
@@ -30,10 +30,9 @@ type RouteHitService struct {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	}
-	AppspaceUserModels interface {
-		GetV0(domain.AppspaceID) domain.V0UserModel
+	AppspaceUserModel interface {
+		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	}
-	DevAppspaceContactModel *DevAppspaceContactModel
 }
 
 func (s *RouteHitService) Start(t *twine.Twine) {
@@ -55,7 +54,7 @@ func (s *RouteHitService) Start(t *twine.Twine) {
 
 // HandleMessage is a no-op, error producing function in route hit service
 func (s *RouteHitService) HandleMessage(m twine.ReceivedMessageI) {
-	panic("did not expect a mesage to route hit service.")
+	panic("did not expect a message to route hit service.")
 }
 
 func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.AppspaceRouteHitEvent) {
@@ -69,12 +68,10 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 		Status:      routeEvent.Status}
 
 	if routeEvent.Credentials.ProxyID != "" {
-		userModel := s.AppspaceUserModels.GetV0(appspaceID)
-		v0user, err := userModel.Get(routeEvent.Credentials.ProxyID)
+		user, err := s.AppspaceUserModel.Get(appspaceID, routeEvent.Credentials.ProxyID)
 		if err != nil {
 			panic(err)
 		}
-		user := V0ToDevApspaceUser(v0user)
 		send.User = &user
 	}
 

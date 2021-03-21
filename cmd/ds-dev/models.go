@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -108,27 +110,83 @@ func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version doma
 	return nil
 }
 
-//
-type DevAppspaceContactModel struct {
-	hasOwnerProxy bool
-	ownerProxy    domain.ProxyID
+type DevAppspaceUserModel struct {
+	users map[domain.ProxyID]domain.AppspaceUser
 }
 
-// SetOwnerProxyID is Dev-only
-func (m *DevAppspaceContactModel) SetOwnerProxyID(proxyID domain.ProxyID) {
-	m.hasOwnerProxy = true
-	m.ownerProxy = proxyID
+func (m *DevAppspaceUserModel) Init() {
+	m.users = make(map[domain.ProxyID]domain.AppspaceUser)
 }
-func (m *DevAppspaceContactModel) GetOwnerProxyID() domain.ProxyID {
-	if m.hasOwnerProxy {
-		return m.ownerProxy
+
+func (m *DevAppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
+	u, ok := m.users[proxyID]
+	if !ok {
+		return domain.AppspaceUser{}, sql.ErrNoRows
 	}
-	return domain.ProxyID("")
+	return u, nil
 }
 
-// Proxy is owner returns true if proxy_id is the appspace owner
-func (m *DevAppspaceContactModel) ProxyIsOwner(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (bool, error) {
-	return m.hasOwnerProxy && m.ownerProxy == proxyID, nil
+func (m *DevAppspaceUserModel) GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
+	ret := make([]domain.AppspaceUser, len(m.users))
+	i := 0
+	for _, u := range m.users {
+		ret[i] = u
+		i++
+	}
+	return ret, nil
+}
+
+func (m *DevAppspaceUserModel) Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error) {
+	user := domain.AppspaceUser{
+		AppspaceID: appspaceID,
+		ProxyID:    randomProxyID(),
+		AuthType:   authType,
+		AuthID:     authID,
+	}
+
+	m.users[user.ProxyID] = user
+
+	return user.ProxyID, nil
+}
+
+func (m *DevAppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error {
+	user, ok := m.users[proxyID]
+	if !ok {
+		return sql.ErrNoRows
+	}
+
+	user.DisplayName = displayName
+	user.Permissions = strings.Join(permissions, ",")
+
+	m.users[proxyID] = user
+
+	return nil
+}
+
+func (m *DevAppspaceUserModel) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error {
+	_, ok := m.users[proxyID]
+	if !ok {
+		return sql.ErrNoRows
+	}
+
+	delete(m.users, proxyID)
+
+	return nil
+}
+
+////////////
+// random string
+const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+var seededRand2 = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+func randomProxyID() domain.ProxyID {
+	b := make([]byte, 8)
+	for i := range b {
+		b[i] = chars36[seededRand2.Intn(len(chars36))]
+	}
+	return domain.ProxyID(string(b))
 }
 
 ////////

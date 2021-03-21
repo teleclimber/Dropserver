@@ -11,7 +11,7 @@
 		<button ref="add_btn" class="bg-blue-400 inline-block px-2 mx-2 rounded" @click.stop.prevent="showAddUser">Add</button>
 		<div class="overflow-y-scroll h-64 bg-gray-100" style="scroll-behavior: smooth" ref="scroll_container">
 			<div class="log-grid items-stretch">
-				<template  v-for="user in userData.users">
+				<template  v-for="user in userData.users" :key="user.proxy_id">
 					<span class="bg-gray-200 pt-1 border-b border-gray-400 text-green-500 text-center hover:bg-green-200" @click.stop.prevent="userData.setUser(user.proxy_id)">
 						<svg v-if="userData.isUser(user.proxy_id)" class="inline w-8 h-8" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -47,7 +47,7 @@
 					<input type="text" ref="display_name_input" name="display_name" id="display_name" v-model="display_name" class="border rounded p-2">
 				</div>
 				<div>Permissions:</div>
-				<label v-for="permission in baseData.user_permissions">
+				<label v-for="permission in baseData.user_permissions" :key="permission.key">
 					<input type="checkbox" v-model="permissions[permission.key]" />
 					{{permission.name}}
 				</label>
@@ -178,9 +178,6 @@ export default defineComponent({
 				this.userData.deleteUser(proxy_id);
 			}
 		},
-		setOwner(proxy_id:string) {
-			this.userData.setOwner(proxy_id);
-		}
 	}
 });
 </script>

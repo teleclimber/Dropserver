@@ -20,11 +20,10 @@ const loadOwner = 12;
 const userCreateCmd      = 11
 const userUpdateCmd      = 12
 const userDeleteCmd      = 13
-const userSelectOwnerCmd = 14
 const userSelectUserCmd  = 15
 
 export type User = {
-	permissions: string[]
+	permissions: string[],
 	display_name: string,
 	proxy_id: string
 }
@@ -43,9 +42,9 @@ class UserData {
 			case loadAllUsers:
 				this.handleLoadAllUsers(m);
 				break;
-			case loadOwner:
-				this.handleLoadOwner(m);
-				break;
+			// case loadOwner:
+			// 	this.handleLoadOwner(m);
+			// 	break;
 
 			// later accept incoming stuff like app user permissions, and appspace users
 			default:
@@ -55,19 +54,14 @@ class UserData {
 	handleLoadAllUsers(m:ReceivedMessageI) {
 		const users = JSON.parse(new TextDecoder().decode(m.payload));
 		console.log(users)	// apparently users is an array []? didn't know you could do that in json.
-		this.users = users;
+		this.users = users.map(userFromRaw);
 		m.sendOK();
 	}
-	handleLoadOwner(m:ReceivedMessageI) {
-		this.owner_proxy_id = new TextDecoder().decode(m.payload);
-		m.sendOK();
-	}
+
 	getUser(proxy_id:string) : User|undefined {
 		return this.users.find((u:User) => u.proxy_id === proxy_id);
 	}
-	isOwner(proxy_id:string) :boolean {
-		return proxy_id === this.owner_proxy_id;
-	}
+
 	isUser(proxy_id:string) :boolean {
 		return proxy_id === this.user_proxy_id;
 	}
@@ -96,12 +90,9 @@ class UserData {
 			return;
 		}
 
-		const u = <User>JSON.parse(new TextDecoder().decode(reply.payload))
-		this.users.push(u);
+		const u = JSON.parse(new TextDecoder().decode(reply.payload))
+		this.users.push(userFromRaw(u));
 
-		if(this.users.length === 1 ) {
-			this.setOwner(u.proxy_id);
-		}
 	}
 
 	async editUser(proxy_id:string, display_name: string, permissions: string[]) {
@@ -139,16 +130,6 @@ class UserData {
 		if( this.user_proxy_id === proxy_id ) this.user_proxy_id = "";
 	}
 
-	async setOwner(proxy_id :string) {
-		const payload = new TextEncoder().encode(proxy_id);
-		const reply = await twineClient.twine.sendBlock(userService, userSelectOwnerCmd, payload);
-
-		if( !reply.ok ) {
-			console.error(reply.error);
-		}
-		this.owner_proxy_id = proxy_id;
-	}
-
 	async setUser(proxy_id :string) {
 		const payload = new TextEncoder().encode(proxy_id);
 		const reply = await twineClient.twine.sendBlock(userService, userSelectUserCmd, payload);
@@ -157,6 +138,14 @@ class UserData {
 			console.error(reply.error);
 		}
 		this.user_proxy_id = proxy_id;
+	}
+}
+
+function userFromRaw(u:any) :User {
+	return {
+		proxy_id: u.proxy_id+'',
+		display_name: u.display_name+'',
+		permissions: u.permissions.split(",")
 	}
 }
 
