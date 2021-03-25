@@ -98,6 +98,22 @@ func freshInstallUp(args *stepArgs) error {
 	// should put a unique key constraint on location key?
 	// probably index dropid_handle and domain as well.
 
+	// remote appspaces are identified by their domain name alone
+	// dropid is the id of the local user to use with that remote appspace
+	args.dbExec(`CREATE TABLE "remote_appspaces" (
+		"user_id" INTEGER NOT NULL,
+		"domain_name" TEXT NOT NULL,
+		"owner_dropid" TEXT,
+		"dropid" TEXT,
+		"created" DATETIME,
+		PRIMARY KEY (user_id, domain_name)
+	)`)
+	args.dbExec(`CREATE INDEX remote_user_id ON remote_appspaces (user_id)`)
+	//args.dbExec(`CREATE UNIQUE INDEX remote_appspace_domain ON remote_appspaces (domain_name)`)
+	// can't help but imagine we'll need a lot more here, but for now this will do.
+	// HMM, we have owner dropid in this table, but it seems that it will not be known until after an interaction
+	// with said appspace.
+
 	// contacts added by the user:
 	args.dbExec(`CREATE TABLE "contacts" (
 		"user_id" INTEGER NOT NULL,

@@ -31,6 +31,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/remoteappspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
@@ -178,6 +179,11 @@ func main() {
 		DB:            db,
 		AsPausedEvent: appspacePausedEvent}
 	appspaceModel.PrepareStatements()
+
+	remoteAppspaceModel := &remoteappspacemodel.RemoteAppspaceModel{
+		DB: db,
+	}
+	remoteAppspaceModel.PrepareStatements()
 
 	appspaceUserModel := &appspaceusermodel.AppspaceUserModel{
 		DB: db}
@@ -348,6 +354,12 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 		AppModel:               appModel}
 
+	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{
+		RemoteAppspaceModel: remoteAppspaceModel,
+		AppspaceModel:       appspaceModel,
+		DropIDModel:         dropIDModel,
+	}
+
 	contactRoutes := &userroutes.ContactRoutes{
 		ContactModel: contactModel,
 	}
@@ -380,17 +392,18 @@ func main() {
 	}
 
 	userRoutes := &userroutes.UserRoutes{
-		AuthRoutes:          authRoutes,
-		AdminRoutes:         adminRoutes,
-		ApplicationRoutes:   applicationRoutes,
-		AppspaceRoutes:      userAppspaceRoutes,
-		ContactRoutes:       contactRoutes,
-		DomainRoutes:        domainNameRoutes,
-		DropIDRoutes:        dropIDRoutes,
-		MigrationJobRoutes:  migrationJobRoutes,
-		AppspaceStatusTwine: appspaceStatusTwine,
-		MigrationJobTwine:   migrationJobTwine,
-		UserModel:           userModel}
+		AuthRoutes:           authRoutes,
+		AdminRoutes:          adminRoutes,
+		ApplicationRoutes:    applicationRoutes,
+		AppspaceRoutes:       userAppspaceRoutes,
+		RemoteAppspaceRoutes: remoteAppspaceRoutes,
+		ContactRoutes:        contactRoutes,
+		DomainRoutes:         domainNameRoutes,
+		DropIDRoutes:         dropIDRoutes,
+		MigrationJobRoutes:   migrationJobRoutes,
+		AppspaceStatusTwine:  appspaceStatusTwine,
+		MigrationJobTwine:    migrationJobTwine,
+		UserModel:            userModel}
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,

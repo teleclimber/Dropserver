@@ -58,6 +58,7 @@ export default defineComponent({
 		const active_section = computed( () => {
 			const p = route.path;
 			if( p.startsWith("/appspace") || p.startsWith("/new-appspace")) return "appspaces";
+			if( p.startsWith("/remote-appspace") || p.startsWith("/new-remote-appspace")) return "appspaces";
 			if( p.startsWith("/app") || p.startsWith("/new-app")) return "apps";
 			if( p.startsWith('/contact') ) return 'contacts';
 			return '';

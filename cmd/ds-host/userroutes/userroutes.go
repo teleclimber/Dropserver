@@ -34,17 +34,18 @@ func returnError(res http.ResponseWriter, err error) {
 
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
-	AuthRoutes          domain.RouteHandler
-	ApplicationRoutes   domain.RouteHandler
-	AppspaceRoutes      domain.RouteHandler
-	ContactRoutes       domain.RouteHandler
-	DomainRoutes        domain.RouteHandler
-	DropIDRoutes        domain.RouteHandler
-	MigrationJobRoutes  domain.RouteHandler
-	AdminRoutes         domain.RouteHandler
-	AppspaceStatusTwine domain.TwineService
-	MigrationJobTwine   domain.TwineService
-	UserModel           interface {
+	AuthRoutes           domain.RouteHandler
+	ApplicationRoutes    domain.RouteHandler
+	AppspaceRoutes       domain.RouteHandler
+	RemoteAppspaceRoutes domain.RouteHandler
+	ContactRoutes        domain.RouteHandler
+	DomainRoutes         domain.RouteHandler
+	DropIDRoutes         domain.RouteHandler
+	MigrationJobRoutes   domain.RouteHandler
+	AdminRoutes          domain.RouteHandler
+	AppspaceStatusTwine  domain.TwineService
+	MigrationJobTwine    domain.TwineService
+	UserModel            interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdatePassword(userID domain.UserID, password string) error
 		GetFromEmailPassword(email, password string) (domain.User, error)
@@ -112,6 +113,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 			u.ApplicationRoutes.ServeHTTP(res, req, routeData)
 		case "appspace":
 			u.AppspaceRoutes.ServeHTTP(res, req, routeData)
+		case "remoteappspace":
+			u.RemoteAppspaceRoutes.ServeHTTP(res, req, routeData)
 		case "contact":
 			u.ContactRoutes.ServeHTTP(res, req, routeData)
 		case "migration-job":

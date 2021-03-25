@@ -63,6 +63,9 @@ export default defineComponent({
 				case "manage-appspace": return "Manage Appspace";	// this should actually reflect the appspace name, or something like that.
 				case "migrate-appspace": return "Migrate Appspace";
 
+				case "new-remote-appspace": return "Join Appspace";
+				case "manage-remote-appspace": return "Manage Remote Appspace";	// this gets overridden by remote address
+
 				case 'contacts': return "Contacts";
 				case 'new-contact': return "Add Contact";
 

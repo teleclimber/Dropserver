@@ -370,6 +370,14 @@ type Appspace struct {
 	// Config AppspaceConfig ..this one is harder
 }
 
+type RemoteAppspace struct {
+	UserID      UserID    `db:"user_id" json:"user_id"`
+	DomainName  string    `db:"domain_name" json:"domain_name"`
+	OwnerDropID string    `db:"owner_dropid" json:"owner_dropid"`
+	UserDropID  string    `db:"dropid" json:"dropid"`
+	Created     time.Time `db:"created" json:"created_dt"`
+}
+
 // AppspaceUserPermission describes a permission that can be granted to
 // a user, or via other means. The name and description are user-facing,
 // the key is used internally.

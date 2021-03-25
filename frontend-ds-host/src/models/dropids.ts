@@ -18,6 +18,7 @@ export class DropID {
 	created_dt = new Date();
 
 	key = "";	// key is used to identify the dropid uniquely
+	// this should actually be called "full", and should be a computed getter
 
 	setFromRaw(raw :any) {
 		this.user_id = Number(raw.user_id);
@@ -29,6 +30,12 @@ export class DropID {
 		this.key = this.domain_name+"/"+this.handle;
 
 		this.loaded = true;
+	}
+
+	get full() {
+		let f = this.domain_name;
+		if( this.handle !== "" ) f = this.domain_name+'/'+this.handle;
+		return f;
 	}
 
 }
