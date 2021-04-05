@@ -35,6 +35,7 @@ func returnError(res http.ResponseWriter, err error) {
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
 	AuthRoutes           domain.RouteHandler
+	AppspaceLoginRoutes  domain.RouteHandler
 	ApplicationRoutes    domain.RouteHandler
 	AppspaceRoutes       domain.RouteHandler
 	RemoteAppspaceRoutes domain.RouteHandler
@@ -61,7 +62,7 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	// There should be a single point where we check auth, and if no good, bail.
 
 	head, _ := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "signup" || head == "appspacelogin" || head == "login" || head == "logout" { // also resetpw
+	if head == "signup" || head == "login" || head == "logout" { // also resetpw
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		if routeData.Authentication != nil && routeData.Authentication.UserAccount {
@@ -90,6 +91,8 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		}
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		res.Write(htmlBytes)
+	case "appspacelogin":
+		u.AppspaceLoginRoutes.ServeHTTP(res, req, routeData)
 	case "api":
 		head, tail = shiftpath.ShiftPath(tail)
 		routeData.URLTail = tail

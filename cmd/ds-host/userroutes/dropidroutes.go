@@ -72,6 +72,7 @@ func (d *DropIDRoutes) handleGet(res http.ResponseWriter, req *http.Request, rou
 
 		handle := ""
 		if len(query["handle"]) == 1 {
+			// don't we need to unescape query?
 			handle = validator.NormalizeDropIDHandle(query["handle"][0])
 			if err := validator.DropIDHandle(handle); err != nil {
 				returnError(res, errBadRequest)

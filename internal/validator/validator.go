@@ -25,6 +25,16 @@ func DomainName(domainName string) error {
 	return goVal.Var(domainName, "required,fqdn")
 }
 
+// V0AppspaceLoginToken is used to obtain a session cookie for an appspace
+func V0AppspaceLoginToken(token string) error {
+	return goVal.Var(token, "min=20,max=30,alphanum")
+}
+
+// V0AppspaceLoginRef is a reference used to identify requests for tokens to remote host
+func V0AppspaceLoginRef(ref string) error {
+	return goVal.Var(ref, "min=8,max=12,alphanum")
+}
+
 // DBName validates an appspace DB name
 func DBName(pw string) error {
 	return goVal.Var(pw, "min=1,max=30,alphanum") // super restrictive for now
@@ -33,7 +43,7 @@ func DBName(pw string) error {
 // AppspaceUserAuthType validates auth type for appspace users
 func AppspaceUserAuthType(authType string) error {
 	if authType != "email" && authType != "dropid" {
-		return errors.New("Auth type must be email or dropid")
+		return errors.New("auth type must be email or dropid")
 	}
 	return nil
 }
@@ -82,10 +92,10 @@ func AppspacePermission(p string) error {
 	// .. and disallow tabs?
 	// disallow whitespace too
 	if strings.Contains(p, "\t") {
-		return errors.New("Permission can not contain tab")
+		return errors.New("permission can not contain tab")
 	}
 	if strings.Contains(p, ",") {
-		return errors.New("Permission can not contain comma")
+		return errors.New("permission can not contain comma")
 	}
 	return goVal.Var(p, "min=1,max=20")
 }

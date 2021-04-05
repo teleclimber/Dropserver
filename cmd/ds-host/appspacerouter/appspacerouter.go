@@ -1,16 +1,33 @@
 package appspacerouter
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
+	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
-// route handler for when we know the route is for an app-space.
-// Could be proxied to sandbox, or static file, or crud or whatever
+// Hmm, this is kind of a misnomer now?
+// This handles all requests that are not pointed to the ds-host user domain.
+// So dropids and appspaces, and maybe even other things?
+// Since dropid and apppsace domains can overlap, OK to handle them together
+
+// Let's try some new context-driven stuff
+type ctxKey string
+
+const urlTailCtxKey = ctxKey("url tail")
+
+func getURLTail(ctx context.Context) string {
+	t, ok := ctx.Value(urlTailCtxKey).(string)
+	if !ok {
+		return ""
+	}
+	return t
+}
 
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
@@ -24,8 +41,9 @@ type AppspaceRouter struct {
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
 	}
+	DropserverRoutes   http.Handler
 	RouteModelsManager domain.AppspaceRouteModels
-	V0                 domain.RouteHandler
+	V0AppspaceRouter   domain.RouteHandler
 
 	liveCounterMux sync.Mutex
 	liveCounter    map[domain.AppspaceID]int
@@ -47,6 +65,13 @@ func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	host, err := getcleanhost.GetCleanHost(req.Host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	head, tail := shiftpath.ShiftPath(req.URL.Path)
+	if head == ".dropserver" {
+		ctx := context.WithValue(req.Context(), urlTailCtxKey, tail)
+		r.DropserverRoutes.ServeHTTP(res, req.WithContext(ctx))
 		return
 	}
 
@@ -87,7 +112,7 @@ func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	routeData.AppVersion = appVersion
 
 	// This is where we branch off into different API versions for serving appspace traffic
-	r.V0.ServeHTTP(res, req, routeData)
+	r.V0AppspaceRouter.ServeHTTP(res, req, routeData)
 }
 
 func (r *AppspaceRouter) incrementLiveCount(appspaceID domain.AppspaceID) {

@@ -12,7 +12,6 @@ import (
 type Views interface {
 	PrepareTemplates()
 	GetStaticFS() fs.FS
-	AppspaceLogin(http.ResponseWriter, domain.AppspaceLoginViewData)
 	Login(http.ResponseWriter, domain.LoginViewData)
 	Signup(http.ResponseWriter, domain.SignupViewData)
 }

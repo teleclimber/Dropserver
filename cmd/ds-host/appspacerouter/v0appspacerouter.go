@@ -3,14 +3,12 @@ package appspacerouter
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // route handler for when we know the route is for an app-space.
@@ -24,11 +22,9 @@ type V0 struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	}
-	DropserverRoutes domain.RouteHandler // versioned
-	SandboxProxy     domain.RouteHandler // versioned?
-	AppspaceLogin    interface {
-		Create(domain.AppspaceID, url.URL) domain.AppspaceLoginToken
-		CheckRedirectToken(string) (domain.AppspaceLoginToken, error)
+	SandboxProxy   domain.RouteHandler // versioned?
+	V0TokenManager interface {
+		CheckToken(token string) (domain.V0AppspaceLoginToken, bool)
 	}
 	Authenticator interface {
 		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
@@ -60,72 +56,65 @@ func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *do
 		}
 	}()
 
-	//... now shift path to get the first param and see if it is dropserver
-	head, tail := shiftpath.ShiftPath(routeData.URLTail)
-	if head == "dropserver" {
-		// handle with dropserver routes handler
-		routeData.URLTail = tail
-		r.DropserverRoutes.ServeHTTP(&statusRes, req, routeData)
-	} else {
-		routeModel := r.AppspaceRouteModels.GetV0(routeData.Appspace.AppspaceID)
-		routeConfig, err := routeModel.Match(req.Method, routeData.URLTail)
-		if err != nil {
-			http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if routeConfig == nil {
-			http.Error(&statusRes, "No matching route", http.StatusNotFound)
-			return
-		}
-		routeData.RouteConfig = routeConfig
-
-		auth, err := r.processLoginToken(&statusRes, req, routeData)
-		if err != nil {
-			http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if auth.Authenticated {
-			cred.ProxyID = auth.ProxyID
-		} else if routeData.Authentication != nil {
-			cred.ProxyID = routeData.Authentication.ProxyID
-			auth = *routeData.Authentication
-		}
-
-		appspaceUser := domain.AppspaceUser{}
-		if auth.Authenticated {
-			appspaceUser, _ = r.AppspaceUserModel.Get(auth.AppspaceID, auth.ProxyID)
-			// don't check error here. If user not found, will be dealt with in authorize functions below
-		}
-
-		if !r.authorizeAppspace(routeData, auth, appspaceUser) {
-			// We probably need different messages for different situations:
-			// - "unable to serve this page" if no auth or no such appspace (to avoid probing for appspace domains)
-			// - "Not permitted" if user has proper auth for appspace, but not the required permission.
-			http.Error(&statusRes, "No page to show", http.StatusUnauthorized)
-			return
-		}
-
-		if !r.authorizePermission(routeData.RouteConfig.Auth.Permission, appspaceUser) {
-			http.Error(&statusRes, "Not permitted", http.StatusUnauthorized)
-			return
-		}
-
-		// if you got this far, route is authorized.
-		authorized = true
-
-		switch routeConfig.Handler.Type {
-		case "function":
-			r.SandboxProxy.ServeHTTP(&statusRes, req, routeData)
-		case "file":
-			r.serveFile(&statusRes, req, routeData)
-		// case "db":
-		// call to appspacedb. Since this is v0appspaceroutes, then the call will be to v0appspacedb
-		default:
-			r.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
-			http.Error(&statusRes, "route type not implemented", http.StatusInternalServerError)
-		}
+	routeModel := r.AppspaceRouteModels.GetV0(routeData.Appspace.AppspaceID)
+	routeConfig, err := routeModel.Match(req.Method, routeData.URLTail)
+	if err != nil {
+		http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	if routeConfig == nil {
+		http.Error(&statusRes, "No matching route", http.StatusNotFound)
+		return
+	}
+	routeData.RouteConfig = routeConfig
+
+	auth, err := r.processLoginToken(&statusRes, req, routeData)
+	if err != nil {
+		http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if auth.Authenticated {
+		cred.ProxyID = auth.ProxyID
+	} else if routeData.Authentication != nil {
+		cred.ProxyID = routeData.Authentication.ProxyID
+		auth = *routeData.Authentication
+	}
+
+	appspaceUser := domain.AppspaceUser{}
+	if auth.Authenticated {
+		appspaceUser, _ = r.AppspaceUserModel.Get(auth.AppspaceID, auth.ProxyID)
+		// don't check error here. If user not found, will be dealt with in authorize functions below
+	}
+
+	if !r.authorizeAppspace(routeData, auth, appspaceUser) {
+		// We probably need different messages for different situations:
+		// - "unable to serve this page" if no auth or no such appspace (to avoid probing for appspace domains)
+		// - "Not permitted" if user has proper auth for appspace, but not the required permission.
+		http.Error(&statusRes, "No page to show", http.StatusUnauthorized)
+		return
+	}
+
+	if !r.authorizePermission(routeData.RouteConfig.Auth.Permission, appspaceUser) {
+		http.Error(&statusRes, "Not permitted", http.StatusUnauthorized)
+		return
+	}
+
+	// if you got this far, route is authorized.
+	authorized = true
+
+	switch routeConfig.Handler.Type {
+	case "function":
+		r.SandboxProxy.ServeHTTP(&statusRes, req, routeData)
+	case "file":
+		r.serveFile(&statusRes, req, routeData)
+	// case "db":
+	// call to appspacedb. Since this is v0appspaceroutes, then the call will be to v0appspacedb
+	default:
+		r.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
+		http.Error(&statusRes, "route type not implemented", http.StatusInternalServerError)
+	}
+	//}
 }
 
 func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) (domain.Authentication, error) {
@@ -137,12 +126,9 @@ func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, route
 		return domain.Authentication{}, errors.New("multiple login tokens") // this should translate to http error "bad request"
 	}
 
-	token, err := r.AppspaceLogin.CheckRedirectToken(loginTokenValues[0])
-	if err != nil {
-		//http.Error(res, err.Error(), http.StatusBadRequest)
-		// maybe just ignore it? IT could be someone refreshed the page with the token.
-		// -> although that possibility is exactly why we should use a separate route to do appspace login
-		return domain.Authentication{}, err
+	token, ok := r.V0TokenManager.CheckToken(loginTokenValues[0]) // this looks corect but is badly named?
+	if !ok {
+		return domain.Authentication{}, nil // no matching token is not an error. It can happen is user reloads the page for ex.
 	}
 
 	if token.AppspaceID != routeData.Appspace.AppspaceID {

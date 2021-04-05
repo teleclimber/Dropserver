@@ -35,18 +35,6 @@ func (m *MockViews) EXPECT() *MockViewsMockRecorder {
 	return m.recorder
 }
 
-// AppspaceLogin mocks base method
-func (m *MockViews) AppspaceLogin(arg0 http.ResponseWriter, arg1 domain.AppspaceLoginViewData) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AppspaceLogin", arg0, arg1)
-}
-
-// AppspaceLogin indicates an expected call of AppspaceLogin
-func (mr *MockViewsMockRecorder) AppspaceLogin(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspaceLogin", reflect.TypeOf((*MockViews)(nil).AppspaceLogin), arg0, arg1)
-}
-
 // GetStaticFS mocks base method
 func (m *MockViews) GetStaticFS() fs.FS {
 	m.ctrl.T.Helper()

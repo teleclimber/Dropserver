@@ -4,9 +4,7 @@ package userroutes
 // Handle /login /appspace-login /logout
 import (
 	"database/sql"
-	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -18,7 +16,6 @@ import (
 // AuthRoutes handles all routes related to authentication
 type AuthRoutes struct {
 	Views interface {
-		AppspaceLogin(http.ResponseWriter, domain.AppspaceLoginViewData)
 		Login(http.ResponseWriter, domain.LoginViewData)
 		Signup(http.ResponseWriter, domain.SignupViewData)
 	}
@@ -36,9 +33,6 @@ type AuthRoutes struct {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
 		UnsetForAccount(http.ResponseWriter, *http.Request)
 	}
-	AppspaceLogin interface {
-		LogIn(string, domain.UserID) (domain.AppspaceLoginToken, error)
-	}
 }
 
 // ServeHTTP handles all /login routes
@@ -47,8 +41,6 @@ func (a *AuthRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 	routeData.URLTail = tail
 	if head == "signup" {
 		a.handleSignup(res, req, routeData)
-	} else if head == "appspacelogin" {
-		a.getAppspaceLogin(res, req, routeData)
 	} else if head == "login" {
 		a.handleLogin(res, req, routeData)
 	} else if head == "logout" {
@@ -69,23 +61,6 @@ func (a *AuthRoutes) handleSignup(res http.ResponseWriter, req *http.Request, ro
 	}
 }
 
-func (a *AuthRoutes) getAppspaceLogin(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "Unsupported method", http.StatusBadRequest)
-		return
-	}
-
-	asl, err := getAsl(req.URL)
-	if err != nil || asl == "" {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	a.Views.AppspaceLogin(res, domain.AppspaceLoginViewData{
-		AppspaceLoginToken: asl,
-	})
-}
-
 func (a *AuthRoutes) handleLogin(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
 	switch req.Method {
 	case http.MethodGet:
@@ -98,47 +73,11 @@ func (a *AuthRoutes) handleLogin(res http.ResponseWriter, req *http.Request, rou
 }
 
 func (a *AuthRoutes) loginGet(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	// could be a regular login, or one intended for an appspace
-	// if get request has asl= url parameter, then it's appspace login
-
-	asl, err := getAsl(req.URL)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-	}
-
-	if asl != "" {
-		if routeData.Authentication != nil {
-			a.aslLogin(res, req, routeData.Authentication.UserID, asl)
-		} else {
-			a.Views.Login(res, domain.LoginViewData{
-				AppspaceLoginToken: asl,
-			})
-		}
+	if routeData.Authentication != nil && routeData.Authentication.UserAccount {
+		http.Redirect(res, req, "/", http.StatusFound)
 	} else {
-		if routeData.Authentication != nil && routeData.Authentication.UserAccount {
-			http.Redirect(res, req, "/", http.StatusFound)
-		} else {
-			a.Views.Login(res, domain.LoginViewData{})
-		}
+		a.Views.Login(res, domain.LoginViewData{})
 	}
-}
-
-func (a *AuthRoutes) aslLogin(res http.ResponseWriter, req *http.Request, userID domain.UserID, asl string) {
-	// User is currently logged in, so complete login to appspace
-	token, err := a.AppspaceLogin.LogIn(asl, userID)
-	if err != nil {
-		// bad asl token. Basically need to redirect to appspace so a new token is issued and then start over.
-		// ah, but with a bad token, you don't know where to redirect to.
-		// For now just dump the error
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	url := token.AppspaceURL
-	q := url.Query()
-	q.Del("dropserver-login-token") // in case there is one already
-	q.Add("dropserver-login-token", token.RedirectToken.Token)
-	url.RawQuery = q.Encode()
-	http.Redirect(res, req, url.String(), http.StatusFound)
 }
 
 func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -146,11 +85,8 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 
 	req.ParseForm()
 
-	asl := req.Form.Get("asl")
-
 	invalidLoginMessage := domain.LoginViewData{
-		AppspaceLoginToken: asl,
-		Message:            "Login incorrect"}
+		Message: "Login incorrect"}
 
 	email := strings.ToLower(req.Form.Get("email"))
 	dsErr := validator.Email(email)
@@ -178,16 +114,16 @@ func (a *AuthRoutes) loginPost(res http.ResponseWriter, req *http.Request, route
 		}
 	} else {
 		// we're in. What we do now depends on whether we have an asl or not.
-		if asl != "" {
-			a.aslLogin(res, req, user.UserID, asl)
-		} else {
-			err := a.Authenticator.SetForAccount(res, user.UserID)
-			if err != nil {
-				http.Error(res, "internal error", http.StatusInternalServerError)
-				return
-			}
-			http.Redirect(res, req, "/", http.StatusFound)
+		// if asl != "" {
+		// 	a.aslLogin(res, req, user.UserID, asl)
+		// } else {
+		err := a.Authenticator.SetForAccount(res, user.UserID)
+		if err != nil {
+			http.Error(res, "internal error", http.StatusInternalServerError)
+			return
 		}
+		http.Redirect(res, req, "/", http.StatusFound)
+		//}
 	}
 }
 
@@ -279,16 +215,4 @@ func (a *AuthRoutes) handleLogout(res http.ResponseWriter, req *http.Request, ro
 	a.Authenticator.UnsetForAccount(res, req)
 
 	http.Redirect(res, req, "/login", http.StatusFound)
-}
-
-func getAsl(u *url.URL) (string, error) {
-	aslValues := u.Query()["asl"]
-	if len(aslValues) == 0 {
-		return "", nil
-	}
-	if len(aslValues) > 1 {
-		return "", errors.New("multiple asl")
-	}
-
-	return aslValues[0], nil
 }

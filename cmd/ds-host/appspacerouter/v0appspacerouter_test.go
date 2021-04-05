@@ -1,7 +1,6 @@
 package appspacerouter
 
 import (
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -124,12 +123,12 @@ func TestProcessLoginToken(t *testing.T) {
 	}
 }
 
-func TestProcessLoginTokenBadToken(t *testing.T) {
+func TestProcessLoginTokenDoesNotExist(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
-	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{}, errors.New("No valid token"))
+	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
+	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{}, false)
 
 	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
 	if err != nil {
@@ -137,12 +136,12 @@ func TestProcessLoginTokenBadToken(t *testing.T) {
 	}
 
 	v0 := &V0{
-		AppspaceLogin: appspaceLogin,
+		V0TokenManager: v0TokenManager,
 	}
 
 	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
-	if err == nil {
-		t.Error("expected error")
+	if err != nil {
+		t.Error(err)
 	}
 	if auth.Authenticated {
 		t.Error("expected authenticated to be false")
@@ -153,8 +152,8 @@ func TestProcessLoginTokenWrongAppspace(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
-	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{AppspaceID: domain.AppspaceID(13)}, nil)
+	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
+	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{AppspaceID: domain.AppspaceID(13)}, true)
 
 	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
 	if err != nil {
@@ -162,7 +161,7 @@ func TestProcessLoginTokenWrongAppspace(t *testing.T) {
 	}
 
 	v0 := &V0{
-		AppspaceLogin: appspaceLogin,
+		V0TokenManager: v0TokenManager,
 	}
 
 	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
@@ -182,10 +181,10 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	proxyID := domain.ProxyID("proxy-ideee")
 	appspaceID := domain.AppspaceID(7)
 
-	appspaceLogin := testmocks.NewMockAppspaceLogin(mockCtrl)
-	appspaceLogin.EXPECT().CheckRedirectToken("abc").Return(domain.AppspaceLoginToken{
+	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
+	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{
 		ProxyID:    proxyID,
-		AppspaceID: appspaceID}, nil)
+		AppspaceID: appspaceID}, true)
 
 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, "some.host").Return("somecookie", nil)
@@ -196,8 +195,8 @@ func TestProcessLoginTokenOK(t *testing.T) {
 	}
 
 	v0 := &V0{
-		Authenticator: authenticator,
-		AppspaceLogin: appspaceLogin,
+		Authenticator:  authenticator,
+		V0TokenManager: v0TokenManager,
 	}
 
 	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
@@ -321,7 +320,7 @@ func TestServeFile(t *testing.T) {
 
 	v0.serveFile(rr, req, routeData)
 
-	respString := string(rr.Body.Bytes())
+	respString := rr.Body.String()
 	if respString != string(fileData) {
 		t.Error("expected file data, got " + respString)
 	}
@@ -375,33 +374,6 @@ func TestServeFileOverlapPath(t *testing.T) {
 	if rr.Result().StatusCode != http.StatusNotFound {
 		t.Error("expected 404")
 	}
-}
-
-// path is dropserver, does it forward to dropserver route?
-func TestServeHTTPDropserverRoute(t *testing.T) {
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	dropserverRoutes := domain.NewMockRouteHandler(mockCtrl)
-
-	v0 := &V0{
-		DropserverRoutes: dropserverRoutes}
-
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/dropserver",
-	}
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	dropserverRoutes.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
-
-	v0.ServeHTTP(rr, req, routeData)
 }
 
 // with appspace and route assume route is proxy

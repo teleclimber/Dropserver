@@ -191,12 +191,3 @@ func TestIncrement(t *testing.T) {
 		}
 	}
 }
-
-func getASR(mockCtrl *gomock.Controller) *AppspaceRouter {
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-
-	return &AppspaceRouter{
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel}
-}

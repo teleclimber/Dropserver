@@ -22,13 +22,14 @@ type AppspaceUserModel struct {
 	DB *domain.DB
 
 	stmt struct {
-		insert         *sqlx.Stmt
-		updateAuth     *sqlx.Stmt
-		updateMeta     *sqlx.Stmt
-		updateLastSeen *sqlx.Stmt
-		delete         *sqlx.Stmt
-		get            *sqlx.Stmt
-		getForAppspace *sqlx.Stmt
+		insert            *sqlx.Stmt
+		updateAuth        *sqlx.Stmt
+		updateMeta        *sqlx.Stmt
+		updateLastSeen    *sqlx.Stmt
+		delete            *sqlx.Stmt
+		get               *sqlx.Stmt
+		getForAppspace    *sqlx.Stmt
+		getAppspaceDropID *sqlx.Stmt
 	}
 }
 
@@ -57,6 +58,8 @@ func (m *AppspaceUserModel) PrepareStatements() {
 	m.stmt.get = p.Prep(`SELECT * FROM appspace_users WHERE appspace_id = ? AND proxy_id = ?`)
 
 	m.stmt.getForAppspace = p.Prep(`SELECT * FROM appspace_users WHERE appspace_id = ?`)
+
+	m.stmt.getAppspaceDropID = p.Prep(`SELECT * FROM appspace_users WHERE appspace_id = ? AND auth_type = "dropid" AND auth_id = ?`)
 }
 
 // Create an appspace user with provided auth.
@@ -118,6 +121,21 @@ func (m *AppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.Pro
 	if err != nil {
 		if err != sql.ErrNoRows {
 			m.getLogger("Get()").Error(err)
+		}
+		return domain.AppspaceUser{}, err
+	}
+
+	return appspaceUser, nil
+}
+
+// GetByDropID returns an appspace that matches the dropid string
+// It returns sql.ErrNoRows if not found
+func (m *AppspaceUserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
+	var appspaceUser domain.AppspaceUser
+	err := m.stmt.get.QueryRowx(appspaceID, dropID).StructScan(&appspaceUser)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			m.getLogger("GetByDropID()").Error(err)
 		}
 		return domain.AppspaceUser{}, err
 	}

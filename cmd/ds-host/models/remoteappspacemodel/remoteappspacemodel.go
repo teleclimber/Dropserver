@@ -43,6 +43,8 @@ func (m *RemoteAppspaceModel) PrepareStatements() {
 	m.stmt.delete = p.Prep(`DELETE FROM remote_appspaces WHERE user_id = ? AND domain_name = ?`)
 }
 
+// Get returns the remote appspace that matches the domain
+// it returns sql.ErrNoRows if none found
 func (m *RemoteAppspaceModel) Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error) {
 	// normalize domain name
 	var remote domain.RemoteAppspace

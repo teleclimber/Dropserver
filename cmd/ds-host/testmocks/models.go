@@ -89,6 +89,7 @@ type AppspaceInfoModels interface {
 // AppspaceUserModel stores the users of an appspace
 type AppspaceUserModel interface {
 	Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+	GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error)
 	GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error

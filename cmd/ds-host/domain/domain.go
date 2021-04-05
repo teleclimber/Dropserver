@@ -6,7 +6,6 @@ package domain
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -170,33 +169,41 @@ type Authentication struct {
 	CookieID      string  // if there is a cookie
 }
 
-// ^^ this should be changed to reflect that User IDs are appspace user ids? (?)
-// Maybe this should be AppspaceAuth, because it's quite specific to appspaces and not account admin.
+// ^^ this should probably be separated into two:
+// - UserAccountAuth
+// - AppspaceUserAuth
 
 type TimedToken struct {
 	Token   string
 	Created time.Time
 }
 
-//AppspaceLoginToken carries user auth data corresponding to a login token
-type AppspaceLoginToken struct {
-	AppspaceID    AppspaceID
-	AppspaceURL   url.URL
-	ProxyID       ProxyID
-	LoginToken    TimedToken
-	RedirectToken TimedToken
+//V0AppspaceLoginToken carries user auth data corresponding to a login token
+type V0AppspaceLoginToken struct {
+	AppspaceID AppspaceID
+	DropID     string
+	ProxyID    ProxyID
+	LoginToken TimedToken
 }
 
-// AppspaceLoginViewData is used to pass messages and parameters to the login page
-type AppspaceLoginViewData struct {
-	AppspaceLoginToken string
+// V0LoginTokenRequest is sent to the host that manages the appspace
+type V0LoginTokenRequest struct {
+	DropID string `json:"dropid"`
+	Ref    string `json:"ref"`
+}
+
+// V0PostLoginToken is the data sent from appspace host to dropid host
+// when a user requests a token to remote log-in
+type V0LoginTokenResponse struct {
+	Appspace string `json:"appspace"`
+	Token    string `json:"token"`
+	Ref      string `json:"ref"`
 }
 
 // LoginViewData is used to pass messages and parameters to the login page
 type LoginViewData struct {
-	Message            string
-	Email              string
-	AppspaceLoginToken string
+	Message string
+	Email   string
 }
 
 // SignupViewData is used to pass messages and parameters to the login page

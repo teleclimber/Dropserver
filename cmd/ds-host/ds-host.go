@@ -19,6 +19,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
+	"github.com/teleclimber/DropServer/cmd/ds-host/ds2ds"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
@@ -232,8 +233,17 @@ func main() {
 		CookieModel: cookieModel,
 		Config:      runtimeConfig}
 
-	appspaceLogin := &appspacelogin.AppspaceLogin{}
-	appspaceLogin.Start()
+	v0tokenManager := &appspacelogin.V0TokenManager{
+		Config:            *runtimeConfig,
+		AppspaceModel:     appspaceModel,
+		AppspaceUserModel: appspaceUserModel,
+	}
+	v0tokenManager.Start()
+
+	v0requestToken := &appspacelogin.V0RequestToken{
+		Config:              *runtimeConfig,
+		RemoteAppspaceModel: remoteAppspaceModel,
+	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -245,7 +255,7 @@ func main() {
 		sandboxManager.StopAll()
 		fmt.Println("All sandbox stopped")
 
-		appspaceLogin.Stop()
+		v0tokenManager.Stop()
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
@@ -324,8 +334,18 @@ func main() {
 		SettingsModel:       settingsModel,
 		UserModel:           userModel,
 		UserInvitationModel: userInvitationModel,
-		Authenticator:       authenticator,
-		AppspaceLogin:       appspaceLogin}
+		Authenticator:       authenticator}
+
+	ds2ds := &ds2ds.DS2DS{
+		Config: runtimeConfig,
+	}
+
+	appspaceLoginRoutes := &userroutes.AppspaceLoginRoutes{
+		AppspaceModel:       appspaceModel,
+		RemoteAppspaceModel: remoteAppspaceModel,
+		DS2DS:               ds2ds,
+		V0RequestToken:      v0requestToken,
+	}
 
 	adminRoutes := &userroutes.AdminRoutes{
 		UserModel:           userModel,
@@ -393,6 +413,7 @@ func main() {
 
 	userRoutes := &userroutes.UserRoutes{
 		AuthRoutes:           authRoutes,
+		AppspaceLoginRoutes:  appspaceLoginRoutes,
 		AdminRoutes:          adminRoutes,
 		ApplicationRoutes:    applicationRoutes,
 		AppspaceRoutes:       userAppspaceRoutes,
@@ -415,20 +436,29 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb}
 	appspaceRouteModels.Init()
 
+	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
+		AppspaceModel:  appspaceModel,
+		V0RequestToken: v0requestToken,
+		V0TokenManager: v0tokenManager,
+	}
+	dropserverRoutes := &appspacerouter.DropserverRoutes{
+		V0DropServerRoutes: v0dropserverRoutes,
+	}
+
 	v0appspaceRouter := &appspacerouter.V0{
 		AppspaceRouteModels: appspaceRouteModels,
 		AppspaceUserModel:   appspaceUserModel,
-		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       authenticator,
-		AppspaceLogin:       appspaceLogin,
+		V0TokenManager:      v0tokenManager,
 		Config:              runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		AppModel:       appModel,
-		AppspaceModel:  appspaceModel,
-		AppspaceStatus: appspaceStatus,
-		V0:             v0appspaceRouter}
+		AppModel:         appModel,
+		AppspaceModel:    appspaceModel,
+		AppspaceStatus:   appspaceStatus,
+		DropserverRoutes: dropserverRoutes,
+		V0AppspaceRouter: v0appspaceRouter}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 

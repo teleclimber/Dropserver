@@ -17,18 +17,14 @@ type Views struct {
 
 	base BaseData
 
-	appspaceLoginTemplate *template.Template
-	loginTemplate         *template.Template
-	signupTemplate        *template.Template
+	loginTemplate  *template.Template
+	signupTemplate *template.Template
 }
 
 // BaseData is the basic data that the page needs to render
 // Contains things like url prefixes.
 // (not currently used)
 type BaseData struct{}
-
-//go:embed appspace.html
-var appspaceTemplateStr string
 
 //go:embed login.html
 var loginTemplateStr string
@@ -51,28 +47,8 @@ func (v *Views) GetStaticFS() fs.FS {
 func (v *Views) PrepareTemplates() {
 	v.base = BaseData{}
 
-	v.appspaceLoginTemplate = template.Must(template.New("appspace-login").Parse(appspaceTemplateStr))
 	v.loginTemplate = template.Must(template.New("login").Parse(loginTemplateStr))
 	v.signupTemplate = template.Must(template.New("signup").Parse(signupTemplateStr))
-}
-
-type appspaceLoginData struct {
-	BaseData
-	AppspaceLoginViewData domain.AppspaceLoginViewData
-}
-
-// AppspaceLogin executes the login template and sends it down as a response?
-func (v *Views) AppspaceLogin(res http.ResponseWriter, viewData domain.AppspaceLoginViewData) {
-	d := appspaceLoginData{
-		BaseData:              v.base,
-		AppspaceLoginViewData: viewData}
-
-	err := v.appspaceLoginTemplate.Execute(res, d)
-	if err != nil {
-		record.NewDsLogger().AddNote("")
-		v.getLogger("AppspaceLogin()").Error(err)
-		// Too late to send error status. Hopefully the logger is enough.
-	}
 }
 
 type loginData struct {
