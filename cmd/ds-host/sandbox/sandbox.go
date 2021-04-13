@@ -636,7 +636,7 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
 	im := ImportPaths{
 		Imports: map[string]string{
-			"/":            "undefined:", // Defeat imports from outside the app dir. See:
+			"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
 			"@app/":        appPath,
 			"@appspace/":   appspacePath,

@@ -671,7 +671,7 @@ class MessageRegistry {
 		// should also prevent further messages from registering at this point
 		if(this.resolveAllUnregistered !== undefined) throw new Error("alredy waiting for all unregistered");
 		if(this.messages.size === 0) return;
-		return new Promise( (resolve, reject) => {
+		return new Promise<void>( (resolve, reject) => {
 			this.resolveAllUnregistered = resolve;
 		});
 	}
