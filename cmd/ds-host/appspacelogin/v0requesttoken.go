@@ -91,9 +91,13 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 	resp, err := http.Post(protocol+"://"+appspaceDomain+r.Config.Exec.PortString+"/.dropserver/v0/login-token-request", "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
 		r.pushResults(ref, "", err)
+		return
 	}
-	if resp.StatusCode != http.StatusAccepted {
-		r.pushResults(ref, "", errors.New("remote host sent status: "+resp.Status))
+	if resp != nil {
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusAccepted {
+			r.pushResults(ref, "", errors.New("remote host sent status: "+resp.Status))
+		}
 	}
 }
 

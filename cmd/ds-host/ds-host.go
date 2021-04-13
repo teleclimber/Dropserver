@@ -341,10 +341,12 @@ func main() {
 	}
 
 	appspaceLoginRoutes := &userroutes.AppspaceLoginRoutes{
+		Config:              runtimeConfig,
 		AppspaceModel:       appspaceModel,
 		RemoteAppspaceModel: remoteAppspaceModel,
 		DS2DS:               ds2ds,
 		V0RequestToken:      v0requestToken,
+		V0TokenManager:      v0tokenManager,
 	}
 
 	adminRoutes := &userroutes.AdminRoutes{

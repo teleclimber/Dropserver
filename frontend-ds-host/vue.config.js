@@ -19,6 +19,11 @@ module.exports = {
 				changeOrigin: true,
 				cookieDomainRewrite: ".localhost"
 			},
+			"/appspacelogin": {
+				target: "https://dropid.dropserver.develop:3000",
+				changeOrigin: true,
+				cookieDomainRewrite: ".localhost"
+			},
 			"/api": {
 				target: "https://dropid.dropserver.develop:3000",
 				changeOrigin: true,

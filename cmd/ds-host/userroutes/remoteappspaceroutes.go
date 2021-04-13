@@ -5,13 +5,25 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
+type RemoteAppspaceMeta struct {
+	UserID      domain.UserID `json:"user_id"`
+	DomainName  string        `json:"domain_name"`
+	OwnerDropID string        `json:"owner_dropid"`
+	UserDropID  string        `json:"dropid"`
+	NoSSL       bool          `json:"no_ssl"`
+	PortString  string        `json:"port_string"`
+	Created     time.Time     `json:"created_dt"`
+}
+
 type RemoteAppspaceRoutes struct {
+	Config              domain.RuntimeConfig
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
 		GetForUser(userID domain.UserID) ([]domain.RemoteAppspace, error)
@@ -51,13 +63,18 @@ func (a *RemoteAppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Requ
 }
 
 func (a *RemoteAppspaceRoutes) getForUser(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	remote, err := a.RemoteAppspaceModel.GetForUser(routeData.Authentication.UserID)
+	remotes, err := a.RemoteAppspaceModel.GetForUser(routeData.Authentication.UserID)
 	if err != nil {
 		returnError(res, err)
 		return
 	}
 
-	writeJSON(res, remote)
+	respData := make([]RemoteAppspaceMeta, len(remotes))
+	for i, r := range remotes {
+		respData[i] = a.makeRemoteAppspaceMeta(r)
+	}
+
+	writeJSON(res, respData)
 }
 
 type RemoteAppspacePost struct {
@@ -168,7 +185,7 @@ func (a *RemoteAppspaceRoutes) getRemoteAppspace(res http.ResponseWriter, req *h
 		return
 	}
 
-	writeJSON(res, remote)
+	writeJSON(res, a.makeRemoteAppspaceMeta(remote))
 }
 
 func (a *RemoteAppspaceRoutes) delete(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
@@ -199,4 +216,14 @@ func getCleanDomain(dom string) (string, error) {
 		return "", err
 	}
 	return validator.NormalizeDomainName(domainStr), nil
+}
+
+func (a *RemoteAppspaceRoutes) makeRemoteAppspaceMeta(appspace domain.RemoteAppspace) RemoteAppspaceMeta {
+	return RemoteAppspaceMeta{
+		DomainName:  appspace.DomainName,
+		OwnerDropID: appspace.OwnerDropID,
+		UserDropID:  appspace.UserDropID,
+		NoSSL:       a.Config.Server.NoSsl,
+		PortString:  a.Config.Exec.PortString,
+		Created:     appspace.Created}
 }

@@ -4,7 +4,10 @@ export class RemoteAppspace {
 	loaded = false;
 
 	domain_name = "";
+	owner_dropid = "";
 	user_dropid = "";
+	no_ssl = false;
+	port_string = "";
 	created_dt = new Date();
 
 	async fetch(domain_name: string) {
@@ -16,6 +19,8 @@ export class RemoteAppspace {
 	}
 	setFromRaw(raw :any) {
 		this.domain_name = raw.domain_name+'';
+		this.owner_dropid = raw.owner_dropid+'';
+		this.user_dropid = raw.user_dropid+'';
 		this.user_dropid = raw.user_dropid+'';
 		this.created_dt = new Date(raw.created_dt);
 

@@ -378,11 +378,11 @@ type Appspace struct {
 }
 
 type RemoteAppspace struct {
-	UserID      UserID    `db:"user_id" json:"user_id"`
-	DomainName  string    `db:"domain_name" json:"domain_name"`
-	OwnerDropID string    `db:"owner_dropid" json:"owner_dropid"`
-	UserDropID  string    `db:"dropid" json:"dropid"`
-	Created     time.Time `db:"created" json:"created_dt"`
+	UserID      UserID    `db:"user_id"`
+	DomainName  string    `db:"domain_name"`
+	OwnerDropID string    `db:"owner_dropid"`
+	UserDropID  string    `db:"dropid"`
+	Created     time.Time `db:"created"`
 }
 
 // AppspaceUserPermission describes a permission that can be granted to

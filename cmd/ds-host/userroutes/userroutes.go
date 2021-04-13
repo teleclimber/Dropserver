@@ -92,6 +92,7 @@ func (u *UserRoutes) serveLoggedInRoutes(res http.ResponseWriter, req *http.Requ
 		res.Header().Set("Content-Type", "text/html; charset=utf-8")
 		res.Write(htmlBytes)
 	case "appspacelogin":
+		routeData.URLTail = tail
 		u.AppspaceLoginRoutes.ServeHTTP(res, req, routeData)
 	case "api":
 		head, tail = shiftpath.ShiftPath(tail)
