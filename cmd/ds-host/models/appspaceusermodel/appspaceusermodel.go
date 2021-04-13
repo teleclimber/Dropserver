@@ -132,7 +132,7 @@ func (m *AppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.Pro
 // It returns sql.ErrNoRows if not found
 func (m *AppspaceUserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
 	var appspaceUser domain.AppspaceUser
-	err := m.stmt.get.QueryRowx(appspaceID, dropID).StructScan(&appspaceUser)
+	err := m.stmt.getAppspaceDropID.QueryRowx(appspaceID, dropID).StructScan(&appspaceUser)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			m.getLogger("GetByDropID()").Error(err)

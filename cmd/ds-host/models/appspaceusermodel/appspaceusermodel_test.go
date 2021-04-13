@@ -102,3 +102,28 @@ func TestGetForAppspace(t *testing.T) {
 	}
 
 }
+
+func TestGetByDropID(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	model := &AppspaceUserModel{
+		DB: &domain.DB{
+			Handle: h}}
+	model.PrepareStatements()
+
+	appspaceID := domain.AppspaceID(7)
+	dropID := "me.com/me"
+	_, err := model.Create(appspaceID, "dropid", dropID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := model.GetByDropID(appspaceID, dropID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.AuthID != dropID {
+		t.Error("expected drop id to match")
+	}
+}
