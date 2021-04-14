@@ -371,6 +371,7 @@ func main() {
 		AppspaceUserRoutes:     userAppspaceUserRoutes,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
+		AppspaceUserModel:      appspaceUserModel,
 		DropIDModel:            dropIDModel,
 		MigrationMinder:        migrationMinder,
 		AppspaceMetaDB:         appspaceMetaDb,

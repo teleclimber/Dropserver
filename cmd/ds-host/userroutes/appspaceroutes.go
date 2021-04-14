@@ -46,6 +46,10 @@ type AppspaceRoutes struct {
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
 	}
+	AppspaceUserModel interface {
+		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
+		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
+	}
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
 	}
@@ -238,7 +242,13 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	}
 
 	// also need to validate dropid
-	dropIDHandle, dropIDDomain := validator.SplitDropID(reqData.DropID)
+	err = validator.DropIDFull(reqData.DropID)
+	if err != nil {
+		returnError(res, err)
+		return
+	}
+	dropIDStr := validator.NormalizeDropIDFull(reqData.DropID)
+	dropIDHandle, dropIDDomain := validator.SplitDropID(dropIDStr)
 	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -249,7 +259,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		return
 	}
 	if dropID.UserID != routeData.Authentication.UserID {
-		returnError(res, errors.New("DropID user does not a match for authenticated user"))
+		returnError(res, errors.New("DropID user does not match authenticated user"))
 		return
 	}
 
@@ -279,8 +289,19 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 		http.Error(res, "Failed to create appspace meta db", http.StatusInternalServerError)
 	}
 
-	// migrate to whatever version was selected
+	// Create owner user
+	_, err = a.AppspaceUserModel.Create(appspace.AppspaceID, "dropid", dropIDStr)
+	if err != nil {
+		returnError(res, err)
+		return
+	}
 
+	// set permissions for owner to max permissions.
+	// 	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, []string{})
+	// 	if err != nil {
+	// 	}
+
+	// migrate to whatever version was selected
 	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
