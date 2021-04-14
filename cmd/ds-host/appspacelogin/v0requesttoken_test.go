@@ -130,11 +130,15 @@ func TestMakeRequest(t *testing.T) {
 	userID := domain.UserID(7)
 	userDropID := "dropid.domain.com/alice"
 
+	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
+	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)
+
 	remoteModel := testmocks.NewMockRemoteAppspaceModel(mockCtrl)
 	remoteModel.EXPECT().Get(userID, gomock.Any()).Return(domain.RemoteAppspace{UserDropID: userDropID}, nil)
 
 	v0requestToken := V0RequestToken{
 		Config:              config,
+		DS2DS:               ds2ds,
 		RemoteAppspaceModel: remoteModel}
 
 	server := httptest.NewServer(http.HandlerFunc(
@@ -181,11 +185,15 @@ func TestRequestToken(t *testing.T) {
 	userID := domain.UserID(7)
 	userDropID := "dropid.domain.com/alice"
 
+	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
+	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)
+
 	remoteModel := testmocks.NewMockRemoteAppspaceModel(mockCtrl)
 	remoteModel.EXPECT().Get(userID, gomock.Any()).Return(domain.RemoteAppspace{UserDropID: userDropID}, nil)
 
 	v0requestToken := V0RequestToken{
 		Config:              config,
+		DS2DS:               ds2ds,
 		RemoteAppspaceModel: remoteModel}
 
 	server := httptest.NewServer(http.HandlerFunc(
@@ -230,11 +238,15 @@ func TestRequestTokenCancel(t *testing.T) {
 	userID := domain.UserID(7)
 	userDropID := "dropid.domain.com/alice"
 
+	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
+	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)
+
 	remoteModel := testmocks.NewMockRemoteAppspaceModel(mockCtrl)
 	remoteModel.EXPECT().Get(userID, gomock.Any()).Return(domain.RemoteAppspace{UserDropID: userDropID}, nil)
 
 	v0requestToken := V0RequestToken{
 		Config:              config,
+		DS2DS:               ds2ds,
 		RemoteAppspaceModel: remoteModel}
 
 	server := httptest.NewServer(http.HandlerFunc(

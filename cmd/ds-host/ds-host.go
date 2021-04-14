@@ -233,8 +233,14 @@ func main() {
 		CookieModel: cookieModel,
 		Config:      runtimeConfig}
 
+	ds2ds := &ds2ds.DS2DS{
+		Config: runtimeConfig,
+	}
+	ds2ds.Init()
+
 	v0tokenManager := &appspacelogin.V0TokenManager{
 		Config:            *runtimeConfig,
+		DS2DS:             ds2ds,
 		AppspaceModel:     appspaceModel,
 		AppspaceUserModel: appspaceUserModel,
 	}
@@ -242,6 +248,7 @@ func main() {
 
 	v0requestToken := &appspacelogin.V0RequestToken{
 		Config:              *runtimeConfig,
+		DS2DS:               ds2ds,
 		RemoteAppspaceModel: remoteAppspaceModel,
 	}
 
@@ -335,10 +342,6 @@ func main() {
 		UserModel:           userModel,
 		UserInvitationModel: userInvitationModel,
 		Authenticator:       authenticator}
-
-	ds2ds := &ds2ds.DS2DS{
-		Config: runtimeConfig,
-	}
 
 	appspaceLoginRoutes := &userroutes.AppspaceLoginRoutes{
 		Config:              runtimeConfig,

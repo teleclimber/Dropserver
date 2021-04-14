@@ -134,6 +134,9 @@ func TestSendToken(t *testing.T) {
 	config := domain.RuntimeConfig{}
 	config.Server.NoSsl = true
 
+	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
+	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)
+
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
 	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
@@ -141,6 +144,7 @@ func TestSendToken(t *testing.T) {
 
 	tokenManager := V0TokenManager{
 		Config:            config,
+		DS2DS:             ds2ds,
 		AppspaceModel:     appspaceModel,
 		AppspaceUserModel: appspaceUserModel}
 	tokenManager.Start()

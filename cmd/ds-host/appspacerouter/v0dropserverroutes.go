@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
 	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -116,6 +117,8 @@ func (r *V0DropserverRoutes) loginTokenRequest(res http.ResponseWriter, req *htt
 	// .. and send the login token independently as a new request.
 	res.WriteHeader(http.StatusAccepted)
 
+	r.getLogger("loginTokenRequest").Debug("accepted for " + host)
+
 	go r.V0TokenManager.SendLoginToken(appspace.AppspaceID, dropID, data.Ref)
 }
 
@@ -153,6 +156,14 @@ func (r *V0DropserverRoutes) loginTokenResponse(res http.ResponseWriter, req *ht
 	}
 
 	r.V0RequestToken.ReceiveToken(data.Ref, data.Token)
+}
+
+func (r *V0DropserverRoutes) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("V0DropserverRoutes")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }
 
 func readJSON(req *http.Request, data interface{}) error {

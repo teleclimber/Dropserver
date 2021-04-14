@@ -36,6 +36,7 @@ type RuntimeConfig struct {
 		SslCert string `json:"ssl-cert"`
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
+	TrustCert  string `json:"trust-cert"`
 	Subdomains struct {
 		UserAccounts string `json:"user-accounts"`
 		StaticAssets string `json:"static-assets"` // this can't just be a subdomain, has to be full domain, (but you could use a cname in DNS, right)

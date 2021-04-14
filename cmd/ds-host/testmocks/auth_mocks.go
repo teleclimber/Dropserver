@@ -241,6 +241,20 @@ func (m *MockDS2DS) EXPECT() *MockDS2DSMockRecorder {
 	return m.recorder
 }
 
+// GetClient mocks base method
+func (m *MockDS2DS) GetClient() *http.Client {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClient")
+	ret0, _ := ret[0].(*http.Client)
+	return ret0
+}
+
+// GetClient indicates an expected call of GetClient
+func (mr *MockDS2DSMockRecorder) GetClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClient", reflect.TypeOf((*MockDS2DS)(nil).GetClient))
+}
+
 // GetRemoteAPIVersion mocks base method
 func (m *MockDS2DS) GetRemoteAPIVersion(arg0 string) (int, error) {
 	m.ctrl.T.Helper()

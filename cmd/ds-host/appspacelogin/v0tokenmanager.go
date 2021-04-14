@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -18,7 +19,10 @@ const loginTokenDuration = time.Minute
 // V0TokenManager creates appspace login tokens
 // and sends them as needed
 type V0TokenManager struct {
-	Config        domain.RuntimeConfig
+	Config domain.RuntimeConfig
+	DS2DS  interface {
+		GetClient() *http.Client
+	}
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
@@ -129,6 +133,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 
 	appspace, err := m.AppspaceModel.GetFromID(appspaceID)
 	if err != nil {
+		log.Debug("appspace id not found")
 		return err
 	}
 
@@ -137,6 +142,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 	// if dropid not in appspace user, this returns no rows, so bail because you can't log them in
 	_, err = m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
 	if err != nil {
+		log.Debug("appspace user dropid not found " + dropID)
 		return err
 	}
 
@@ -162,7 +168,15 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 		protocol = "http"
 	}
 
-	resp, err := http.Post(protocol+"://"+appspace.DomainName+m.Config.Exec.PortString+"/.dropserver/v0/appspace-login-token", "application/json", bytes.NewBuffer(jsonStr))
+	client := m.DS2DS.GetClient()
+	u := protocol + "://" + appspace.DomainName + m.Config.Exec.PortString + "/.dropserver/v0/login-token"
+	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		log.AddNote("Error creating request").Error(err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		log.AddNote("Error posting token").Error(err)
 		return err
@@ -171,6 +185,9 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 		log.Log("got unexpected status code: " + resp.Status)
 		return errors.New("got unexpected status code from remote: " + resp.Status)
 	}
+
+	log.Debug(fmt.Sprintf("sent token for %v to %v", appspace.DomainName, dropID))
+
 	return nil
 }
 

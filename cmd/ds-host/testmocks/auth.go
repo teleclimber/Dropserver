@@ -35,4 +35,5 @@ type V0RequestToken interface {
 // DS2DS is a helper for ds-host to ds-host communications
 type DS2DS interface {
 	GetRemoteAPIVersion(domainName string) (int, error)
+	GetClient() *http.Client
 }

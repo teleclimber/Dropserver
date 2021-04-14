@@ -29,7 +29,10 @@ type requestResults struct {
 var timeout = 30 * time.Second
 
 type V0RequestToken struct {
-	Config              domain.RuntimeConfig
+	Config domain.RuntimeConfig
+	DS2DS  interface {
+		GetClient() *http.Client
+	}
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
 	}
@@ -73,13 +76,15 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 		r.pushResults(ref, "", errors.New("operation get token timed out"))
 	}()
 
+	log := r.getLogger("makeRequest").UserID(userID).AddNote("remote appspace: " + appspaceDomain)
+
 	data := domain.V0LoginTokenRequest{
 		DropID: remote.UserDropID,
 		Ref:    ref,
 	}
 	jsonStr, err := json.Marshal(data)
 	if err != nil {
-		r.getLogger("JSON encode login token").Error(err)
+		log.AddNote("JSON encode login token").Error(err)
 		return
 	}
 
@@ -88,7 +93,15 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 		protocol = "http"
 	}
 
-	resp, err := http.Post(protocol+"://"+appspaceDomain+r.Config.Exec.PortString+"/.dropserver/v0/login-token-request", "application/json", bytes.NewBuffer(jsonStr))
+	client := r.DS2DS.GetClient()
+	u := protocol + "://" + appspaceDomain + r.Config.Exec.PortString + "/.dropserver/v0/login-token-request"
+	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		r.pushResults(ref, "", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		r.pushResults(ref, "", err)
 		return
@@ -97,8 +110,10 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusAccepted {
 			r.pushResults(ref, "", errors.New("remote host sent status: "+resp.Status))
+			return
 		}
 	}
+	log.Debug("successfully completed")
 }
 
 // registerRequest adds the channel to subscribers of existing request
@@ -177,7 +192,7 @@ func (r *V0RequestToken) ReceiveError(ref string, err error) {
 }
 
 func (r *V0RequestToken) getLogger(note string) *record.DsLogger {
-	l := record.NewDsLogger().AddNote("s")
+	l := record.NewDsLogger().AddNote("V0RequestToken")
 	if note != "" {
 		l.AddNote(note)
 	}
