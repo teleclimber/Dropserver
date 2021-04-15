@@ -26,7 +26,7 @@ type AppspaceLoginRoutes struct {
 		RequestToken(ctx context.Context, userID domain.UserID, appspaceDomain string, sessionID string) (string, error)
 	}
 	V0TokenManager interface {
-		GetForOwner(appspaceID domain.AppspaceID, dropID string) string
+		GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error)
 	}
 }
 
@@ -63,12 +63,21 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(res http.ResponseWriter, req *
 
 	appspace, err := u.AppspaceModel.GetFromDomain(appspaceDomain)
 	if err != nil {
+		// some day appspace model will return an error if appspace not found.
+		// handle that appropriately.
 		returnError(res, err)
 		return
 	}
 	if appspace != nil && appspace.OwnerID == routeData.Authentication.UserID {
 		// Found an appspace owned by the user requesting a token.
-		token := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
+		// We're assuming the appspace owner is a user.
+		// This is handled differently from "remote" appspaces because
+		// there is no entry for this appspace in owner's "remote" appspaces.
+		token, err := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
+		if err != nil {
+			returnError(res, err)
+			return
+		}
 		http.Redirect(res, req, u.makeRedirectLink(appspaceDomain, token), http.StatusTemporaryRedirect)
 		return
 	}

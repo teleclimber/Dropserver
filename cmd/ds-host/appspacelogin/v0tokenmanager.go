@@ -61,10 +61,11 @@ func (m *V0TokenManager) Stop() {
 }
 
 // create an appspace login token
-func (m *V0TokenManager) create(appspaceID domain.AppspaceID, dropID string) domain.V0AppspaceLoginToken {
+func (m *V0TokenManager) create(appspaceID domain.AppspaceID, dropID string, proxyID domain.ProxyID) domain.V0AppspaceLoginToken {
 	token := domain.V0AppspaceLoginToken{
 		AppspaceID: appspaceID,
 		DropID:     dropID,
+		ProxyID:    proxyID,
 		LoginToken: domain.TimedToken{
 			Token:   randomString(24),
 			Created: time.Now()},
@@ -118,10 +119,14 @@ func (m *V0TokenManager) purgeTokens() {
 }
 
 // Get a login token for an appspace owned by the user
-// Truns out this is just a proxy for create token
-func (m *V0TokenManager) GetForOwner(appspaceID domain.AppspaceID, dropID string) string {
-	tok := m.create(appspaceID, dropID)
-	return tok.LoginToken.Token
+func (m *V0TokenManager) GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error) {
+	user, err := m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
+	if err != nil {
+		m.getLogger("GetForOwner").Debug("appspace user dropid not found " + dropID)
+		return "", err
+	}
+	tok := m.create(appspaceID, dropID, user.ProxyID)
+	return tok.LoginToken.Token, nil
 }
 
 // SendLoginToken verifies that drop id can access appspace
@@ -140,16 +145,15 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 	// should we check to see if appspace is paused?
 
 	// if dropid not in appspace user, this returns no rows, so bail because you can't log them in
-	_, err = m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
+	user, err := m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
 	if err != nil {
 		log.Debug("appspace user dropid not found " + dropID)
 		return err
 	}
 
-	// if no errors then user exists for that appspace
 	// Should check if user is blocked and things like that when we have those features.
 
-	token := m.create(appspaceID, dropID)
+	token := m.create(appspaceID, dropID, user.ProxyID)
 
 	// Now send the token. For now we can do this here?
 	data := domain.V0LoginTokenResponse{

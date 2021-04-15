@@ -30,7 +30,7 @@ func TestOwnerLogin(t *testing.T) {
 		DropID:     dropID}, nil)
 
 	v0tokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0tokenManager.EXPECT().GetForOwner(appspaceID, dropID).Return(token)
+	v0tokenManager.EXPECT().GetForOwner(appspaceID, dropID).Return(token, nil)
 
 	m := &AppspaceLoginRoutes{
 		Config:         &domain.RuntimeConfig{},

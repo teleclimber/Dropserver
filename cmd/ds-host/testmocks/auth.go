@@ -20,7 +20,7 @@ type Authenticator interface {
 
 // V0TokenManager tracks and returns appspace login tokens
 type V0TokenManager interface {
-	GetForOwner(appspaceID domain.AppspaceID, dropID string) string
+	GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error)
 	CheckToken(token string) (domain.V0AppspaceLoginToken, bool)
 	SendLoginToken(appspaceID domain.AppspaceID, dropID string, ref string) error
 }

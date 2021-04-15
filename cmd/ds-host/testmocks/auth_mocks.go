@@ -129,11 +129,12 @@ func (mr *MockV0TokenManagerMockRecorder) CheckToken(arg0 interface{}) *gomock.C
 }
 
 // GetForOwner mocks base method
-func (m *MockV0TokenManager) GetForOwner(arg0 domain.AppspaceID, arg1 string) string {
+func (m *MockV0TokenManager) GetForOwner(arg0 domain.AppspaceID, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetForOwner", arg0, arg1)
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetForOwner indicates an expected call of GetForOwner

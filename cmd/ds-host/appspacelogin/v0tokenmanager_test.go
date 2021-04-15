@@ -15,8 +15,9 @@ import (
 func TestCreate(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
+	proxyID := domain.ProxyID("proxy-abc")
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def")
+	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
 	if tok.AppspaceID != domain.AppspaceID(7) {
 		t.Error("wrong appspace id")
 	}
@@ -31,8 +32,9 @@ func TestCreate(t *testing.T) {
 func TestCheckToken(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
+	proxyID := domain.ProxyID("proxy-abc")
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def")
+	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
 
 	tok, ok := a.CheckToken(tok.LoginToken.Token)
 	if !ok {
@@ -49,8 +51,9 @@ func TestCheckToken(t *testing.T) {
 func TestLogInBadTokens(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
+	proxyID := domain.ProxyID("proxy-abc")
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def")
+	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
 
 	_, ok := a.CheckToken("baz")
 	if ok {
@@ -69,8 +72,9 @@ func TestLogInBadTokens(t *testing.T) {
 func TestLogInTwice(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
+	proxyID := domain.ProxyID("proxy-abc")
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def")
+	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
 
 	_, ok := a.CheckToken(tok.LoginToken.Token)
 	if !ok {

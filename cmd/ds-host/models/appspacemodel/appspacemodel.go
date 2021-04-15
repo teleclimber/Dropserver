@@ -82,6 +82,7 @@ func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspac
 
 // GetFromDomain gets an AppSpace by looking up the domain
 // It returns nil, nil if no matches found
+// TODO: this is wrong it should return an error (sql.ErrNoRows for now, a custom sentinel error when we have one)
 func (m *AppspaceModel) GetFromDomain(dom string) (*domain.Appspace, error) {
 	var appspace domain.Appspace
 
