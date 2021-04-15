@@ -10,7 +10,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
@@ -208,24 +207,20 @@ func main() {
 		SandboxManager: devSandboxManager,
 		Metrics:        &m}
 
-	appspaceLogin := &appspacelogin.AppspaceLogin{}
-	appspaceLogin.Start()
-
 	appspaceRouterV0 := &appspacerouter.V0{
 		AppspaceUserModel:   devAppspaceUserModel,
 		AppspaceRouteModels: appspaceRouteModels,
-		DropserverRoutes:    &appspacerouter.DropserverRoutesV0{},
 		SandboxProxy:        sandboxProxy,
 		Authenticator:       devAuth,
 		RouteHitEvents:      routeHitEvents,
-		AppspaceLogin:       appspaceLogin,
 		Config:              runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		AppModel:       devAppModel,
-		AppspaceModel:  devAppspaceModel,
-		AppspaceStatus: appspaceStatus,
-		V0:             appspaceRouterV0}
+		AppModel:         devAppModel,
+		AppspaceModel:    devAppspaceModel,
+		AppspaceStatus:   appspaceStatus,
+		V0AppspaceRouter: appspaceRouterV0,
+	}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
