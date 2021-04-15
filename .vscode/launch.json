@@ -48,7 +48,7 @@
 			"type": "go",
 			"request": "attach",
 			"mode": "remote",
-			"host": "10.211.55.9",
+			"host": "192.168.1.53",
 			"port": 2345,
 			"remotePath": "/home/developer/dropserver-code",
 		},{
