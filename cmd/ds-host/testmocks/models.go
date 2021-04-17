@@ -64,6 +64,7 @@ type AppspaceModel interface {
 	Create(domain.Appspace) (*domain.Appspace, error)
 	Pause(domain.AppspaceID, bool) error
 	SetVersion(domain.AppspaceID, domain.Version) error
+	Delete(domain.AppspaceID) error
 }
 
 // RemoteAppspaceModel is the inrweface for remote appspace model

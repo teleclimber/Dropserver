@@ -1,6 +1,7 @@
 package appspacemodel
 
 import (
+	"database/sql"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
@@ -214,6 +215,14 @@ func TestGetters(t *testing.T) {
 	if len(appSpaces) != 2 {
 		t.Error("expected 2 appspaces")
 	}
+
+	appSpaces, err = model.GetForAppVersion(6, "0.0.3")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appSpaces) != 1 {
+		t.Error("expected 1 appspaces")
+	}
 }
 
 func TestCreateDupeSubdomain(t *testing.T) {
@@ -251,55 +260,6 @@ func TestCreateDupeSubdomain(t *testing.T) {
 }
 
 //TODO: test dupe locationKey?
-
-// func TestGetForApp(t *testing.T) {
-// 	h := migrate.MakeSqliteDummyDB()
-// 	defer h.Close()
-
-// 	db := &domain.DB{
-// 		Handle: h}
-
-// 	model := &AppspaceModel{
-// 		DB: db}
-
-// 	model.PrepareStatements()
-
-// 	ins := []struct {
-// 		userID    domain.UserID
-// 		appID     domain.AppID
-// 		version   domain.Version
-// 		subDomain string
-// 		location  string
-// 	}{
-// 		{7, 4, "0.0.1", "foo-subdomain", "as123"},
-// 		{7, 5, "0.0.2", "2foo-subdomain", "as124"},
-// 		{7, 6, "0.0.3", "3foo-subdomain", "as125"},
-// 		{11, 6, "0.0.1", "bar-subdomain", "as126"},
-// 	}
-
-// 	for _, i := range ins {
-// 		_, err := model.Create(i.userID, i.appID, i.version, i.subDomain, i.location)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 	}
-
-// 	appSpaces, err := model.GetForApp(6)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	if len(appSpaces) != 2 {
-// 		t.Error("expected 2 appspaces")
-// 	}
-
-// 	appSpaces, err = model.GetForApp(1)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	if len(appSpaces) != 0 {
-// 		t.Error("expected ZERO appspaces")
-// 	}
-// }
 
 func TestPause(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -383,5 +343,49 @@ func TestSetVersion(t *testing.T) {
 	}
 	if appspace.AppVersion != domain.Version("0.0.2") {
 		t.Error("appspace version incorrect")
+	}
+}
+
+func TestDelete(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &AppspaceModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	err := model.Delete(domain.AppspaceID(9999))
+	if err == nil {
+		t.Error("expected error")
+	}
+	if err != domain.ErrNoRowsAffected {
+		t.Error(err)
+	}
+
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		DomainName:  "test-appspace",
+		LocationKey: "as123",
+	}
+
+	appspace, err := model.Create(inAppspace)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = model.Delete(appspace.AppspaceID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = model.GetFromID(appspace.AppspaceID)
+	if err != sql.ErrNoRows {
+		t.Error("expected no rows in result set error")
 	}
 }

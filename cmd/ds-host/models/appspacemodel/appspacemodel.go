@@ -28,6 +28,7 @@ type AppspaceModel struct {
 		insert           *sqlx.Stmt
 		pause            *sqlx.Stmt
 		setVersion       *sqlx.Stmt
+		delete           *sqlx.Stmt
 	}
 }
 
@@ -59,6 +60,8 @@ func (m *AppspaceModel) PrepareStatements() {
 	m.stmt.pause = p.Prep(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
 
 	m.stmt.setVersion = p.Prep(`UPDATE appspaces SET app_version = ? WHERE appspace_id = ?`)
+
+	m.stmt.delete = p.Prep(`DELETE FROM appspaces WHERE appspace_id = ?`)
 }
 
 // GetFromID gets an AppSpace by its ID
@@ -134,7 +137,7 @@ func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Vers
 		return nil, err
 	}
 
-	return ret, nil // TODO: add test for this function
+	return ret, nil
 }
 
 // Create adds an appspace to the database
@@ -173,12 +176,16 @@ func (m *AppspaceModel) Create(appspace domain.Appspace) (*domain.Appspace, erro
 
 // Pause changes the paused status of the appspace
 func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
-	_, err := m.stmt.pause.Exec(pause, appspaceID)
+	result, err := m.stmt.pause.Exec(pause, appspaceID)
 	if err != nil {
 		m.getLogger("Pause").Error(err)
 		return err
 	}
-
+	err = checkOneRowAffected(result)
+	if err != nil {
+		m.getLogger("Pause, checkOneRowAffected").Error(err)
+		return err
+	}
 	m.AsPausedEvent.Send(appspaceID, pause)
 
 	return nil
@@ -186,9 +193,30 @@ func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
 
 // SetVersion changes the active version of the application for tha tappspace
 func (m *AppspaceModel) SetVersion(appspaceID domain.AppspaceID, version domain.Version) error {
-	_, err := m.stmt.setVersion.Exec(version, appspaceID)
+	result, err := m.stmt.setVersion.Exec(version, appspaceID)
 	if err != nil {
 		m.getLogger("SetVersion").Error(err)
+		return err
+	}
+	err = checkOneRowAffected(result)
+	if err != nil {
+		m.getLogger("SetVersion, checkOneRowAffected").Error(err)
+		return err
+	}
+
+	return nil
+}
+
+// Delete the appspace from the DB
+func (m *AppspaceModel) Delete(appspaceID domain.AppspaceID) error {
+	result, err := m.stmt.delete.Exec(appspaceID)
+	if err != nil {
+		m.getLogger("Delete").Error(err)
+		return err
+	}
+	err = checkOneRowAffected(result)
+	if err != nil {
+		m.getLogger("Delete, checkOneRowAffected").Error(err)
 		return err
 	}
 
@@ -201,4 +229,16 @@ func (m *AppspaceModel) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
+}
+
+// This could/should be extracted out into a helper fn
+func checkOneRowAffected(result sql.Result) error {
+	numRow, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if numRow != 1 {
+		return domain.ErrNoRowsAffected
+	}
+	return nil
 }
