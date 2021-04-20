@@ -1,4 +1,4 @@
-package migrateappspace
+package appspaceops
 
 import (
 	"encoding/json"
@@ -15,8 +15,8 @@ import (
 // Twine command values:
 var migrateCommand = 11
 
-// JobController handles appspace functionality
-type JobController struct {
+// MigrationJobController handles appspace functionality
+type MigrationJobController struct {
 	MigrationJobModel interface {
 		GetPending() ([]*domain.MigrationJob, error)
 		SetStarted(domain.JobID) (bool, error)
@@ -49,7 +49,7 @@ type JobController struct {
 
 // Start allows jobs to run and can start the first job
 // with a delay (in the future)
-func (c *JobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
+func (c *MigrationJobController) Start() { // maybe pass delay before start (we want c.stop = true to take effect right away)
 	c.getLogger("Start()").Debug("starting")
 
 	c.runningJobs = make(map[domain.JobID]*runningJob)
@@ -78,7 +78,7 @@ func (c *JobController) Start() { // maybe pass delay before start (we want c.st
 
 // Stop blocks further jobs from starting
 // and waits for the last job to finish before returning.
-func (c *JobController) Stop() {
+func (c *MigrationJobController) Stop() {
 	c.stop = true
 
 	c.ticker.Stop()
@@ -96,7 +96,7 @@ func (c *JobController) Stop() {
 
 // eventManifold receives fanIn events and processes them accordingly.
 // It shuts down when c.fanIn is closed
-func (c *JobController) eventManifold() { // eventBus?
+func (c *MigrationJobController) eventManifold() { // eventBus?
 	for d := range c.fanIn {
 		if d.errString.Valid {
 			// TODO: put migration job id, appspace id, ...
@@ -143,13 +143,13 @@ func makeMigrationStatusData(s runningJobStatus) domain.MigrationStatusData {
 // WakeUp tells the job controller to immediately look for a job to process
 // Call this after inserting a new job with high priority to start that job right away
 // (if possible, depending on load and other jobs in the queue)
-func (c *JobController) WakeUp() {
+func (c *MigrationJobController) WakeUp() {
 	c.startNext()
 }
 
 // startNext decides if it should start a job
 // if so it finds the next job and starts it
-func (c *JobController) startNext() {
+func (c *MigrationJobController) startNext() {
 	if c.stop {
 		return
 	}
@@ -200,14 +200,14 @@ func (c *JobController) startNext() {
 // - check if sandbox is needed (so we can manage resources) //later
 // - tell appspace to gracefully shutdown, and wait til it does to actually start job (blocking appspace)
 
-func (c *JobController) createRunningJob(job *domain.MigrationJob) *runningJob {
+func (c *MigrationJobController) createRunningJob(job *domain.MigrationJob) *runningJob {
 
 	return &runningJob{
 		migrationJob: job,
 		sandboxMaker: c.SandboxMaker,
 		statusSubs:   make([]chan<- runningJobStatus, 0)}
 }
-func (c *JobController) runJob(job *runningJob) {
+func (c *MigrationJobController) runJob(job *runningJob) {
 	defer job.setStatus(domain.MigrationFinished)
 
 	appspaceID := job.migrationJob.AppspaceID
@@ -287,8 +287,8 @@ func (c *JobController) runJob(job *runningJob) {
 	}
 }
 
-func (c *JobController) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("JobController")
+func (c *MigrationJobController) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("MigrationJobController")
 	if note != "" {
 		r.AddNote(note)
 	}

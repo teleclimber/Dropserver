@@ -13,6 +13,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
@@ -22,7 +23,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/ds2ds"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
@@ -216,11 +216,11 @@ func main() {
 		AppspaceLogger: appspaceLogger,
 		Config:         runtimeConfig}
 
-	migrationSandboxMaker := &migrateappspace.SandboxMaker{
+	migrationSandboxMaker := &appspaceops.SandboxMaker{
 		AppspaceLogger: appspaceLogger,
 		Config:         runtimeConfig}
 
-	migrationJobCtl := &migrateappspace.JobController{
+	migrationJobCtl := &appspaceops.MigrationJobController{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: appspaceInfoModels,

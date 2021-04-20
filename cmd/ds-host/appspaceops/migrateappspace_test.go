@@ -1,4 +1,4 @@
-package migrateappspace
+package appspaceops
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ func TestRunningJobStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	controller := &JobController{}
+	controller := &MigrationJobController{}
 
 	job := &domain.MigrationJob{}
 	rj := controller.createRunningJob(job)
@@ -100,7 +100,7 @@ func TestRunJob(t *testing.T) {
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))
 
-	c := &JobController{
+	c := &MigrationJobController{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: infoModels,
@@ -119,7 +119,7 @@ func TestRunJob(t *testing.T) {
 }
 
 func TestStartNextStopped(t *testing.T) {
-	c := &JobController{
+	c := &MigrationJobController{
 		stop: true}
 
 	c.startNext()
@@ -131,7 +131,7 @@ func TestStartNextNoJobs(t *testing.T) {
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 
-	c := &JobController{
+	c := &MigrationJobController{
 		MigrationJobModel: migrationJobModel,
 	}
 
@@ -161,7 +161,7 @@ func TestStartNextOneJob(t *testing.T) {
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
 	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()
 
-	c := &JobController{
+	c := &MigrationJobController{
 		MigrationJobModel: migrationJobModel,
 		AppspaceModel:     appspaceModel,
 		AppspaceStatus:    appspaceStatus,
@@ -196,7 +196,7 @@ func TestEventManifold(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	c := &JobController{
+	c := &MigrationJobController{
 		runningJobs: make(map[domain.JobID]*runningJob),
 		fanIn:       make(chan runningJobStatus, 10)}
 
@@ -230,7 +230,7 @@ func TestEventManifoldFinished(t *testing.T) {
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().SetFinished(domain.JobID(1), gomock.Any())
 
-	c := &JobController{
+	c := &MigrationJobController{
 		MigrationJobModel: migrationJobModel,
 		runningJobs:       make(map[domain.JobID]*runningJob),
 		fanIn:             make(chan runningJobStatus, 10),
@@ -271,7 +271,7 @@ func TestFullStartStop(t *testing.T) {
 	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
 	migrationJobModel.EXPECT().GetPending().Return([]*domain.MigrationJob{}, nil)
 
-	c := &JobController{
+	c := &MigrationJobController{
 		MigrationJobModel: migrationJobModel}
 
 	c.Start()
@@ -288,7 +288,7 @@ func TestFullStartStopWithJob(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	c := &JobController{
+	c := &MigrationJobController{
 		MigrationJobModel: migrationJobModel}
 
 	rj := c.createRunningJob(&domain.MigrationJob{

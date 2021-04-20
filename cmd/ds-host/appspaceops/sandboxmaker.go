@@ -1,6 +1,6 @@
-package migrateappspace
+package appspaceops
 
-//go:generate mockgen -destination=mocks.go -package=migrateappspace -self_package=github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace SandboxMakerI
+//go:generate mockgen -destination=mocks.go -package=appspaceops -self_package=github.com/teleclimber/DropServer/cmd/ds-host/appspaceops github.com/teleclimber/DropServer/cmd/ds-host/appspaceops SandboxMakerI
 
 import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"

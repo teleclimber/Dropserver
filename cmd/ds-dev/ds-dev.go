@@ -11,11 +11,11 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
-	"github.com/teleclimber/DropServer/cmd/ds-host/migrateappspace"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
@@ -177,7 +177,7 @@ func main() {
 	}
 	devSandboxManager.Init()
 
-	migrateJobController := &migrateappspace.JobController{
+	migrateJobController := &appspaceops.MigrationJobController{
 		MigrationJobModel:  devMigrationJobModel,
 		AppModel:           devAppModel,
 		AppspaceInfoModels: appspaceInfoModels,
