@@ -145,6 +145,20 @@ func (mr *MockAppspaceStatusMockRecorder) WaitStopped(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitStopped", reflect.TypeOf((*MockAppspaceStatus)(nil).WaitStopped), arg0)
 }
 
+// WaitTempPaused mocks base method
+func (m *MockAppspaceStatus) WaitTempPaused(arg0 domain.AppspaceID, arg1 string) chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitTempPaused", arg0, arg1)
+	ret0, _ := ret[0].(chan struct{})
+	return ret0
+}
+
+// WaitTempPaused indicates an expected call of WaitTempPaused
+func (mr *MockAppspaceStatusMockRecorder) WaitTempPaused(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitTempPaused", reflect.TypeOf((*MockAppspaceStatus)(nil).WaitTempPaused), arg0, arg1)
+}
+
 // MockAppspaceRouter is a mock of AppspaceRouter interface
 type MockAppspaceRouter struct {
 	ctrl     *gomock.Controller

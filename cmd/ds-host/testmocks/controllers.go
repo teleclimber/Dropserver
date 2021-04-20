@@ -20,6 +20,7 @@ type AppspaceStatus interface {
 	SetHostStop(stop bool)
 	Ready(appspaceID domain.AppspaceID) bool
 	Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
+	WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	WaitStopped(appspaceID domain.AppspaceID)
 }
 

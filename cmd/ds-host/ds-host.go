@@ -306,15 +306,14 @@ func main() {
 	appGetter.Init()
 
 	appspaceStatus := &appspacestatus.AppspaceStatus{
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		AppspaceInfoModels: appspaceInfoModels,
-		//AppspaceRouter: see below
-		MigrationJobModel:    migrationJobModel,
+		AppspaceModel:        appspaceModel,
+		AppModel:             appModel,
+		AppspaceInfoModels:   appspaceInfoModels,
 		MigrationJobEvents:   migrationJobEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspacePausedEvent:  appspacePausedEvent,
 		AppspaceStatusEvents: appspaceStatusEvents,
+		//AppspaceRouter: see below
 	}
 	appspaceStatus.Init()
 

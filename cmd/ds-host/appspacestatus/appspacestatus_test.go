@@ -22,25 +22,18 @@ func TestLoadStatus(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
-	migrationJobModel.EXPECT().GetRunning().Return([]domain.MigrationJob{{AppspaceID: appspaceID}}, nil)
-
 	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
 	s := &AppspaceStatus{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
-		MigrationJobModel:  migrationJobModel,
 		AppspaceInfoModels: appspaceInfoModels,
 	}
 
 	status := s.getData(appspaceID)
 	if status.paused != true {
 		t.Error("paused should be true")
-	}
-	if !status.migrating {
-		t.Error("Expected migrating to be true")
 	}
 	if status.dataSchema != 4 {
 		t.Error("data schema should be 4")
@@ -61,21 +54,19 @@ func TestReady(t *testing.T) {
 		ready  bool
 	}{{
 		status: statusData{
-			migrating:        false,
 			paused:           false,
 			appVersionSchema: 3,
 			dataSchema:       3,
 			problem:          false},
 		ready: true}, {
 		status: statusData{
-			migrating:        true, //migrating
 			paused:           false,
+			tempPauses:       []tempPause{{reason: "migrating"}},
 			appVersionSchema: 3,
 			dataSchema:       3,
 			problem:          false},
 		ready: false}, {
 		status: statusData{
-			migrating:        false,
 			paused:           false,
 			appVersionSchema: 3,
 			dataSchema:       4, // mismatched data schema
@@ -133,6 +124,98 @@ func TestPauseEvent(t *testing.T) {
 	status.lock.Unlock()
 }
 
+func TestTempPause(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceID := domain.AppspaceID(7)
+
+	status1 := statusData{
+		paused:           false,
+		appVersionSchema: 3,
+		dataSchema:       3,
+		problem:          false}
+
+	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
+	appspaceStatusEvents.EXPECT().Send(appspaceID, gomock.Any()).AnyTimes()
+
+	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
+	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any())
+	s := AppspaceStatus{
+		AppspaceRouter:       appspaceRouter,
+		AppspaceStatusEvents: appspaceStatusEvents,
+		status:               make(map[domain.AppspaceID]*status),
+	}
+	s.status[appspaceID] = &status{data: status1}
+
+	doneCh := s.WaitTempPaused(appspaceID, "test")
+
+	if s.Ready(appspaceID) {
+		t.Error("should not be ready")
+	}
+
+	close(doneCh)
+
+	time.Sleep(100 * time.Millisecond) // have to sleep because closing the chan does not take effect synchronously here.
+	// can maybe change this if/when we have WaitReady
+
+	if !s.Ready(appspaceID) {
+		t.Error("should be ready")
+	}
+}
+
+func TestMultiTempPause(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceID := domain.AppspaceID(7)
+
+	status1 := statusData{
+		paused:           false,
+		appVersionSchema: 3,
+		dataSchema:       3,
+		problem:          false}
+
+	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
+	appspaceStatusEvents.EXPECT().Send(appspaceID, gomock.Any()).Times(2)
+
+	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
+	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any()).Times(2)
+	s := AppspaceStatus{
+		AppspaceRouter:       appspaceRouter,
+		AppspaceStatusEvents: appspaceStatusEvents,
+		status:               make(map[domain.AppspaceID]*status),
+	}
+	s.status[appspaceID] = &status{data: status1}
+
+	allDone := make(chan struct{})
+
+	doneCh1 := s.WaitTempPaused(appspaceID, "test1")
+
+	go func() {
+		doneCh2 := s.WaitTempPaused(appspaceID, "test2")
+		time.Sleep(100 * time.Millisecond)
+		if s.Ready(appspaceID) {
+			t.Error("should not be ready")
+		}
+		close(doneCh2)
+		time.Sleep(100 * time.Millisecond)
+		close(allDone)
+	}()
+
+	if s.Ready(appspaceID) {
+		t.Error("should not be ready")
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	close(doneCh1)
+	<-allDone
+	if !s.Ready(appspaceID) {
+		t.Error("should be ready")
+	}
+}
+
 func TestMigrationEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -140,7 +223,6 @@ func TestMigrationEvent(t *testing.T) {
 	appspaceID := domain.AppspaceID(7)
 
 	status1 := statusData{
-		migrating:        false,
 		paused:           false,
 		appVersionSchema: 3,
 		dataSchema:       3,
@@ -148,14 +230,10 @@ func TestMigrationEvent(t *testing.T) {
 	event1 := domain.AppspaceStatusEvent{
 		AppspaceID:       appspaceID,
 		AppVersionSchema: 3,
-		AppspaceSchema:   3,
-		Migrating:        true,
+		AppspaceSchema:   4,
 		Paused:           false,
 		Problem:          false,
 	}
-	event2 := event1
-	event2.Migrating = false
-	event2.AppspaceSchema = 4
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
@@ -163,21 +241,16 @@ func TestMigrationEvent(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	migrationJobModel := testmocks.NewMockMigrationJobModel(mockCtrl)
-	migrationJobModel.EXPECT().GetRunning().Return([]domain.MigrationJob{}, nil)
-
 	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
 	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
 	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
 	appspaceStatusEvents.EXPECT().Send(appspaceID, event1)
-	appspaceStatusEvents.EXPECT().Send(appspaceID, event2)
 
 	s := AppspaceStatus{
 		AppspaceModel:        appspaceModel,
 		AppModel:             appModel,
 		AppspaceInfoModels:   appspaceInfoModels,
-		MigrationJobModel:    migrationJobModel,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		status:               make(map[domain.AppspaceID]*status),
 	}
@@ -193,12 +266,7 @@ func TestMigrationEvent(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
 
-	status := s.getStatus(appspaceID)
-	status.lock.Lock()
-	if !status.data.migrating {
-		t.Error("expected migrating")
-	}
-	status.lock.Unlock()
+	// the status hasn't changed yet.
 
 	migrateChan <- domain.MigrationJob{
 		AppspaceID: appspaceID,
@@ -207,12 +275,6 @@ func TestMigrationEvent(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
 
-	status = s.getStatus(appspaceID)
-	status.lock.Lock()
-	if status.data.migrating {
-		t.Error("expected not migrating anymore")
-	}
-	status.lock.Unlock()
 }
 
 func TestWaitStopped(t *testing.T) {

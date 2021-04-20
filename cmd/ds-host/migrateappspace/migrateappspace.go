@@ -33,8 +33,7 @@ type JobController struct {
 		Get(domain.AppspaceID) domain.AppspaceInfoModel
 	}
 	AppspaceStatus interface {
-		Ready(appspaceID domain.AppspaceID) bool
-		WaitStopped(appspaceID domain.AppspaceID) // probably will have to be WaitStopped
+		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	}
 	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
 	SandboxMaker   SandboxMakerI
@@ -94,11 +93,6 @@ func (c *JobController) Stop() {
 
 	close(c.fanIn)
 }
-
-var statString = map[domain.MigrationJobStatus]string{ // TODO: this is duplicated, particularly with json response
-	domain.MigrationStarted:  "started",
-	domain.MigrationRunning:  "running",
-	domain.MigrationFinished: "finished"}
 
 // eventManifold receives fanIn events and processes them accordingly.
 // It shuts down when c.fanIn is closed
@@ -218,7 +212,8 @@ func (c *JobController) runJob(job *runningJob) {
 
 	appspaceID := job.migrationJob.AppspaceID
 
-	c.AppspaceStatus.WaitStopped(appspaceID)
+	tempPausedCh := c.AppspaceStatus.WaitTempPaused(appspaceID, "migrating")
+	defer close(tempPausedCh)
 
 	c.SandboxManager.StopAppspace(appspaceID)
 

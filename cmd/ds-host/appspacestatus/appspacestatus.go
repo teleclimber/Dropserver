@@ -20,7 +20,7 @@ import (
 // Note that this simply responds to the question: "can this request/cron/whatever proceed"?
 // It does not acutally do any action. It does not shut down sandboxes or anything.
 // It just collects the data necessary to respond to the question:
-// - is the sandbox usable right now?
+// - is the appspace usable right now?
 // - is the sandbox completely down? (so a migration can run, data can be copied, etc...)
 
 // It caches the status so it can respond quickly to numerous queries
@@ -45,27 +45,18 @@ type status struct {
 	lock sync.Mutex
 }
 
-type statusData struct {
-	paused           bool // paused status is set in appspace DB
-	tempPaused       bool // set via a function call to make it so the system knows we're trying to eject
-	dataSchema       int  // from appspace metadata
-	appVersionSchema int  // from app files
-	migrating        bool // when a migration job starts
-	problem          bool // Something went wrong, appsapce can't be used
+type tempPause struct {
+	startCh chan struct{}
+	reason  string
 }
 
-// live jobs and requests should be booleans.
-// Otherwise the "status" will fire constantly?
-// Also posible we need a sceond "level" to status
-// ..because even if bool, each request could switch status from false to true and back.
-// Yeah very questionable that we want liveRequests and live Jobs in status
-// Just look at the other fields: they only change raraley, hhile live* can change many times per second.
-
-// I think the rigth way to do this is:
-// - remove live* from status data
-// - have a WaitStopped function that subscribes to jobs and requests
-//   ..and can tell anybody who aslked for WaitStopped when it goes to zero.
-//   ..then it unsubscribes to the live* events.
+type statusData struct {
+	paused           bool        // paused status is set in appspace DB
+	tempPauses       []tempPause // pauses for appspace operations like migrations, backups, etc...
+	dataSchema       int         // from appspace metadata
+	appVersionSchema int         // from app files
+	problem          bool        // Something went wrong, appsapce can't be used
+}
 
 // possible flags to add:
 // - sandbox status
@@ -95,9 +86,6 @@ type AppspaceStatus struct {
 	AppspaceRouter interface {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
-	}
-	MigrationJobModel interface {
-		GetRunning() ([]domain.MigrationJob, error)
 	}
 	MigrationJobEvents interface {
 		Subscribe(chan<- domain.MigrationJob)
@@ -168,7 +156,7 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 	status.lock.Lock()
 	defer status.lock.Unlock()
 
-	if status.data.problem || status.data.paused || status.data.tempPaused || status.data.migrating {
+	if status.data.problem || status.data.paused || len(status.data.tempPauses) != 0 {
 		return false
 	}
 	if status.data.appVersionSchema != status.data.dataSchema {
@@ -178,17 +166,66 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 	return true
 }
 
-// SetTempPause sets the tempPaused flag on appspace status
-func (s *AppspaceStatus) SetTempPause(appspaceID domain.AppspaceID, paused bool) {
+// ^^ Wonder if we should have a WaitReady(ctx context.Context) bool
+// That would wait for ready state (until context says no more)
+
+// WaitTempPaused pauses the appspace and returns when appspace activity is stopped
+// This function returns for only one caller at a time.
+// It returns for the next caller when the returned channel is closed
+func (s *AppspaceStatus) WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{} {
+	startCh := s.getTempPause(appspaceID, reason)
+	<-startCh
+
+	finishCh := make(chan struct{})
+
+	go func() {
+		<-finishCh
+		s.finishTempPause(appspaceID)
+	}()
+
+	s.WaitStopped(appspaceID)
+
+	return finishCh
+}
+
+func (s *AppspaceStatus) getTempPause(appspaceID domain.AppspaceID, reason string) chan struct{} {
 	status := s.getStatus(appspaceID)
 
 	status.lock.Lock()
 	defer status.lock.Unlock()
-	if status.data.tempPaused != paused {
-		status.data.tempPaused = paused
+	tp := tempPause{
+		startCh: make(chan struct{}),
+		reason:  reason}
+	status.data.tempPauses = append(status.data.tempPauses, tp)
+	if len(status.data.tempPauses) == 1 {
 		s.sendChangedEvent(appspaceID, status.data)
+		close(tp.startCh)
 	}
+	return tp.startCh
 }
+
+// finishTempPause closes the 0th temp pause and starts the next one
+// or sends a status change notification if there are none.
+func (s *AppspaceStatus) finishTempPause(appspaceID domain.AppspaceID) {
+	status := s.getStatus(appspaceID)
+
+	status.lock.Lock()
+	defer status.lock.Unlock()
+
+	status.data.tempPauses = status.data.tempPauses[1:]
+	if len(status.data.tempPauses) == 0 {
+		s.sendChangedEvent(appspaceID, status.data)
+		return
+	}
+
+	close(status.data.tempPauses[0].startCh) // start the next one
+}
+
+// We could have a flag for deletion / archive.
+// ..that is set explicitly and that behaves like an explicit Pause.
+// This could be set in DB and could have values 0, 1, 2 => (active, archive, delete)
+// With this, migration would check status and ensure it's "active". Don't migrate an archived or deleted appspace.
+// Then we can just use regular pause, with maybe a "waitPaused"
 
 // Track causes appspace id to monitored and future events will be sent
 // It returns an event struct that represents the current state
@@ -222,7 +259,9 @@ func (s *AppspaceStatus) getTrackedStatus(appspaceID domain.AppspaceID) *status 
 }
 
 func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
-	data := statusData{}
+	data := statusData{
+		tempPauses: make([]tempPause, 0, 3),
+	}
 
 	appspace, err := s.AppspaceModel.GetFromID(appspaceID)
 	if err != nil {
@@ -230,17 +269,6 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 		return data
 	}
 	data.paused = appspace.Paused
-
-	jobs, err := s.MigrationJobModel.GetRunning()
-	if err != nil {
-		data.problem = true
-		return data
-	}
-	for _, job := range jobs {
-		if job.AppspaceID == appspaceID && !job.Finished.Valid {
-			data.migrating = true
-		}
-	}
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
 	appVersion, err := s.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
@@ -290,17 +318,8 @@ func (s *AppspaceStatus) handleAppspaceFiles(ch <-chan domain.AppspaceID) {
 func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationJob) {
 	for d := range ch {
 		status := s.getTrackedStatus(d.AppspaceID)
-		if status != nil {
-			if d.Finished.Valid {
-				s.updateStatus(d.AppspaceID, status) //reload whole status because migration might have changed many things
-			} else {
-				status.lock.Lock()
-				if !status.data.migrating {
-					status.data.migrating = true
-					s.sendChangedEvent(d.AppspaceID, status.data)
-				}
-				status.lock.Unlock()
-			}
+		if status != nil && d.Finished.Valid {
+			s.updateStatus(d.AppspaceID, status) //reload whole status because migration might have changed many things
 		}
 	}
 }
@@ -328,17 +347,13 @@ func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, curStatus *s
 		curStatus.data.paused = new.paused
 		changed = true
 	}
-	// skip tempPaused because it's not determined by getData. It can only change via SetTempPaused fn above.
+	// skip tempPauses because it's not determined by getData. It can only change via fn above.
 	if cur.appVersionSchema != new.appVersionSchema {
 		curStatus.data.appVersionSchema = new.appVersionSchema
 		changed = true
 	}
 	if cur.dataSchema != new.dataSchema {
 		curStatus.data.dataSchema = new.dataSchema
-		changed = true
-	}
-	if cur.migrating != new.migrating {
-		curStatus.data.migrating = new.migrating
 		changed = true
 	}
 	if cur.problem != new.problem {
@@ -356,13 +371,17 @@ func (s *AppspaceStatus) sendChangedEvent(appspaceID domain.AppspaceID, status s
 }
 
 func getEvent(appspaceID domain.AppspaceID, status statusData) domain.AppspaceStatusEvent {
+	pReason := ""
+	if len(status.tempPauses) != 0 {
+		pReason = status.tempPauses[0].reason
+	}
 	return domain.AppspaceStatusEvent{
 		AppspaceID:       appspaceID,
-		Paused:           status.paused,
-		TempPaused:       status.tempPaused,
+		Paused:           status.paused, // maybe add archived, deleted. Or put everything under an "active"
+		TempPaused:       len(status.tempPauses) != 0,
+		TempPauseReason:  pReason,
 		AppVersionSchema: status.appVersionSchema,
 		AppspaceSchema:   status.dataSchema,
-		Migrating:        status.migrating,
 		Problem:          status.problem}
 }
 

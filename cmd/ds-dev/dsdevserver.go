@@ -62,8 +62,7 @@ type DropserverDevServer struct {
 		SetInspect(bool)
 	}
 	AppspaceStatus interface {
-		SetTempPause(domain.AppspaceID, bool)
-		WaitStopped(domain.AppspaceID)
+		WaitTempPaused(domain.AppspaceID, string) chan struct{}
 	}
 	AppspaceLogEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
@@ -277,8 +276,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		m.SendOK()
 	case importAndMigrate:
 		m.RefSendBlock(11, []byte("Stopping..."))
-		s.AppspaceStatus.SetTempPause(appspaceID, true)
-		s.AppspaceStatus.WaitStopped(appspaceID)
+		tempPauseCh := s.AppspaceStatus.WaitTempPaused(appspaceID, "import & migrate")
 		s.DevSandboxManager.StopAppspace(appspaceID)
 
 		m.RefSendBlock(11, []byte("Closing..."))
@@ -304,6 +302,9 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			ms := appFilesMeta.Migrations
 			schema = ms[len(ms)-1]
 		}
+
+		close(tempPauseCh) // close here so migration system can obtain a pause
+
 		m.RefSendBlock(11, []byte("Migrating..."))
 		err = s.migrate(schema)
 		if err != nil && err != errNoMigrationNeeded {
@@ -311,7 +312,6 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			return
 		}
 
-		s.AppspaceStatus.SetTempPause(appspaceID, false)
 		m.SendOK()
 	default:
 		m.SendError("service not found")

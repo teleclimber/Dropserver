@@ -194,7 +194,6 @@ func main() {
 		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspaceRouter:       nil, //added below
-		MigrationJobModel:    devMigrationJobModel,
 		MigrationJobEvents:   migrationJobEvents,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		AppVersionEvents:     appVersionEvents,

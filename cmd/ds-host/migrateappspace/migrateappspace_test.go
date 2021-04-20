@@ -98,7 +98,7 @@ func TestRunJob(t *testing.T) {
 	sandboxMaker.EXPECT().Make(gomock.Any(), gomock.Any()).Return(sandbox)
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
-	appspaceStatus.EXPECT().WaitStopped(appspaceID)
+	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))
 
 	c := &JobController{
 		AppspaceModel:      appspaceModel,
@@ -156,7 +156,7 @@ func TestStartNextOneJob(t *testing.T) {
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(nil, errors.New("nada"))
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
-	appspaceStatus.EXPECT().WaitStopped(appspaceID)
+	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))
 
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
 	sandboxManager.EXPECT().StopAppspace(appspaceID).Return()

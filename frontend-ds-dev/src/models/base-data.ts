@@ -18,7 +18,8 @@ const appspaceControlService = 12;
 type AppspaceStatus = {
 	appspace_id: Number
 	paused: boolean
-	migrating: boolean
+	temp_paused: boolean
+	temp_pause_reason: string
 	appspace_schema: Number
 	app_version_schema: Number
 	problem: boolean
@@ -56,7 +57,7 @@ class BaseData {
 
 	paused = false;
 	temp_paused = false;
-	migrating = false;
+	temp_pause_reason = '';
 	appspace_schema = 0;
 	problem = false;
 
@@ -99,6 +100,7 @@ class BaseData {
 		try {
 			const new_status = <AppspaceStatus>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			Object.assign(this, new_status);
+			console.log("temp pause, reason: ", this.temp_paused, this.temp_pause_reason);
 		}
 		catch(e) {
 			m.sendError("error processing appspace status "+e);
