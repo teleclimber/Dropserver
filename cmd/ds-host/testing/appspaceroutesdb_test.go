@@ -103,7 +103,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	socketsDir := path.Join(dir, "sockets")
 	os.MkdirAll(socketsDir, 0700)
 	dataDir := path.Join(dir, "data")
-	err = os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir
@@ -118,9 +118,13 @@ func TestSandboxCreateRoute(t *testing.T) {
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
 
+	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
+	appspaceStatus.EXPECT().IsLockedClosed(appspaceID).Return(false)
+
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		AppspaceModel: appspaceModel,
-		Config:        cfg}
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: appspaceStatus,
+		Config:         cfg}
 	appspaceMetaDb.Init()
 
 	vxUserModels := &vxservices.VxUserModels{

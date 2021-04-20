@@ -199,8 +199,8 @@ func main() {
 		AppVersionEvents:     appVersionEvents,
 	}
 	appspaceStatus.Init()
-	appspaceStatus.Ready(appspaceID) // this puts the appspace in status map, so it gets tracked, and therefore forwards events. Not a great paradigm.
 	migrateJobController.AppspaceStatus = appspaceStatus
+	appspaceMetaDb.AppspaceStatus = appspaceStatus
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: devSandboxManager,
@@ -247,6 +247,8 @@ func main() {
 	migrateJobController.SandboxMaker = devSandboxMaker
 
 	migrateJobController.Start()
+
+	appspaceStatus.Ready(appspaceID) // this puts the appspace in status map, so it gets tracked, and therefore forwards events. Not a great paradigm.
 
 	// Ds-dev frontend twine services:
 	appMetaService := &AppMetaService{
