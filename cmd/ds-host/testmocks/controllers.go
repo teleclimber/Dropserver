@@ -22,6 +22,8 @@ type AppspaceStatus interface {
 	Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
 	WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	WaitStopped(appspaceID domain.AppspaceID)
+	LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
+	IsLockedClosed(appspaceID domain.AppspaceID) bool
 }
 
 // AppspaceRouter is a route handler that also tracks ongoing requests

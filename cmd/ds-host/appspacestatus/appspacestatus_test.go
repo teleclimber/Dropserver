@@ -300,3 +300,35 @@ func TestWaitStopped(t *testing.T) {
 
 	s.WaitStopped(appspaceID)
 }
+
+func TestLockClosed(t *testing.T) {
+	s := AppspaceStatus{
+		closed: make(map[domain.AppspaceID]bool),
+	}
+
+	appspaceID := domain.AppspaceID(7)
+
+	if s.IsLockedClosed(appspaceID) {
+		t.Error("should not be locked closed")
+	}
+	ch, ok := s.LockClosed(appspaceID)
+	if !ok {
+		t.Error("expected OK")
+	}
+	if !s.IsLockedClosed(appspaceID) {
+		t.Error("should be locked closed")
+	}
+	_, ok = s.LockClosed(appspaceID)
+	if ok {
+		t.Error("expected not ok")
+	}
+	close(ch)
+
+	// need to sleep for closed channel to take effect.
+	// We may find we need a WaitUnlockedClosed or something?
+	// Or have state take closed into account, and use WaitClosed
+	time.Sleep(100 * time.Millisecond)
+	if s.IsLockedClosed(appspaceID) {
+		t.Error("should not be locked closed")
+	}
+}

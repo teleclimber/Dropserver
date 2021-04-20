@@ -93,6 +93,35 @@ func (m *MockAppspaceStatus) EXPECT() *MockAppspaceStatusMockRecorder {
 	return m.recorder
 }
 
+// IsLockedClosed mocks base method
+func (m *MockAppspaceStatus) IsLockedClosed(arg0 domain.AppspaceID) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLockedClosed", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsLockedClosed indicates an expected call of IsLockedClosed
+func (mr *MockAppspaceStatusMockRecorder) IsLockedClosed(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLockedClosed", reflect.TypeOf((*MockAppspaceStatus)(nil).IsLockedClosed), arg0)
+}
+
+// LockClosed mocks base method
+func (m *MockAppspaceStatus) LockClosed(arg0 domain.AppspaceID) (chan struct{}, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockClosed", arg0)
+	ret0, _ := ret[0].(chan struct{})
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// LockClosed indicates an expected call of LockClosed
+func (mr *MockAppspaceStatusMockRecorder) LockClosed(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockClosed", reflect.TypeOf((*MockAppspaceStatus)(nil).LockClosed), arg0)
+}
+
 // Ready mocks base method
 func (m *MockAppspaceStatus) Ready(arg0 domain.AppspaceID) bool {
 	m.ctrl.T.Helper()

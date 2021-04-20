@@ -106,11 +106,15 @@ type AppspaceStatus struct {
 
 	statusMux sync.Mutex
 	status    map[domain.AppspaceID]*status
+
+	closedMux sync.Mutex
+	closed    map[domain.AppspaceID]bool
 }
 
 // Init creates data structures and subscribes to events
 func (s *AppspaceStatus) Init() {
 	s.status = make(map[domain.AppspaceID]*status)
+	s.closed = make(map[domain.AppspaceID]bool)
 
 	asPausedCh := make(chan domain.AppspacePausedEvent)
 	go s.handleAppspacePause(asPausedCh)
@@ -403,4 +407,45 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 			close(ch)
 		}
 	}
+}
+
+// In addition to "stopped", I think we may need "ejected"
+// Where ejected means that all files are closed, in particular
+// - appspace meta db
+// - other appspace dbs.
+// For regular appspace data files, we can assume that if there are no ongoing requests
+// ..no sandboxes, no cron jobs, then everything ought to be closed?
+
+// What we realy need is to lock the ejected state
+// meaning it's like tempPaused, but also nothing can open any of its files.
+// so appspace metadb should check with appspaceStatus before opening?
+
+// LockClosed sets the locked flag for the appspace until the return channel is closed.
+func (s *AppspaceStatus) LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool) {
+	s.closedMux.Lock()
+	defer s.closedMux.Unlock()
+	locked, ok := s.closed[appspaceID]
+	if ok && locked {
+		return nil, false
+	}
+	s.closed[appspaceID] = true
+	ch := make(chan struct{})
+	go s.unlockClosed(appspaceID, ch)
+	return ch, true
+}
+
+func (s *AppspaceStatus) unlockClosed(appspaceID domain.AppspaceID, ch chan struct{}) {
+	<-ch
+	s.closedMux.Lock()
+	defer s.closedMux.Unlock()
+	s.closed[appspaceID] = false
+}
+
+// IsLockedClosed returns true if the appspace is locked
+// and no files should be opened.
+func (s *AppspaceStatus) IsLockedClosed(appspaceID domain.AppspaceID) bool {
+	s.closedMux.Lock()
+	defer s.closedMux.Unlock()
+	locked, ok := s.closed[appspaceID]
+	return ok && locked
 }

@@ -30,17 +30,17 @@ func TestStartConn(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Exec.AppspacesPath = dir
 
-	AppspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	AppspaceModel.EXPECT().GetFromID(domain.AppspaceID(13)).Return(&domain.Appspace{LocationKey: "abc"}, nil)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(domain.AppspaceID(13)).Return(&domain.Appspace{LocationKey: "abc"}, nil)
 
 	mdb := &AppspaceMetaDB{
 		Config:        cfg,
-		AppspaceModel: AppspaceModel,
+		AppspaceModel: appspaceModel,
 	}
 
 	mdb.startConn(conn, domain.AppspaceID(13), true)
 
-	_ = <-readyChan
+	<-readyChan
 
 	// test shutdown too
 	err = mdb.CloseConn(domain.AppspaceID(13))
@@ -68,12 +68,16 @@ func TestCreateAndGet(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Exec.AppspacesPath = dir
 
-	AppspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	AppspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
+	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{LocationKey: "abc"}, nil)
+
+	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
+	appspaceStatus.EXPECT().IsLockedClosed(appspaceID).Return(false)
 
 	mdb := &AppspaceMetaDB{
-		Config:        cfg,
-		AppspaceModel: AppspaceModel,
+		Config:         cfg,
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: appspaceStatus,
 	}
 	mdb.Init()
 

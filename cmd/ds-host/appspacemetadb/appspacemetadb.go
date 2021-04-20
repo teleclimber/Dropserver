@@ -24,6 +24,9 @@ type AppspaceMetaDB struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
+	AppspaceStatus interface {
+		IsLockedClosed(domain.AppspaceID) bool
+	}
 
 	connsMux sync.Mutex
 	conns    map[domain.AppspaceID]*DbConn
@@ -46,7 +49,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 
 	mdb.startConn(conn, appspaceID, true)
 
-	_ = <-readyChan
+	<-readyChan
 
 	if conn.connError != nil {
 		mdb.getLogger("Create(), connError").Error(conn.connError)
@@ -72,8 +75,12 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 
 // GetConn returns the existing conn for the appspace ID or creates one if necessary
 func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn, error) {
-	// lock, get from map, start if not there, wait if not ready, then unlock or somesuch
+	locked := mdb.AppspaceStatus.IsLockedClosed(appspaceID)
+	if locked {
+		return nil, domain.ErrAppspaceLockedClosed
+	}
 
+	// lock, get from map, start if not there, wait if not ready, then unlock or somesuch
 	var readyChan chan struct{}
 	mdb.connsMux.Lock()
 	conn, ok := mdb.conns[appspaceID]
@@ -98,7 +105,7 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 	mdb.connsMux.Unlock()
 
 	if readyChan != nil {
-		_ = <-readyChan
+		<-readyChan
 	}
 
 	if conn.connError != nil {
@@ -224,7 +231,7 @@ func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) error {
 		}
 		err = v0h.checkErr()
 	default:
-		err = fmt.Errorf("Appspace API version not handled: %v", toVersion)
+		err = fmt.Errorf("appspace API version not handled: %v", toVersion)
 	}
 
 	return err

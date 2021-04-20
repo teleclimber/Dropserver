@@ -10,6 +10,11 @@ type AppspaceDB struct {
 	connManager *ConnManager
 }
 
+// shouldappspace db check with appspace status for IsLockedClosed?
+// Or not necessary because appspace db is usually only opened by a route or whatever?
+// BUT! What about if there is a db explorer in ds-host UI as part of appspace observabilitiy?
+// this would no doubt case the appspace db to open.
+
 // Init creates the versions of appspace db
 func (a *AppspaceDB) Init() {
 	// a connManager could and should be shared by all versions

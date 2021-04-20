@@ -323,6 +323,7 @@ func main() {
 	}
 
 	migrationJobCtl.AppspaceStatus = appspaceStatus
+	appspaceMetaDb.AppspaceStatus = appspaceStatus
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
