@@ -228,7 +228,7 @@ func TestTwineCreateDBHandler(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	err = os.MkdirAll(filepath.Join(dir, locationKey), 0700)
+	err = os.MkdirAll(filepath.Join(dir, locationKey, "data", "dbs"), 0700)
 	if err != nil {
 		t.Error(err)
 	}
@@ -239,7 +239,9 @@ func TestTwineCreateDBHandler(t *testing.T) {
 	v0 := &V0{
 		connManager: m}
 
-	appspace := &domain.Appspace{}
+	appspace := &domain.Appspace{
+		LocationKey: locationKey,
+	}
 
 	service := v0.GetService(appspace)
 

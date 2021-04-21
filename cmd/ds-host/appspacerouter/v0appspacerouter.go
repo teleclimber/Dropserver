@@ -228,7 +228,7 @@ func (r *V0) getFilePath(routeData *domain.AppspaceRouteData) (string, error) {
 	p := routeHandler.Path
 	if strings.HasPrefix(p, "@appspace/") {
 		p = strings.TrimPrefix(p, "@appspace/")
-		root = filepath.Join(r.Config.Exec.AppspacesPath, routeData.Appspace.LocationKey, "files")
+		root = filepath.Join(r.Config.Exec.AppspacesPath, routeData.Appspace.LocationKey, "data", "files")
 	} else if strings.HasPrefix(p, "@app/") {
 		p = strings.TrimPrefix(p, "@app/")
 		root = filepath.Join(r.Config.Exec.AppsPath, routeData.AppVersion.LocationKey)

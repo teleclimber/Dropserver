@@ -111,8 +111,7 @@ func (m *ConnManager) deleteDB(appspaceID domain.AppspaceID, locationKey string,
 	}
 
 	// then delete the file.
-	filePath := filepath.Join(m.appspacesPath, locationKey, dbName+".db")
-	err := os.Remove(filePath)
+	err := os.Remove(m.getDBFullFilename(locationKey, dbName))
 	if err != nil {
 		return err
 	}
@@ -149,15 +148,14 @@ func (m *ConnManager) getConn(appspaceID domain.AppspaceID, locationKey string, 
 	m.connsMux.Unlock()
 
 	if readyChan != nil {
-		_ = <-readyChan
+		<-readyChan
 	}
 
 	return conn
 }
 
 func (m *ConnManager) startConn(key connsKey, locationKey string, c *connsVal, create bool) {
-	filePath := filepath.Join(m.appspacesPath, locationKey, key.dbName+".db")
-	dbConn, err := openConn(filePath, create)
+	dbConn, err := openConn(m.getDBFullFilename(locationKey, key.dbName), create)
 	c.statusMux.Lock()
 	if err != nil {
 		c.connError = err
@@ -170,6 +168,10 @@ func (m *ConnManager) startConn(key connsKey, locationKey string, c *connsVal, c
 		close(ch)
 	}
 	c.statusMux.Unlock()
+}
+
+func (m *ConnManager) getDBFullFilename(locationKey string, dbName string) string {
+	return filepath.Join(m.appspacesPath, locationKey, "data", "dbs", dbName+".db")
 }
 
 // should know something about itself? like appspace,path, ...

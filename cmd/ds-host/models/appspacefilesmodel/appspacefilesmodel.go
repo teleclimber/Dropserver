@@ -18,6 +18,17 @@ import (
 // ..if there is any such data
 // ..and place it in the appspace files.
 
+// dir structure:
+// - asXYZLOCATION/
+//   - backups/
+//   - data/
+//     - files/
+//     - logs/
+//     - dbs/ ? We should consider putting appspace dbs in the regular data files?
+//     - appspacemeta.db
+//     - [appspace-export.json]
+//   - import-paths.json
+
 // AppspaceFilesModel is struct for appspace data directory manager
 type AppspaceFilesModel struct {
 	Config *domain.RuntimeConfig
@@ -42,15 +53,42 @@ func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 		return "", err
 	}
 
-	err = os.MkdirAll(filepath.Join(appspacePath, "files"), 0766)
+	err = a.CreateDirs(appspacePath)
 	if err != nil {
-		a.getLogger("CreateLocation(), os.Mkdirall for files").Error(err)
 		return "", err
 	}
 
 	// Should we log when we create a location?
 
 	return filepath.Base(appspacePath), nil
+}
+
+func (a *AppspaceFilesModel) CreateDirs(base string) error {
+	err := os.MkdirAll(filepath.Join(base, "backups"), 0766)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Mkdirall for backups").Error(err)
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Join(base, "data", "files"), 0766)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Mkdirall for files").Error(err)
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Join(base, "data", "logs"), 0766)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Mkdirall for logs").Error(err)
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Join(base, "data", "dbs"), 0766)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Mkdirall for dbs").Error(err)
+		return err
+	}
+
+	return nil
 }
 
 // Delete removes the files from the system

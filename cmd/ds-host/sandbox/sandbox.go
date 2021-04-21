@@ -154,8 +154,8 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		"--allow-net",                   // TODO needed to import remote modules until Deno gives me more options
 		s.Config.Exec.SandboxRunnerPath, // TODO This should be versioned according to Dropserver API version
 		s.socketsDir,
-		filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey), // while we have an import-map, these are stil needed to read files without importing
-		filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "files"),
+		s.getAppFilesPath(), // while we have an import-map, these are stil needed to read files without importing
+		s.getAppspaceFilesPath(),
 	}
 	denoArgs = append(denoArgs, runArgs...)
 	s.cmd = exec.Command("deno", denoArgs...)
@@ -630,8 +630,8 @@ type ImportPaths struct {
 }
 
 func (s *Sandbox) makeImportMap() (*[]byte, error) {
-	appPath := trailingSlash(filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey))
-	appspacePath := trailingSlash(filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "files"))
+	appPath := trailingSlash(s.getAppFilesPath())
+	appspacePath := trailingSlash(s.getAppspaceFilesPath())
 	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
 	im := ImportPaths{
@@ -667,13 +667,6 @@ func (s *Sandbox) writeImportMap() error {
 		return err
 	}
 
-	// this should be taken care of externally on appspace install probably.
-	err = os.MkdirAll(filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey), 0700)
-	if err != nil {
-		s.getLogger("writeImportMap()").AddNote("os.MkdirAll").Error(err)
-		return err
-	}
-
 	err = ioutil.WriteFile(s.getImportPathFile(), *data, 0600)
 	if err != nil {
 		s.getLogger("writeImportMap()").AddNote("ioutil.WriteFile file: " + s.getImportPathFile()).Error(err)
@@ -681,6 +674,13 @@ func (s *Sandbox) writeImportMap() error {
 	}
 
 	return nil
+}
+
+func (s *Sandbox) getAppFilesPath() string {
+	return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey)
+}
+func (s *Sandbox) getAppspaceFilesPath() string {
+	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data", "files")
 }
 func (s *Sandbox) getImportPathFile() string {
 	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")

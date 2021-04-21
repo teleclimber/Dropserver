@@ -213,6 +213,8 @@ func TestStart(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
+
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
@@ -265,6 +267,8 @@ func TestExecFn(t *testing.T) {
 		t.Error(err)
 	}
 	defer os.RemoveAll(dir)
+
+	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
 	appDir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -335,12 +339,16 @@ func TestExecFn(t *testing.T) {
 	s.Graceful()
 }
 
+// There should be a test that hits the appspace's data files.
+
 func TestExecForbiddenImport(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.RemoveAll(dir)
+
+	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
 	forbiddenDir, err := ioutil.TempDir("", "")
 	if err != nil {

@@ -2,10 +2,10 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/otiai10/copy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 )
 
 // DevAppspaceFiles manages the appspace files as a group.
@@ -35,11 +35,9 @@ func (a *DevAppspaceFiles) Reset() {
 			panic(err)
 		}
 	} else {
-		// create empty appspace: directory structure and meta db
-		err := os.MkdirAll(filepath.Join(a.destDir, "files"), 0766)
-		if err != nil {
-			panic(err)
-		}
+		// Let's cheat for now: AppspaceFilesModel should really take the place of or be proxied by DevAppspaceFiles
+		appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{}
+		appspaceFilesModel.CreateDirs(a.destDir)
 
 		err = a.AppspaceMetaDb.Create(appspaceID, 0) // that 0 is dsAPI version. Can it stay zero in a blank appspace? Probably not?
 		if err != nil {

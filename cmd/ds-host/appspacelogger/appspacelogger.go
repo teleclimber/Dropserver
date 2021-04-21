@@ -100,7 +100,7 @@ func (l *AppspaceLogger) getLogger(appspaceID domain.AppspaceID) (*logger, error
 			return nil, err
 		}
 
-		logPath := filepath.Join(l.Config.Exec.AppspacesPath, appspace.LocationKey, "log.txt")
+		logPath := filepath.Join(l.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "logs", "log.txt") // TODO fix for new appspace directory structure
 
 		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0664)
 		if err != nil {

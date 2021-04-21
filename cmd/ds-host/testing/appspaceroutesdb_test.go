@@ -39,7 +39,8 @@ func TestSandboxExecFn(t *testing.T) {
 	socketsDir := path.Join(dir, "sockets")
 	os.MkdirAll(socketsDir, 0700)
 	dataDir := path.Join(dir, "data")
-	err = os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "appspaces", "appspace-location"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir
@@ -104,6 +105,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	os.MkdirAll(socketsDir, 0700)
 	dataDir := path.Join(dir, "data")
 	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "appspaces", "appspace-location"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir

@@ -142,7 +142,7 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 		return
 	}
 
-	appspacePath := filepath.Join(mdb.Config.Exec.AppspacesPath, appspace.LocationKey)
+	appspacePath := filepath.Join(mdb.Config.Exec.AppspacesPath, appspace.LocationKey, "data")
 	dbFile := filepath.Join(appspacePath, "appspace-meta.db")
 	dsn := "file:" + dbFile + "?mode=rw"
 

@@ -359,6 +359,8 @@ func TestCreateDB(t *testing.T) {
 	loc := "abc-loc"
 	dbName := "test-db"
 
+	os.MkdirAll(filepath.Join(dir, loc, "data", "dbs"), 0700)
+
 	err = os.MkdirAll(filepath.Join(dir, loc), 0700)
 	if err != nil {
 		t.Error(err)
@@ -378,7 +380,7 @@ func TestCreateDB(t *testing.T) {
 		t.Error(err)
 	}
 
-	filePath := filepath.Join(m.appspacesPath, loc, dbName+".db")
+	filePath := filepath.Join(m.appspacesPath, loc, "data", "dbs", dbName+".db")
 	_, err = os.Stat(filePath)
 	if err == nil || !os.IsNotExist(err) {
 		t.Error("Expect file to not exist")
@@ -407,7 +409,7 @@ func TestStartConn(t *testing.T) {
 
 	go m.startConn(key, loc, c, false)
 
-	_ = <-readyChan
+	<-readyChan
 
 	if c.connError != nil {
 		t.Error(c.connError)
@@ -582,14 +584,11 @@ func makeAppspaceDB(t *testing.T, locationKey string) string {
 		t.Error(err)
 	}
 
-	asDir := filepath.Join(dir, locationKey)
+	dbsDir := filepath.Join(dir, locationKey, "data", "dbs")
 
-	err = os.Mkdir(asDir, 0700)
-	if err != nil {
-		t.Error(err)
-	}
+	os.MkdirAll(dbsDir, 0700)
 
-	dsn := filepath.Join(asDir, "test.db?mode=rwc")
+	dsn := filepath.Join(dbsDir, "test.db?mode=rwc")
 
 	handle, err := sql.Open("sqlite3", dsn)
 	if err != nil {
