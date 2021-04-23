@@ -107,6 +107,20 @@ func (mr *MockAppspaceStatusMockRecorder) IsLockedClosed(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLockedClosed", reflect.TypeOf((*MockAppspaceStatus)(nil).IsLockedClosed), arg0)
 }
 
+// IsTempPaused mocks base method
+func (m *MockAppspaceStatus) IsTempPaused(arg0 domain.AppspaceID) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsTempPaused", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsTempPaused indicates an expected call of IsTempPaused
+func (mr *MockAppspaceStatusMockRecorder) IsTempPaused(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTempPaused", reflect.TypeOf((*MockAppspaceStatus)(nil).IsTempPaused), arg0)
+}
+
 // LockClosed mocks base method
 func (m *MockAppspaceStatus) LockClosed(arg0 domain.AppspaceID) (chan struct{}, bool) {
 	m.ctrl.T.Helper()

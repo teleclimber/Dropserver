@@ -192,6 +192,15 @@ func (s *AppspaceStatus) WaitTempPaused(appspaceID domain.AppspaceID, reason str
 	return finishCh
 }
 
+// IsTempPaused returns true if a temp pause is in effect
+// It does not consider whether the appspace has effectively stopped
+func (s *AppspaceStatus) IsTempPaused(appspaceID domain.AppspaceID) bool {
+	status := s.getStatus(appspaceID)
+	status.lock.Lock()
+	defer status.lock.Unlock()
+	return len(status.data.tempPauses) != 0
+}
+
 func (s *AppspaceStatus) getTempPause(appspaceID domain.AppspaceID, reason string) chan struct{} {
 	status := s.getStatus(appspaceID)
 

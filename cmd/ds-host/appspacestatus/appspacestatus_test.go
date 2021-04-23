@@ -148,10 +148,17 @@ func TestTempPause(t *testing.T) {
 	}
 	s.status[appspaceID] = &status{data: status1}
 
+	if s.IsTempPaused(appspaceID) {
+		t.Error("expected not temp paused")
+	}
+
 	doneCh := s.WaitTempPaused(appspaceID, "test")
 
 	if s.Ready(appspaceID) {
 		t.Error("should not be ready")
+	}
+	if !s.IsTempPaused(appspaceID) {
+		t.Error("expected temp paused")
 	}
 
 	close(doneCh)
@@ -161,6 +168,9 @@ func TestTempPause(t *testing.T) {
 
 	if !s.Ready(appspaceID) {
 		t.Error("should be ready")
+	}
+	if s.IsTempPaused(appspaceID) {
+		t.Error("expected not temp paused")
 	}
 }
 
