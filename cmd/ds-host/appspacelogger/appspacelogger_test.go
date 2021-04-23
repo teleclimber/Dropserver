@@ -22,7 +22,7 @@ func TestLog(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	err = os.MkdirAll(filepath.Join(dir, "loc"), 0700)
+	err = os.MkdirAll(filepath.Join(dir, "loc", "data", "logs"), 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestLog(t *testing.T) {
 
 	l.Log(appspaceID, "test-source", "log message")
 
-	logFile := filepath.Join(dir, "loc", "log.txt")
+	logFile := filepath.Join(dir, "loc", "data", "logs", "log.txt")
 	content, err := ioutil.ReadFile(logFile)
 	if err != nil {
 		t.Fatal(err)
