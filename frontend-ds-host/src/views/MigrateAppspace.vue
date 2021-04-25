@@ -22,6 +22,17 @@
 						<!-- need a cancel button -->
 					</div>
 				</div>
+				<div v-else-if="migration_job.finished && migration_job.error" class="bg-red-100 py-5 flex rounded-xl">
+					<div class="w-12 sm:w-16 flex justify-center">
+						<svg class="w-8 h-8 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+						</svg>
+					</div>
+					<div>
+						<h3 class="text-red-700 text-lg font-medium">Migration Job Encountered an Error</h3>
+						<p>{{migration_job.error}}</p>
+					</div>
+				</div>
 				<div v-else class="bg-green-100 py-5 flex rounded-xl">
 					<div class="w-12 sm:w-16 flex justify-center">
 						<svg class="w-8 h-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

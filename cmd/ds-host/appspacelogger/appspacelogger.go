@@ -119,13 +119,7 @@ func (l *AppspaceLogger) getLogger(appspaceID domain.AppspaceID) (*logger, error
 // EjectLogger closees teh log file and removes the logger from the map
 // This sadly does not prevent a new Log call from reopening the file, which could cause problems
 func (l *AppspaceLogger) EjectLogger(appspaceID domain.AppspaceID) {
-	// maybe
-	// close file
-
-	l.writeLog(domain.AppspaceLogEvent{
-		AppspaceID: appspaceID,
-		Source:     appspaceLoggerSource,
-		Message:    "Ejecting log file"})
+	l.Log(appspaceID, "ds-host", "Ejecting log file")
 
 	logger, err := l.getLogger(appspaceID)
 	if err != nil {
