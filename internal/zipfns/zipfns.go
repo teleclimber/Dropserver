@@ -26,7 +26,15 @@ func Zip(sourceDir, destFile string) error {
 		if err != nil {
 			return err
 		}
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
 		if info.IsDir() {
+			_, err := zipWriter.Create(relPath + string(filepath.Separator))
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		file, err := os.Open(path)
@@ -35,11 +43,7 @@ func Zip(sourceDir, destFile string) error {
 		}
 		defer file.Close()
 
-		path, err = filepath.Rel(sourceDir, path)
-		if err != nil {
-			return err
-		}
-		f, err := zipWriter.Create(path)
+		f, err := zipWriter.Create(relPath)
 		if err != nil {
 			return err
 		}
@@ -73,7 +77,12 @@ func Unzip(src, dest string) error {
 		}
 	}()
 
-	os.MkdirAll(dest, 0755)
+	dest = filepath.Clean(dest)
+
+	err = os.MkdirAll(dest, 0755)
+	if err != nil {
+		return err
+	}
 
 	// Closure to address file descriptors issue with all the deferred .Close() methods
 	extractAndWriteFile := func(f *zip.File) error {
@@ -89,8 +98,12 @@ func Unzip(src, dest string) error {
 
 		path := filepath.Join(dest, f.Name)
 
+		if path == dest {
+			return nil //skip the root path of the zip
+		}
+
 		// Check for ZipSlip (Directory traversal)
-		if !strings.HasPrefix(path, filepath.Clean(dest)+string(os.PathSeparator)) {
+		if !strings.HasPrefix(path, dest+string(os.PathSeparator)) {
 			return fmt.Errorf("illegal file path: %s", path)
 		}
 

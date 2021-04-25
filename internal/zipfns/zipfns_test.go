@@ -21,7 +21,7 @@ func TestZipFiles(t *testing.T) {
 	filesDir := filepath.Join(dir, "files")
 	zipFile := filepath.Join(dir, "test.zip")
 
-	os.Mkdir(filesDir, 0700)
+	os.Mkdir(filesDir, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,10 +29,14 @@ func TestZipFiles(t *testing.T) {
 	files := make(map[string]string)
 	files["hello.txt"] = "Hello World!"
 	files["dir1/dir2/file2.txt"] = "Hello agagin!"
-
 	err = testCreateFiles(filesDir, files)
 	if err != nil {
 		t.Fatal(err)
+	}
+	emptyDir := "empty/dir"
+	err = os.MkdirAll(filepath.Join(filesDir, emptyDir), 0755)
+	if err != nil {
+		t.Error(err)
 	}
 
 	err = Zip(filesDir, zipFile)
@@ -47,7 +51,14 @@ func TestZipFiles(t *testing.T) {
 	defer r.Close()
 
 	count := 0
+	foundEmptyDir := false
 	for _, f := range r.File {
+		if f.FileInfo().IsDir() {
+			if filepath.Clean(f.Name) == emptyDir {
+				foundEmptyDir = true
+			}
+			continue
+		}
 		rc, err := f.Open()
 		if err != nil {
 			t.Error(err)
@@ -64,6 +75,9 @@ func TestZipFiles(t *testing.T) {
 		count++
 	}
 
+	if !foundEmptyDir {
+		t.Error("did not find our empty dir")
+	}
 	if count != len(files) {
 		t.Error("we didn't get the right number of files in archive")
 	}
@@ -80,7 +94,7 @@ func TestUnzip(t *testing.T) {
 	zipFile := filepath.Join(dir, "test.zip")
 	unzipDir := filepath.Join(dir, "unzipped")
 
-	os.Mkdir(filesDir, 0700)
+	os.Mkdir(filesDir, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,10 +102,14 @@ func TestUnzip(t *testing.T) {
 	files := make(map[string]string)
 	files["hello.txt"] = "Hello World!"
 	files["dir1/dir2/file2.txt"] = "Hello agagin!"
-
 	err = testCreateFiles(filesDir, files)
 	if err != nil {
 		t.Fatal(err)
+	}
+	emptyDir := "empty/dir"
+	err = os.MkdirAll(filepath.Join(filesDir, emptyDir), 0755)
+	if err != nil {
+		t.Error(err)
 	}
 
 	err = Zip(filesDir, zipFile)
@@ -112,6 +130,10 @@ func TestUnzip(t *testing.T) {
 		if string(content) != c {
 			t.Error("wrong content in file")
 		}
+	}
+	_, err = os.Stat(filepath.Join(unzipDir, emptyDir))
+	if os.IsNotExist(err) {
+		t.Error("empty dir not in unzipped")
 	}
 }
 
