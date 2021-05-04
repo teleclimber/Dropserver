@@ -14,7 +14,7 @@ func TestGetZipFilename(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	e := &ExportAppspace{}
+	e := &BackupAppspace{}
 	_, err = e.getZipFilename(dir)
 	if err != nil {
 		t.Error(err)
@@ -36,7 +36,7 @@ func TestGetZipFilenameDupe(t *testing.T) {
 	}
 	emptyFile.Close()
 
-	e := &ExportAppspace{}
+	e := &BackupAppspace{}
 
 	fn, err := e.getZipFilename(dir)
 	if err != nil {

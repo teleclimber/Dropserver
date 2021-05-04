@@ -110,3 +110,27 @@ func TestDBName(t *testing.T) {
 		}
 	}
 }
+
+func TestAppspaceBackupFile(t *testing.T) {
+	cases := []struct {
+		b   string
+		err bool
+	}{
+		{"1234-56-78_1234.zip", false},
+		{"1234-56-78_1234_5.zip", false},
+		{"12EB-56-78_1234.zip", true},
+		{"1234-56-78_1234_.zip", true},
+		{"1234-56-78_1234_11.zip", true},
+		{".zip", true},
+		{"", true},
+	}
+
+	for _, c := range cases {
+		err := AppspaceBackupFile(c.b)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
+			t.Error("should have gotten error")
+		}
+	}
+}

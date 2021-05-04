@@ -100,14 +100,14 @@ func TestRunJob(t *testing.T) {
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))
 
-	exportAppspace := testmocks.NewMockExportAppspace(mockCtrl)
-	exportAppspace.EXPECT().Backup(appspaceID).Return("some-zip-file.zip", nil)
+	backupAppspace := testmocks.NewMockBackupAppspace(mockCtrl)
+	backupAppspace.EXPECT().BackupNoPause(appspaceID).Return("some-zip-file.zip", nil)
 
 	c := &MigrationJobController{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: infoModels,
-		ExportAppspace:     exportAppspace,
+		BackupAppspace:     backupAppspace,
 		SandboxManager:     sandboxManager,
 		SandboxMaker:       sandboxMaker,
 		AppspaceStatus:     appspaceStatus,

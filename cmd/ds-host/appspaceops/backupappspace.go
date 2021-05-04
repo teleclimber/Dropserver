@@ -18,7 +18,7 @@ import (
 
 var fileDateFormat = "2006-01-02_1504"
 
-type ExportAppspace struct {
+type BackupAppspace struct {
 	Config        *domain.RuntimeConfig
 	AppspaceModel interface {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
@@ -40,24 +40,24 @@ type ExportAppspace struct {
 	}
 }
 
-// Export everything that an appspace might need to be re-created somewhere.
+// CreateBackup everything that an appspace might need to be re-created somewhere.
 // Useful for making backups and export / transfers of appspace
-// Export fetches its own pause.
-func (e *ExportAppspace) Export(appspaceID domain.AppspaceID) (string, error) {
+// CreateBackup fetches its own pause.
+func (e *BackupAppspace) CreateBackup(appspaceID domain.AppspaceID) (string, error) {
 	// obtain temp pause
-	pauseCh := e.AppspaceStatus.WaitTempPaused(appspaceID, "export")
+	pauseCh := e.AppspaceStatus.WaitTempPaused(appspaceID, "backup")
 	defer close(pauseCh)
 
-	e.AppspaceLogger.Log(appspaceID, "ds-host", "exporting appspace data")
+	e.AppspaceLogger.Log(appspaceID, "ds-host", "backing up appspace data")
 
 	zipFile, err := e.createZip(appspaceID)
 
 	return zipFile, err
 }
 
-// Backup creates an export zip file
-// Backup expects that the appspace is already paused
-func (e *ExportAppspace) Backup(appspaceID domain.AppspaceID) (string, error) {
+// BackupNoPause creates a backup zip file like CreateBackup
+// but it expects the backup to be already paused
+func (e *BackupAppspace) BackupNoPause(appspaceID domain.AppspaceID) (string, error) {
 	if !e.AppspaceStatus.IsTempPaused(appspaceID) {
 		return "", errors.New("appspace is not temp paused as expected")
 	}
@@ -69,7 +69,7 @@ func (e *ExportAppspace) Backup(appspaceID domain.AppspaceID) (string, error) {
 	return zipFile, err
 }
 
-func (e *ExportAppspace) RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error {
+func (e *BackupAppspace) RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error {
 	if !e.AppspaceStatus.IsTempPaused(appspaceID) {
 		return errors.New("appspace is not temp paused as expected")
 	}
@@ -84,7 +84,7 @@ func (e *ExportAppspace) RestoreBackup(appspaceID domain.AppspaceID, zipFile str
 }
 
 // closeAll closes appspace files that might remain open after an appspace has been paused/stopped.
-func (e *ExportAppspace) closeAll(appspaceID domain.AppspaceID) error {
+func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	// appspace meta
 	// appspace dbs
 	// appspace logs
@@ -101,7 +101,7 @@ func (e *ExportAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	return nil
 }
 
-func (e *ExportAppspace) getZipFilename(dir string) (string, error) {
+func (e *BackupAppspace) getZipFilename(dir string) (string, error) {
 	zipFile := filepath.Join(dir, time.Now().Format(fileDateFormat))
 	increment := 0
 	incStr := ""
@@ -119,7 +119,7 @@ func (e *ExportAppspace) getZipFilename(dir string) (string, error) {
 	return zipFile + incStr + ".zip", nil
 }
 
-func (e *ExportAppspace) createZip(appspaceID domain.AppspaceID) (string, error) {
+func (e *BackupAppspace) createZip(appspaceID domain.AppspaceID) (string, error) {
 
 	// generate additional data and save to data dir
 	// (big json meta data and users list)
@@ -153,14 +153,14 @@ func (e *ExportAppspace) createZip(appspaceID domain.AppspaceID) (string, error)
 
 	err = zipfns.Zip(dataDir, zipFile)
 	if err != nil {
-		e.getLogger("Export, zipFiles").Error(err)
+		e.getLogger("createZip, zipfns.Zip").Error(err)
 		return "", err
 	}
 
 	return zipFile, nil
 }
 
-func (e *ExportAppspace) restoreZip(appspaceID domain.AppspaceID, zipFile string) error {
+func (e *BackupAppspace) restoreZip(appspaceID domain.AppspaceID, zipFile string) error {
 	// get closed lock
 	closedCh, ok := e.AppspaceStatus.LockClosed(appspaceID)
 	if !ok {
@@ -200,8 +200,8 @@ func (e *ExportAppspace) restoreZip(appspaceID domain.AppspaceID, zipFile string
 	return nil
 }
 
-func (e *ExportAppspace) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("ExportAppspace")
+func (e *BackupAppspace) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("BackupAppspace")
 	if note != "" {
 		r.AddNote(note)
 	}

@@ -221,7 +221,7 @@ func main() {
 		AppspaceLogger: appspaceLogger,
 		Config:         runtimeConfig}
 
-	exportAppspace := &appspaceops.ExportAppspace{
+	backupAppspace := &appspaceops.BackupAppspace{
 		Config:         runtimeConfig,
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: nil,
@@ -240,7 +240,7 @@ func main() {
 		AppspaceInfoModels: appspaceInfoModels,
 		SandboxManager:     sandboxManager,
 		SandboxMaker:       migrationSandboxMaker,
-		ExportAppspace:     exportAppspace,
+		BackupAppspace:     backupAppspace,
 		MigrationJobModel:  migrationJobModel}
 
 	// auth
@@ -337,7 +337,7 @@ func main() {
 		AppspaceModel: appspaceModel,
 	}
 
-	exportAppspace.AppspaceStatus = appspaceStatus
+	backupAppspace.AppspaceStatus = appspaceStatus
 	migrationJobCtl.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
 
@@ -382,12 +382,18 @@ func main() {
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUserModel: appspaceUserModel,
 	}
+	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
+		Config:             runtimeConfig,
+		AppspaceFilesModel: appspaceFilesModel,
+		BackupAppspace:     backupAppspace,
+	}
 	userAppspaceRoutes := &userroutes.AppspaceRoutes{
 		Config:                 *runtimeConfig,
 		AppspaceUserRoutes:     userAppspaceUserRoutes,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
 		AppspaceUserModel:      appspaceUserModel,
+		AppspaceExportRoutes:   exportAppspaceRoutes,
 		DropIDModel:            dropIDModel,
 		MigrationMinder:        migrationMinder,
 		AppspaceMetaDB:         appspaceMetaDb,

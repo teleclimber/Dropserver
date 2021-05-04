@@ -55,7 +55,8 @@
 			</div>
 
 			<ManageAppspaceUsers :app="app" :appspace="appspace"></ManageAppspaceUsers>
-			
+
+			<ManageBackups :appspace_id="appspace.id"></ManageBackups>
 		</template>
 		<BigLoader v-else></BigLoader> 
 
@@ -77,6 +78,7 @@ import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
 import AppspaceStatusVisualizer from '../components/AppspaceStatusVisualizer.vue';
 import ManageAppspaceUsers from '../components/ManageAppspaceUsers.vue';
+import ManageBackups from '../components/appspace/ManageBackups.vue';
 import DataDef from '../components/ui/DataDef.vue';
 
 // Manage appspace is going to grow to include all kinds of things:
@@ -94,6 +96,7 @@ export default defineComponent({
 		BigLoader,
 		AppspaceStatusVisualizer,
 		ManageAppspaceUsers,
+		ManageBackups,
 		DataDef
 	},
 	setup() {

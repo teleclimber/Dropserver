@@ -2,6 +2,7 @@ package validator
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 
 	goValidator "github.com/go-playground/validator/v10"
@@ -98,6 +99,16 @@ func AppspacePermission(p string) error {
 		return errors.New("permission can not contain comma")
 	}
 	return goVal.Var(p, "min=1,max=20")
+}
+
+var validBackupFile = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}(?:_[1-9])?\.zip$`)
+
+// AppspaceBackupFile validates names of appspace backup files (sans .zip extension)
+func AppspaceBackupFile(b string) error {
+	if !validBackupFile.MatchString(b) {
+		return errors.New("invalid format for appspace backup file name")
+	}
+	return nil
 }
 
 // it might be easier to force all inputs into structs, and set the validations as tags on structs.

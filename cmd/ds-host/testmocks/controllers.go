@@ -6,11 +6,11 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks ExportAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks BackupAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
 
-type ExportAppspace interface {
-	Export(appspaceID domain.AppspaceID) (string, error)
-	Backup(appspaceID domain.AppspaceID) (string, error)
+type BackupAppspace interface {
+	CreateBackup(appspaceID domain.AppspaceID) (string, error)
+	BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 	RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
 }
 

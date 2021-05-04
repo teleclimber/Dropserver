@@ -149,7 +149,7 @@ func TestZipSlip(t *testing.T) {
 	zipFile := filepath.Join(dir, "test.zip")
 	unzipDir := filepath.Join(dir, "unzipped")
 
-	os.Mkdir(filesDir, 0700)
+	os.Mkdir(filesDir, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestZipSlip(t *testing.T) {
 	}
 
 	// check legit file is in unzip
-	content, err := ioutil.ReadFile(filepath.Join(unzipDir, "hello.txt"))
+	content, err := ioutil.ReadFile(filepath.Join(unzipDir, "hello.txt")) // this fails right now, but is it that surprising? do we have any control over the order of zip files?
 	if err != nil {
 		t.Error(err)
 	}

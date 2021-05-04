@@ -78,3 +78,10 @@ export async function post(path:string, data:any) :Promise<any> {
 
 	return resp.data;
 }
+
+export async function del(path :string) :Promise<any> {	// string for now, we can get more fany with a getter object later.
+
+	const resp = await ax.delete( path_prefix + path );
+
+	return resp.data;
+}

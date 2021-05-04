@@ -66,7 +66,9 @@ func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, route
 		u.AuthRoutes.ServeHTTP(res, req, routeData)
 	} else {
 		if routeData.Authentication != nil && routeData.Authentication.UserAccount {
-			u.serveLoggedInRoutes(res, req, routeData)
+			ctx := req.Context()
+			ctx = ctxWithAuthUserID(ctx, routeData.Authentication.UserID)
+			u.serveLoggedInRoutes(res, req.WithContext(ctx), routeData)
 		} else {
 			u.serveRedirectToLogin(res, req, routeData)
 		}

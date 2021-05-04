@@ -32,7 +32,8 @@ type AppspaceRoutes struct {
 	AppspaceUserRoutes interface {
 		ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace)
 	}
-	AppModel interface {
+	AppspaceExportRoutes http.Handler
+	AppModel             interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	}
@@ -45,6 +46,7 @@ type AppspaceRoutes struct {
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
+		Delete(domain.AppspaceID) error
 	}
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
@@ -71,6 +73,8 @@ type AppspaceRoutes struct {
 // ServeHTTP handles http traffic to the appspace routes
 // Namely create, delete, set version, etc...
 func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	ctx := req.Context()
+
 	if routeData.Authentication == nil || !routeData.Authentication.UserAccount {
 		// maybe log it? Frankly this should be a panic.
 		// It's programmer error pure and simple. Kill this thing.
@@ -96,14 +100,26 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 	} else {
 		head, tail := shiftpath.ShiftPath(routeData.URLTail)
 		routeData.URLTail = tail
+		ctx = ctxWithURLTail(ctx, tail)
+		ctx = ctxWithAppspaceData(ctx, *appspace)
+		req = req.WithContext(ctx)
 
 		switch head {
 		case "":
-			a.getAppspace(res, req, routeData, appspace)
+			switch req.Method {
+			case http.MethodGet:
+				a.getAppspace(res, req, routeData, appspace)
+			case http.MethodDelete:
+				a.deleteAppspace(res, req, routeData, appspace)
+			default:
+				http.Error(res, "bad method for /appspace/appspace-id", http.StatusBadRequest)
+			}
 		case "pause":
 			a.changeAppspacePause(res, req, routeData, appspace)
 		case "user":
 			a.AppspaceUserRoutes.ServeHTTP(res, req, routeData, appspace)
+		case "export":
+			a.AppspaceExportRoutes.ServeHTTP(res, req)
 		default:
 			http.Error(res, "", http.StatusNotImplemented)
 		}
@@ -336,6 +352,12 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	}
 
 	res.WriteHeader(http.StatusOK)
+}
+
+func (a *AppspaceRoutes) deleteAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+	// Pause or do a process pause..., then wait for stopped (like migration)
+	// backup or download data or something?
+	// actually delete row
 }
 
 func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {

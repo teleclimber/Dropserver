@@ -35,8 +35,8 @@ type MigrationJobController struct {
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	}
-	ExportAppspace interface {
-		Backup(appspaceID domain.AppspaceID) (string, error)
+	BackupAppspace interface {
+		BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 		RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
 	}
 	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
@@ -271,7 +271,7 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 	}
 
 	// everything checks out so before running actual migration take a backup
-	backupZip, err := c.ExportAppspace.Backup(appspaceID)
+	backupZip, err := c.BackupAppspace.BackupNoPause(appspaceID)
 	if err != nil {
 		job.errStr.SetString("Error creating backup: " + err.Error())
 		return
@@ -282,7 +282,7 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		errStr := "Error running Migration: " + err.Error()
 
 		// restore data
-		err = c.ExportAppspace.RestoreBackup(appspaceID, backupZip)
+		err = c.BackupAppspace.RestoreBackup(appspaceID, backupZip)
 		if err != nil {
 			errStr += " and error restoring appspace: " + err.Error()
 		} else {

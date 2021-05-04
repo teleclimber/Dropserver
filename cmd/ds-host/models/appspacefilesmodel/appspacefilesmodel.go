@@ -1,22 +1,16 @@
 package appspacefilesmodel
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
-
-// performs operations on appspace files
-// - backup
-// - import
-// - export
-
-// Also need ability to take output of metadata taht is stored host-side
-// ..if there is any such data
-// ..and place it in the appspace files.
 
 // dir structure:
 // - asXYZLOCATION/
@@ -57,6 +51,8 @@ func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// TODO should create ocation create the subdirectories?
 
 	// Should we log when we create a location?
 
@@ -107,6 +103,48 @@ func (a *AppspaceFilesModel) CreateDirs(base string) error {
 // 	return nil
 // }
 // Do this later
+
+// GetBackups retuns list of backup files at location key
+// Should at least include the file size for each.
+func (a *AppspaceFilesModel) GetBackups(locationKey string) ([]string, error) {
+	if !a.locationKeyExists(locationKey) {
+		return []string{}, errors.New("location key does not exist")
+	}
+
+	f, err := os.Open(filepath.Join(a.Config.Exec.AppspacesPath, locationKey, "backups"))
+	if err != nil {
+		a.getLogger("GetBackups, os.Open").Error(err)
+		return []string{}, err
+	}
+
+	entries, err := f.Readdirnames(-1)
+	if err != nil {
+		a.getLogger("GetBackups, f.Readdirnames").Error(err)
+		return []string{}, err
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i] > entries[j]
+	})
+
+	return entries, nil
+}
+
+func (a *AppspaceFilesModel) DeleteBackup(locationKey string, filename string) error {
+	if !a.locationKeyExists(locationKey) {
+		return errors.New("location key does not exist")
+	}
+
+	// let's validate that file name again
+	err := validator.AppspaceBackupFile(filename)
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(filepath.Join(a.Config.Exec.AppspacesPath, locationKey, "backups", filename))
+
+	return err
+}
 
 func (a *AppspaceFilesModel) locationKeyExists(locationKey string) bool {
 	_, err := os.Stat(filepath.Join(a.Config.Exec.AppspacesPath, locationKey))
