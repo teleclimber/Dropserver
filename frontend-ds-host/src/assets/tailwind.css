@@ -16,7 +16,7 @@
 	@apply bg-blue-700 text-white;
 }
 .btn-blue:disabled {
-	@apply bg-gray-600;
+	@apply bg-gray-400 text-gray-200;
 }
 
 @tailwind utilities;

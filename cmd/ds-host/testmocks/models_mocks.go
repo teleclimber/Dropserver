@@ -923,6 +923,20 @@ func (mr *MockAppspaceUserModelMockRecorder) Delete(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceUserModel)(nil).Delete), arg0, arg1)
 }
 
+// DeleteForAppspace mocks base method
+func (m *MockAppspaceUserModel) DeleteForAppspace(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteForAppspace", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteForAppspace indicates an expected call of DeleteForAppspace
+func (mr *MockAppspaceUserModelMockRecorder) DeleteForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteForAppspace", reflect.TypeOf((*MockAppspaceUserModel)(nil).DeleteForAppspace), arg0)
+}
+
 // Get mocks base method
 func (m *MockAppspaceUserModel) Get(arg0 domain.AppspaceID, arg1 domain.ProxyID) (domain.AppspaceUser, error) {
 	m.ctrl.T.Helper()

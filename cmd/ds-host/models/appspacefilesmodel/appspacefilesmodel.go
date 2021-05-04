@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -52,11 +53,39 @@ func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 		return "", err
 	}
 
-	// TODO should create ocation create the subdirectories?
-
-	// Should we log when we create a location?
-
 	return filepath.Base(appspacePath), nil
+}
+
+func (a *AppspaceFilesModel) DeleteLocation(loc string) error {
+	// safety checks on that location please.
+
+	if !strings.HasPrefix(loc, "as") || strings.Contains(loc, "..") {
+		err := errors.New("invalid location key")
+		a.getLogger("DeleteLocation()").AddNote(a.Config.Exec.AppspacesPath).Error(err)
+		return err
+	}
+
+	fullPath := filepath.Join(a.Config.Exec.AppspacesPath, loc)
+
+	// The below check may be overkill givsn the location string checks above?
+	rel, err := filepath.Rel(a.Config.Exec.AppspacesPath, fullPath)
+	if err != nil {
+		a.getLogger("DeleteLocation(), filepath.Rel").AddNote(a.Config.Exec.AppspacesPath).Error(err)
+		return err
+	}
+	if strings.HasPrefix(rel, "..") {
+		err = errors.New("invalid location key")
+		a.getLogger("DeleteLocation()").AddNote(a.Config.Exec.AppspacesPath).Error(err)
+		return err
+	}
+
+	err = os.RemoveAll(fullPath)
+	if err != nil {
+		a.getLogger("DeleteLocation(), os.RemoveAll").AddNote(a.Config.Exec.AppspacesPath).Error(err)
+		return err
+	}
+
+	return nil
 }
 
 func (a *AppspaceFilesModel) CreateDirs(base string) error {

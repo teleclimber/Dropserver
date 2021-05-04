@@ -44,15 +44,35 @@ func TestDelete(t *testing.T) {
 		t.Fatal("appspace path should exist")
 	}
 
-	// err = m.Delete(locKey)
-	// if dsErr != nil {
-	// 	t.Fatal(err)
-	// }
+	err = m.DeleteLocation(locKey)
+	if err != nil {
+		t.Error(err)
+	}
 
-	// _, err = os.Stat(filepath.Join(appsPath, locKey))
-	// if err == nil || !os.IsNotExist(err) {
-	// 	t.Fatal("expected not exist error", err)
-	// }
+	_, err = os.Stat(filepath.Join(appspacePath, locKey))
+	if err == nil || !os.IsNotExist(err) {
+		t.Fatal("expected not exist error", err)
+	}
+}
+
+func TestDeleteBadLocations(t *testing.T) {
+	cfg := &domain.RuntimeConfig{}
+	cfg.Exec.AppspacesPath = "/path/to/appspaces"
+
+	m := AppspaceFilesModel{
+		Config: cfg}
+
+	cases := []string{"/an/absolute/path/", "../relative", "astricky/../../../relative/path/"}
+
+	for _, c := range cases {
+		err := m.DeleteLocation(c)
+		if err == nil {
+			t.Error("no error when we expected one: " + c)
+
+		} else if err.Error() != "invalid location key" {
+			t.Error("expected invalid location key " + err.Error())
+		}
+	}
 }
 
 func TestGetBackups(t *testing.T) {

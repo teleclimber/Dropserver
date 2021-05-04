@@ -243,6 +243,14 @@ func main() {
 		BackupAppspace:     backupAppspace,
 		MigrationJobModel:  migrationJobModel}
 
+	deleteAppspace := &appspaceops.DeleteAppspace{
+		AppspaceStatus:     nil,
+		AppspaceModel:      appspaceModel,
+		AppspaceFilesModel: appspaceFilesModel,
+		MigrationJobModel:  migrationJobModel,
+		AppspaceUserModel:  appspaceUserModel,
+	}
+
 	// auth
 	authenticator := &authenticator.Authenticator{
 		CookieModel: cookieModel,
@@ -340,6 +348,7 @@ func main() {
 	backupAppspace.AppspaceStatus = appspaceStatus
 	migrationJobCtl.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
+	deleteAppspace.AppspaceStatus = appspaceStatus
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
@@ -400,6 +409,7 @@ func main() {
 		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
+		DeleteAppspace:         deleteAppspace,
 		AppModel:               appModel}
 
 	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{

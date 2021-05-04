@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 
-import {get, post} from '../controllers/userapi';
+import {get, post, del} from '../controllers/userapi';
 
 import { AppVersion } from './app_versions';
 
@@ -75,6 +75,9 @@ export class Appspace {
 	async setPause(pause :boolean) {
 		const data = await post('/appspace/'+this.id+'/pause', {pause});
 		this.paused = pause;
+	}
+	async del() {
+		await del('/appspace/'+this.id)
 	}
 }
 

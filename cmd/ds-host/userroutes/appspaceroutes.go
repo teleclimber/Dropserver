@@ -46,7 +46,9 @@ type AppspaceRoutes struct {
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
-		Delete(domain.AppspaceID) error
+	}
+	DeleteAppspace interface {
+		Delete(domain.Appspace) error
 	}
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
@@ -110,7 +112,7 @@ func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 			case http.MethodGet:
 				a.getAppspace(res, req, routeData, appspace)
 			case http.MethodDelete:
-				a.deleteAppspace(res, req, routeData, appspace)
+				a.deleteAppspace(res, req, appspace)
 			default:
 				http.Error(res, "bad method for /appspace/appspace-id", http.StatusBadRequest)
 			}
@@ -210,6 +212,7 @@ type PostAppspaceResp struct {
 }
 
 func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+	// This whole process should be in an appspace ops function, not in the route handler.
 	reqData := &PostAppspaceReq{}
 	err := readJSON(req, reqData)
 	if err != nil {
@@ -354,10 +357,12 @@ func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.
 	res.WriteHeader(http.StatusOK)
 }
 
-func (a *AppspaceRoutes) deleteAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	// Pause or do a process pause..., then wait for stopped (like migration)
-	// backup or download data or something?
-	// actually delete row
+func (a *AppspaceRoutes) deleteAppspace(res http.ResponseWriter, req *http.Request, appspace *domain.Appspace) {
+	err := a.DeleteAppspace.Delete(*appspace)
+	if err != nil {
+		returnError(res, err)
+		return
+	}
 }
 
 func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {

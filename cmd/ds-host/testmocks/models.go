@@ -96,6 +96,7 @@ type AppspaceUserModel interface {
 	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
 	Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
+	DeleteForAppspace(appspaceID domain.AppspaceID) error
 }
 
 // ContactModel stores a user's contacts

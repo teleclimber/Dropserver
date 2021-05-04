@@ -15,7 +15,7 @@ import (
 )
 
 // ErrAuthIDExists is returned when the appspace already has a user with that auth_id string
-var ErrAuthIDExists = errors.New("Auth ID (email or dropid) not unique in this appspace")
+var ErrAuthIDExists = errors.New("auth ID (email or dropid) not unique in this appspace")
 
 // AppspaceUserModel stores the user's DropIDs
 type AppspaceUserModel struct {
@@ -27,6 +27,7 @@ type AppspaceUserModel struct {
 		updateMeta        *sqlx.Stmt
 		updateLastSeen    *sqlx.Stmt
 		delete            *sqlx.Stmt
+		deleteAppspace    *sqlx.Stmt
 		get               *sqlx.Stmt
 		getForAppspace    *sqlx.Stmt
 		getAppspaceDropID *sqlx.Stmt
@@ -54,6 +55,8 @@ func (m *AppspaceUserModel) PrepareStatements() {
 		WHERE appspace_id = ? AND proxy_id = ?`)
 
 	m.stmt.delete = p.Prep(`DELETE FROM appspace_users WHERE appspace_id = ? AND proxy_id = ?`)
+
+	m.stmt.deleteAppspace = p.Prep(`DELETE FROM appspace_users WHERE appspace_id = ?`)
 
 	m.stmt.get = p.Prep(`SELECT * FROM appspace_users WHERE appspace_id = ? AND proxy_id = ?`)
 
@@ -161,6 +164,15 @@ func (m *AppspaceUserModel) Delete(appspaceID domain.AppspaceID, proxyID domain.
 	_, err := m.stmt.delete.Exec(appspaceID, proxyID)
 	if err != nil {
 		m.getLogger("Delete()").AppspaceID(appspaceID).Error(err)
+		return err
+	}
+	return nil
+}
+
+func (m *AppspaceUserModel) DeleteForAppspace(appspaceID domain.AppspaceID) error {
+	_, err := m.stmt.deleteAppspace.Exec(appspaceID)
+	if err != nil {
+		m.getLogger("DeleteForAppspace()").AppspaceID(appspaceID).Error(err)
 		return err
 	}
 	return nil
