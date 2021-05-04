@@ -341,3 +341,77 @@ func TestGetForAppspace(t *testing.T) {
 		t.Error("got wrong job")
 	}
 }
+
+func TestDeleteForAppspace(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	model := &MigrationJobModel{
+		DB: &domain.DB{
+			Handle: h}}
+	model.PrepareStatements()
+
+	uID := domain.UserID(7)
+	asID1 := domain.AppspaceID(11)
+
+	err := model.DeleteForAppspace(asID1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = model.Create(uID, asID1, "0.0.1", true)
+	if err != nil {
+		t.Error(err)
+	}
+	err = model.DeleteForAppspace(asID1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	jobs, err := model.GetForAppspace(asID1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(jobs) != 0 {
+		t.Error("expected zero jobs")
+	}
+}
+
+func TestDeleteOngoingJobForAppspace(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	model := &MigrationJobModel{
+		DB: &domain.DB{
+			Handle: h}}
+	model.PrepareStatements()
+
+	uID := domain.UserID(7)
+	asID1 := domain.AppspaceID(11)
+
+	job, err := model.Create(uID, asID1, "0.0.1", true)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ok, err := model.SetStarted(job.JobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Error("expected ok")
+	}
+
+	err = model.DeleteForAppspace(asID1)
+	if err == nil {
+		t.Error("expected an error")
+	}
+
+	jobs, err := model.GetForAppspace(asID1)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(jobs) != 1 {
+		t.Error("expected one job")
+	}
+}

@@ -78,6 +78,7 @@ type RemoteAppspaceModel interface {
 // AppspaceFilesModel manipulates data directories for appspaces
 type AppspaceFilesModel interface {
 	CreateLocation() (string, error)
+	//DeleteLocation(string) error
 }
 
 // AppspaceInfoModels caches and dishes AppspaceInfoModels
@@ -130,5 +131,5 @@ type MigrationJobModel interface {
 	SetStarted(domain.JobID) (bool, error)
 	SetFinished(domain.JobID, nulltypes.NullString) error
 	GetForAppspace(appspaceID domain.AppspaceID) ([]*domain.MigrationJob, error)
-	// Delete(AppspaceID) Error
+	DeleteForAppspace(appspaceID domain.AppspaceID) error
 }

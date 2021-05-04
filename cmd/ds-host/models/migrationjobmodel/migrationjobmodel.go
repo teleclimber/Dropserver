@@ -2,6 +2,7 @@ package migrationjobmodel
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -140,6 +141,56 @@ func (m *MigrationJobModel) GetForAppspace(appspaceID domain.AppspaceID) ([]*dom
 		return nil, err
 	}
 	return jobs, nil
+}
+
+// DeleteForAppspace deletes all jobs for an appspace
+// This returns an error if any job to be deleted is ongoing
+func (m *MigrationJobModel) DeleteForAppspace(appspaceID domain.AppspaceID) error {
+	logger := m.getLogger("DeleteForAppspace()")
+
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		logger.AddNote("Beginx()").Error(err)
+		tx.Rollback()
+		return err
+	}
+
+	var jobs []domain.MigrationJob
+	get := tx.Stmtx(m.stmt.selectAppspace)
+	err = get.Select(&jobs, appspaceID)
+	if err != nil && err != sql.ErrNoRows {
+		logger.AddNote("QueryRowx()").Error(err)
+		tx.Rollback()
+		return err
+	}
+
+	for _, job := range jobs {
+		if job.Started.Valid && !job.Finished.Valid {
+			// found an ongoing job. This should not happen, normally because the job would have locked the appspace.
+			err = errors.New("can't delete ongoing job")
+			logger.Error(err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	del := tx.Stmtx(m.stmt.deleteJob)
+	for _, job := range jobs {
+		_, err := del.Exec(job.JobID)
+		if err != nil {
+			logger.AddNote("del.Exec()").Error(err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.AddNote("tx.Commit").Error(err)
+		return err
+	}
+
+	return nil
 }
 
 // GetPending returns an array of pending jobs

@@ -1213,6 +1213,20 @@ func (mr *MockMigrationJobModelMockRecorder) Create(arg0, arg1, arg2, arg3 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockMigrationJobModel)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
+// DeleteForAppspace mocks base method
+func (m *MockMigrationJobModel) DeleteForAppspace(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteForAppspace", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteForAppspace indicates an expected call of DeleteForAppspace
+func (mr *MockMigrationJobModelMockRecorder) DeleteForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteForAppspace", reflect.TypeOf((*MockMigrationJobModel)(nil).DeleteForAppspace), arg0)
+}
+
 // GetForAppspace mocks base method
 func (m *MockMigrationJobModel) GetForAppspace(arg0 domain.AppspaceID) ([]*domain.MigrationJob, error) {
 	m.ctrl.T.Helper()
