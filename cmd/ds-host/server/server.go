@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -62,8 +61,7 @@ func (s *Server) Start() { //return a server type
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
-	fmt.Println("Server listening on port " + addr)
-	fmt.Println("User Routes domain: " + s.Config.Exec.UserRoutesDomain)
+	s.getLogger("Start()").Debug("User Routes address: " + s.Config.Exec.UserRoutesDomain + s.Config.Exec.PortString)
 
 	s.server = &http.Server{
 		Addr:    addr,
@@ -125,8 +123,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	fmt.Println(host, req.URL)
 
 	switch host {
 	case s.Config.Exec.UserRoutesDomain:

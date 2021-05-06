@@ -67,6 +67,12 @@ func main() {
 
 	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag, *noSslFlag)
 
+	record.InitDsLogger()
+	err := record.SetLogOutput(runtimeConfig.Exec.LogsPath)
+	if err != nil {
+		panic(err)
+	}
+
 	dbManager := &database.Manager{
 		Config: runtimeConfig}
 
@@ -521,6 +527,11 @@ func main() {
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
+
+	err = record.CloseLogOutput()
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("Leaving main func")
 }

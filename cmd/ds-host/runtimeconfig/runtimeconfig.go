@@ -78,6 +78,7 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
 	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
+	rtc.Exec.LogsPath = filepath.Join(rtc.DataDir, "logs")
 
 	//  domains and ports sorting out:
 	rtc.Exec.PortString = ""

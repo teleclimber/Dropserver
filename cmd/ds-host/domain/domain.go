@@ -62,6 +62,7 @@ type RuntimeConfig struct {
 		MigratorScriptPath  string
 		AppsPath            string
 		AppspacesPath       string
+		LogsPath            string
 	}
 }
 

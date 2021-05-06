@@ -2,26 +2,54 @@ package record
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-// just experimenting with interfaces and what not here.
-// I was thinking of passing loggers, but it might be easier to create them...?
-
-// What other variables will we really want to pass on?
-// - function name / code location
-
-// defuse runtime's Callers etc... to get a stack trace in debug mode
+var multiWriter io.Writer
+var logFile *os.File
 
 // InitDsLogger sets flags on the default logger
 func InitDsLogger() {
-	// for now set flags and what not.
-	//log.Ldate|log.Ltime|log.Lshortfile
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetFlags(log.Ldate | log.Ltime)
+}
+
+// SetLogOutput sets the path of the log file
+func SetLogOutput(logPath string) error {
+	err := os.MkdirAll(logPath, 0755)
+	if err != nil {
+		return err
+	}
+	logFile, err = os.OpenFile(filepath.Join(logPath, "log.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+
+	multiWriter = io.MultiWriter(os.Stderr, logFile)
+
+	log.SetOutput(multiWriter)
+
+	return nil
+}
+
+// CloseLogOutput closes the log file, if any
+func CloseLogOutput() error {
+	if logFile == nil {
+		return nil
+	}
+
+	log.SetOutput(os.Stderr)
+	err := logFile.Close()
+	if err != nil {
+		return err
+	}
+	logFile = nil
+	return nil
 }
 
 // Debug just logs the message if in debug mode
@@ -136,8 +164,10 @@ func (l *DsLogger) Error(err error) {
 func (l *DsLogger) contextStr() string {
 	str := ""
 	_, file, line, ok := runtime.Caller(2)
+	f := filepath.Base(file)
+	p := filepath.Base(filepath.Dir(file))
 	if ok {
-		str += fmt.Sprintf("%v:%v ", file, line)
+		str += fmt.Sprintf("%v/%v:%v ", p, f, line)
 	}
 	if l.hasAppID {
 		str += fmt.Sprintf("a:%v ", l.appID)
