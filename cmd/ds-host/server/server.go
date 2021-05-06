@@ -28,8 +28,6 @@ type Server struct {
 	UserRoutes     domain.RouteHandler
 	AppspaceRouter domain.RouteHandler
 
-	Metrics domain.MetricsI
-
 	mux    *http.ServeMux
 	server *http.Server
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
@@ -52,8 +51,6 @@ const appID = domain.AppID(11)
 const appspaceID = domain.AppspaceID(15)
 
 func main() {
-
-	m := record.Metrics{}
 
 	flag.Parse()
 
@@ -204,8 +201,7 @@ func main() {
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
-		SandboxManager: devSandboxManager,
-		Metrics:        &m}
+		SandboxManager: devSandboxManager}
 
 	appspaceRouterV0 := &appspacerouter.V0{
 		AppspaceUserModel:   devAppspaceUserModel,

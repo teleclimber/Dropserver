@@ -3,7 +3,6 @@ package sandboxproxy
 import (
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -14,14 +13,11 @@ type SandboxProxy struct {
 	SandboxManager interface {
 		GetForAppSpace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
 	} // not needed at server level
-	Metrics domain.MetricsI
 }
 
 // ServeHTTP forwards the request to a sandbox
 // Could still see splitting this function in two.
 func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, routeData *domain.AppspaceRouteData) {
-	defer s.Metrics.HostHandleReq(time.Now())
-
 	// The responsibiility for knowing whether an appspace is ready or not, is upstream (in appspaceroutes)
 
 	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs

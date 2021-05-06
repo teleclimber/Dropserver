@@ -107,9 +107,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	record.Init(runtimeConfig) // ok, but that's not how we should do it.
-	// ^^ preserve this for metrics, but get rid of it eventually
-
 	stdInput := &stdinput.StdInput{}
 
 	// events
@@ -320,8 +317,6 @@ func main() {
 		//defer pprof.StopCPUProfile()
 	}
 
-	m := record.Metrics{}
-
 	// controllers:
 	domainController := &domaincontroller.DomainController{
 		Config:        runtimeConfig,
@@ -358,8 +353,7 @@ func main() {
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
-		SandboxManager: sandboxManager,
-		Metrics:        &m}
+		SandboxManager: sandboxManager}
 
 	// Views
 	views := &views.Views{
@@ -518,8 +512,7 @@ func main() {
 		Config:         runtimeConfig,
 		Views:          views,
 		UserRoutes:     userRoutes,
-		AppspaceRouter: appspaceRouter,
-		Metrics:        &m}
+		AppspaceRouter: appspaceRouter}
 	server.Init()
 
 	// start things up

@@ -51,9 +51,6 @@ func TestIntegration1(t *testing.T) {
 	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)}
 	appVersion := &domain.AppVersion{LocationKey: "loc123"}
 
-	metrics := domain.NewMockMetricsI(mockCtrl)
-	metrics.EXPECT().HostHandleReq(gomock.Any())
-
 	tl := &testLogger{
 		t: t}
 
@@ -65,8 +62,7 @@ func TestIntegration1(t *testing.T) {
 		Config:         cfg}
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
-		SandboxManager: &sM,
-		Metrics:        metrics}
+		SandboxManager: &sM}
 
 	sM.Init()
 

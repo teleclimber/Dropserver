@@ -60,12 +60,8 @@ func TestSandboxBadStart(t *testing.T) {
 		AppVersion: &domain.AppVersion{},
 		Appspace:   &domain.Appspace{}}
 
-	metrics := domain.NewMockMetricsI(mockCtrl)
-	metrics.EXPECT().HostHandleReq(gomock.Any())
-
 	sandboxProxy := SandboxProxy{
 		SandboxManager: sandboxManager,
-		Metrics:        metrics,
 	}
 
 	sandboxProxy.ServeHTTP(rr, req, routeData)
@@ -146,11 +142,9 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	serverSocket := filepath.Join(tempDir, "server.sock")
 
 	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
-	metrics := domain.NewMockMetricsI(mockCtrl)
 
 	sandboxProxy := &SandboxProxy{
-		SandboxManager: sandboxManager,
-		Metrics:        metrics}
+		SandboxManager: sandboxManager}
 
 	routeData := &domain.AppspaceRouteData{
 		URLTail:    "/abc", // parametrize
@@ -162,8 +156,6 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 				File: "@app/module-abc.ts",
 			},
 		}}
-
-	metrics.EXPECT().HostHandleReq(gomock.Any())
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
 	sandbox.EXPECT().GetTransport().Return(&http.Transport{
