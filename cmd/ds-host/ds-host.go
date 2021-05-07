@@ -68,7 +68,7 @@ func main() {
 	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag, *noSslFlag)
 
 	record.InitDsLogger()
-	err := record.SetLogOutput(runtimeConfig.Exec.LogsPath)
+	err := record.SetLogOutput(runtimeConfig.Log)
 	if err != nil {
 		panic(err)
 	}
@@ -282,17 +282,22 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
-		fmt.Println("Caught signal, quitting.", sig)
+		record.Log(fmt.Sprintf("Caught signal %v, quitting.", sig))
 		pprof.StopCPUProfile()
 
 		sandboxManager.StopAll()
-		fmt.Println("All sandbox stopped")
+		record.Debug("All sandbox stopped")
 
 		v0tokenManager.Stop()
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
 		// TODO server stop
+
+		err = record.CloseLogOutput()
+		if err != nil {
+			panic(err)
+		}
 
 		os.Exit(0)
 	}()
@@ -521,10 +526,5 @@ func main() {
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
 
-	err = record.CloseLogOutput()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Leaving main func")
+	record.Debug("Leaving main func")
 }

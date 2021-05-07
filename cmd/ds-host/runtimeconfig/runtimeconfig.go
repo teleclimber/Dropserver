@@ -28,9 +28,6 @@ var configDefault = []byte(`{
 	},
 	"sandbox": {
 		"num": 3
-	},
-	"prometheus": {
-		"port": 2112
 	}
 }`)
 
@@ -78,7 +75,6 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
 	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
-	rtc.Exec.LogsPath = filepath.Join(rtc.DataDir, "logs")
 
 	//  domains and ports sorting out:
 	rtc.Exec.PortString = ""
@@ -172,11 +168,6 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 	if rtc.Sandbox.SocketsDir == "" {
 		panic("sockets dir can not be blank")
-	}
-
-	// Prometheus:
-	if rtc.Prometheus.Port == 0 {
-		panic("Prometheus port can not be 0")
 	}
 }
 

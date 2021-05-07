@@ -15,6 +15,9 @@ func TestLoadDefault(t *testing.T) {
 	if rtc.Server.Port != 3000 {
 		t.Error("port didn't register correctly. Expected 3000")
 	}
+	if rtc.Log != "" {
+		t.Error("Expected empth log")
+	}
 }
 
 func TestMergeLocal(t *testing.T) {

@@ -161,7 +161,7 @@ func NewWebsocketServer(res http.ResponseWriter, req *http.Request) (*Twine, err
 		for err := range wsServerConn.ErrorChan {
 			t.close(fmt.Errorf("Twine Websocket Error: %v", err))
 		}
-		fmt.Println("websocket-twine ErrorChan closed, closing Twine")
+		fmt.Println("websocket-twine ErrorChan closed, closing Twine") // This should definitely not be fmt.Println
 		t.close(nil)
 		// when this closes, it means things are down
 	}()

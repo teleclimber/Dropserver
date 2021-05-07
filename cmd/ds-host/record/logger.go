@@ -21,11 +21,10 @@ func InitDsLogger() {
 
 // SetLogOutput sets the path of the log file
 func SetLogOutput(logPath string) error {
-	err := os.MkdirAll(logPath, 0755)
-	if err != nil {
-		return err
+	if logPath == "" {
+		return nil
 	}
-	logFile, err = os.OpenFile(filepath.Join(logPath, "log.txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}

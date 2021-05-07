@@ -231,7 +231,7 @@ func (w *Websocket) Close() {
 	if w.closed {
 		return
 	}
-	fmt.Println("closing twine-websocket")
+	fmt.Println("closing twine-websocket") // This should definitely not be fmt.Println
 	w.pingTicker.Stop()
 	if w.conn != nil {
 		w.conn.Close()
