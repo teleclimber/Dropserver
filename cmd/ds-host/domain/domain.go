@@ -36,6 +36,11 @@ type RuntimeConfig struct {
 		SslCert string `json:"ssl-cert"`
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
+	// PortString gets concatenated to the end of a domain
+	// to make an address with the right outside port.
+	// Leave empty if port is standard (80 or 443)
+	// Set it to ":3000" if DS is listening on port 3000
+	PortString string `json:"port-string"`
 	TrustCert  string `json:"trust-cert"`
 	Subdomains struct {
 		UserAccounts string `json:"user-accounts"`
@@ -53,7 +58,6 @@ type RuntimeConfig struct {
 		WebpackTemplatesDir string
 		StaticAssetsDir     string
 		UserRoutesDomain    string
-		PortString          string
 		SandboxCodePath     string
 		SandboxRunnerPath   string
 		MigratorScriptPath  string

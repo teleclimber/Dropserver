@@ -59,7 +59,7 @@ func (s *Server) Start() { //return a server type
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
-	s.getLogger("Start()").Debug("User Routes address: " + s.Config.Exec.UserRoutesDomain + s.Config.Exec.PortString)
+	s.getLogger("Start()").Debug("User Routes address: " + s.Config.Exec.UserRoutesDomain + s.Config.PortString)
 
 	s.server = &http.Server{
 		Addr:    addr,

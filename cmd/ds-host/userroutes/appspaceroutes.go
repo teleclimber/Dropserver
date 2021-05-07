@@ -372,7 +372,7 @@ func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta
 		AppVersion: appspace.AppVersion,
 		DomainName: appspace.DomainName,
 		NoSSL:      a.Config.Server.NoSsl,
-		PortString: a.Config.Exec.PortString,
+		PortString: a.Config.PortString,
 		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}

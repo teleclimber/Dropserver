@@ -2,7 +2,6 @@ package runtimeconfig
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -22,6 +21,7 @@ var configDefault = []byte(`{
 		"host": "localhost",
 		"no-ssl": false
 	},
+	"port-string": ":3000",
 	"subdomains": {
 		"user-accounts": "dropid",
 		"static-assets": "static"
@@ -32,7 +32,7 @@ var configDefault = []byte(`{
 }`)
 
 // Load opens the json passed and merges it with defaults
-func Load(configFile string, execPath string, noSsl bool) *domain.RuntimeConfig {
+func Load(configFile string, execPath string) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
 
@@ -46,8 +46,6 @@ func Load(configFile string, execPath string, noSsl bool) *domain.RuntimeConfig 
 
 		mergeLocal(rtc, configHandle)
 	}
-
-	rtc.Server.NoSsl = noSsl
 
 	validateConfig(rtc)
 
@@ -75,12 +73,6 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")
 	rtc.Exec.AppspacesPath = filepath.Join(rtc.DataDir, "appspaces")
-
-	//  domains and ports sorting out:
-	rtc.Exec.PortString = ""
-	if rtc.Server.Port != 80 && rtc.Server.Port != 443 {
-		rtc.Exec.PortString = fmt.Sprintf(":%d", rtc.Server.Port)
-	}
 
 	rtc.Exec.UserRoutesDomain = rtc.Server.Host
 	if rtc.Subdomains.UserAccounts != "" {

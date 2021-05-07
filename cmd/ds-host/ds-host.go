@@ -58,14 +58,12 @@ var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
 var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
 
-var noSslFlag = flag.Bool("no-ssl", false, "Disable SSL (for dev use only)")
-
 func main() {
 	//startServer := true	// currnetly actually not used.
 
 	flag.Parse()
 
-	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag, *noSslFlag)
+	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag)
 
 	record.InitDsLogger()
 	err := record.SetLogOutput(runtimeConfig.Log)

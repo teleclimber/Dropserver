@@ -94,7 +94,7 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 	}
 
 	client := r.DS2DS.GetClient()
-	u := protocol + "://" + appspaceDomain + r.Config.Exec.PortString + "/.dropserver/v0/login-token-request"
+	u := protocol + "://" + appspaceDomain + r.Config.PortString + "/.dropserver/v0/login-token-request"
 	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		r.pushResults(ref, "", err)

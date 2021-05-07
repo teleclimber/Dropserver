@@ -224,6 +224,6 @@ func (a *RemoteAppspaceRoutes) makeRemoteAppspaceMeta(appspace domain.RemoteApps
 		OwnerDropID: appspace.OwnerDropID,
 		UserDropID:  appspace.UserDropID,
 		NoSSL:       a.Config.Server.NoSsl,
-		PortString:  a.Config.Exec.PortString,
+		PortString:  a.Config.PortString,
 		Created:     appspace.Created}
 }

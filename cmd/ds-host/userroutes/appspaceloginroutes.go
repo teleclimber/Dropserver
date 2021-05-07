@@ -112,5 +112,5 @@ func (u *AppspaceLoginRoutes) makeRedirectLink(appspaceDomain, token string) str
 	query := make(url.Values)
 	query.Add("dropserver-login-token", token)
 
-	return "https://" + appspaceDomain + u.Config.Exec.PortString + "?" + query.Encode()
+	return "https://" + appspaceDomain + u.Config.PortString + "?" + query.Encode()
 }
