@@ -71,6 +71,10 @@ func main() {
 		panic(err)
 	}
 
+	if runtimeConfig.Prometheus.Enable {
+		record.ExposePromMetrics(*runtimeConfig)
+	}
+
 	dbManager := &database.Manager{
 		Config: runtimeConfig}
 
@@ -291,6 +295,8 @@ func main() {
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
 
 		// TODO server stop
+
+		record.StopPromMetrics()
 
 		err = record.CloseLogOutput()
 		if err != nil {

@@ -18,6 +18,9 @@ func TestLoadDefault(t *testing.T) {
 	if rtc.Log != "" {
 		t.Error("Expected empth log")
 	}
+	if rtc.Prometheus.Enable {
+		t.Error("Expected prometheus to not be enabled")
+	}
 }
 
 func TestMergeLocal(t *testing.T) {

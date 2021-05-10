@@ -50,7 +50,11 @@ type RuntimeConfig struct {
 		Num        int    `json:"num"`
 		SocketsDir string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
 	} `json:"sandbox"`
-	Log string `json:"log"`
+	Log        string `json:"log"`
+	Prometheus struct {
+		Enable bool   `json:"enable"`
+		Port   uint16 `json:"port"`
+	} `json:"prometheus"`
 	// Exec contains values determined at runtime
 	// These are not settable via json.
 	Exec struct {
