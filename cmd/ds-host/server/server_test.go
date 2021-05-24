@@ -1,79 +1,65 @@
 package server
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
+// TODO Frontend is no longer in server. Move this tedt to user routes.
+// func TestFrontend(t *testing.T) {
+// 	rtc := domain.RuntimeConfig{}
+// 	rtc.Exec.UserRoutesDomain = "user.routes.com"
+// 	rtc.Server.NoSsl = true
 
-	"github.com/golang/mock/gomock"
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
-)
+// 	mockCtrl := gomock.NewController(t)
+// 	defer mockCtrl.Finish()
 
-func TestFrontend(t *testing.T) {
-	rtc := domain.RuntimeConfig{}
-	rtc.Exec.UserRoutesDomain = "user.routes.com"
-	rtc.Server.NoSsl = true
+// 	s := &Server{
+// 		Config: &rtc,
+// 	}
+// 	s.Init()
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+// 	dirEntries, err := dshostfrontend.FS.ReadDir("dist/frontend-assets/js")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	targetFile := ""
+// 	for _, entry := range dirEntries {
+// 		if entry.IsDir() {
+// 			return
+// 		}
+// 		targetFile = entry.Name()
+// 	}
+// 	if targetFile == "" {
+// 		t.Error("failed to find a JS file to test frontend server. Please build frontend first. Sorry for the mad coupling.")
+// 	}
 
-	views := testmocks.NewMockViews(mockCtrl)
-	views.EXPECT().GetStaticFS().Return(nil)
+// 	testServer := httptest.NewServer(s.mux)
+// 	defer testServer.Close()
 
-	s := &Server{
-		Config: &rtc,
-		Views:  views,
-	}
-	s.Init()
+// 	req, err := http.NewRequest("GET", testServer.URL+"/frontend-assets/js/"+targetFile, nil)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	req.Host = rtc.Exec.UserRoutesDomain
 
-	dirEntries, err := dshostfrontend.FS.ReadDir("dist/frontend-assets/js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	targetFile := ""
-	for _, entry := range dirEntries {
-		if entry.IsDir() {
-			return
-		}
-		targetFile = entry.Name()
-	}
-	if targetFile == "" {
-		t.Error("failed to find a JS file to test frontend server. Please build frontend first. Sorry for the mad coupling.")
-	}
+// 	client := &http.Client{}
+// 	res, err := client.Do(req)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	testServer := httptest.NewServer(s.mux)
-	defer testServer.Close()
+// 	if res.StatusCode != http.StatusOK {
+// 		t.Fatal("expected status 200, got " + res.Status)
+// 	}
 
-	req, err := http.NewRequest("GET", testServer.URL+"/frontend-assets/js/"+targetFile, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Host = rtc.Exec.UserRoutesDomain
+// 	res.Body.Close()
 
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	// TODO: this test is wrong. It gets a 200 OK because it receives a directory listing.
+// 	// But we want to kill dir listings for frontend assets.
 
-	if res.StatusCode != http.StatusOK {
-		t.Fatal("expected status 200, got " + res.Status)
-	}
+// 	// body, err := io.ReadAll(res.Body)
+// 	// if err != nil {
+// 	// 	t.Fatal(err)
+// 	// }
 
-	res.Body.Close()
-
-	// TODO: this test is wrong. It gets a 200 OK because it receives a directory listing.
-	// But we want to kill dir listings for frontend assets.
-
-	// body, err := io.ReadAll(res.Body)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-
-	// bod := string(body)
-	// if !strings.Contains(bod, "<!DOCTYPE html>") {
-	// 	t.Fatal("expected index html")
-	// }
-}
+// 	// bod := string(body)
+// 	// if !strings.Contains(bod, "<!DOCTYPE html>") {
+// 	// 	t.Fatal("expected index html")
+// 	// }
+// }

@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -45,13 +44,14 @@ func TestOwnerLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := req.Context()
+	ctx = domain.CtxWithAuthUserID(ctx, ownerID)
+	ctx = domain.CtxWithSessionID(ctx, "test-session-id")
+	req = req.WithContext(ctx)
+
 	rr := httptest.NewRecorder()
 
-	routeData := &domain.AppspaceRouteData{
-		Authentication: &domain.Authentication{
-			UserID: ownerID}}
-
-	m.getTokenForRedirect(rr, req, routeData)
+	m.getTokenForRedirect(rr, req)
 
 	if rr.Result().StatusCode != http.StatusTemporaryRedirect {
 		t.Error("expected redirect")
@@ -81,7 +81,7 @@ func TestRemoteLogin(t *testing.T) {
 	ds2ds.EXPECT().GetRemoteAPIVersion(appspaceDomain).Return(0, nil)
 
 	v0requestToken := testmocks.NewMockV0RequestToken(mockCtrl)
-	v0requestToken.EXPECT().RequestToken(context.Background(), userID, appspaceDomain, sessionID).Return(token, nil)
+	v0requestToken.EXPECT().RequestToken(gomock.Any(), userID, appspaceDomain, sessionID).Return(token, nil)
 
 	m := &AppspaceLoginRoutes{
 		Config:         &domain.RuntimeConfig{},
@@ -97,14 +97,14 @@ func TestRemoteLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := req.Context()
+	ctx = domain.CtxWithAuthUserID(ctx, userID)
+	ctx = domain.CtxWithSessionID(ctx, sessionID)
+	req = req.WithContext(ctx)
+
 	rr := httptest.NewRecorder()
 
-	routeData := &domain.AppspaceRouteData{
-		Authentication: &domain.Authentication{
-			UserID:   userID,
-			CookieID: sessionID}}
-
-	m.getTokenForRedirect(rr, req, routeData)
+	m.getTokenForRedirect(rr, req)
 
 	if rr.Result().StatusCode != http.StatusTemporaryRedirect {
 		t.Error("expected redirect")

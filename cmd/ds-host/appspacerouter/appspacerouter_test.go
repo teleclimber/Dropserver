@@ -38,10 +38,6 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel}
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/abc",
-	}
-
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +48,7 @@ func TestServeHTTPBadAppspace(t *testing.T) {
 
 	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(nil, nil)
 
-	appspaceRoutes.ServeHTTP(rr, req, routeData)
+	appspaceRoutes.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("Expected 404, got %d", rr.Code)
@@ -79,10 +75,6 @@ func TestServeHTTPBadApp(t *testing.T) {
 		AppspaceStatus: appspaceStatus}
 	appspaceRoutes.Init()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/abc",
-	}
-
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +90,7 @@ func TestServeHTTPBadApp(t *testing.T) {
 	appModel.EXPECT().GetFromID(appID).Return(nil, errors.New("some error"))
 	appspaceStatus.EXPECT().Ready(appspaceID).Return(true)
 
-	appspaceRoutes.ServeHTTP(rr, req, routeData)
+	appspaceRoutes.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500, got %d", rr.Code)

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -30,55 +30,54 @@ type AppspaceLoginRoutes struct {
 	}
 }
 
-func (u *AppspaceLoginRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	// user must absolutely be logged in at this point.
-
-	head, _ := shiftpath.ShiftPath(routeData.URLTail)
-	switch head {
-	case "":
-		u.getTokenForRedirect(res, req, routeData)
-	default:
-		returnError(res, errNotFound)
-	}
+func (u *AppspaceLoginRoutes) routeGroup(r chi.Router) {
+	r.With(mustBeAuthenticated).Get("/appspacelogin", u.getTokenForRedirect)
 }
 
-func (u *AppspaceLoginRoutes) getTokenForRedirect(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	query := req.URL.Query()
-	appspaceDomains, ok := query["appspace"]
-	if !ok || len(appspaceDomains) != 1 {
-		http.Error(res, "Missing or malformed appspace domain query parameter", http.StatusBadRequest)
+func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http.Request) {
+	appspaceDomain, ok := readSingleQueryParam(r, "appspace")
+	if !ok {
+		http.Error(w, "Missing or malformed appspace domain query parameter", http.StatusBadRequest)
 		return
 	}
-	appspaceDomain, err := url.QueryUnescape(appspaceDomains[0])
+	err := validator.DomainName(appspaceDomain)
 	if err != nil {
-		http.Error(res, "Malformed appspace domain query parameter", http.StatusBadRequest)
-		return
-	}
-	err = validator.DomainName(appspaceDomain)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	appspaceDomain = validator.NormalizeDomainName(appspaceDomain)
+
+	authUserID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		// log it because this should not happen
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	sessionID, ok := domain.CtxSessionID(r.Context())
+	if !ok {
+		// log it because this should not happen
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	appspace, err := u.AppspaceModel.GetFromDomain(appspaceDomain)
 	if err != nil {
 		// some day appspace model will return an error if appspace not found.
 		// handle that appropriately.
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
-	if appspace != nil && appspace.OwnerID == routeData.Authentication.UserID {
+	if appspace != nil && appspace.OwnerID == authUserID {
 		// Found an appspace owned by the user requesting a token.
 		// We're assuming the appspace owner is a user.
 		// This is handled differently from "remote" appspaces because
 		// there is no entry for this appspace in owner's "remote" appspaces.
 		token, err := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
 		if err != nil {
-			returnError(res, err)
+			returnError(w, err)
 			return
 		}
-		http.Redirect(res, req, u.makeRedirectLink(appspaceDomain, token), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, u.makeRedirectLink(appspaceDomain, token), http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -87,24 +86,24 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(res http.ResponseWriter, req *
 		// we'll get more detailed with errors later...
 		// it could be we couldn't reach teh remote server, or got an http error or something
 		// it could be there is no common API version we can use
-		http.Error(res, "error determining remote API version: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error determining remote API version: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	switch ver {
 	case 0:
-		loginToken, err := u.V0RequestToken.RequestToken(req.Context(), routeData.Authentication.UserID, appspaceDomain, routeData.Authentication.CookieID)
+		loginToken, err := u.V0RequestToken.RequestToken(r.Context(), authUserID, appspaceDomain, sessionID)
 		if err != nil {
 			// we need to get subtle with errors, probably have a whole set of sentinel errors?
-			res.WriteHeader(http.StatusServiceUnavailable) //for now
-			res.Write([]byte(err.Error()))
+			w.WriteHeader(http.StatusServiceUnavailable) //for now
+			w.Write([]byte(err.Error()))
 			return
 		}
-		http.Redirect(res, req, u.makeRedirectLink(appspaceDomain, loginToken), http.StatusTemporaryRedirect)
+		http.Redirect(w, r, u.makeRedirectLink(appspaceDomain, loginToken), http.StatusTemporaryRedirect)
 
 	default:
 		// log this. This should not happen.
-		http.Error(res, "remote API version missing", http.StatusInternalServerError)
+		http.Error(w, "remote API version missing", http.StatusInternalServerError)
 	}
 }
 
@@ -114,3 +113,5 @@ func (u *AppspaceLoginRoutes) makeRedirectLink(appspaceDomain, token string) str
 
 	return "https://" + appspaceDomain + u.Config.PortString + "?" + query.Encode()
 }
+
+// TODO we need a logger here.

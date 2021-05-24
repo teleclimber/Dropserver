@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -15,39 +14,31 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
-func TestIndex(t *testing.T) {
-	u := UserRoutes{}
+// func TestIndex(t *testing.T) {
+// 	u := UserRoutes{}
 
-	rr := httptest.NewRecorder()
+// 	rr := httptest.NewRecorder()
 
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	req, err := http.NewRequest("GET", "/", nil)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	routeData := domain.AppspaceRouteData{
-		URLTail: "/",
-		Authentication: &domain.Authentication{
-			Authenticated: true,
-			UserAccount:   true,
-		},
-	}
+// 	u.ServeHTTP(rr, req)
 
-	u.ServeHTTP(rr, req, &routeData)
+// 	if rr.Code != http.StatusOK {
+// 		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
+// 	}
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
-	}
+// 	body, err := ioutil.ReadAll(rr.Body)
+// 	if err != nil {
+// 		t.Error(err)
+// 	}
 
-	body, err := ioutil.ReadAll(rr.Body)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if !strings.Contains(string(body), "<!DOCTYPE html>") {
-		t.Error("body does nto contain <!DOCTYPE html>")
-	}
-}
+// 	if !strings.Contains(string(body), "<!DOCTYPE html>") {
+// 		t.Error("body does nto contain <!DOCTYPE html>")
+// 	}
+// }
 
 func TestUserData(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -64,20 +55,15 @@ func TestUserData(t *testing.T) {
 	u := UserRoutes{
 		UserModel: um}
 
-	routeData := domain.AppspaceRouteData{
-		Authentication: &domain.Authentication{
-			UserID: uid,
-		},
-	}
-
 	rr := httptest.NewRecorder()
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
 
-	u.getUserData(rr, req, &routeData)
+	u.getUserData(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
@@ -117,12 +103,6 @@ func TestChangePassword(t *testing.T) {
 	u := UserRoutes{
 		UserModel: um}
 
-	routeData := domain.AppspaceRouteData{
-		Authentication: &domain.Authentication{
-			UserID: uid,
-		},
-	}
-
 	rr := httptest.NewRecorder()
 
 	// craft json request
@@ -131,9 +111,10 @@ func TestChangePassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
 	req.Header.Set("Content-Type", "application/json")
 
-	u.changeUserPassword(rr, req, &routeData)
+	u.changeUserPassword(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)

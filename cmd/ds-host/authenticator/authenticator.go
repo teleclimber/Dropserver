@@ -84,6 +84,24 @@ func (a *Authenticator) Authenticate(req *http.Request) (auth domain.Authenticat
 	return auth
 }
 
+// AccountUser middleware sets the user id in context
+// if the there is a cookie for user account.
+func (a *Authenticator) AccountUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := a.getCookie(r)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		if cookie != nil && cookie.UserAccount {
+			ctx := domain.CtxWithAuthUserID(r.Context(), cookie.UserID)
+			ctx = domain.CtxWithSessionID(ctx, cookie.CookieID)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Also need to auth via API key eventually
 
 // UnsetForAccount is the opposite of SetForAccount
@@ -112,7 +130,6 @@ func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, error) {
 		return nil, err
 	}
 
-	// this should be cached, either here or in cookie model.
 	cookie, err := a.CookieModel.Get(c.Value)
 	if err != nil {
 		return nil, err //this should be internal error?

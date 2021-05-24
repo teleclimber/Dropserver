@@ -33,14 +33,11 @@ func TestGetJobsQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), ownerID))
 
 	rr := httptest.NewRecorder()
 
-	routeData := &domain.AppspaceRouteData{
-		Authentication: &domain.Authentication{
-			UserID: ownerID}}
-
-	r.getJobsQuery(rr, req, routeData)
+	r.getJobsQuery(rr, req)
 
 	bodyStr := rr.Body.String()
 

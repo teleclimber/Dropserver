@@ -58,6 +58,8 @@ var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
 var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
 
+var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown format to this location")
+
 func main() {
 	//startServer := true	// currnetly actually not used.
 
@@ -459,6 +461,7 @@ func main() {
 	}
 
 	userRoutes := &userroutes.UserRoutes{
+		Authenticator:        authenticator,
 		AuthRoutes:           authRoutes,
 		AppspaceLoginRoutes:  appspaceLoginRoutes,
 		AdminRoutes:          adminRoutes,
@@ -471,7 +474,10 @@ func main() {
 		MigrationJobRoutes:   migrationJobRoutes,
 		AppspaceStatusTwine:  appspaceStatusTwine,
 		MigrationJobTwine:    migrationJobTwine,
-		UserModel:            userModel}
+		UserModel:            userModel,
+		Views:                views}
+	userRoutes.Init()
+	userRoutes.DumpRoutes(*dumpRoutesFlag)
 
 	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
 		Config:         runtimeConfig,
@@ -496,6 +502,7 @@ func main() {
 		Config:              runtimeConfig}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
+		Authenticator:    authenticator, //TODO temporay
 		AppModel:         appModel,
 		AppspaceModel:    appspaceModel,
 		AppspaceStatus:   appspaceStatus,
@@ -519,7 +526,6 @@ func main() {
 	server := &server.Server{
 		Authenticator:  authenticator,
 		Config:         runtimeConfig,
-		Views:          views,
 		UserRoutes:     userRoutes,
 		AppspaceRouter: appspaceRouter}
 	server.Init()

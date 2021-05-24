@@ -1,96 +1,96 @@
 package userroutes
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
-func TestGetAppspaceFromPath(t *testing.T) {
+func TestGetAppspaceCtx(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	uid := domain.UserID(7)
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/123",
-		Authentication: &domain.Authentication{
-			UserID: uid}}
+	appspaceID := domain.AppspaceID(11)
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
-	asm.EXPECT().GetFromID(domain.AppspaceID(123)).Return(&domain.Appspace{OwnerID: uid}, nil)
+	asm.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{AppspaceID: appspaceID, OwnerID: uid}, nil)
 
 	a := AppspaceRoutes{
 		AppspaceModel: asm,
 	}
 
-	appspace, dsErr := a.getAppspaceFromPath(routeData)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	router := chi.NewMux()
+	router.With(a.appspaceCtx).Get("/{appspace}", func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			t.Error("expected appspace data")
+		}
+		if appspace.AppspaceID != appspaceID {
+			t.Error("did not get the app data expected")
+		}
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if appspace == nil {
-		t.Fatal("appspace should not be null")
-	}
-}
 
-func TestGetAppspaceFromPathNil(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/"}
+	rr := httptest.NewRecorder()
 
-	a := AppspaceRoutes{}
+	router.ServeHTTP(rr, req)
 
-	appspace, dsErr := a.getAppspaceFromPath(routeData)
-	if dsErr != nil {
-		t.Fatal(dsErr)
-	}
-	if appspace != nil {
-		t.Fatal("appspace should have been nil")
-	}
-}
-
-func TestGetAppspaceFromPathBadReq(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/123def"}
-
-	a := AppspaceRoutes{}
-
-	appspace, dsErr := a.getAppspaceFromPath(routeData)
-	if dsErr == nil {
-		t.Error("bad req should produce an error")
-	}
-	if appspace != nil {
-		t.Fatal("appspace should have been nil")
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
 }
 
-func TestGetAppspaceFromPathUnauthorized(t *testing.T) {
+func TestGetAppspaceCtxForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/123",
-		Authentication: &domain.Authentication{
-			UserID: domain.UserID(7)}}
+	appspaceUserID := domain.UserID(7)
+	reqUserID := domain.UserID(13)
+	appspaceID := domain.AppspaceID(11)
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
-	asm.EXPECT().GetFromID(domain.AppspaceID(123)).Return(&domain.Appspace{OwnerID: domain.UserID(13)}, nil)
+	asm.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{AppspaceID: appspaceID, OwnerID: appspaceUserID}, nil)
 
 	a := AppspaceRoutes{
 		AppspaceModel: asm,
 	}
 
-	appspace, dsErr := a.getAppspaceFromPath(routeData)
-	if dsErr == nil {
-		t.Error("there should have been an error")
+	router := chi.NewMux()
+	router.With(a.appspaceCtx).Get("/{appspace}", func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			t.Error("expected appspace data")
+		}
+		if appspace.AppspaceID != appspaceID {
+			t.Error("did not get the app data expected")
+		}
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if appspace != nil {
-		t.Fatal("appspace should not be nil")
+
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), reqUserID))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
 	}
 }

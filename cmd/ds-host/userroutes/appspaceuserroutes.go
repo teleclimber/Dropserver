@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -34,62 +34,78 @@ type AppspaceUserRoutes struct {
 	}
 }
 
-func (a *AppspaceUserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	head, _ := shiftpath.ShiftPath(routeData.URLTail)
-	//routeData.URLTail = tail
+func (a *AppspaceUserRoutes) subRouter() http.Handler {
+	r := chi.NewRouter()
+	r.Use(mustBeAuthenticated)
 
-	if head == "" {
-		switch req.Method {
-		case http.MethodGet:
-			//get all appspace users
-			a.getAllUsers(res, req, routeData, appspace)
-		case http.MethodPost:
-			// add a user
-			a.newUser(res, req, routeData, appspace)
-		default:
-			returnError(res, errBadRequest)
-		}
+	r.Get("/", a.getAllUsers)
+	r.Post("/", a.newUser)
 
-	} else {
+	r.Route("/{proxyid}", func(r chi.Router) {
+		r.Use(a.userCtx)
+		r.Get("/", a.getUser)
+		r.Patch("/", a.updateUserMeta)
+		r.Delete("/", a.deleteUser)
+	})
 
-		switch req.Method {
-		case http.MethodGet:
-			a.getUser(res, req, routeData, appspace)
-		case http.MethodPatch:
-			// change something about existing user
-			a.updateUserMeta(res, req, routeData, appspace)
-		case http.MethodDelete:
-			a.deleteUser(res, req, routeData, appspace)
-		default:
-			returnError(res, errBadRequest)
-		}
-	}
-
+	return r
 }
 
-func (a *AppspaceUserRoutes) getAllUsers(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+// using middleware not necessary here. Could simply have a getter function
+// since all users of middleware are right here.
+func (a *AppspaceUserRoutes) userCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspace, _ := domain.CtxAppspaceData(r.Context())
+
+		proxyStr := chi.URLParam(r, "proxyid")
+
+		err := validator.UserProxyID(proxyStr)
+		if err != nil {
+			http.Error(w, "invalid proxy id", http.StatusBadRequest)
+			return
+		}
+
+		user, err := a.AppspaceUserModel.Get(appspace.AppspaceID, domain.ProxyID(proxyStr))
+		if err != nil {
+			if err == sql.ErrNoRows {
+				returnError(w, errNotFound)
+			} else {
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppspaceUserData(r.Context(), user))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *AppspaceUserRoutes) getAllUsers(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
 	users, err := a.AppspaceUserModel.GetForAppspace(appspace.AppspaceID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
 	// still unsure whether we just use the struct from domain or a special struct for the JSON.
 
-	writeJSON(res, users)
+	writeJSON(w, users)
 }
 
-func (a *AppspaceUserRoutes) newUser(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
+func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
 	reqData := PostAppspaceUser{}
-	err := readJSON(req, &reqData)
+	err := readJSON(r, &reqData)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -97,7 +113,7 @@ func (a *AppspaceUserRoutes) newUser(res http.ResponseWriter, req *http.Request,
 	if reqData.DisplayName != "" {
 		displayName = validator.NormalizeDisplayName(reqData.DisplayName)
 		if err = validator.DisplayName(displayName); err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -111,7 +127,7 @@ func (a *AppspaceUserRoutes) newUser(res http.ResponseWriter, req *http.Request,
 
 	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, reqData.AuthType, authID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
@@ -127,48 +143,32 @@ func (a *AppspaceUserRoutes) newUser(res http.ResponseWriter, req *http.Request,
 
 	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
-	writeJSON(res, appspaceUser)
+	writeJSON(w, appspaceUser)
 }
 
-func (a *AppspaceUserRoutes) getUser(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	proxyID, err := a.getProxyID(routeData.URLTail)
-	if err != nil {
-		returnError(res, err)
-		return
-	}
-
-	user, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			returnError(res, errNotFound)
-			return
-		}
-	}
-
-	writeJSON(res, user)
+func (a *AppspaceUserRoutes) getUser(w http.ResponseWriter, r *http.Request) {
+	user, _ := domain.CtxAppspaceUserData(r.Context())
+	writeJSON(w, user)
 }
 
-func (a *AppspaceUserRoutes) updateUserMeta(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	proxyID, err := a.getProxyID(routeData.URLTail)
-	if err != nil {
-		returnError(res, err)
-		return
-	}
+func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	user, _ := domain.CtxAppspaceUserData(r.Context())
 
 	reqData := PatchAppspaceUserMeta{}
-	err = readJSON(req, &reqData)
+	err := readJSON(r, &reqData)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	displayName := validator.NormalizeDisplayName(reqData.DisplayName)
 	if err = validator.DisplayName(displayName); err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -179,31 +179,28 @@ func (a *AppspaceUserRoutes) updateUserMeta(res http.ResponseWriter, req *http.R
 		// hasMeta = true
 	}
 
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, []string{})
+	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, []string{})
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
-	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
+	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, user.ProxyID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
-	writeJSON(res, appspaceUser)
+	writeJSON(w, appspaceUser)
 }
 
-func (a *AppspaceUserRoutes) deleteUser(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	proxyID, err := a.getProxyID(routeData.URLTail)
-	if err != nil {
-		returnError(res, err)
-		return
-	}
+func (a *AppspaceUserRoutes) deleteUser(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	user, _ := domain.CtxAppspaceUserData(r.Context())
 
-	err = a.AppspaceUserModel.Delete(appspace.AppspaceID, proxyID)
+	err := a.AppspaceUserModel.Delete(appspace.AppspaceID, user.ProxyID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 	}
 }
 
@@ -229,14 +226,4 @@ func validateAuthStrings(authType, authID string) (string, error) {
 		return "", errors.New("unimplemented auth type " + authType)
 	}
 	return authID, nil
-}
-
-func (a *AppspaceUserRoutes) getProxyID(urlTail string) (domain.ProxyID, error) {
-	proxyStr, _ := shiftpath.ShiftPath(urlTail)
-
-	err := validator.UserProxyID(proxyStr)
-	if err != nil {
-		return domain.ProxyID(""), err
-	}
-	return domain.ProxyID(proxyStr), nil
 }

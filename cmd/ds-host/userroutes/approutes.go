@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // GetAppsResp is
@@ -67,75 +67,31 @@ type ApplicationRoutes struct {
 	}
 }
 
-// ServeHTTP handles http traffic to the application routes
-// Namely upload, create new application, delete, ...
-func (a *ApplicationRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	if routeData.Authentication == nil || !routeData.Authentication.UserAccount {
-		// maybe log it?
-		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
-	}
+func (a *ApplicationRoutes) subRouter() http.Handler {
+	r := chi.NewRouter()
+	r.Use(mustBeAuthenticated)
 
-	app, err := a.getAppFromPath(routeData)
-	if err != nil {
-		returnError(res, err)
-		return
-	}
-	method := req.Method
+	r.Get("/", a.getApplications)
+	r.Post("/", a.postNewApplication)
 
-	if app == nil {
-		switch method {
-		case http.MethodGet:
-			a.getApplications(res, req, routeData)
-		case http.MethodPost:
-			a.postNewApplication(res, req, routeData)
-		default:
-			http.Error(res, "bad method for /application", http.StatusBadRequest)
-		}
-	} else {
-		head, tail := shiftpath.ShiftPath(routeData.URLTail)
-		routeData.URLTail = tail
+	r.Route("/{application}", func(r chi.Router) {
+		r.Use(a.applicationCtx)
+		r.Get("/", a.getApplication)
+		r.Post("/version", a.postNewVersion)
+		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
+		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
+	})
 
-		// delete application??
-
-		switch head {
-		case "":
-			a.getApplication(res, app)
-		case "version": // application/<app-id>/version/*
-			// get a version from path
-			version, err := a.getVersionFromPath(routeData, app.AppID)
-			if err != nil {
-				http.Error(res, "", http.StatusInternalServerError)
-				return
-			}
-
-			if version == nil {
-				switch req.Method {
-				case http.MethodPost:
-					a.postNewVersion(app, res, req, routeData)
-				default:
-					http.Error(res, "bad method for version", http.StatusBadRequest)
-				}
-			} else {
-				switch req.Method {
-				case http.MethodGet:
-					a.getVersion(res, version)
-				case http.MethodDelete:
-					a.deleteVersion(res, version)
-				default:
-					http.Error(res, "bad method for version", http.StatusBadRequest)
-				}
-			}
-		default:
-			res.WriteHeader(http.StatusNotFound)
-		}
-	}
+	return r
 }
 
-func (a *ApplicationRoutes) getApplication(res http.ResponseWriter, app *domain.App) {
-	appResp := makeAppResp(*app)
+func (a *ApplicationRoutes) getApplication(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+
+	appResp := makeAppResp(app)
 	appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
 	if err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		httpInternalServerError(w)
 		return
 	}
 	appResp.Versions = make([]VersionMeta, len(appVersions))
@@ -143,22 +99,24 @@ func (a *ApplicationRoutes) getApplication(res http.ResponseWriter, app *domain.
 		appResp.Versions[j] = makeVersionMeta(*appVersion)
 	}
 
-	writeJSON(res, appResp)
+	writeJSON(w, appResp)
 }
-func (a *ApplicationRoutes) getApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	query := req.URL.Query()
+func (a *ApplicationRoutes) getApplications(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
 	_, ok := query["app-version"]
 	if ok {
-		a.getAppVersions(res, req, routeData)
+		a.getAppVersions(w, r)
 	} else {
-		a.getAllApplications(res, req, routeData)
+		a.getAllApplications(w, r)
 	}
 }
 
-func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	apps, err := a.AppModel.GetForOwner(routeData.Authentication.UserID)
+func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
+
+	apps, err := a.AppModel.GetForOwner(userID)
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
@@ -181,16 +139,18 @@ func (a *ApplicationRoutes) getAllApplications(res http.ResponseWriter, req *htt
 	}
 
 	if fail {
-		res.WriteHeader(http.StatusInternalServerError)
+		httpInternalServerError(w)
 		return
 	}
 
-	writeJSON(res, respData)
+	writeJSON(w, respData)
 }
 
-func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
+
 	// check query string
-	query := req.URL.Query()
+	query := r.URL.Query()
 	appVerionIDs, ok := query["app-version"]
 	if ok {
 		respData := Versions{
@@ -199,32 +159,32 @@ func (a *ApplicationRoutes) getAppVersions(res http.ResponseWriter, req *http.Re
 		for i, id := range appVerionIDs {
 			appID, version, err := parseAppVersionID(id)
 			if err != nil {
-				http.Error(res, "bad app version id", http.StatusBadRequest)
+				http.Error(w, "bad app version id", http.StatusBadRequest)
 				return
 			}
 			// first get the app to ensure owner is legit
 			app, err := a.AppModel.GetFromID(appID)
 			if err != nil {
-				http.Error(res, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			if app.OwnerID != routeData.Authentication.UserID {
-				http.Error(res, "app version not owned by user", http.StatusForbidden)
+			if app.OwnerID != userID {
+				http.Error(w, "app version not owned by user", http.StatusForbidden)
 				return
 			}
 			appVersion, err := a.AppModel.GetVersion(appID, version)
 			if err != nil {
-				http.Error(res, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			respData.AppVersions[i] = makeVersionMeta(*appVersion)
 		}
 
-		writeJSON(res, respData)
+		writeJSON(w, respData)
 		return
 	}
-	http.Error(res, "query params not supported", http.StatusNotImplemented)
+	http.Error(w, "query params not supported", http.StatusNotImplemented)
 }
 
 // NewAppResp returns the new app and nversion metadata
@@ -237,73 +197,81 @@ type NewAppResp struct {
 // if there are files attached send appfilesmodel(?) for storage,
 // ..then ask for files metadata, and return along with key.
 // if there are no files but there is a key, then create a new app with files found at key.
-func (a *ApplicationRoutes) postNewApplication(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	query := req.URL.Query()
+func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
+
+	query := r.URL.Query()
 	keys, ok := query["key"]
 	if ok && len(keys) == 1 {
-		appID, _, ok := a.commitKey(res, routeData, keys[0])
+		appID, _, ok := a.commitKey(w, userID, keys[0])
 		if !ok { // something went wrong. response sent.
 			return
 		}
 		app, err := a.AppModel.GetFromID(appID)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-		a.getApplication(res, app)
+		r = r.WithContext(domain.CtxWithAppData(r.Context(), *app))
+		a.getApplication(w, r)
 	} else {
-		a.handleFilesUpload(req, res, routeData)
+		a.handleFilesUpload(r, w, userID)
 	}
 }
 
-func (a *ApplicationRoutes) postNewVersion(app *domain.App, res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	query := req.URL.Query()
+func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID, _ := domain.CtxAuthUserID(ctx)
+	app, _ := domain.CtxAppData(ctx)
+
+	query := r.URL.Query()
 	keys, ok := query["key"]
 	if ok && len(keys) == 1 {
-		appID, version, ok := a.commitKey(res, routeData, keys[0])
+		appID, version, ok := a.commitKey(w, userID, keys[0])
 		if !ok { // something went wrong. response sent.
 			return
 		}
 		appVersion, err := a.AppModel.GetVersion(appID, version)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-		a.getVersion(res, appVersion)
+		r = r.WithContext(domain.CtxWithAppVersionData(ctx, *appVersion))
+		a.getVersion(w, r)
 	} else {
-		a.handleFilesUpload(req, res, routeData, app.AppID)
+		a.handleFilesUpload(r, w, userID, app.AppID)
 	}
 }
 
-func (a *ApplicationRoutes) handleFilesUpload(req *http.Request, res http.ResponseWriter, routeData *domain.AppspaceRouteData, appIDs ...domain.AppID) {
-	fileData, err := a.extractFiles(req)
+func (a *ApplicationRoutes) handleFilesUpload(r *http.Request, w http.ResponseWriter, userID domain.UserID, appIDs ...domain.AppID) {
+	fileData, err := a.extractFiles(r)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 	if len(*fileData) == 0 {
-		http.Error(res, "no files in request", http.StatusBadRequest)
+		http.Error(w, "no files in request", http.StatusBadRequest)
 	}
-	appGetKey, err := a.AppGetter.FromRaw(routeData.Authentication.UserID, fileData, appIDs...)
+	appGetKey, err := a.AppGetter.FromRaw(userID, fileData, appIDs...)
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
 	fileMeta, err := a.AppGetter.GetMetaData(appGetKey)
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	writeJSON(res, fileMeta)
+	writeJSON(w, fileMeta)
 }
 
-func (a *ApplicationRoutes) extractFiles(req *http.Request) (*map[string][]byte, error) {
+func (a *ApplicationRoutes) extractFiles(r *http.Request) (*map[string][]byte, error) {
 	fileData := map[string][]byte{}
 
 	// copied from http://sanatgersappa.blogspot.com/2013/03/handling-multiple-file-uploads-in-go.html
 	// streaming version
-	reader, err := req.MultipartReader()
+	reader, err := r.MultipartReader()
 	if err != nil {
-		a.getLogger("extractFiles(), req.MultipartReader()").Error(err)
+		a.getLogger("extractFiles(), r.MultipartReader()").Error(err)
 		return &fileData, nil
 	}
 
@@ -327,26 +295,27 @@ func (a *ApplicationRoutes) extractFiles(req *http.Request) (*map[string][]byte,
 	return &fileData, nil
 }
 
-func (a *ApplicationRoutes) commitKey(res http.ResponseWriter, routeData *domain.AppspaceRouteData, key string) (domain.AppID, domain.Version, bool) {
+func (a *ApplicationRoutes) commitKey(w http.ResponseWriter, userID domain.UserID, key string) (domain.AppID, domain.Version, bool) {
 	// TODO basic validation on key
 	keyUser, ok := a.AppGetter.GetUser(domain.AppGetKey(key))
 	if !ok {
-		res.WriteHeader(http.StatusGone)
+		w.WriteHeader(http.StatusGone)
 		return domain.AppID(0), domain.Version(""), false
 	}
-	if keyUser != routeData.Authentication.UserID {
-		res.WriteHeader(http.StatusForbidden)
+	if keyUser != userID {
+		w.WriteHeader(http.StatusForbidden)
 		return domain.AppID(0), domain.Version(""), false
 	}
 	appID, appVersion, err := a.AppGetter.Commit(domain.AppGetKey(key))
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return domain.AppID(0), domain.Version(""), false
 	}
 	return appID, appVersion, true
 }
 
-func (a *ApplicationRoutes) getVersion(res http.ResponseWriter, appVersion *domain.AppVersion) {
+func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
+	appVersion, _ := domain.CtxAppVersionData(r.Context())
 	respData := VersionMeta{
 		AppID:      appVersion.AppID,
 		AppName:    appVersion.AppName,
@@ -355,13 +324,14 @@ func (a *ApplicationRoutes) getVersion(res http.ResponseWriter, appVersion *doma
 		APIVersion: appVersion.APIVersion,
 		Created:    appVersion.Created}
 
-	writeJSON(res, respData)
+	writeJSON(w, respData)
 }
 
-func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *domain.AppVersion) {
+func (a *ApplicationRoutes) deleteVersion(w http.ResponseWriter, r *http.Request) {
+	version, _ := domain.CtxAppVersionData(r.Context())
 	appspaces, err := a.AppspaceModel.GetForApp(version.AppID)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -373,69 +343,83 @@ func (a *ApplicationRoutes) deleteVersion(res http.ResponseWriter, version *doma
 		}
 	}
 	if found {
-		http.Error(res, "appspaces use this version of app", http.StatusConflict)
+		http.Error(w, "appspaces use this version of app", http.StatusConflict)
 		return
 	}
 
 	err = a.AppModel.DeleteVersion(version.AppID, version.Version)
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
 	err = a.AppFilesModel.Delete(version.LocationKey)
 	if err != nil {
-		http.Error(res, err.Error(), 500)
+		http.Error(w, err.Error(), 500)
 	}
 }
 
-func (a *ApplicationRoutes) getAppFromPath(routeData *domain.AppspaceRouteData) (*domain.App, error) {
-	appIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
-	routeData.URLTail = tail
+func (a *ApplicationRoutes) applicationCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := domain.CtxAuthUserID(r.Context())
 
-	if appIDStr == "" {
-		return nil, nil
-	}
+		appIDStr := chi.URLParam(r, "application")
 
-	appIDInt, err := strconv.Atoi(appIDStr)
-	if err != nil {
-		return nil, errBadRequest
-	}
-	appID := domain.AppID(appIDInt)
-
-	app, err := a.AppModel.GetFromID(appID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errNotFound
+		appIDInt, err := strconv.Atoi(appIDStr)
+		if err != nil {
+			returnError(w, err)
+			return
 		}
-		return nil, err
-	}
-	if app.OwnerID != routeData.Authentication.UserID {
-		return nil, errForbidden
-	}
+		appID := domain.AppID(appIDInt)
 
-	return app, nil
+		app, err := a.AppModel.GetFromID(appID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				returnError(w, errNotFound)
+			} else {
+				returnError(w, err)
+			}
+			return
+		}
+		if app.OwnerID != userID {
+			returnError(w, errForbidden)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppData(r.Context(), *app))
+
+		next.ServeHTTP(w, r)
+	})
 }
 
-func (a *ApplicationRoutes) getVersionFromPath(routeData *domain.AppspaceRouteData, appID domain.AppID) (*domain.AppVersion, error) {
-	versionStr, tail := shiftpath.ShiftPath(routeData.URLTail)
-	routeData.URLTail = tail
-
-	if versionStr == "" {
-		return nil, nil
-	}
-
-	// minimally check version string for size
-
-	version, err := a.AppModel.GetVersion(appID, domain.Version(versionStr))
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errNotFound
+func (a *ApplicationRoutes) appVersionCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		app, ok := domain.CtxAppData(ctx) //maybe check there is an app in context.
+		if !ok {
+			a.getLogger("appVersionCtx").Error(errors.New("app data missing from Context"))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
 		}
-		return nil, err
-	}
 
-	return version, nil
+		versionStr := chi.URLParam(r, "app-version")
+
+		// TODO validate / normalize version string
+
+		version, err := a.AppModel.GetVersion(app.AppID, domain.Version(versionStr))
+		if err != nil {
+			if err == sql.ErrNoRows {
+				returnError(w, errNotFound)
+			} else {
+				returnError(w, err)
+			}
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppVersionData(ctx, *version))
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func parseAppVersionID(id string) (appID domain.AppID, version domain.Version, err error) {

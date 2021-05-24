@@ -35,7 +35,7 @@ func TestLoginPostBadEmail(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.loginPost(rr, req, &domain.AppspaceRouteData{})
+	a.postLogin(rr, req)
 }
 
 func TestLoginPostBadPassword(t *testing.T) {
@@ -59,7 +59,7 @@ func TestLoginPostBadPassword(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.loginPost(rr, req, &domain.AppspaceRouteData{})
+	a.postLogin(rr, req)
 }
 
 func TestLoginPostNoRows(t *testing.T) {
@@ -87,7 +87,7 @@ func TestLoginPostNoRows(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.loginPost(rr, req, &domain.AppspaceRouteData{})
+	a.postLogin(rr, req)
 }
 
 func TestLoginPost(t *testing.T) {
@@ -118,11 +118,7 @@ func TestLoginPost(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/abc",
-	}
-
-	a.loginPost(rr, req, routeData)
+	a.postLogin(rr, req)
 
 	if rr.Code != http.StatusFound {
 		t.Error("wrong status", rr.Code)
@@ -154,7 +150,7 @@ func TestSignupPostBadEmail(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
 
 func TestSignupPostNotInvited(t *testing.T) {
@@ -184,7 +180,7 @@ func TestSignupPostNotInvited(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
 
 func TestSignupPostBadPassword(t *testing.T) {
@@ -212,7 +208,7 @@ func TestSignupPostBadPassword(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
 
 func TestSignupPostPasswordMismatch(t *testing.T) {
@@ -241,7 +237,7 @@ func TestSignupPostPasswordMismatch(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
 
 func TestSignupPostEmailExists(t *testing.T) {
@@ -274,7 +270,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
 
 func TestSignupPost(t *testing.T) {
@@ -310,49 +306,5 @@ func TestSignupPost(t *testing.T) {
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	a.postSignup(rr, req, &domain.AppspaceRouteData{})
+	a.postSignup(rr, req)
 }
-
-// reg closed email in
-// reg closed email out
-
-// routes
-func TestGetLoginRoute(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	views := testmocks.NewMockViews(mockCtrl)
-	views.EXPECT().Login(gomock.Any(), gomock.Any())
-
-	a := &AuthRoutes{
-		Views: views}
-
-	req := httptest.NewRequest("GET", "/login", nil)
-
-	rr := httptest.NewRecorder()
-
-	a.ServeHTTP(rr, req, &domain.AppspaceRouteData{URLTail: "login"})
-}
-
-func TestGetSignupRoute(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	views := testmocks.NewMockViews(mockCtrl)
-	views.EXPECT().Signup(gomock.Any(), gomock.Any())
-
-	sm := testmocks.NewMockSettingsModel(mockCtrl)
-	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
-
-	a := &AuthRoutes{
-		SettingsModel: sm,
-		Views:         views}
-
-	req := httptest.NewRequest("GET", "/signup", nil)
-
-	rr := httptest.NewRecorder()
-
-	a.ServeHTTP(rr, req, &domain.AppspaceRouteData{URLTail: "signup"})
-}
-
-// could test post routes but that involves setting up as much as for post handlers above.

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io/fs"
 	"net/http"
 	"os"
 	"strconv"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
@@ -20,37 +18,16 @@ type Server struct {
 	Authenticator interface {
 		Authenticate(*http.Request) domain.Authentication
 	}
-	Views interface {
-		GetStaticFS() fs.FS
-	}
 
 	// admin routes, user routes, auth routes....
-	UserRoutes     domain.RouteHandler
-	AppspaceRouter domain.RouteHandler
+	UserRoutes     http.Handler
+	AppspaceRouter http.Handler
 
-	mux    *http.ServeMux
 	server *http.Server
 }
 
 func (s *Server) Init() {
-	s.mux = http.NewServeMux()
 
-	s.mux.Handle(
-		s.Config.Exec.UserRoutesDomain+"/static/",
-		http.StripPrefix("/static/", http.FileServer(http.FS(s.Views.GetStaticFS()))))
-
-	frontendFS, fserr := fs.Sub(dshostfrontend.FS, "dist")
-	if fserr != nil {
-		panic(fserr)
-	}
-	s.mux.Handle(
-		s.Config.Exec.UserRoutesDomain+"/frontend-assets/",
-		http.FileServer(http.FS(frontendFS)))
-
-	// Everything else:
-	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeHTTP(w, r)
-	})
 }
 
 // Start up the server so it listens for connections
@@ -63,7 +40,7 @@ func (s *Server) Start() { //return a server type
 
 	s.server = &http.Server{
 		Addr:    addr,
-		Handler: s.mux}
+		Handler: s} // for now we're passing s directly, but in future probably need to wrap s in some middlewares and pass that in
 
 	var err error
 	if s.Config.Server.NoSsl {
@@ -86,23 +63,18 @@ func (s *Server) Shutdown() {
 	defer cancel()
 	err := s.server.Shutdown(ctx)
 	if err != nil {
-		panic(err) // for now.
+		panic(err) // for now.// log it
 	}
 }
 
-// needed server graceful shutdown
-// func (s *Server) Start() {
-// }
-
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	// Can we have some application-global iddlewares at work here?
-	// Like CSRF? -> Any POST, PUT, PATCH, .. gets checked for a CSRF token?
-	// I guess the middleware would have same signature as others, and include reouteData
-	//
+	// TODO: Potential CSRF middleware for login, signup, forgotten email, etc... pages.
 
 	// temporary CORS header to allow frontend dev.
 	// TODO: Make this a config option!
 	res.Header().Set("Access-Control-Allow-Origin", "*")
+	// TODO: tighten this up!!
+	// This should not be here. Depends whether it is user or appspace, among other things.
 
 	// switch on top level routes:
 	// - admin
@@ -110,25 +82,22 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// - auth
 	// - appspace...
 
-	auth := s.Authenticator.Authenticate(req)
-
-	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
-		URLTail:        req.URL.Path,
-		Authentication: &auth}
-
 	host, err := getcleanhost.GetCleanHost(req.Host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// This is going to need to account for dropid domains
+	// which may double as appspace domains and user domains?
+
 	switch host {
 	case s.Config.Exec.UserRoutesDomain:
-		s.UserRoutes.ServeHTTP(res, req, routeData)
+		s.UserRoutes.ServeHTTP(res, req)
 	default:
 		// It's an appspace subdomain
 		// first filter through blacklist of domains
-		s.AppspaceRouter.ServeHTTP(res, req, routeData)
+		s.AppspaceRouter.ServeHTTP(res, req)
 	}
 }
 

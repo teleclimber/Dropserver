@@ -2,125 +2,209 @@ package userroutes
 
 import (
 	"bytes"
+	"database/sql"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
-func TestGetAppFromPath(t *testing.T) {
+// inputs: userID in ctx, article ID in URL, app model (mocked)
+// cases: wrong user id, aritcle id missing, art id not found...
+func TestAppCtx(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	uid := domain.UserID(7)
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/123",
-		Authentication: &domain.Authentication{
-			UserID: uid}}
+	appID := domain.AppID(33)
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: uid}, nil)
+	m.EXPECT().GetFromID(appID).Return(&domain.App{AppID: appID, OwnerID: uid}, nil)
 
 	a := ApplicationRoutes{
 		AppModel: m,
 	}
 
-	app, dsErr := a.getAppFromPath(routeData)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	router := chi.NewMux()
+	router.With(a.applicationCtx).Get("/{application}", func(w http.ResponseWriter, r *http.Request) {
+		app, ok := domain.CtxAppData(r.Context())
+		if !ok {
+			t.Error("expected app data")
+		}
+		if app.AppID != appID {
+			t.Error("did not get the app data expected")
+		}
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", appID), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if app == nil {
-		t.Fatal("app should not be nil")
+
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
 }
-func TestGetAppFromPathNil(t *testing.T) {
+
+func TestAppCtxUnauthorized(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/"}
+	appUid := domain.UserID(7)
+	reqUid := domain.UserID(13)
+	appID := domain.AppID(33)
 
-	a := ApplicationRoutes{}
+	m := testmocks.NewMockAppModel(mockCtrl)
+	m.EXPECT().GetFromID(appID).Return(&domain.App{AppID: appID, OwnerID: appUid}, nil)
 
-	app, dsErr := a.getAppFromPath(routeData)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	a := ApplicationRoutes{
+		AppModel: m,
 	}
-	if app != nil {
-		t.Fatal("app should be nil")
+
+	router := chi.NewMux()
+	router.With(a.applicationCtx).Get("/{application}", func(w http.ResponseWriter, r *http.Request) {
+		t.Error("Route handler should not have been called")
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "/33", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), reqUid))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
 	}
 }
-func TestGetAppFromPathUnauthorized(t *testing.T) {
+
+func TestAppCtxNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	uid := domain.UserID(7)
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/123",
-		Authentication: &domain.Authentication{
-			UserID: uid}}
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetFromID(domain.AppID(123)).Return(&domain.App{OwnerID: domain.UserID(13)}, nil)
+	m.EXPECT().GetFromID(domain.AppID(123)).Return(nil, sql.ErrNoRows)
 
 	a := ApplicationRoutes{
 		AppModel: m,
 	}
 
-	app, dsErr := a.getAppFromPath(routeData)
-	if dsErr == nil {
-		t.Fatal("should have gotten error")
+	router := chi.NewMux()
+	router.With(a.applicationCtx).Get("/{application}", func(w http.ResponseWriter, r *http.Request) {
+		t.Error("Route handler should not have been called")
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "/123", nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if app != nil {
-		t.Fatal("app should be nil")
+
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusNotFound {
+		t.Errorf("expected Not Found got status %v", rr.Result().Status)
 	}
 }
 
-func TestGetVersionFromPath(t *testing.T) {
+func TestAppVersionCtx(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/0.1.2"}
-
-	appID := domain.AppID(7)
+	uid := domain.UserID(7)
+	appID := domain.AppID(33)
+	app := domain.App{AppID: appID, OwnerID: uid}
+	version := domain.Version("1.2.3")
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetVersion(appID, domain.Version("0.1.2")).Return(&domain.AppVersion{}, nil)
+	m.EXPECT().GetVersion(appID, version).Return(&domain.AppVersion{Version: version}, nil)
 
 	a := ApplicationRoutes{
 		AppModel: m,
 	}
 
-	version, dsErr := a.getVersionFromPath(routeData, appID)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	router := chi.NewMux()
+	router.With(a.appVersionCtx).Get("/{application}/version/{app-version}", func(w http.ResponseWriter, r *http.Request) {
+		appVersion, ok := domain.CtxAppVersionData(r.Context())
+		if !ok {
+			t.Error("expected app version data")
+		}
+		if appVersion.Version != version {
+			t.Error("did not get the app version data expected")
+		}
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v/version/%v", appID, version), nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if version == nil {
-		t.Fatal("version should not be nil")
+
+	req = req.WithContext(domain.CtxWithAppData(req.Context(), app))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
 }
 
-func TestGetVersionFromPathNil(t *testing.T) {
+func TestInvalidAppVersionCtx(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/"}
+	uid := domain.UserID(7)
+	appID := domain.AppID(33)
+	app := domain.App{AppID: appID, OwnerID: uid}
 
-	a := ApplicationRoutes{}
+	m := testmocks.NewMockAppModel(mockCtrl)
+	m.EXPECT().GetVersion(appID, gomock.Any()).Return(nil, sql.ErrNoRows)
 
-	version, dsErr := a.getVersionFromPath(routeData, domain.AppID(7))
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	a := ApplicationRoutes{
+		AppModel: m,
 	}
-	if version != nil {
-		t.Fatal("version should be nil")
+
+	router := chi.NewMux()
+	router.With(a.appVersionCtx).Get("/{application}/version/{app-version}", func(w http.ResponseWriter, r *http.Request) {
+		t.Error("route handler should not be called")
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v/version/20394jfmfsh", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req = req.WithContext(domain.CtxWithAppData(req.Context(), app))
+
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusNotFound {
+		t.Errorf("expected Not Found got status %v", rr.Result().Status) // we should really validate vesion string and return bad request instead.
 	}
 }
 
@@ -297,6 +381,7 @@ func TestDeleteVersion(t *testing.T) {
 
 	appID := domain.AppID(7)
 	v := domain.Version("0.1.2")
+	loc := "test-loc"
 
 	appspace := domain.Appspace{
 		AppID:      appID,
@@ -309,7 +394,7 @@ func TestDeleteVersion(t *testing.T) {
 	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
 
 	afModel := testmocks.NewMockAppFilesModel(mockCtrl)
-	afModel.EXPECT().Delete("foobar").Return(nil)
+	afModel.EXPECT().Delete(loc).Return(nil)
 
 	a := ApplicationRoutes{
 		AppModel:      appModel,
@@ -317,9 +402,12 @@ func TestDeleteVersion(t *testing.T) {
 		AppspaceModel: asModel,
 	}
 
+	req, _ := http.NewRequest("get", "/", nil)
+	req = req.WithContext(domain.CtxWithAppVersionData(req.Context(), domain.AppVersion{AppID: appID, Version: v, LocationKey: loc}))
+
 	rr := httptest.NewRecorder()
 
-	a.deleteVersion(rr, &domain.AppVersion{AppID: appID, Version: v, LocationKey: "foobar"})
+	a.deleteVersion(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Error("http not OK")
@@ -344,9 +432,12 @@ func TestDeleteVersionInUse(t *testing.T) {
 		AppspaceModel: asModel,
 	}
 
+	req, _ := http.NewRequest("get", "/", nil)
+	req = req.WithContext(domain.CtxWithAppVersionData(req.Context(), domain.AppVersion{AppID: appID, Version: v}))
+
 	rr := httptest.NewRecorder()
 
-	a.deleteVersion(rr, &domain.AppVersion{AppID: appID, Version: v, LocationKey: "foobar"})
+	a.deleteVersion(rr, req)
 
 	if rr.Code != http.StatusConflict {
 		t.Error("http should be Conflict")

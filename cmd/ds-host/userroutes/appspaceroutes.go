@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -28,11 +28,9 @@ type AppspaceMeta struct {
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
-	Config             domain.RuntimeConfig
-	AppspaceUserRoutes interface {
-		ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace)
-	}
-	AppspaceExportRoutes http.Handler
+	Config               domain.RuntimeConfig
+	AppspaceUserRoutes   subRoutes
+	AppspaceExportRoutes subRoutes
 	AppModel             interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
@@ -72,67 +70,65 @@ type AppspaceRoutes struct {
 	}
 }
 
-// ServeHTTP handles http traffic to the appspace routes
-// Namely create, delete, set version, etc...
-func (a *AppspaceRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	ctx := req.Context()
+func (a *AppspaceRoutes) subRouter() http.Handler {
+	r := chi.NewRouter()
+	r.Use(mustBeAuthenticated)
 
-	if routeData.Authentication == nil || !routeData.Authentication.UserAccount {
-		// maybe log it? Frankly this should be a panic.
-		// It's programmer error pure and simple. Kill this thing.
-		res.WriteHeader(http.StatusInternalServerError) // If we reach this point we dun fogged up
-		return
-	}
+	r.Get("/", a.getAllAppspaces)
+	r.Post("/", a.postNewAppspace)
 
-	appspace, err := a.getAppspaceFromPath(routeData)
-	if err != nil {
-		returnError(res, err)
-		return
-	}
+	r.Route("/{appspace}", func(r chi.Router) {
+		r.Use(a.appspaceCtx)
+		r.Get("/", a.getAppspace)
+		r.Delete("/", a.deleteAppspace)
+		r.Post("/pause", a.changeAppspacePause)
+		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
+		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
+	})
 
-	if appspace == nil {
-		switch req.Method {
-		case http.MethodGet:
-			a.getAllAppspaces(res, req, routeData)
-		case http.MethodPost:
-			a.postNewAppspace(res, req, routeData)
-		default:
-			http.Error(res, "bad method for /appspace", http.StatusBadRequest)
-		}
-	} else {
-		head, tail := shiftpath.ShiftPath(routeData.URLTail)
-		routeData.URLTail = tail
-		ctx = ctxWithURLTail(ctx, tail)
-		ctx = ctxWithAppspaceData(ctx, *appspace)
-		req = req.WithContext(ctx)
-
-		switch head {
-		case "":
-			switch req.Method {
-			case http.MethodGet:
-				a.getAppspace(res, req, routeData, appspace)
-			case http.MethodDelete:
-				a.deleteAppspace(res, req, appspace)
-			default:
-				http.Error(res, "bad method for /appspace/appspace-id", http.StatusBadRequest)
-			}
-		case "pause":
-			a.changeAppspacePause(res, req, routeData, appspace)
-		case "user":
-			a.AppspaceUserRoutes.ServeHTTP(res, req, routeData, appspace)
-		case "export":
-			a.AppspaceExportRoutes.ServeHTTP(res, req)
-		default:
-			http.Error(res, "", http.StatusNotImplemented)
-		}
-	}
+	return r
 }
 
-func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	respData := a.makeAppspaceMeta(*appspace)
-	upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
+func (a *AppspaceRoutes) appspaceCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := domain.CtxAuthUserID(r.Context())
+
+		appspaceIDStr := chi.URLParam(r, "appspace")
+
+		appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
+		if err != nil {
+			returnError(w, err)
+			return
+		}
+		appspaceID := domain.AppspaceID(appspaceIDInt)
+
+		appspace, err := a.AppspaceModel.GetFromID(appspaceID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				returnError(w, errNotFound)
+			} else {
+				returnError(w, err)
+			}
+			return
+		}
+		if appspace.OwnerID != userID {
+			returnError(w, errForbidden)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	respData := a.makeAppspaceMeta(appspace)
+	upgrade, ok, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if ok {
@@ -140,13 +136,15 @@ func (a *AppspaceRoutes) getAppspace(res http.ResponseWriter, req *http.Request,
 		respData.Upgrade = &upgradeMeta
 	}
 
-	writeJSON(res, respData)
+	writeJSON(w, respData)
 }
 
-func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	appspaces, err := a.AppspaceModel.GetForOwner(routeData.Authentication.UserID)
+func (a *AppspaceRoutes) getAllAppspaces(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
+
+	appspaces, err := a.AppspaceModel.GetForOwner(userID)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -156,7 +154,7 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		appspaceMeta := a.makeAppspaceMeta(*appspace)
 		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if ok {
@@ -166,35 +164,7 @@ func (a *AppspaceRoutes) getAllAppspaces(res http.ResponseWriter, req *http.Requ
 		respData = append(respData, appspaceMeta)
 	}
 
-	writeJSON(res, respData)
-}
-
-func (a *AppspaceRoutes) getAppspaceFromPath(routeData *domain.AppspaceRouteData) (*domain.Appspace, error) {
-	appspaceIDStr, tail := shiftpath.ShiftPath(routeData.URLTail)
-	routeData.URLTail = tail
-
-	if appspaceIDStr == "" {
-		return nil, nil
-	}
-
-	appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
-	if err != nil {
-		return nil, errBadRequest
-	}
-	appspaceID := domain.AppspaceID(appspaceIDInt)
-
-	appspace, err := a.AppspaceModel.GetFromID(appspaceID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errNotFound
-		}
-		return nil, err
-	}
-	if appspace.OwnerID != routeData.Authentication.UserID {
-		return nil, errForbidden
-	}
-
-	return appspace, nil
+	writeJSON(w, respData)
 }
 
 // PostAppspaceReq is sent when creating a new appspace
@@ -211,47 +181,49 @@ type PostAppspaceResp struct {
 	AppspaceID domain.AppspaceID `json:"appspace_id"`
 }
 
-func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request) {
 	// This whole process should be in an appspace ops function, not in the route handler.
+	userID, _ := domain.CtxAuthUserID(r.Context())
+
 	reqData := &PostAppspaceReq{}
-	err := readJSON(req, reqData)
+	err := readJSON(r, reqData)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	app, err := a.AppModel.GetFromID(reqData.AppID)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			http.Error(res, "App not found", http.StatusGone)
+			http.Error(w, "App not found", http.StatusGone)
 		} else {
-			http.Error(res, err.Error(), 500)
+			http.Error(w, err.Error(), 500)
 		}
 		return
 	}
-	if app.OwnerID != routeData.Authentication.UserID {
-		http.Error(res, "Application not owned by logged in user", http.StatusForbidden)
+	if app.OwnerID != userID {
+		http.Error(w, "Application not owned by logged in user", http.StatusForbidden)
 		return
 	}
 
 	version, err := a.AppModel.GetVersion(app.AppID, reqData.Version)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(res, "Version not found", http.StatusGone)
+			http.Error(w, "Version not found", http.StatusGone)
 		} else {
-			http.Error(res, "", http.StatusInternalServerError)
+			http.Error(w, "", http.StatusInternalServerError)
 		}
 		return
 	}
 
 	// Here it would be nice if CheckAppspaceDomain also reserved that name temporarily
-	check, err := a.DomainController.CheckAppspaceDomain(routeData.Authentication.UserID, reqData.DomainName, reqData.Subdomain)
+	check, err := a.DomainController.CheckAppspaceDomain(userID, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 	if !check.Valid || !check.Available {
-		http.Error(res, "domain or subdomain no longer valid or available", http.StatusGone)
+		http.Error(w, "domain or subdomain no longer valid or available", http.StatusGone)
 		return
 	}
 
@@ -263,7 +235,7 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// also need to validate dropid
 	err = validator.DropIDFull(reqData.DropID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 	dropIDStr := validator.NormalizeDropIDFull(reqData.DropID)
@@ -271,25 +243,25 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.Error(res, "DropID not found", http.StatusGone)
+			http.Error(w, "DropID not found", http.StatusGone)
 		} else {
-			returnError(res, err)
+			returnError(w, err)
 		}
 		return
 	}
-	if dropID.UserID != routeData.Authentication.UserID {
-		returnError(res, errors.New("DropID user does not match authenticated user"))
+	if dropID.UserID != userID {
+		returnError(w, errors.New("DropID user does not match authenticated user"))
 		return
 	}
 
 	locationKey, err := a.AppspaceFilesModel.CreateLocation()
 	if err != nil {
-		http.Error(res, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	inAppspace := domain.Appspace{
-		OwnerID:     routeData.Authentication.UserID,
+		OwnerID:     userID,
 		AppID:       app.AppID,
 		AppVersion:  version.Version,
 		DomainName:  fullDomain,
@@ -299,19 +271,19 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 
 	appspace, err := a.AppspaceModel.Create(inAppspace)
 	if err != nil {
-		http.Error(res, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
 	err = a.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
 	if err != nil {
-		http.Error(res, "Failed to create appspace meta db", http.StatusInternalServerError)
+		http.Error(w, "Failed to create appspace meta db", http.StatusInternalServerError)
 	}
 
 	// Create owner user
 	_, err = a.AppspaceUserModel.Create(appspace.AppspaceID, "dropid", dropIDStr)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
@@ -321,9 +293,9 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	// 	}
 
 	// migrate to whatever version was selected
-	_, err = a.MigrationJobModel.Create(routeData.Authentication.UserID, appspace.AppspaceID, version.Version, true)
+	_, err = a.MigrationJobModel.Create(userID, appspace.AppspaceID, version.Version, true)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -332,35 +304,33 @@ func (a *AppspaceRoutes) postNewAppspace(res http.ResponseWriter, req *http.Requ
 	resp := PostAppspaceResp{
 		AppspaceID: appspace.AppspaceID}
 
-	writeJSON(res, resp)
+	writeJSON(w, resp)
 }
 
-func (a *AppspaceRoutes) changeAppspacePause(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData, appspace *domain.Appspace) {
-	if req.Method != http.MethodPost {
-		http.Error(res, "expected POST", http.StatusBadRequest)
-		return
-	}
+func (a *AppspaceRoutes) changeAppspacePause(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
 
 	reqData := PostAppspacePauseReq{}
-	err := readJSON(req, &reqData)
+	err := readJSON(r, &reqData)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	err = a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
 	if err != nil {
-		http.Error(res, "", http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
-	res.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 }
 
-func (a *AppspaceRoutes) deleteAppspace(res http.ResponseWriter, req *http.Request, appspace *domain.Appspace) {
-	err := a.DeleteAppspace.Delete(*appspace)
+func (a *AppspaceRoutes) deleteAppspace(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	err := a.DeleteAppspace.Delete(appspace)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 }

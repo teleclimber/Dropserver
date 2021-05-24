@@ -3,8 +3,8 @@ package userroutes
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // DomainNameRoutes is currently just functional enough to support creating drop ids
@@ -16,67 +16,72 @@ type DomainNameRoutes struct {
 	}
 }
 
-func (d *DomainNameRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	switch req.Method {
-	case http.MethodGet:
-		head, _ := shiftpath.ShiftPath(routeData.URLTail)
-		switch head {
-		case "":
-			d.getAvailableDomains(res, req, routeData)
-		case "check":
-			d.checkDomain(res, req, routeData)
-		default:
-			http.Error(res, "no route found", http.StatusNotFound)
-		}
-	default:
-		returnError(res, errBadRequest)
-	}
+func (d *DomainNameRoutes) subRouter() http.Handler {
+	r := chi.NewRouter()
+
+	r.Get("/", d.getAvailableDomains)
+	r.Get("/check", d.checkDomain)
+
+	return r
 }
 
-func (d *DomainNameRoutes) getAvailableDomains(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (d *DomainNameRoutes) getAvailableDomains(w http.ResponseWriter, r *http.Request) {
 	// Another way to look at it is to send all domains with metadata about their potential use
-	ret, err := d.DomainController.GetDomains(routeData.Authentication.UserID)
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		//d.getLogger("getUserData").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+	ret, err := d.DomainController.GetDomains(userID)
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
-	writeJSON(res, ret)
+	writeJSON(w, ret)
 }
 
-func (d *DomainNameRoutes) checkDomain(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	query := req.URL.Query()
+func (d *DomainNameRoutes) checkDomain(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		//d.getLogger("getUserData").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	query := r.URL.Query()
 
 	domainNames, ok := query["domain"]
 	if !ok || len(domainNames) == 0 {
-		returnError(res, errBadRequest)
+		returnError(w, errBadRequest)
 	}
 	domainName := domainNames[0]
 
 	subDomains, ok := query["subdomain"]
 	if !ok || len(subDomains) == 0 {
-		returnError(res, errBadRequest)
+		returnError(w, errBadRequest)
 	}
 	subDomain := subDomains[0]
 
 	var checkResult domain.DomainCheckResult
 	var err error
 	if _, forAppspace := query["appspace"]; forAppspace {
-		checkResult, err = d.DomainController.CheckAppspaceDomain(routeData.Authentication.UserID, domainName, subDomain)
+		checkResult, err = d.DomainController.CheckAppspaceDomain(userID, domainName, subDomain)
 	} else if _, forDropID := query["dropid"]; forDropID {
-		http.Error(res, "dropid not implemented", http.StatusNotImplemented)
+		http.Error(w, "dropid not implemented", http.StatusNotImplemented)
 		return
 	} else {
-		returnError(res, errBadRequest)
+		returnError(w, errBadRequest)
 		return
 	}
 
 	if err != nil {
-		returnError(res, err)
+		returnError(w, err)
 		return
 	}
 
-	writeJSON(res, checkResult)
+	writeJSON(w, checkResult)
 }
 
 // Is this where we check for availability and validity of subdomains/domains

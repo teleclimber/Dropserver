@@ -31,6 +31,9 @@ func getURLTail(ctx context.Context) string {
 
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
+	Authenticator interface {
+		Authenticate(*http.Request) domain.Authentication //TODO tempoaray!!
+	}
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
@@ -61,7 +64,7 @@ func (r *AppspaceRouter) Init() {
 // ^^ Also need access to sessions
 
 // ServeHTTP handles http traffic to the appspace
-func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
+func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	host, err := getcleanhost.GetCleanHost(req.Host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -92,6 +95,12 @@ func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request, r
 
 	r.incrementLiveCount(appspace.AppspaceID)
 	defer r.decrementLiveCount(appspace.AppspaceID)
+
+	auth := r.Authenticator.Authenticate(req)
+
+	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
+		URLTail:        req.URL.Path,
+		Authentication: &auth}
 
 	routeData.Appspace = appspace
 
