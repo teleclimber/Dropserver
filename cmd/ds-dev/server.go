@@ -16,23 +16,16 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config        *domain.RuntimeConfig
-	Authenticator interface {
-		Authenticate(http.ResponseWriter, *http.Request) (*domain.Authentication, error)
-	}
+	Config               *domain.RuntimeConfig
 	DropserverDevHandler http.Handler
-
-	AppspaceRouter domain.RouteHandler
+	AppspaceRouter       http.Handler
 }
 
 // Start starts up the server so it listens for connections
 func (s *Server) Start() { //return a server type
 	cfg := s.Config.Server
 
-	// Proxy:
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		s.ServeHTTP(w, r)
-	})
+	http.Handle("/", s)
 
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
 
@@ -59,16 +52,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// - auth
 	// - appspace...
 
-	auth, err := s.Authenticator.Authenticate(res, req)
-	if err != nil {
-		http.Error(res, "authentication error", http.StatusInternalServerError)
-		return
-	}
-
-	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
-		URLTail:        req.URL.Path,
-		Authentication: auth}
-
 	head, tail := shiftpath.ShiftPath(req.URL.Path)
 	switch head {
 	case "dropserver":
@@ -77,6 +60,6 @@ func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		req.URL.Path = tail // shouldnt' modify request
 		s.DropserverDevHandler.ServeHTTP(res, req)
 	default:
-		s.AppspaceRouter.ServeHTTP(res, req, routeData)
+		s.AppspaceRouter.ServeHTTP(res, req)
 	}
 }

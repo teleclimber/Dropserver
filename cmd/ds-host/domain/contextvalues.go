@@ -84,6 +84,22 @@ func CtxAppspaceData(ctx context.Context) (Appspace, bool) {
 	return t, ok
 }
 
+// Appspace User Proxy ID
+const appspaceUserProxyIDCtxKey = ctxKey("appspace user proxy id")
+
+// CtxWithAppspaceUserProxyID sets the appspace data that is solely relevant
+// to the request
+func CtxWithAppspaceUserProxyID(ctx context.Context, proxyID ProxyID) context.Context {
+	return context.WithValue(ctx, appspaceUserProxyIDCtxKey, proxyID)
+}
+
+// CtxAppspaceUserProxyID gets the appspace data that is solely relevant
+// to the request
+func CtxAppspaceUserProxyID(ctx context.Context) (ProxyID, bool) {
+	t, ok := ctx.Value(appspaceUserProxyIDCtxKey).(ProxyID)
+	return t, ok
+}
+
 // Appspace Data
 const appspaceUserDataCtxKey = ctxKey("appspace user data")
 
@@ -97,5 +113,19 @@ func CtxWithAppspaceUserData(ctx context.Context, user AppspaceUser) context.Con
 // to the request
 func CtxAppspaceUserData(ctx context.Context) (AppspaceUser, bool) {
 	t, ok := ctx.Value(appspaceUserDataCtxKey).(AppspaceUser)
+	return t, ok
+}
+
+// Appspace Route Config Data
+const routeConfigDataCtxKey = ctxKey("appspace route config user data")
+
+// CtxWithRouteConfig sets the appspace route data for the request
+func CtxWithRouteConfig(ctx context.Context, routeConfig AppspaceRouteConfig) context.Context {
+	return context.WithValue(ctx, routeConfigDataCtxKey, routeConfig)
+}
+
+// CtxRouteConfig gets the appspace route config data for the request
+func CtxRouteConfig(ctx context.Context) (AppspaceRouteConfig, bool) {
+	t, ok := ctx.Value(routeConfigDataCtxKey).(AppspaceRouteConfig)
 	return t, ok
 }

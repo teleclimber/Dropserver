@@ -1,14 +1,13 @@
 package appspacerouter
 
 import (
-	"context"
 	"net/http"
 	"sync"
 
+	"github.com/go-chi/chi"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 )
 
 // Hmm, this is kind of a misnomer now?
@@ -16,23 +15,10 @@ import (
 // So dropids and appspaces, and maybe even other things?
 // Since dropid and apppsace domains can overlap, OK to handle them together
 
-// Let's try some new context-driven stuff
-type ctxKey string
-
-const urlTailCtxKey = ctxKey("url tail")
-
-func getURLTail(ctx context.Context) string {
-	t, ok := ctx.Value(urlTailCtxKey).(string)
-	if !ok {
-		return ""
-	}
-	return t
-}
-
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
 	Authenticator interface {
-		Authenticate(*http.Request) domain.Authentication //TODO tempoaray!!
+		AppspaceUserProxyID(http.Handler) http.Handler
 	}
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
@@ -44,123 +30,165 @@ type AppspaceRouter struct {
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
 	}
-	DropserverRoutes   http.Handler
-	RouteModelsManager domain.AppspaceRouteModels
-	V0AppspaceRouter   domain.RouteHandler
+	DropserverRoutes interface {
+		Router() http.Handler
+	}
+	V0AppspaceRouter http.Handler
 
 	liveCounterMux sync.Mutex
 	liveCounter    map[domain.AppspaceID]int
 
 	subscribersMux sync.Mutex
 	subscribers    map[domain.AppspaceID][]chan<- int
+
+	mux *chi.Mux
 }
 
 // Init initializes data structures
-func (r *AppspaceRouter) Init() {
-	r.liveCounter = make(map[domain.AppspaceID]int)
-	r.subscribers = make(map[domain.AppspaceID][]chan<- int)
+func (a *AppspaceRouter) Init() {
+	a.liveCounter = make(map[domain.AppspaceID]int)
+	a.subscribers = make(map[domain.AppspaceID][]chan<- int)
+
+	mux := chi.NewRouter()
+	mux.Use(a.loadAppspace, a.appspaceAvailable, a.countRequest)
+	mux.Use(a.Authenticator.AppspaceUserProxyID)
+	mux.Use(a.loadApp)
+	// Not sure we need all these middlewares for all routes.
+	// - dropserver routes like get login token do not need appspace user, and may not care if available or to count request?
+	//   -> actually may need available + count because there may be side-effects to appspace, like recording last used or whatever
+	// - also does not need app and ap version
+
+	// first match dropserver routes
+	mux.Mount("/.dropserver", a.DropserverRoutes.Router())
+	mux.Handle("/*", http.HandlerFunc(a.branchToVersionedRouters))
+
+	a.mux = mux
+}
+func (a *AppspaceRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.mux.ServeHTTP(w, r)
 }
 
-// ^^ Also need access to sessions
+func (a *AppspaceRouter) loadAppspace(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: use of r.Host not good enough. see the requestHost function of https://github.com/go-chi/hostrouter
+		// May need to determine host at server and stash it in context.
+		host, err := getcleanhost.GetCleanHost(r.Host)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-// ServeHTTP handles http traffic to the appspace
-func (r *AppspaceRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	host, err := getcleanhost.GetCleanHost(req.Host)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
-		return
-	}
+		appspace, err := a.AppspaceModel.GetFromDomain(host)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if appspace == nil {
+			http.Error(w, "Appspace does not exist: "+host, http.StatusNotFound)
+			return
+		}
 
-	head, tail := shiftpath.ShiftPath(req.URL.Path)
-	if head == ".dropserver" {
-		ctx := context.WithValue(req.Context(), urlTailCtxKey, tail)
-		r.DropserverRoutes.ServeHTTP(res, req.WithContext(ctx))
-		return
-	}
+		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
 
-	appspace, err := r.AppspaceModel.GetFromDomain(host)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if appspace == nil {
-		http.Error(res, "Appspace does not exist: "+host, http.StatusNotFound)
-		return
-	}
-
-	if !r.AppspaceStatus.Ready(appspace.AppspaceID) {
-		http.Error(res, "Appspace unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	r.incrementLiveCount(appspace.AppspaceID)
-	defer r.decrementLiveCount(appspace.AppspaceID)
-
-	auth := r.Authenticator.Authenticate(req)
-
-	routeData := &domain.AppspaceRouteData{ //curently using AppspaceRouteData for user routes as well
-		URLTail:        req.URL.Path,
-		Authentication: &auth}
-
-	routeData.Appspace = appspace
-
-	app, err := r.AppModel.GetFromID(appspace.AppID)
-	if err != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
-		r.getLogger(appspace).Log("Error: App does not exist") // this is an actua system error: an appspace is missing its app.
-		http.Error(res, err.Error(), 500)
-		return
-	}
-	routeData.App = app
-
-	appVersion, err := r.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
-	if err != nil {
-		r.getLogger(appspace).Log("Error: AppVersion does not exist")
-		http.Error(res, "App Version not found", http.StatusInternalServerError)
-		return
-	}
-	routeData.AppVersion = appVersion
-
-	// This is where we branch off into different API versions for serving appspace traffic
-	r.V0AppspaceRouter.ServeHTTP(res, req, routeData)
+		next.ServeHTTP(w, r)
+	})
 }
 
-func (r *AppspaceRouter) incrementLiveCount(appspaceID domain.AppspaceID) {
-	r.liveCounterMux.Lock()
-	defer r.liveCounterMux.Unlock()
-	if _, ok := r.liveCounter[appspaceID]; !ok {
-		r.liveCounter[appspaceID] = 0
-	}
-	r.liveCounter[appspaceID]++
-	go r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
+func (a *AppspaceRouter) appspaceAvailable(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			panic("expected appspace to exist on request context")
+		}
+		if !a.AppspaceStatus.Ready(appspace.AppspaceID) {
+			http.Error(w, "Appspace unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
-func (r *AppspaceRouter) decrementLiveCount(appspaceID domain.AppspaceID) {
-	r.liveCounterMux.Lock()
-	defer r.liveCounterMux.Unlock()
-	if _, ok := r.liveCounter[appspaceID]; ok {
-		r.liveCounter[appspaceID]--
-		go r.emitLiveCount(appspaceID, r.liveCounter[appspaceID])
-		if r.liveCounter[appspaceID] == 0 {
-			delete(r.liveCounter, appspaceID)
+
+func (a *AppspaceRouter) countRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			panic("countRequest: expected appspace to exist on request context")
+		}
+		a.incrementLiveCount(appspace.AppspaceID)
+		next.ServeHTTP(w, r)
+		a.decrementLiveCount(appspace.AppspaceID)
+	})
+}
+
+func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			panic("loadApp: expected appspace to exist on request context")
+		}
+
+		app, err := a.AppModel.GetFromID(appspace.AppID)
+		if err != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
+			a.getLogger(appspace).AddNote("AppModel.GetFromID").Error(err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		ctx := domain.CtxWithAppData(r.Context(), *app)
+
+		appVersion, err := a.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
+		if err != nil {
+			a.getLogger(appspace).AddNote("AppModel.GetVersion").Error(err)
+			http.Error(w, "App Version not found", http.StatusInternalServerError)
+			return
+		}
+		ctx = domain.CtxWithAppVersionData(ctx, *appVersion)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (a *AppspaceRouter) branchToVersionedRouters(w http.ResponseWriter, r *http.Request) {
+	// Here eventually we will branch off to different versions of appspace routers.
+	a.V0AppspaceRouter.ServeHTTP(w, r)
+}
+
+func (a *AppspaceRouter) incrementLiveCount(appspaceID domain.AppspaceID) {
+	a.liveCounterMux.Lock()
+	defer a.liveCounterMux.Unlock()
+	if _, ok := a.liveCounter[appspaceID]; !ok {
+		a.liveCounter[appspaceID] = 0
+	}
+	a.liveCounter[appspaceID]++
+	go a.emitLiveCount(appspaceID, a.liveCounter[appspaceID])
+}
+func (a *AppspaceRouter) decrementLiveCount(appspaceID domain.AppspaceID) {
+	a.liveCounterMux.Lock()
+	defer a.liveCounterMux.Unlock()
+	if _, ok := a.liveCounter[appspaceID]; ok {
+		a.liveCounter[appspaceID]--
+		go a.emitLiveCount(appspaceID, a.liveCounter[appspaceID])
+		if a.liveCounter[appspaceID] == 0 {
+			delete(a.liveCounter, appspaceID)
 		}
 	}
 }
 
 // SubscribeLiveCount pushes the number of live requests for an appspace each time it changes
 // It returns the current count
-func (r *AppspaceRouter) SubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) int {
-	r.UnsubscribeLiveCount(appspaceID, ch)
-	r.subscribersMux.Lock()
-	defer r.subscribersMux.Unlock()
-	subscribers, ok := r.subscribers[appspaceID]
+func (a *AppspaceRouter) SubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) int {
+	a.UnsubscribeLiveCount(appspaceID, ch)
+	a.subscribersMux.Lock()
+	defer a.subscribersMux.Unlock()
+	subscribers, ok := a.subscribers[appspaceID]
 	if !ok {
-		r.subscribers[appspaceID] = append([]chan<- int{}, ch)
+		a.subscribers[appspaceID] = append([]chan<- int{}, ch)
 	} else {
-		r.subscribers[appspaceID] = append(subscribers, ch)
+		a.subscribers[appspaceID] = append(subscribers, ch)
 	}
 
-	r.liveCounterMux.Lock()
-	defer r.liveCounterMux.Unlock()
-	count, ok := r.liveCounter[appspaceID]
+	a.liveCounterMux.Lock()
+	defer a.liveCounterMux.Unlock()
+	count, ok := a.liveCounter[appspaceID]
 	if !ok {
 		return 0
 	}
@@ -168,25 +196,25 @@ func (r *AppspaceRouter) SubscribeLiveCount(appspaceID domain.AppspaceID, ch cha
 }
 
 // UnsubscribeLiveCount unsubscribes
-func (r *AppspaceRouter) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) {
-	r.subscribersMux.Lock()
-	defer r.subscribersMux.Unlock()
-	subscribers, ok := r.subscribers[appspaceID]
+func (a *AppspaceRouter) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch chan<- int) {
+	a.subscribersMux.Lock()
+	defer a.subscribersMux.Unlock()
+	subscribers, ok := a.subscribers[appspaceID]
 	if !ok {
 		return
 	}
 	for i, c := range subscribers {
 		if c == ch {
 			subscribers[i] = subscribers[len(subscribers)-1]
-			r.subscribers[appspaceID] = subscribers[:len(subscribers)-1]
+			a.subscribers[appspaceID] = subscribers[:len(subscribers)-1]
 		}
 	}
 }
 
-func (r *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) {
-	r.subscribersMux.Lock()
-	defer r.subscribersMux.Unlock()
-	subscribers, ok := r.subscribers[appspaceID]
+func (a *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) {
+	a.subscribersMux.Lock()
+	defer a.subscribersMux.Unlock()
+	subscribers, ok := a.subscribers[appspaceID]
 	if !ok {
 		return
 	}
@@ -202,6 +230,6 @@ func (r *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 //  -> no, make generic not specific to some other package's needs.
 // Consider that future features might be ability to view live requests in owner frontend, etc...
 
-func (r *AppspaceRouter) getLogger(appspace *domain.Appspace) *record.DsLogger {
+func (a *AppspaceRouter) getLogger(appspace domain.Appspace) *record.DsLogger {
 	return record.NewDsLogger().AppID(appspace.AppID).AppVersion(appspace.AppVersion).AppspaceID(appspace.AppspaceID).AddNote("AppspaceRouter")
 }

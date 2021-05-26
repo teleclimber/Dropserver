@@ -36,7 +36,9 @@ type testMocks struct {
 	sandboxManager *domain.MockSandboxManagerI
 	sandboxProxy   *SandboxProxy
 	sandboxServer  *http.Server
-	routeData      *domain.AppspaceRouteData
+	appVersion     domain.AppVersion
+	appspace       domain.Appspace
+	routeConfig    domain.AppspaceRouteConfig
 }
 
 func TestSandboxBadStart(t *testing.T) {
@@ -54,19 +56,21 @@ func TestSandboxBadStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rr := httptest.NewRecorder()
+	ctx := req.Context()
+	ctx = domain.CtxWithAppVersionData(ctx, domain.AppVersion{})
+	ctx = domain.CtxWithAppspaceData(ctx, domain.Appspace{})
 
-	routeData := &domain.AppspaceRouteData{
-		AppVersion: &domain.AppVersion{},
-		Appspace:   &domain.Appspace{}}
+	rr := httptest.NewRecorder()
 
 	sandboxProxy := SandboxProxy{
 		SandboxManager: sandboxManager,
 	}
 
-	sandboxProxy.ServeHTTP(rr, req, routeData)
+	sandboxProxy.ServeHTTP(rr, req.WithContext(ctx))
 
-	// cehck response code
+	if rr.Result().StatusCode != http.StatusInternalServerError {
+		t.Error("got wrong status " + rr.Result().Status)
+	}
 }
 
 func TestServeHTTP200(t *testing.T) {
@@ -89,14 +93,14 @@ func TestServeHTTP200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Host = "as1.ds.dev" //not necessary??
+	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), tm.routeConfig))
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
-	tm.sandboxProxy.ServeHTTP(rr, req, tm.routeData)
+	tm.sandboxProxy.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if rr.Code != http.StatusOK {
@@ -115,7 +119,6 @@ func TestServeHTTP404(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("got request in dummy sandbox server")
 		w.WriteHeader(404)
 	})
 	defer closeMocks(tm)
@@ -126,7 +129,7 @@ func TestServeHTTP404(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	tm.sandboxProxy.ServeHTTP(rr, req, tm.routeData)
+	tm.sandboxProxy.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if rr.Code != http.StatusNotFound {
@@ -145,17 +148,6 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 
 	sandboxProxy := &SandboxProxy{
 		SandboxManager: sandboxManager}
-
-	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc", // parametrize
-		App:        &domain.App{Name: "app1"},
-		AppVersion: &domain.AppVersion{},
-		Appspace:   &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)},
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Handler: domain.AppspaceRouteHandler{
-				File: "@app/module-abc.ts",
-			},
-		}}
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
 	sandbox.EXPECT().GetTransport().Return(&http.Transport{
@@ -197,7 +189,12 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		sandboxManager: sandboxManager,
 		sandboxProxy:   sandboxProxy,
 		sandboxServer:  &server,
-		routeData:      routeData,
+		appVersion:     domain.AppVersion{},
+		appspace:       domain.Appspace{DomainName: "as1.ds.dev"},
+		routeConfig: domain.AppspaceRouteConfig{
+			Handler: domain.AppspaceRouteHandler{
+				File: "@app/module-abc.ts",
+			}},
 	}
 
 }

@@ -193,14 +193,12 @@ func TestAuthenticate(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	routeData := &domain.AppspaceRouteData{}
-
 	auth := a.Authenticate(req)
 	if !auth.Authenticated {
 		t.Error("cookie should not be nil")
 	}
 	if auth.CookieID != "abc" {
-		t.Error("route data not as expected", routeData)
+		t.Error("route data not as expected")
 	}
 }
 

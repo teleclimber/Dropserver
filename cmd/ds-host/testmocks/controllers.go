@@ -36,7 +36,7 @@ type AppspaceStatus interface {
 // AppspaceRouter is a route handler that also tracks ongoing requests
 // for each appspace ID.
 type AppspaceRouter interface {
-	ServeHTTP(http.ResponseWriter, *http.Request, *domain.AppspaceRouteData)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 	SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 	UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
 }

@@ -1,12 +1,15 @@
 package appspacerouter
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/go-chi/chi"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -22,233 +25,292 @@ type V0 struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	}
-	SandboxProxy   domain.RouteHandler // versioned?
+	SandboxProxy   http.Handler // versioned?
 	V0TokenManager interface {
 		CheckToken(token string) (domain.V0AppspaceLoginToken, bool)
 	}
 	Authenticator interface {
+		// should have ProcessLoginToken instead. Also removes dep on Token Manager
+		// Exepct all this stuff is versioned.
 		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	}
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
 	}
 	Config *domain.RuntimeConfig
+
+	mux *chi.Mux
+}
+
+func (arV0 *V0) Init() {
+	// basically it's all middleware
+	// then a branch on handling via static file serve or sandbox
+	// - route hit event
+	// - get route config
+	// - process login token
+	// - load user
+	// - authorize
+	// - next handler splits on function versus static
+
+	mux := chi.NewRouter()
+	mux.Use(arV0.routeHit, arV0.loadRouteConfig, arV0.processLoginToken, arV0.loadAppspaceUser, arV0.authorizeRoute)
+
+	mux.Handle("/*", http.HandlerFunc(arV0.handleRoute))
+
+	arV0.mux = mux
+}
+
+func (arV0 *V0) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	arV0.mux.ServeHTTP(w, r)
+}
+
+func (arV0 *V0) routeHit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		statusW := statusRecorder{w, 0}
+		next.ServeHTTP(&statusW, r)
+
+		ctx := r.Context()
+		appspace, _ := domain.CtxAppspaceData(ctx)
+		proxyID, _ := domain.CtxAppspaceUserProxyID(ctx)
+		routeConfig, _ := domain.CtxRouteConfig(ctx)
+		cred := struct {
+			ProxyID domain.ProxyID
+		}{proxyID}
+
+		defer func(e domain.AppspaceRouteHitEvent) {
+			if arV0.RouteHitEvents != nil {
+				arV0.RouteHitEvents.Send(&e)
+			}
+		}(domain.AppspaceRouteHitEvent{
+			AppspaceID:  appspace.AppspaceID,
+			Request:     r,
+			RouteConfig: &routeConfig,
+			Credentials: cred,
+			Authorized:  statusW.status != http.StatusForbidden, //redundant with status?
+			Status:      statusW.status})
+	})
+}
+
+func (arV0 *V0) loadRouteConfig(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		appspace, _ := domain.CtxAppspaceData(ctx)
+
+		routeModel := arV0.AppspaceRouteModels.GetV0(appspace.AppspaceID)
+		routeConfig, err := routeModel.Match(r.Method, r.URL.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if routeConfig == nil {
+			http.Error(w, "No matching route", http.StatusNotFound)
+			return
+		}
+
+		ctx = domain.CtxWithRouteConfig(ctx, *routeConfig)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (arV0 *V0) processLoginToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		loginTokenValues := r.URL.Query()["dropserver-login-token"]
+		if len(loginTokenValues) == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if len(loginTokenValues) > 1 {
+			http.Error(w, "multiple login tokens", http.StatusBadRequest)
+			return
+		}
+
+		token, ok := arV0.V0TokenManager.CheckToken(loginTokenValues[0]) //TODO CheckToken should take an appspace ID, naturally.
+		if !ok {
+			// no matching token is not an error. It can happen is user reloads the page for ex.
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := r.Context()
+		appspace, _ := domain.CtxAppspaceData(ctx)
+
+		if token.AppspaceID != appspace.AppspaceID {
+			// do nothing? How do we end up in this situation?
+			// This is alarming. Log it, but continue on as if no matching token.
+			arV0.getLogger("processLoginToken").AppspaceID(appspace.AppspaceID).Log(fmt.Sprintf("Got token for wrong appspace: %v", token))
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		cookieID, err := arV0.Authenticator.SetForAppspace(w, token.ProxyID, token.AppspaceID, appspace.DomainName)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		ctx = domain.CtxWithAppspaceUserProxyID(ctx, token.ProxyID)
+		ctx = domain.CtxWithSessionID(ctx, cookieID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (arV0 *V0) loadAppspaceUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		appspace, _ := domain.CtxAppspaceData(ctx)
+		proxyID, ok := domain.CtxAppspaceUserProxyID(ctx)
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		appspaceUser, err := arV0.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				next.ServeHTTP(w, r)
+			} else {
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		ctx = domain.CtxWithAppspaceUserData(ctx, appspaceUser)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// And we'll have a bunch of attached creds for request:
+		// - userID / contact ID
+		// - API key (probably included in header)
+		//   -> API key grants permissions
+		// - secret link (or not, the secret link is the auth, that's it)
+
+		// [if no user but api key, repeat for api key (look it up, get permissions, find match)]
+		ctx := r.Context()
+		routeConfig, _ := domain.CtxRouteConfig(ctx)
+
+		// if it's public route, then always authorized
+		if routeConfig.Auth.Allow == "public" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		user, ok := domain.CtxAppspaceUserData(ctx)
+		if !ok {
+			// no user, and route is not public, so forbidden
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		if routeConfig.Auth.Permission == "" {
+			// no specific permission required.
+			next.ServeHTTP(w, r)
+			return
+		}
+		for _, p := range strings.Split(user.Permissions, ",") {
+			if p == routeConfig.Auth.Permission {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		http.Error(w, "forbidden", http.StatusForbidden)
+	})
 }
 
 // ServeHTTP handles http traffic to the appspace
-func (r *V0) ServeHTTP(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	statusRes := statusRecorder{res, 0}
-
-	cred := struct {
-		ProxyID domain.ProxyID
-	}{}
-	authorized := false
-
-	defer func() {
-		if r.RouteHitEvents != nil {
-			r.RouteHitEvents.Send(&domain.AppspaceRouteHitEvent{
-				AppspaceID:  routeData.Appspace.AppspaceID,
-				Request:     req,
-				RouteConfig: routeData.RouteConfig,
-				Credentials: cred,
-				Authorized:  authorized,
-				Status:      statusRes.status})
-		}
-	}()
-
-	routeModel := r.AppspaceRouteModels.GetV0(routeData.Appspace.AppspaceID)
-	routeConfig, err := routeModel.Match(req.Method, routeData.URLTail)
-	if err != nil {
-		http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if routeConfig == nil {
-		http.Error(&statusRes, "No matching route", http.StatusNotFound)
-		return
-	}
-	routeData.RouteConfig = routeConfig
-
-	auth, err := r.processLoginToken(&statusRes, req, routeData)
-	if err != nil {
-		http.Error(&statusRes, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if auth.Authenticated {
-		cred.ProxyID = auth.ProxyID
-	} else if routeData.Authentication != nil {
-		cred.ProxyID = routeData.Authentication.ProxyID
-		auth = *routeData.Authentication
-	}
-
-	appspaceUser := domain.AppspaceUser{}
-	if auth.Authenticated {
-		appspaceUser, _ = r.AppspaceUserModel.Get(auth.AppspaceID, auth.ProxyID)
-		// don't check error here. If user not found, will be dealt with in authorize functions below
-	}
-
-	if !r.authorizeAppspace(routeData, auth, appspaceUser) {
-		// We probably need different messages for different situations:
-		// - "unable to serve this page" if no auth or no such appspace (to avoid probing for appspace domains)
-		// - "Not permitted" if user has proper auth for appspace, but not the required permission.
-		http.Error(&statusRes, "No page to show", http.StatusUnauthorized)
-		return
-	}
-
-	if !r.authorizePermission(routeData.RouteConfig.Auth.Permission, appspaceUser) {
-		http.Error(&statusRes, "Not permitted", http.StatusUnauthorized)
-		return
-	}
-
-	// if you got this far, route is authorized.
-	authorized = true
-
+func (arV0 *V0) handleRoute(w http.ResponseWriter, r *http.Request) {
+	routeConfig, _ := domain.CtxRouteConfig(r.Context())
 	switch routeConfig.Handler.Type {
 	case "function":
-		r.SandboxProxy.ServeHTTP(&statusRes, req, routeData)
+		arV0.SandboxProxy.ServeHTTP(w, r)
 	case "file":
-		r.serveFile(&statusRes, req, routeData)
-	// case "db":
-	// call to appspacedb. Since this is v0appspaceroutes, then the call will be to v0appspacedb
+		arV0.serveFile(w, r)
 	default:
-		r.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
-		http.Error(&statusRes, "route type not implemented", http.StatusInternalServerError)
+		arV0.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
+		http.Error(w, "route type not implemented", http.StatusInternalServerError)
 	}
-	//}
 }
 
-func (r *V0) processLoginToken(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) (domain.Authentication, error) {
-	loginTokenValues := req.URL.Query()["dropserver-login-token"]
-	if len(loginTokenValues) == 0 {
-		return domain.Authentication{}, nil
-	}
-	if len(loginTokenValues) > 1 {
-		return domain.Authentication{}, errors.New("multiple login tokens") // this should translate to http error "bad request"
-	}
-
-	token, ok := r.V0TokenManager.CheckToken(loginTokenValues[0]) // this looks corect but is badly named?
-	if !ok {
-		return domain.Authentication{}, nil // no matching token is not an error. It can happen is user reloads the page for ex.
-	}
-
-	if token.AppspaceID != routeData.Appspace.AppspaceID {
-		// do nothing? How do we end up in this situation?
-		return domain.Authentication{}, errors.New("wrong appspace")
-	}
-
-	cookieID, err := r.Authenticator.SetForAppspace(res, token.ProxyID, token.AppspaceID, routeData.Appspace.DomainName)
+func (arV0 *V0) serveFile(w http.ResponseWriter, r *http.Request) {
+	// - left trim request path
+	p, err := arV0.getFilePath(r)
 	if err != nil {
-		return domain.Authentication{}, err
-	}
-
-	return domain.Authentication{
-		Authenticated: true,
-		ProxyID:       token.ProxyID,
-		AppspaceID:    token.AppspaceID,
-		CookieID:      cookieID}, nil
-}
-
-func (r *V0) authorizeAppspace(routeData *domain.AppspaceRouteData, auth domain.Authentication, user domain.AppspaceUser) bool {
-	// And we'll have a bunch of attached creds for request:
-	// - userID / contact ID
-	// - API key (probably included in header)
-	//   -> API key grants permissions
-	// - secret link (or not, the secret link is the auth, that's it)
-
-	// [if no user but api key, repeat for api key (look it up, get permissions, find match)]
-
-	// if it's public route, then always authorized
-	if routeData.RouteConfig.Auth.Allow == "public" {
-		return true
-	}
-
-	// if not public, then route requires auth
-	if !auth.Authenticated || auth.UserAccount || auth.AppspaceID != routeData.Appspace.AppspaceID {
-		return false
-	}
-
-	if user == (domain.AppspaceUser{}) { // appspace user has zero-value (not found)
-		return false
-	}
-
-	return true
-}
-
-func (r *V0) authorizePermission(requiredPermission string, user domain.AppspaceUser) bool {
-	if requiredPermission == "" {
-		// no specific permission required.
-		return true
-	}
-	for _, p := range strings.Split(user.Permissions, ",") {
-		if p == requiredPermission {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (r *V0) serveFile(res http.ResponseWriter, req *http.Request, routeData *domain.AppspaceRouteData) {
-	p, err := r.getFilePath(routeData)
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// check if p is a directory? If so handle as either dir listing or index.html?
 	fileinfo, err := os.Stat(p)
 	if err != nil {
-		http.Error(res, "file does not exist", http.StatusNotFound)
+		http.Error(w, "file does not exist", http.StatusNotFound)
 		return
 	}
 
 	if fileinfo.IsDir() {
 		// either append index.html to p or send dir listing
-		http.Error(res, "path is a directory", http.StatusNotFound)
+		http.Error(w, "path is a directory", http.StatusNotFound)
 		return
 	}
 
 	f, err := os.Open(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			http.Error(res, "file does not exist", http.StatusNotFound)
+			http.Error(w, "file does not exist", http.StatusNotFound)
 			return
 		}
-		http.Error(res, "file open error", http.StatusInternalServerError)
+		http.Error(w, "file open error", http.StatusInternalServerError)
 		return
 	}
 
-	http.ServeContent(res, req, p, fileinfo.ModTime(), f)
+	http.ServeContent(w, r, p, fileinfo.ModTime(), f)
 }
 
-func (r *V0) getFilePath(routeData *domain.AppspaceRouteData) (string, error) {
+// Need: request path, route handler path,  appspace location key, app version location key,
+// It seems there are two parts to this:
+// - left-trim request path to route handler path, so all that's left is the extra
+// - then tack on the
+func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
+	ctx := r.Context()
+	routeConfig, _ := domain.CtxRouteConfig(ctx)
 	// from route config + appspace/app locations, determine the path of the desired file on local system
-	routeHandler := routeData.RouteConfig.Handler
 	root := ""
-	p := routeHandler.Path
+	p := routeConfig.Handler.Path
 	if strings.HasPrefix(p, "@appspace/") {
+		appspace, ok := domain.CtxAppspaceData(ctx)
+		if !ok {
+			panic("v0appspaceRouter getFilePath: expected an appspace")
+		}
 		p = strings.TrimPrefix(p, "@appspace/")
-		root = filepath.Join(r.Config.Exec.AppspacesPath, routeData.Appspace.LocationKey, "data", "files")
+		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "files")
 	} else if strings.HasPrefix(p, "@app/") {
+		appVersion, ok := domain.CtxAppVersionData(ctx)
+		if !ok {
+			panic("v0appspaceRouter getFilePath: expected an app version")
+		}
 		p = strings.TrimPrefix(p, "@app/")
-		root = filepath.Join(r.Config.Exec.AppsPath, routeData.AppVersion.LocationKey)
+		root = filepath.Join(arV0.Config.Exec.AppsPath, appVersion.LocationKey)
 	} else {
-		r.getLogger("getFilePath").Log("Path prefix not recognized: " + p)
+		arV0.getLogger("getFilePath").Log("Path prefix not recognized: " + p) // This should be logged to appspace log, not general log
 		return "", errors.New("path prefix not recognized")
 	}
 
 	// p is from app so untrusted. Check it doesn't breach the appspace or app root:
 	serveRoot := filepath.Join(root, filepath.FromSlash(p))
 	if !strings.HasPrefix(serveRoot, root) {
-		r.getLogger("getFilePath").Log("route config path out of bounds: " + root)
+		arV0.getLogger("getFilePath").Log("route config path out of bounds: " + root)
 		return "", errors.New("route config path out of bounds")
 	}
 
 	// Now determine the path of the file requested from the url
-	// I think UrlTail comes into play here.
-	urlTail := filepath.FromSlash(routeData.URLTail)
+	urlTail := filepath.FromSlash(r.URL.Path)
 	// have to remove the prefix from urltail.
-	urlPrefix := routeData.RouteConfig.Path
+	urlPrefix := routeConfig.Path
 	urlTail = strings.TrimPrefix(urlTail, urlPrefix) // doing this with strings like that is super error-prone!
 
 	p = filepath.Join(serveRoot, urlTail)
@@ -260,7 +322,7 @@ func (r *V0) getFilePath(routeData *domain.AppspaceRouteData) (string, error) {
 	return p, nil
 }
 
-func (r *V0) getLogger(note string) *record.DsLogger {
+func (arV0 *V0) getLogger(note string) *record.DsLogger {
 	l := record.NewDsLogger().AddNote("V0AppspaceRoutes")
 	if note != "" {
 		l.AddNote(note)

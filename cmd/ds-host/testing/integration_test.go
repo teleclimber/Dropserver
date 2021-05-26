@@ -49,7 +49,7 @@ func TestIntegration1(t *testing.T) {
 	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
 
 	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)}
-	appVersion := &domain.AppVersion{LocationKey: "loc123"}
+	//appVersion := &domain.AppVersion{LocationKey: "loc123"}
 
 	tl := &testLogger{
 		t: t}
@@ -66,16 +66,16 @@ func TestIntegration1(t *testing.T) {
 
 	sM.Init()
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail:    "/abc", // parametrize
-		App:        &domain.App{Name: "app1"},
-		AppVersion: appVersion,
-		Appspace:   appspace,
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Handler: domain.AppspaceRouteHandler{
-				File:     "@app/hello.js",
-				Function: "hello",
-			}}}
+	// routeData := &domain.AppspaceRouteData{
+	// 	URLTail:    "/abc", // parametrize
+	// 	App:        &domain.App{Name: "app1"},
+	// 	AppVersion: appVersion,
+	// 	Appspace:   appspace,
+	// 	RouteConfig: &domain.AppspaceRouteConfig{
+	// 		Handler: domain.AppspaceRouteHandler{
+	// 			File:     "@app/hello.js",
+	// 			Function: "hello",
+	// 		}}}
 
 	// So now we need to put a hello.js file at dataDir/apps/loc123/hello.js
 
@@ -105,7 +105,7 @@ func TestIntegration1(t *testing.T) {
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
 	// directly and pass in our Request and ResponseRecorder.
-	sandboxProxy.ServeHTTP(rr, req, routeData)
+	sandboxProxy.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if rr.Code != http.StatusOK {

@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,RouteHandler,CookieModel,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,CookieModel,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -218,35 +218,6 @@ type SignupViewData struct {
 	// username?
 	Message string
 	Email   string
-}
-
-///////////////////////////////////////////////////////////
-// route stuff
-
-// AppspaceRouteData represents data for the route being executed
-// instead of passing string for path tail, pass whole request context object, with:
-// - *App
-// - *Appspace
-// - *AuthState (or some such thing that summarizes the auth story for this request)
-// - *AppspaceRoute (the route metadata, match path, type, function, auth ...)
-// - path tail?
-// - golang Context thing? We need to read up on that.
-type AppspaceRouteData struct {
-	Authentication *Authentication
-	App            *App
-	AppVersion     *AppVersion
-	Appspace       *Appspace
-	URLTail        string
-	RouteConfig    *AppspaceRouteConfig
-}
-
-// RouteHandler is a generic interface for sub route handling.
-// we will need to pass context of some sort
-// -> wait is this not AppspaceRouteHandler?
-// Or do we use the sameRouteData? Surely quite a lot is in common?
-// ..but would it not muddy the meaning of the Fields?
-type RouteHandler interface {
-	ServeHTTP(http.ResponseWriter, *http.Request, *AppspaceRouteData)
 }
 
 ///////////////////////////////////

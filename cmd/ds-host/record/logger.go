@@ -77,8 +77,14 @@ type DsLogger struct {
 }
 
 // NewDsLogger returns a new struct. But is it necessary?
-func NewDsLogger() *DsLogger {
-	return &DsLogger{}
+func NewDsLogger(notes ...string) *DsLogger {
+	l := DsLogger{}
+	for _, n := range notes {
+		if n != "" {
+			l.AddNote(n)
+		}
+	}
+	return &l
 }
 
 // Clone returns a new DsLogger with all values copied.

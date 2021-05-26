@@ -17,10 +17,14 @@ type SandboxProxy struct {
 
 // ServeHTTP forwards the request to a sandbox
 // Could still see splitting this function in two.
-func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, routeData *domain.AppspaceRouteData) {
+func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 	// The responsibiility for knowing whether an appspace is ready or not, is upstream (in appspaceroutes)
 
-	sandboxChan := s.SandboxManager.GetForAppSpace(routeData.AppVersion, routeData.Appspace) // Change this to more solid IDs
+	ctx := oReq.Context()
+	appVersion, _ := domain.CtxAppVersionData(ctx)
+	appspace, _ := domain.CtxAppspaceData(ctx)
+
+	sandboxChan := s.SandboxManager.GetForAppSpace(&appVersion, &appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
 	if sb == nil {
@@ -38,11 +42,15 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request, r
 		reqTaskCh <- true
 	}()
 
+	routeConfig, _ := domain.CtxRouteConfig(ctx)
+
 	header := cloneHeader(oReq.Header)
-	header["appspace-module"] = []string{routeData.RouteConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
-	header["appspace-function"] = []string{routeData.RouteConfig.Handler.Function}
-	if routeData.Authentication != nil && routeData.Authentication.ProxyID != "" {
-		header["user-id"] = []string{string(routeData.Authentication.ProxyID)}
+	header["appspace-module"] = []string{routeConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
+	header["appspace-function"] = []string{routeConfig.Handler.Function}
+
+	proxyID, ok := domain.CtxAppspaceUserProxyID(ctx)
+	if ok {
+		header["user-id"] = []string{string(proxyID)}
 	}
 
 	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)

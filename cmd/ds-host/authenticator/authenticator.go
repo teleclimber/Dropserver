@@ -2,10 +2,12 @@ package authenticator
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 const cookieExpMinutes = 30
@@ -102,6 +104,38 @@ func (a *Authenticator) AccountUser(next http.Handler) http.Handler {
 	})
 }
 
+// AppspaceUserProxyID middleware sets the proxy ID for
+// the user authenticated for the requested appspace
+func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspace, ok := domain.CtxAppspaceData(r.Context())
+		if !ok {
+			panic("expected appspace data in request context")
+		}
+		cookie, err := a.getCookie(r)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		if cookie != nil {
+			if cookie.UserAccount || cookie.AppspaceID != appspace.AppspaceID {
+				a.getLogger("AppspaceUserProxyID").
+					AddNote(fmt.Sprintf("%v", cookie)).
+					AppspaceID(appspace.AppspaceID).
+					Error(errors.New("got a cookie for wrong appspace or for user account"))
+				// also cookie should be deleted
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			ctx := domain.CtxWithAppspaceUserProxyID(r.Context(), cookie.ProxyID)
+			ctx = domain.CtxWithSessionID(ctx, cookie.CookieID)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Also need to auth via API key eventually
 
 // UnsetForAccount is the opposite of SetForAccount
@@ -172,4 +206,8 @@ func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expi
 		Path:     "/",
 		HttpOnly: true,
 	})
+}
+
+func (a *Authenticator) getLogger(note string) *record.DsLogger {
+	return record.NewDsLogger("Authenticator", note)
 }

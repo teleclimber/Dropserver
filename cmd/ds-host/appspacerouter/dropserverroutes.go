@@ -1,29 +1,28 @@
 package appspacerouter
 
 import (
-	"context"
 	"net/http"
 
-	"github.com/teleclimber/DropServer/internal/shiftpath"
+	"github.com/go-chi/chi"
 )
 
 type DropserverRoutes struct {
-	V0DropServerRoutes http.Handler
+	V0DropServerRoutes interface {
+		subRouter() http.Handler
+	}
 }
 
-func (r *DropserverRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	trail := getURLTail(req.Context())
+// this needs to be subroutes
 
-	head, tail := shiftpath.ShiftPath(trail)
-	ctx := context.WithValue(req.Context(), urlTailCtxKey, tail)
+func (d *DropserverRoutes) Router() http.Handler {
+	mux := chi.NewRouter()
 
-	switch head {
-	case "apiversions":
-		http.Error(res, "api check not implemented", http.StatusNotImplemented)
-	case "v0":
-		r.V0DropServerRoutes.ServeHTTP(res, req.WithContext(ctx))
-	default:
-		http.Error(res, "not found", http.StatusNotFound)
-	}
+	mux.Get("/apiversions", d.apiVersions)
+	mux.Mount("/v0", d.V0DropServerRoutes.subRouter())
 
+	return mux
+}
+
+func (d *DropserverRoutes) apiVersions(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "api check not implemented", http.StatusNotImplemented)
 }

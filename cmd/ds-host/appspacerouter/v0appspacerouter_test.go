@@ -13,239 +13,307 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
-func TestAuthorize(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	ownerID := domain.UserID(7)
-	proxyID := domain.ProxyID("abc")
-	appspaceID := domain.AppspaceID(11)
-
-	v0 := &V0{}
-
-	routeData := domain.AppspaceRouteData{
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Auth: domain.AppspaceRouteAuth{
-				Allow: "public",
-			},
+func TestAuthorizePublic(t *testing.T) {
+	routeConfig := domain.AppspaceRouteConfig{
+		Auth: domain.AppspaceRouteAuth{
+			Allow: "public",
 		},
 	}
-	a := v0.authorizeAppspace(&routeData, domain.Authentication{}, domain.AppspaceUser{})
-	if !a {
-		t.Error("expected public route authorized")
-	}
-
-	routeData.RouteConfig.Auth.Allow = "authorized"
-	routeData.Appspace = &domain.Appspace{OwnerID: ownerID, AppspaceID: appspaceID}
-	a = v0.authorizeAppspace(&routeData, domain.Authentication{}, domain.AppspaceUser{})
-	if a {
-		t.Error("expected unauthorized because no auth")
-	}
-
-	auth := domain.Authentication{
-		Authenticated: true,
-		UserID:        domain.UserID(13),
-		ProxyID:       proxyID}
-
-	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{})
-	if a {
-		t.Error("expected unauthorized because wrong user for auth")
-	}
-
-	auth.UserID = ownerID
-	auth.AppspaceID = domain.AppspaceID(33)
-	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{})
-	if a {
-		t.Error("expected unauthorized because wrong appspace ID")
-	}
-
-	auth.AppspaceID = appspaceID
-	a = v0.authorizeAppspace(&routeData, auth, domain.AppspaceUser{AppspaceID: appspaceID})
-	if !a {
-		t.Error("expected route authorized")
-	}
-}
-
-func TestAuthorizePermissions(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
 
 	v0 := &V0{}
 
-	a := v0.authorizePermission("delete", domain.AppspaceUser{})
-	if a {
-		t.Error("expected route unauthorized (no permissions)")
-	}
+	nextCalled := false
+	handler := v0.authorizeRoute(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
 
-	a = v0.authorizePermission("delete", domain.AppspaceUser{Permissions: "create,archive"})
-	if a {
-		t.Error("expected route unauthorized (incorrect permissions)")
-	}
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), routeConfig))
 
-	a = v0.authorizePermission("delete", domain.AppspaceUser{Permissions: "create,delete"})
-	if !a {
-		t.Error("expected route authorized")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
+	}
+	if !nextCalled {
+		t.Error("middleware did not call next")
 	}
 }
 
-// Test login tokens and its failure modes.
-func TestProcessLoginTokenNone(t *testing.T) {
-	req, err := http.NewRequest("GET", "/some-files/css/style.css", nil)
-	if err != nil {
-		t.Fatal(err)
+func TestAuthorizeForbidden(t *testing.T) {
+	routeConfig := domain.AppspaceRouteConfig{
+		Auth: domain.AppspaceRouteAuth{
+			Allow: "authorized",
+		},
 	}
 
 	v0 := &V0{}
 
-	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
-	if err != nil {
-		t.Error(err)
+	nextCalled := false
+	handler := v0.authorizeRoute(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), routeConfig))
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
 	}
-	if auth.Authenticated {
-		t.Error("expected authenticated to be false")
+	if nextCalled {
+		t.Error("middleware should not call next")
 	}
 }
 
-func TestProcessLoginToken(t *testing.T) {
-	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc&dropserver-login-token=def", nil)
-	if err != nil {
-		t.Fatal(err)
+func TestAuthorizedUser(t *testing.T) {
+	routeConfig := domain.AppspaceRouteConfig{
+		Auth: domain.AppspaceRouteAuth{
+			Allow: "authorized",
+		},
 	}
+
+	user := domain.AppspaceUser{}
 
 	v0 := &V0{}
 
-	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
-	if err == nil {
-		t.Error("expected error due to multiple tokens")
+	nextCalled := false
+	handler := v0.authorizeRoute(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx = domain.CtxWithAppspaceUserData(ctx, user)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req.WithContext(ctx))
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
-	if auth.Authenticated {
-		t.Error("expected authenticated to be false")
+	if !nextCalled {
+		t.Error("middleware did not call next")
 	}
 }
 
-func TestProcessLoginTokenDoesNotExist(t *testing.T) {
+func TestAuthorizePermissionDenied(t *testing.T) {
+	routeConfig := domain.AppspaceRouteConfig{
+		Auth: domain.AppspaceRouteAuth{
+			Allow:      "authorized",
+			Permission: "delete",
+		},
+	}
+
+	user := domain.AppspaceUser{Permissions: "create,update"}
+
+	v0 := &V0{}
+
+	nextCalled := false
+	handler := v0.authorizeRoute(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx = domain.CtxWithAppspaceUserData(ctx, user)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req.WithContext(ctx))
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
+	}
+	if nextCalled {
+		t.Error("middleware should not call next")
+	}
+}
+
+func TestAuthorizePermissionAllowed(t *testing.T) {
+	routeConfig := domain.AppspaceRouteConfig{
+		Auth: domain.AppspaceRouteAuth{
+			Allow:      "authorized",
+			Permission: "delete",
+		},
+	}
+
+	user := domain.AppspaceUser{Permissions: "create,update,delete"}
+
+	v0 := &V0{}
+
+	nextCalled := false
+	handler := v0.authorizeRoute(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx = domain.CtxWithAppspaceUserData(ctx, user)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req.WithContext(ctx))
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
+	}
+	if !nextCalled {
+		t.Error("middleware did not call next")
+	}
+}
+
+func TestLoginTokenNoToken(t *testing.T) {
+	v0 := &V0{}
+
+	nextCalled := false
+	handler := v0.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
+	}
+	if !nextCalled {
+		t.Error("middleware did not call next")
+	}
+}
+
+func TestLoginTokenTwoTokens(t *testing.T) {
+	v0 := &V0{}
+
+	nextCalled := false
+	handler := v0.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=aaaa&dropserver-login-token=bbbbbbb", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("expected Bad Request got status %v", rr.Result().Status)
+	}
+	if nextCalled {
+		t.Error("middleware called next")
+	}
+}
+
+func TestLoginTokenNotfound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{}, false)
-
-	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	v0TokenManager.EXPECT().CheckToken("abcd").Return(domain.V0AppspaceLoginToken{}, false)
 
 	v0 := &V0{
 		V0TokenManager: v0TokenManager,
 	}
 
-	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{})
-	if err != nil {
-		t.Error(err)
-	}
-	if auth.Authenticated {
-		t.Error("expected authenticated to be false")
-	}
-}
+	nextCalled := false
+	handler := v0.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+	}))
 
-func TestProcessLoginTokenWrongAppspace(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=abcd", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
 
-	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{AppspaceID: domain.AppspaceID(13)}, true)
-
-	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
-	if err != nil {
-		t.Fatal(err)
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
-
-	v0 := &V0{
-		V0TokenManager: v0TokenManager,
-	}
-
-	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
-		Appspace: &domain.Appspace{AppspaceID: domain.AppspaceID(7)}})
-	if err == nil {
-		t.Error("expected error")
-	}
-	if auth.Authenticated {
-		t.Error("expected authenticated to be false")
+	if !nextCalled {
+		t.Error("middleware did not call next")
 	}
 }
 
-func TestProcessLoginTokenOK(t *testing.T) {
+func TestLoginToken(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	proxyID := domain.ProxyID("proxy-ideee")
+	proxyID := domain.ProxyID("uvw")
 	appspaceID := domain.AppspaceID(7)
+	domainName := "as1.ds.dev"
 
 	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken("abc").Return(domain.V0AppspaceLoginToken{
-		ProxyID:    proxyID,
-		AppspaceID: appspaceID}, true)
+	v0TokenManager.EXPECT().CheckToken("abcd").Return(domain.V0AppspaceLoginToken{AppspaceID: appspaceID, ProxyID: proxyID}, true)
 
 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
-	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, "some.host").Return("somecookie", nil)
-
-	req, err := http.NewRequest("GET", "/some-files/css/style.css?dropserver-login-token=abc", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, domainName).Return("cid", nil)
 
 	v0 := &V0{
-		Authenticator:  authenticator,
 		V0TokenManager: v0TokenManager,
+		Authenticator:  authenticator,
 	}
 
-	auth, err := v0.processLoginToken(httptest.NewRecorder(), req, &domain.AppspaceRouteData{
-		Appspace: &domain.Appspace{
-			AppspaceID: appspaceID,
-			DomainName: "some.host",
-		}})
-	if err != nil {
-		t.Error(err)
+	nextCalled := false
+	handler := v0.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqProxyID, ok := domain.CtxAppspaceUserProxyID(r.Context())
+		if !ok {
+			t.Error("no proxy id set")
+		}
+		if reqProxyID != proxyID {
+			t.Error("wrong proxy id")
+		}
+
+		reqCookieID, ok := domain.CtxSessionID(r.Context())
+		if !ok {
+			t.Error("no cookie id")
+		}
+		if reqCookieID != "cid" {
+			t.Error("wrong cookie id")
+		}
+
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=abcd", nil)
+	req = req.WithContext(domain.CtxWithAppspaceData(req.Context(), domain.Appspace{AppspaceID: appspaceID, DomainName: domainName}))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK got status %v", rr.Result().Status)
 	}
-	if !auth.Authenticated {
-		t.Error("expected authenticated to be true")
-	}
-	if auth.AppspaceID != appspaceID {
-		t.Error("wrong appspace ID")
-	}
-	if auth.CookieID != "somecookie" {
-		t.Error("wrong cookie ID")
-	}
-	if auth.UserAccount {
-		t.Error("should not be for user account")
-	}
-	if auth.ProxyID != proxyID {
-		t.Error("wrong proxy id")
+	if !nextCalled {
+		t.Error("middleware did not call next")
 	}
 }
 
 func TestGetFilePath(t *testing.T) {
 	config := &domain.RuntimeConfig{}
 	config.Exec.AppsPath = "/data-dir/apps-path"
-	routeData := &domain.AppspaceRouteData{
-		AppVersion: &domain.AppVersion{
-			LocationKey: "app-version-123",
-		},
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Path: "/some-files",
-			Handler: domain.AppspaceRouteHandler{
-				Type: "file",
-				Path: "@app/static-files/",
-			},
-		},
-		URLTail: "/some-files/css/style.css",
+
+	appVersion := domain.AppVersion{
+		LocationKey: "app-version-123",
 	}
+
+	routeConfig := domain.AppspaceRouteConfig{
+		Path: "/some-files",
+		Handler: domain.AppspaceRouteHandler{
+			Type: "file",
+			Path: "@app/static-files/",
+		}}
 
 	v0 := &V0{
 		Config: config,
 	}
 
-	p, err := v0.getFilePath(routeData)
+	req, _ := http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
+	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+
+	p, err := v0.getFilePath(req.WithContext(ctx))
 	if err != nil {
 		t.Error(err)
 	}
@@ -255,17 +323,21 @@ func TestGetFilePath(t *testing.T) {
 	}
 
 	// now try illegal path:
-	routeData.URLTail = "/some-files/../../gotcha.txt"
-	p, err = v0.getFilePath(routeData)
+	req, _ = http.NewRequest(http.MethodGet, "/some-files/../../gotcha.txt", nil)
+	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	p, err = v0.getFilePath(req.WithContext(ctx))
 	if err == nil {
 		t.Error("expected error, got " + p)
 	}
 
 	// now try a specific file for route path
-	routeData.URLTail = "/some-files/css/style.css"
-	routeData.RouteConfig.Path = "/some-files/css/style.css"
-	routeData.RouteConfig.Handler.Path = "@app/static-files/style.css"
-	p, err = v0.getFilePath(routeData)
+	routeConfig.Path = "/some-files/css/style.css"
+	routeConfig.Handler.Path = "@app/static-files/style.css"
+	req, _ = http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
+	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	p, err = v0.getFilePath(req.WithContext(ctx))
 	if err != nil {
 		t.Error(err)
 	}
@@ -284,26 +356,22 @@ func TestServeFile(t *testing.T) {
 
 	config := &domain.RuntimeConfig{}
 	config.Exec.AppsPath = dir
-	routeData := &domain.AppspaceRouteData{
-		AppVersion: &domain.AppVersion{
-			LocationKey: "app-version-123",
-		},
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Path: "/some-files",
-			Handler: domain.AppspaceRouteHandler{
-				Type: "file",
-				Path: "@app/static-files/",
-			},
-		},
-		URLTail: "/some-files/css/style.css",
+
+	appVersion := domain.AppVersion{
+		LocationKey: "app-version-123",
 	}
+	routeConfig := domain.AppspaceRouteConfig{
+		Path: "/some-files",
+		Handler: domain.AppspaceRouteHandler{
+			Type: "file",
+			Path: "@app/static-files/",
+		}}
 
 	v0 := &V0{
 		Config: config,
 	}
 
 	p := filepath.Join(dir, "app-version-123", "static-files", "css")
-	t.Log("writing css to: " + p)
 	err = os.MkdirAll(p, 0755)
 	if err != nil {
 		t.Error(err)
@@ -311,14 +379,12 @@ func TestServeFile(t *testing.T) {
 	fileData := []byte("BODY { color: red; }")
 	ioutil.WriteFile(filepath.Join(p, "style.css"), fileData, 0644)
 
-	req, err := http.NewRequest("GET", "/some-files/css/style.css", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req, _ := http.NewRequest("GET", "/some-files/css/style.css", nil)
+	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
 	rr := httptest.NewRecorder()
 
-	v0.serveFile(rr, req, routeData)
+	v0.serveFile(rr, req.WithContext(ctx))
 
 	respString := rr.Body.String()
 	if respString != string(fileData) {
@@ -335,18 +401,15 @@ func TestServeFileOverlapPath(t *testing.T) {
 
 	config := &domain.RuntimeConfig{}
 	config.Exec.AppsPath = dir
-	routeData := &domain.AppspaceRouteData{
-		AppVersion: &domain.AppVersion{
-			LocationKey: "app-version-123",
+	appVersion := domain.AppVersion{
+		LocationKey: "app-version-123",
+	}
+	routeConfig := domain.AppspaceRouteConfig{
+		Path: "/",
+		Handler: domain.AppspaceRouteHandler{
+			Type: "file",
+			Path: "@app/static-files/index.html",
 		},
-		RouteConfig: &domain.AppspaceRouteConfig{
-			Path: "/",
-			Handler: domain.AppspaceRouteHandler{
-				Type: "file",
-				Path: "@app/static-files/index.html",
-			},
-		},
-		URLTail: "/favicon.ico",
 	}
 
 	v0 := &V0{
@@ -354,7 +417,6 @@ func TestServeFileOverlapPath(t *testing.T) {
 	}
 
 	p := filepath.Join(dir, "app-version-123", "static-files")
-	t.Log("writing html to: " + p)
 	err = os.MkdirAll(p, 0755)
 	if err != nil {
 		t.Error(err)
@@ -362,14 +424,12 @@ func TestServeFileOverlapPath(t *testing.T) {
 	fileData := []byte("<h1>hello world</h1")
 	ioutil.WriteFile(filepath.Join(p, "index.html"), fileData, 0644)
 
-	req, err := http.NewRequest("GET", "/favicon.ico", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	req, _ := http.NewRequest("GET", "/favicon.ico", nil)
+	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
 	rr := httptest.NewRecorder()
 
-	v0.serveFile(rr, req, routeData)
+	v0.serveFile(rr, req.WithContext(ctx))
 
 	if rr.Result().StatusCode != http.StatusNotFound {
 		t.Error("expected 404")
@@ -378,50 +438,50 @@ func TestServeFileOverlapPath(t *testing.T) {
 
 // with appspace and route assume route is proxy
 // -> calls proxy
-func TestServeHTTPProxyRoute(t *testing.T) {
+// func TestServeHTTPProxyRoute(t *testing.T) {
 
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
+// 	mockCtrl := gomock.NewController(t)
+// 	defer mockCtrl.Finish()
 
-	appspaceID := domain.AppspaceID(7)
-	//proxyID := domain.ProxyID("abc")
+// 	appspaceID := domain.AppspaceID(7)
+// 	//proxyID := domain.ProxyID("abc")
 
-	routesV0 := domain.NewMockV0RouteModel(mockCtrl)
-	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
-		Handler: domain.AppspaceRouteHandler{Type: "function"},
-		Auth:    domain.AppspaceRouteAuth{Allow: "public"},
-	}, nil)
-	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
-	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)
-	// asUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
-	// asUserModel.EXPECT().Get(appspaceID, proxyID).Return(domain.AppspaceUser{AppspaceID: appspaceID, ProxyID: proxyID}, nil)
-	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
+// 	routesV0 := domain.NewMockV0RouteModel(mockCtrl)
+// 	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
+// 		Handler: domain.AppspaceRouteHandler{Type: "function"},
+// 		Auth:    domain.AppspaceRouteAuth{Allow: "public"},
+// 	}, nil)
+// 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
+// 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)
+// 	// asUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
+// 	// asUserModel.EXPECT().Get(appspaceID, proxyID).Return(domain.AppspaceUser{AppspaceID: appspaceID, ProxyID: proxyID}, nil)
+// 	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
 
-	v0 := &V0{
-		AppspaceRouteModels: asRoutesModel,
-		//AppspaceUserModel:   asUserModel,
-		SandboxProxy: sandboxProxy}
+// 	v0 := &V0{
+// 		AppspaceRouteModels: asRoutesModel,
+// 		//AppspaceUserModel:   asUserModel,
+// 		SandboxProxy: sandboxProxy}
 
-	routeData := &domain.AppspaceRouteData{
-		URLTail: "/abc",
-		Appspace: &domain.Appspace{
-			AppspaceID: appspaceID,
-		},
-	}
+// 	routeData := &domain.AppspaceRouteData{
+// 		URLTail: "/abc",
+// 		Appspace: &domain.Appspace{
+// 			AppspaceID: appspaceID,
+// 		},
+// 	}
 
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	req, err := http.NewRequest("GET", "/", nil)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	rr := httptest.NewRecorder()
+// 	rr := httptest.NewRecorder()
 
-	sandboxProxy.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
+// 	sandboxProxy.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
 
-	// ^^ here we are checking against routeData, which is a pointer
-	// so it's not testing whether the call populated routeData correctly.
+// 	// ^^ here we are checking against routeData, which is a pointer
+// 	// so it's not testing whether the call populated routeData correctly.
 
-	v0.ServeHTTP(rr, req, routeData)
+// 	v0.ServeHTTP(rr, req)
 
-	// TODO: check routeData was properly augmented (app, appspace)
-}
+// 	// TODO: check routeData was properly augmented (app, appspace)
+// }

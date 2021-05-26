@@ -500,9 +500,10 @@ func main() {
 		Authenticator:       authenticator,
 		V0TokenManager:      v0tokenManager,
 		Config:              runtimeConfig}
+	v0appspaceRouter.Init()
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		Authenticator:    authenticator, //TODO temporay
+		Authenticator:    authenticator,
 		AppModel:         appModel,
 		AppspaceModel:    appspaceModel,
 		AppspaceStatus:   appspaceStatus,

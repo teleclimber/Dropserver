@@ -293,15 +293,15 @@ func (m *MockAppspaceRouter) EXPECT() *MockAppspaceRouterMockRecorder {
 }
 
 // ServeHTTP mocks base method
-func (m *MockAppspaceRouter) ServeHTTP(arg0 http.ResponseWriter, arg1 *http.Request, arg2 *domain.AppspaceRouteData) {
+func (m *MockAppspaceRouter) ServeHTTP(arg0 http.ResponseWriter, arg1 *http.Request) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ServeHTTP", arg0, arg1, arg2)
+	m.ctrl.Call(m, "ServeHTTP", arg0, arg1)
 }
 
 // ServeHTTP indicates an expected call of ServeHTTP
-func (mr *MockAppspaceRouterMockRecorder) ServeHTTP(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockAppspaceRouterMockRecorder) ServeHTTP(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServeHTTP", reflect.TypeOf((*MockAppspaceRouter)(nil).ServeHTTP), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServeHTTP", reflect.TypeOf((*MockAppspaceRouter)(nil).ServeHTTP), arg0, arg1)
 }
 
 // SubscribeLiveCount mocks base method
