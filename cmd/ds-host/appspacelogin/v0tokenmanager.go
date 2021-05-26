@@ -80,7 +80,7 @@ func (m *V0TokenManager) create(appspaceID domain.AppspaceID, dropID string, pro
 }
 
 // CheckToken returns a valid V0AppspaceLoginToken if found
-func (m *V0TokenManager) CheckToken(token string) (domain.V0AppspaceLoginToken, bool) {
+func (m *V0TokenManager) CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool) {
 	m.tokensMux.Lock()
 	defer m.tokensMux.Unlock()
 
@@ -98,6 +98,11 @@ func (m *V0TokenManager) CheckToken(token string) (domain.V0AppspaceLoginToken, 
 	}
 
 	delete(m.tokens, t.LoginToken.Token)
+
+	if t.AppspaceID != appspaceID {
+		m.getLogger("CheckToken").Log(fmt.Sprintf("attempt to use token with wrong appspace. token appspace: %v, check appspace: %v", t.AppspaceID, appspaceID))
+		return domain.V0AppspaceLoginToken{}, false
+	}
 
 	if t.LoginToken.Created.Add(loginTokenDuration).Before(time.Now()) {
 		return domain.V0AppspaceLoginToken{}, false

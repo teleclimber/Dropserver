@@ -213,8 +213,10 @@ func TestLoginTokenNotfound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	appspaceID := domain.AppspaceID(7)
+
 	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken("abcd").Return(domain.V0AppspaceLoginToken{}, false)
+	v0TokenManager.EXPECT().CheckToken(appspaceID, "abcd").Return(domain.V0AppspaceLoginToken{}, false)
 
 	v0 := &V0{
 		V0TokenManager: v0TokenManager,
@@ -226,6 +228,7 @@ func TestLoginTokenNotfound(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=abcd", nil)
+	req = req.WithContext(domain.CtxWithAppspaceData(req.Context(), domain.Appspace{AppspaceID: appspaceID}))
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
@@ -246,7 +249,7 @@ func TestLoginToken(t *testing.T) {
 	domainName := "as1.ds.dev"
 
 	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken("abcd").Return(domain.V0AppspaceLoginToken{AppspaceID: appspaceID, ProxyID: proxyID}, true)
+	v0TokenManager.EXPECT().CheckToken(appspaceID, "abcd").Return(domain.V0AppspaceLoginToken{AppspaceID: appspaceID, ProxyID: proxyID}, true)
 
 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, domainName).Return("cid", nil)

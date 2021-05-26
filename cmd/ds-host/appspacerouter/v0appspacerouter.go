@@ -3,7 +3,6 @@ package appspacerouter
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,7 +26,7 @@ type V0 struct {
 	}
 	SandboxProxy   http.Handler // versioned?
 	V0TokenManager interface {
-		CheckToken(token string) (domain.V0AppspaceLoginToken, bool)
+		CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool)
 	}
 	Authenticator interface {
 		// should have ProcessLoginToken instead. Also removes dep on Token Manager
@@ -126,20 +125,12 @@ func (arV0 *V0) processLoginToken(next http.Handler) http.Handler {
 			return
 		}
 
-		token, ok := arV0.V0TokenManager.CheckToken(loginTokenValues[0]) //TODO CheckToken should take an appspace ID, naturally.
-		if !ok {
-			// no matching token is not an error. It can happen is user reloads the page for ex.
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		ctx := r.Context()
 		appspace, _ := domain.CtxAppspaceData(ctx)
 
-		if token.AppspaceID != appspace.AppspaceID {
-			// do nothing? How do we end up in this situation?
-			// This is alarming. Log it, but continue on as if no matching token.
-			arV0.getLogger("processLoginToken").AppspaceID(appspace.AppspaceID).Log(fmt.Sprintf("Got token for wrong appspace: %v", token))
+		token, ok := arV0.V0TokenManager.CheckToken(appspace.AppspaceID, loginTokenValues[0])
+		if !ok {
+			// no matching token is not an error. It can happen if user reloads the page for ex.
 			next.ServeHTTP(w, r)
 			return
 		}

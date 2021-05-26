@@ -33,10 +33,11 @@ func TestCheckToken(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
 	proxyID := domain.ProxyID("proxy-abc")
+	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
+	tok := a.create(appspaceID, "abc.com/def", proxyID)
 
-	tok, ok := a.CheckToken(tok.LoginToken.Token)
+	tok, ok := a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if !ok {
 		t.Error("expected token found ok")
 	}
@@ -52,18 +53,24 @@ func TestLogInBadTokens(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
 	proxyID := domain.ProxyID("proxy-abc")
+	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
+	tok := a.create(appspaceID, "abc.com/def", proxyID)
 
-	_, ok := a.CheckToken("baz")
+	_, ok := a.CheckToken(appspaceID, "baz")
 	if ok {
 		t.Error("baz is non existent token, expected false")
+	}
+
+	_, ok = a.CheckToken(domain.AppspaceID(13), tok.LoginToken.Token)
+	if ok {
+		t.Error("wrong appspace id, expected false")
 	}
 
 	expiredToken := tok
 	expiredToken.LoginToken.Created = time.Now().Add(-time.Hour)
 	a.tokens[tok.LoginToken.Token] = expiredToken
-	_, ok = a.CheckToken(tok.LoginToken.Token)
+	_, ok = a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if ok {
 		t.Error("token is expired, expected false")
 	}
@@ -73,14 +80,15 @@ func TestLogInTwice(t *testing.T) {
 	a := V0TokenManager{}
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
 	proxyID := domain.ProxyID("proxy-abc")
+	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
+	tok := a.create(appspaceID, "abc.com/def", proxyID)
 
-	_, ok := a.CheckToken(tok.LoginToken.Token)
+	_, ok := a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if !ok {
 		t.Error("expected token found ok")
 	}
-	_, ok = a.CheckToken(tok.LoginToken.Token)
+	_, ok = a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if ok {
 		t.Error("expected not ok from second login")
 	}

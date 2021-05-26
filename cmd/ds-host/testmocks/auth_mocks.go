@@ -114,18 +114,18 @@ func (m *MockV0TokenManager) EXPECT() *MockV0TokenManagerMockRecorder {
 }
 
 // CheckToken mocks base method
-func (m *MockV0TokenManager) CheckToken(arg0 string) (domain.V0AppspaceLoginToken, bool) {
+func (m *MockV0TokenManager) CheckToken(arg0 domain.AppspaceID, arg1 string) (domain.V0AppspaceLoginToken, bool) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckToken", arg0)
+	ret := m.ctrl.Call(m, "CheckToken", arg0, arg1)
 	ret0, _ := ret[0].(domain.V0AppspaceLoginToken)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
 // CheckToken indicates an expected call of CheckToken
-func (mr *MockV0TokenManagerMockRecorder) CheckToken(arg0 interface{}) *gomock.Call {
+func (mr *MockV0TokenManagerMockRecorder) CheckToken(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckToken", reflect.TypeOf((*MockV0TokenManager)(nil).CheckToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckToken", reflect.TypeOf((*MockV0TokenManager)(nil).CheckToken), arg0, arg1)
 }
 
 // GetForOwner mocks base method
