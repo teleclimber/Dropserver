@@ -14,10 +14,7 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config        *domain.RuntimeConfig
-	Authenticator interface {
-		Authenticate(*http.Request) domain.Authentication
-	}
+	Config *domain.RuntimeConfig
 
 	// admin routes, user routes, auth routes....
 	UserRoutes     http.Handler

@@ -525,7 +525,6 @@ func main() {
 
 	// Create server.
 	server := &server.Server{
-		Authenticator:  authenticator,
 		Config:         runtimeConfig,
 		UserRoutes:     userRoutes,
 		AppspaceRouter: appspaceRouter}

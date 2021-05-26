@@ -35,20 +35,6 @@ func (m *MockAuthenticator) EXPECT() *MockAuthenticatorMockRecorder {
 	return m.recorder
 }
 
-// Authenticate mocks base method
-func (m *MockAuthenticator) Authenticate(arg0 *http.Request) domain.Authentication {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Authenticate", arg0)
-	ret0, _ := ret[0].(domain.Authentication)
-	return ret0
-}
-
-// Authenticate indicates an expected call of Authenticate
-func (mr *MockAuthenticatorMockRecorder) Authenticate(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authenticate", reflect.TypeOf((*MockAuthenticator)(nil).Authenticate), arg0)
-}
-
 // SetForAccount mocks base method
 func (m *MockAuthenticator) SetForAccount(arg0 http.ResponseWriter, arg1 domain.UserID) error {
 	m.ctrl.T.Helper()
@@ -78,16 +64,16 @@ func (mr *MockAuthenticatorMockRecorder) SetForAppspace(arg0, arg1, arg2, arg3 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetForAppspace", reflect.TypeOf((*MockAuthenticator)(nil).SetForAppspace), arg0, arg1, arg2, arg3)
 }
 
-// UnsetForAccount mocks base method
-func (m *MockAuthenticator) UnsetForAccount(arg0 http.ResponseWriter, arg1 *http.Request) {
+// Unset mocks base method
+func (m *MockAuthenticator) Unset(arg0 http.ResponseWriter, arg1 *http.Request) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UnsetForAccount", arg0, arg1)
+	m.ctrl.Call(m, "Unset", arg0, arg1)
 }
 
-// UnsetForAccount indicates an expected call of UnsetForAccount
-func (mr *MockAuthenticatorMockRecorder) UnsetForAccount(arg0, arg1 interface{}) *gomock.Call {
+// Unset indicates an expected call of Unset
+func (mr *MockAuthenticatorMockRecorder) Unset(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetForAccount", reflect.TypeOf((*MockAuthenticator)(nil).UnsetForAccount), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unset", reflect.TypeOf((*MockAuthenticator)(nil).Unset), arg0, arg1)
 }
 
 // MockV0TokenManager is a mock of V0TokenManager interface

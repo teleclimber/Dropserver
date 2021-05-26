@@ -297,7 +297,6 @@ func main() {
 
 	// Create server.
 	server := &Server{
-		Authenticator:        devAuth,
 		Config:               runtimeConfig,
 		DropserverDevHandler: dsDevHandler,
 		AppspaceRouter:       appspaceRouter}

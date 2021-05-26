@@ -57,35 +57,6 @@ func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.P
 	return cookieID, nil
 }
 
-// Authenticate returns a cookie if a valid and verified cookie was included in the request
-// I think we can change the signature: don't pass res, don't return error.
-// ue separate method to refresh cookie, called from middleware
-// errors are logged, and if any then auth is nil.
-func (a *Authenticator) Authenticate(req *http.Request) (auth domain.Authentication) {
-	cookie, err := a.getCookie(req)
-	if err != nil {
-		// TODO log it. Or log it in getCookie.
-		return
-	}
-	if cookie == nil {
-		return
-	}
-
-	// Do we definitely refresh cookie in all cases?
-	//a.refreshCookie(res, cookie.CookieID)
-	// ^ commenting out until we can sort this out better.
-
-	auth = domain.Authentication{
-		Authenticated: true,
-		UserID:        cookie.UserID,
-		AppspaceID:    cookie.AppspaceID,
-		CookieID:      cookie.CookieID,
-		UserAccount:   cookie.UserAccount,
-		ProxyID:       cookie.ProxyID}
-
-	return auth
-}
-
 // AccountUser middleware sets the user id in context
 // if the there is a cookie for user account.
 func (a *Authenticator) AccountUser(next http.Handler) http.Handler {
@@ -138,9 +109,9 @@ func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
 
 // Also need to auth via API key eventually
 
-// UnsetForAccount is the opposite of SetForAccount
+// Unset is the opposite of SetForAccount
 // deletes cookie, wipes cookie from DB?
-func (a *Authenticator) UnsetForAccount(res http.ResponseWriter, req *http.Request) {
+func (a *Authenticator) Unset(res http.ResponseWriter, req *http.Request) {
 	cookie, _ := a.getCookie(req)
 	if cookie != nil {
 		a.CookieModel.Delete(cookie.CookieID)
@@ -199,7 +170,7 @@ func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expi
 		Name:     "session_token",
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client
-		MaxAge:   int(expires.Sub(time.Now()).Seconds()),
+		MaxAge:   int(time.Until(expires).Seconds()),
 		Domain:   domain,
 		SameSite: http.SameSiteStrictMode,
 		Secure:   !a.Config.Server.NoSsl,

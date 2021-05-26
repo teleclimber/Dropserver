@@ -31,7 +31,7 @@ type AuthRoutes struct {
 	}
 	Authenticator interface {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
-		UnsetForAccount(http.ResponseWriter, *http.Request)
+		Unset(http.ResponseWriter, *http.Request)
 	}
 }
 
@@ -85,17 +85,12 @@ func (a *AuthRoutes) postLogin(w http.ResponseWriter, r *http.Request) {
 			returnError(w, err)
 		}
 	} else {
-		// we're in. What we do now depends on whether we have an asl or not.
-		// if asl != "" {
-		// 	a.aslLogin(w, r, user.UserID, asl)
-		// } else {
 		err := a.Authenticator.SetForAccount(w, user.UserID)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 		http.Redirect(w, r, "/", http.StatusFound)
-		//}
 	}
 }
 
@@ -184,7 +179,7 @@ func (a *AuthRoutes) postSignup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AuthRoutes) handleLogout(w http.ResponseWriter, r *http.Request) {
-	a.Authenticator.UnsetForAccount(w, r)
+	a.Authenticator.Unset(w, r)
 
 	http.Redirect(w, r, "/login", http.StatusFound)
 }

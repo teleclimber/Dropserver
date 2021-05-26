@@ -12,10 +12,9 @@ import (
 // Authenticator is an interface that can set and authenticate cookies
 // And in the future it will handle other forms of authentication
 type Authenticator interface {
-	Authenticate(*http.Request) domain.Authentication
 	SetForAccount(http.ResponseWriter, domain.UserID) error
 	SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
-	UnsetForAccount(http.ResponseWriter, *http.Request)
+	Unset(http.ResponseWriter, *http.Request)
 }
 
 // V0TokenManager tracks and returns appspace login tokens

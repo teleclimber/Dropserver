@@ -11,6 +11,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+// TODO: need tests for appspace user auth
+
 func TestSetCookie(t *testing.T) {
 	a := &Authenticator{
 		Config: getConfig()}
@@ -21,9 +23,9 @@ func TestSetCookie(t *testing.T) {
 	expires := time.Date(2019, time.Month(5), 29, 6, 2, 0, 0, time.UTC)
 	a.setCookie(rr, cookieID, expires, "abc")
 
-	sch, ok := rr.HeaderMap["Set-Cookie"]
+	sch, ok := rr.Result().Header["Set-Cookie"]
 	if !ok {
-		t.Error("Set Cookie Header not set", rr.HeaderMap)
+		t.Error("Set Cookie Header not set", rr.Result().Header)
 	}
 	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
@@ -45,44 +47,44 @@ func TestRefreshCookie(t *testing.T) {
 
 	a.refreshCookie(rr, "abc")
 
-	sch, ok := rr.HeaderMap["Set-Cookie"]
+	sch, ok := rr.Result().Header["Set-Cookie"]
 	if !ok {
-		t.Error("Set Cookie Header not set", rr.HeaderMap)
+		t.Error("Set Cookie Header not set", rr.Result().Header)
 	}
 	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
 
-// testing for GetForAccount
-func TestGetForAccountNoCookie(t *testing.T) {
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+func TestAccountUserNoCookie(t *testing.T) {
 	a := &Authenticator{
 		Config: getConfig()}
 
-	auth := a.Authenticate(req)
-	if auth.Authenticated {
-		t.Error("No cookie should be returned")
+	nextCalled := false
+	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		_, ok := domain.CtxAuthUserID(r.Context())
+		if ok {
+			t.Error("there should not be anuth user")
+		}
+		nextCalled = true
+	}))
+
+	req, _ := http.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != 200 {
+		t.Error("should have 200 status")
+	}
+	if !nextCalled {
+		t.Error("next was not called")
 	}
 }
 
-func TestGetForAccountNoDBCookie(t *testing.T) {
+func TestAccountUserNoDBCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.AddCookie(&http.Cookie{
-		Name:    "session_token",
-		Value:   "abc",
-		Expires: time.Now().Add(time.Hour),
-	})
 
 	cm := domain.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().Get("abc").Return(nil, nil)
@@ -91,62 +93,82 @@ func TestGetForAccountNoDBCookie(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	auth := a.Authenticate(req)
-	if auth.Authenticated {
-		t.Error("No cookie should be returned")
-	}
-}
+	nextCalled := false
+	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		_, ok := domain.CtxAuthUserID(r.Context())
+		if ok {
+			t.Error("there should not be anuth user")
+		}
+		nextCalled = true
+	}))
 
-// this test is not so revealing since our more strict interpretation of "Authenticate"
-func TestGetForAccountNotUser(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	req, _ := http.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:    "session_token",
 		Value:   "abc",
 		Expires: time.Now().Add(time.Hour),
 	})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != 200 {
+		t.Error("should have 200 status")
+	}
+	if !nextCalled {
+		t.Error("next was not called")
+	}
+}
+
+func TestAccountUserWithAppspaceCookie(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
 	cm := domain.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().Get("abc").Return(&domain.Cookie{
 		CookieID:    "abc",
-		UserID:      domain.UserID(1),
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
 	}, nil)
-	//cm.EXPECT().UpdateExpires("abc", gomock.Any())
 
 	a := &Authenticator{
 		Config:      getConfig(),
 		CookieModel: cm}
+	nextCalled := false
+	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		_, ok := domain.CtxAuthUserID(r.Context())
+		if ok {
+			t.Error("there should not be an auth user")
+		}
+		_, ok = domain.CtxSessionID(r.Context())
+		if ok {
+			t.Error("there should not be a cookie id")
+		}
 
-	auth := a.Authenticate(req)
-	if !auth.Authenticated {
-		t.Error("cookie should not be nil")
-	}
-	if auth.UserAccount {
-		t.Error("cookie should not be for user account")
-	}
-}
+		nextCalled = true
+	}))
 
-func TestGetForAccountExpired(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	req, _ := http.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:    "session_token",
 		Value:   "abc",
 		Expires: time.Now().Add(time.Hour),
 	})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != 200 {
+		t.Error("should have 200 status")
+	}
+	if !nextCalled {
+		t.Error("next was not called")
+	}
+}
+
+func TestAccountUserExpired(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
 	cm := domain.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().Get("abc").Return(&domain.Cookie{
@@ -160,59 +182,86 @@ func TestGetForAccountExpired(t *testing.T) {
 		Config:      getConfig(),
 		CookieModel: cm}
 
-	auth := a.Authenticate(req)
-	if auth.Authenticated {
-		t.Error("cookie should be nil")
-	}
-}
+	nextCalled := false
+	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		_, ok := domain.CtxAuthUserID(r.Context())
+		if ok {
+			t.Error("there should not be anuth user")
+		}
+		nextCalled = true
+	}))
 
-func TestAuthenticate(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	req, _ := http.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:    "session_token",
 		Value:   "abc",
 		Expires: time.Now().Add(time.Hour),
 	})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != 200 {
+		t.Error("should have 200 status")
+	}
+	if !nextCalled {
+		t.Error("next was not called")
+	}
+}
+
+func TestAccountUser(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userID := domain.UserID(7)
 
 	cm := domain.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().Get("abc").Return(&domain.Cookie{
 		CookieID:    "abc",
-		UserID:      domain.UserID(1),
+		UserID:      userID,
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: true,
 	}, nil)
-	//cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
 		Config:      getConfig(),
 		CookieModel: cm}
+	nextCalled := false
+	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		reqUserID, ok := domain.CtxAuthUserID(r.Context())
+		if !ok {
+			t.Error("there should be an auth user")
+		}
+		if reqUserID != userID {
+			t.Error("wrong user id in request context")
+		}
+		reqSessionID, ok := domain.CtxSessionID(r.Context())
+		if !ok {
+			t.Error("there should be a cookie id")
+		}
+		if reqSessionID != "abc" {
+			t.Error("wrong cookie id")
+		}
+		nextCalled = true
+	}))
 
-	auth := a.Authenticate(req)
-	if !auth.Authenticated {
-		t.Error("cookie should not be nil")
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{
+		Name:    "session_token",
+		Value:   "abc",
+		Expires: time.Now().Add(time.Hour),
+	})
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != 200 {
+		t.Error("should have 200 status")
 	}
-	if auth.CookieID != "abc" {
-		t.Error("route data not as expected")
+	if !nextCalled {
+		t.Error("next was not called")
 	}
 }
-
-// Can we parametrize this test?
-// input:
-// - req cookie
-// - req cookie expires
-// - cookieModel return cookie / error
-// - whther to expect updateExpires
-// output:
-// - ok?
-// - routeData.Cookie
-// - response code
-// ---> all in all, too many factors to parametrize.
 
 func TestSetForAccount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -233,16 +282,16 @@ func TestSetForAccount(t *testing.T) {
 	if dsErr != nil {
 		t.Error(dsErr)
 	}
-	sch, ok := rr.HeaderMap["Set-Cookie"]
+	sch, ok := rr.Result().Header["Set-Cookie"]
 	if !ok {
-		t.Error("cookie not set?", rr.HeaderMap)
+		t.Error("cookie not set?", rr.Result().Header)
 	}
 	if !strings.HasPrefix(sch[0], "session_token=abc;") {
 		t.Error("cookie not set correctly: " + sch[0])
 	}
 }
 
-func TestUnsetForAccount(t *testing.T) {
+func TestUnset(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -262,7 +311,7 @@ func TestUnsetForAccount(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session_token", Value: "abc123", MaxAge: 120})
 
-	a.UnsetForAccount(rr, req)
+	a.Unset(rr, req)
 }
 
 func getConfig() *domain.RuntimeConfig {
