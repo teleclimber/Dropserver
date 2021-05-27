@@ -134,13 +134,9 @@ func (a *Authenticator) Unset(w http.ResponseWriter, r *http.Request) {
 	cookie, err := a.getCookie(r)
 	if err == nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(w, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain)
+		a.setCookie(w, cookie.CookieID, time.Now().Add(-100*time.Minute), cookie.DomainName)
 	}
 }
-
-// I suspect this will be called repeatedly, so maybe separate out the functions:
-// - get cookie value
-// - get
 
 var errNoCookie = errors.New("no valid cookie")
 

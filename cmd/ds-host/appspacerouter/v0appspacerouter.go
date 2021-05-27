@@ -103,7 +103,7 @@ func (arV0 *V0) loadRouteConfig(next http.Handler) http.Handler {
 		}
 
 		if routeConfig == nil {
-			http.Error(w, "No matching route", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -194,7 +194,7 @@ func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
 		user, ok := domain.CtxAppspaceUserData(ctx)
 		if !ok {
 			// no user, and route is not public, so forbidden
-			http.Error(w, "forbidden", http.StatusForbidden)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 
@@ -210,7 +210,7 @@ func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
 			}
 		}
 
-		http.Error(w, "forbidden", http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 	})
 }
 
@@ -239,20 +239,20 @@ func (arV0 *V0) serveFile(w http.ResponseWriter, r *http.Request) {
 	// check if p is a directory? If so handle as either dir listing or index.html?
 	fileinfo, err := os.Stat(p)
 	if err != nil {
-		http.Error(w, "file does not exist", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	if fileinfo.IsDir() {
 		// either append index.html to p or send dir listing
-		http.Error(w, "path is a directory", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	f, err := os.Open(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			http.Error(w, "file does not exist", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		http.Error(w, "file open error", http.StatusInternalServerError)

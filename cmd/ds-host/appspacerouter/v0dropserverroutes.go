@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -24,6 +25,9 @@ type V0DropserverRoutes struct {
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
 	}
+	Authenticator interface {
+		Unset(w http.ResponseWriter, r *http.Request)
+	}
 	V0RequestToken interface {
 		ReceiveToken(ref, token string)
 		ReceiveError(ref string, err error)
@@ -41,6 +45,8 @@ func (d *V0DropserverRoutes) subRouter() http.Handler {
 
 	mux.Get("/login-token", notFound)
 	mux.Post("/login-token", d.loginTokenResponse)
+
+	mux.Get("/logout", d.logout)
 
 	return mux
 }
@@ -116,6 +122,15 @@ func (d *V0DropserverRoutes) loginTokenResponse(w http.ResponseWriter, r *http.R
 	}
 
 	d.V0RequestToken.ReceiveToken(data.Ref, data.Token)
+}
+
+func (d *V0DropserverRoutes) logout(w http.ResponseWriter, r *http.Request) {
+	d.Authenticator.Unset(w, r)
+	if !strings.Contains(r.Header.Get("accept"), "text/html") {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte("<h1>Logged out</h1>"))
 }
 
 func (d *V0DropserverRoutes) getLogger(note string) *record.DsLogger {

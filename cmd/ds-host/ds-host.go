@@ -486,6 +486,7 @@ func main() {
 
 	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
 		AppspaceModel:  appspaceModel,
+		Authenticator:  authenticator,
 		V0RequestToken: v0requestToken,
 		V0TokenManager: v0tokenManager,
 	}

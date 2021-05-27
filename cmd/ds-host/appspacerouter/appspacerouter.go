@@ -2,6 +2,7 @@ package appspacerouter
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/go-chi/chi"
@@ -50,8 +51,10 @@ func (a *AppspaceRouter) Init() {
 	a.subscribers = make(map[domain.AppspaceID][]chan<- int)
 
 	mux := chi.NewRouter()
-	mux.Use(a.loadAppspace, a.appspaceAvailable, a.countRequest)
+	mux.Use(a.loadAppspace)
 	mux.Use(a.Authenticator.AppspaceUserProxyID)
+	mux.Use(a.errorPage)
+	mux.Use(a.appspaceAvailable, a.countRequest)
 	mux.Use(a.loadApp)
 	// Not sure we need all these middlewares for all routes.
 	// - dropserver routes like get login token do not need appspace user, and may not care if available or to count request?
@@ -84,7 +87,8 @@ func (a *AppspaceRouter) loadAppspace(next http.Handler) http.Handler {
 			return
 		}
 		if appspace == nil {
-			http.Error(w, "Appspace does not exist: "+host, http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
+			a.notFoundPage(w)
 			return
 		}
 
@@ -101,7 +105,7 @@ func (a *AppspaceRouter) appspaceAvailable(next http.Handler) http.Handler {
 			panic("expected appspace to exist on request context")
 		}
 		if !a.AppspaceStatus.Ready(appspace.AppspaceID) {
-			http.Error(w, "Appspace unavailable", http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -150,6 +154,60 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 func (a *AppspaceRouter) branchToVersionedRouters(w http.ResponseWriter, r *http.Request) {
 	// Here eventually we will branch off to different versions of appspace routers.
 	a.V0AppspaceRouter.ServeHTTP(w, r)
+}
+
+// errorPage shows an HTML error page for certian statuses
+func (a *AppspaceRouter) errorPage(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		statusW := statusRecorder{w, 0}
+		next.ServeHTTP(&statusW, r)
+		s := statusW.status
+		if s != http.StatusForbidden && s != http.StatusNotFound && s != http.StatusServiceUnavailable {
+			return
+		}
+		if !strings.Contains(r.Header.Get("accept"), "text/html") {
+			return
+		}
+
+		switch statusW.status {
+		case http.StatusForbidden:
+			_, hasAuth := domain.CtxAppspaceUserProxyID(r.Context())
+			a.forbiddenPage(w, hasAuth)
+		case http.StatusNotFound:
+			a.routeNotFoundPage(w)
+		case http.StatusServiceUnavailable:
+			a.unavailablePage(w)
+		}
+	})
+}
+
+func (a *AppspaceRouter) notFoundPage(w http.ResponseWriter) {
+	setHTMLHeader(w)
+	w.Write([]byte("<h1>404 Not Found</h1>"))
+}
+
+func (a *AppspaceRouter) routeNotFoundPage(w http.ResponseWriter) {
+	setHTMLHeader(w)
+	w.Write([]byte("<h1>404 Not Found</h1><p>This page was not found in this appspace</p>"))
+}
+
+func (a *AppspaceRouter) forbiddenPage(w http.ResponseWriter, p bool) {
+	setHTMLHeader(w)
+	w.Write([]byte("<h1>403 Forbidden</h1>"))
+	if p {
+		w.Write([]byte("<p>Insufficient permissions</p>"))
+	} else {
+		w.Write([]byte("<p>You may need to log in</p>"))
+	}
+}
+
+func (a *AppspaceRouter) unavailablePage(w http.ResponseWriter) {
+	setHTMLHeader(w)
+	w.Write([]byte("<h1>503 Service Unavailable</h1><p>Appspace may be undergoing maintenance and should be back soon</p>"))
+}
+
+func setHTMLHeader(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
 func (a *AppspaceRouter) incrementLiveCount(appspaceID domain.AppspaceID) {
