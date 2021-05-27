@@ -55,7 +55,8 @@ func freshInstallUp(args *stepArgs) error {
 		"expires" DATETIME,
 		"user_account" INTEGER,
 		"appspace_id" INTEGER,
-		"proxy_id" TEXT
+		"proxy_id" TEXT,
+		"domain" TEXT
 	)`)
 	args.dbExec(`CREATE UNIQUE INDEX cookies_cookie_id ON cookies (cookie_id)`)
 	// could index on user_id and appspace_id too

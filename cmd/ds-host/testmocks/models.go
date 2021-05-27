@@ -1,11 +1,20 @@
 package testmocks
 
 import (
+	"time"
+
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceUserModel,ContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceUserModel,ContactModel,DropIDModel,MigrationJobModel
+
+type CookieModel interface {
+	Get(cookieID string) (domain.Cookie, error)
+	Create(domain.Cookie) (string, error)
+	UpdateExpires(cookieID string, exp time.Time) error
+	Delete(cookieID string) error
+}
 
 type UserModel interface {
 	Create(email, password string) (domain.User, error)

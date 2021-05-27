@@ -1,6 +1,7 @@
 package cookiemodel
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -33,13 +34,9 @@ func TestGetNoRows(t *testing.T) {
 
 	cookieModel.PrepareStatements()
 
-	// There should be an error, but no panics
-	c, err := cookieModel.Get("foo")
-	if err != nil {
+	_, err := cookieModel.Get("foo")
+	if err != sql.ErrNoRows {
 		t.Error(err)
-	}
-	if c != nil {
-		t.Error("cookie should have been nil")
 	}
 }
 
@@ -56,13 +53,14 @@ func TestCRUD(t *testing.T) {
 	cookieModel.PrepareStatements()
 
 	userID := domain.UserID(100)
-
 	expires := time.Now().Add(120 * time.Second)
+	dom := "as1.ds.dev"
 
 	c := domain.Cookie{
 		UserID:      userID,
 		UserAccount: true,
-		Expires:     expires}
+		Expires:     expires,
+		DomainName:  dom}
 
 	cookieID, err := cookieModel.Create(c)
 	if err != nil {
@@ -81,6 +79,9 @@ func TestCRUD(t *testing.T) {
 	}
 	if cookie.UserAccount != true {
 		t.Error("mismatched data: user_account", cookie)
+	}
+	if cookie.DomainName != dom {
+		t.Error("mismatched cookie domain")
 	}
 
 	// can't compare expires times directly because something in the way timezones are represented changes.
@@ -151,12 +152,9 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	c2, err := cookieModel.Get(cookieID)
+	_, err = cookieModel.Get(cookieID)
 	if err != nil {
 		t.Error(err)
-	}
-	if c2 == nil {
-		t.Error("should have gotten a cookie")
 	}
 
 	err = cookieModel.Delete(cookieID)
@@ -164,14 +162,10 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	c3, err := cookieModel.Get(cookieID)
-	if err != nil {
-		t.Error(err)
+	_, err = cookieModel.Get(cookieID)
+	if err != sql.ErrNoRows {
+		t.Error("expecte err no rows")
 	}
-	if c3 != nil {
-		t.Error("should have been nil because we deleted it")
-	}
-
 }
 
 // more things to test:

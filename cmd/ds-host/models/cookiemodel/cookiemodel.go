@@ -6,6 +6,7 @@ package cookiemodel
 // A fast in-memory cache will alleviate performance problems.
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
@@ -58,7 +59,7 @@ func (m *CookieModel) PrepareStatements() {
 	p := prepper{handle: m.DB.Handle}
 
 	m.stmt.selectCookieID = p.prep(`SELECT * FROM cookies WHERE cookie_id = ?`)
-	m.stmt.create = p.prep(`INSERT INTO cookies VALUES (?, ?, ?, ?, ?, ?)`)
+	m.stmt.create = p.prep(`INSERT INTO cookies VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	m.stmt.refresh = p.prep(`UPDATE cookies SET expires = ? WHERE cookie_id = ?`)
 	m.stmt.delete = p.prep(`DELETE FROM cookies WHERE cookie_id = ?`)
 
@@ -68,7 +69,7 @@ func (m *CookieModel) PrepareStatements() {
 // Create adds the cookie to the DB and returns the UUID
 func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we shouldn't pass cookie obj?
 	if cookie.UserID != 0 && cookie.ProxyID != "" {
-		return "", errors.New("Both user id and proxy id cant be non-zero")
+		return "", errors.New("both user id and proxy id cant be non-zero")
 	}
 
 	/// genrate cookie_id
@@ -79,7 +80,7 @@ func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we
 	}
 	cookieID := UUID.String()
 
-	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID, cookie.ProxyID)
+	_, err = m.stmt.create.Exec(cookieID, cookie.UserID, cookie.Expires, cookie.UserAccount, cookie.AppspaceID, cookie.ProxyID, cookie.DomainName)
 	if err != nil {
 		m.getLogger("Create()").Error(err)
 		return "", err
@@ -89,19 +90,18 @@ func (m *CookieModel) Create(cookie domain.Cookie) (string, error) { // maybe we
 }
 
 // Get returns the locally stored values for a cookie id / uuid
-func (m *CookieModel) Get(cookieID string) (*domain.Cookie, error) {
+func (m *CookieModel) Get(cookieID string) (domain.Cookie, error) {
 	var cookie domain.Cookie
 
 	err := m.stmt.selectCookieID.QueryRowx(cookieID).StructScan(&cookie)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return nil, nil
+		if err != sql.ErrNoRows {
+			m.getLogger("Get()").Error(err)
 		}
-		m.getLogger("Get()").Error(err)
-		return nil, err
+		return domain.Cookie{}, err
 	}
 
-	return &cookie, nil
+	return cookie, nil
 }
 
 // UpdateExpires sets the expiration date on the cooke

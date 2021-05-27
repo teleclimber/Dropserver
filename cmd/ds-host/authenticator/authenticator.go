@@ -1,6 +1,7 @@
 package authenticator
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,13 +15,18 @@ const cookieExpMinutes = 30
 
 // Authenticator contains middleware functions for performing authentication
 type Authenticator struct {
-	CookieModel domain.CookieModel
 	Config      *domain.RuntimeConfig
+	CookieModel interface {
+		Get(cookieID string) (domain.Cookie, error)
+		Create(domain.Cookie) (string, error)
+		UpdateExpires(cookieID string, exp time.Time) error
+		Delete(cookieID string) error
+	}
 }
 
 // SetForAccount creates a cookie and sends it down
 // It is for access to the user account only
-func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.UserID) error {
+func (a *Authenticator) SetForAccount(w http.ResponseWriter, userID domain.UserID) error {
 	cookie := domain.Cookie{
 		UserID:      userID,
 		UserAccount: true,
@@ -30,14 +36,14 @@ func (a *Authenticator) SetForAccount(res http.ResponseWriter, userID domain.Use
 		return err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain)
+	a.setCookie(w, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain)
 
 	return nil
 }
 
 // SetForAppspace creates a cookie and sends it down
 // It is for access to the appspace only
-func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.ProxyID, appspaceID domain.AppspaceID, dom string) (string, error) {
+func (a *Authenticator) SetForAppspace(w http.ResponseWriter, proxyID domain.ProxyID, appspaceID domain.AppspaceID, dom string) (string, error) {
 	if dom == "" {
 		return "", errors.New("domain can't be blank")
 	}
@@ -52,7 +58,7 @@ func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.P
 		return "", err
 	}
 
-	a.setCookie(res, cookieID, cookie.Expires, dom)
+	a.setCookie(w, cookieID, cookie.Expires, dom)
 
 	return cookieID, nil
 }
@@ -62,14 +68,16 @@ func (a *Authenticator) SetForAppspace(res http.ResponseWriter, proxyID domain.P
 func (a *Authenticator) AccountUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := a.getCookie(r)
-		if err != nil {
+		if err != nil && err != errNoCookie {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		if cookie != nil && cookie.UserAccount {
+		if err == nil && cookie.UserAccount {
 			ctx := domain.CtxWithAuthUserID(r.Context(), cookie.UserID)
 			ctx = domain.CtxWithSessionID(ctx, cookie.CookieID)
 			r = r.WithContext(ctx)
+
+			a.refreshCookie(w, cookie)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -84,11 +92,11 @@ func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
 			panic("expected appspace data in request context")
 		}
 		cookie, err := a.getCookie(r)
-		if err != nil {
+		if err != nil && err != errNoCookie {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		if cookie != nil {
+		if err == nil {
 			if cookie.UserAccount || cookie.AppspaceID != appspace.AppspaceID {
 				a.getLogger("AppspaceUserProxyID").
 					AddNote(fmt.Sprintf("%v", cookie)).
@@ -98,10 +106,11 @@ func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-
 			ctx := domain.CtxWithAppspaceUserProxyID(r.Context(), cookie.ProxyID)
 			ctx = domain.CtxWithSessionID(ctx, cookie.CookieID)
 			r = r.WithContext(ctx)
+
+			a.refreshCookie(w, cookie)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -111,11 +120,11 @@ func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
 
 // Unset is the opposite of SetForAccount
 // deletes cookie, wipes cookie from DB?
-func (a *Authenticator) Unset(res http.ResponseWriter, req *http.Request) {
-	cookie, _ := a.getCookie(req)
-	if cookie != nil {
+func (a *Authenticator) Unset(w http.ResponseWriter, r *http.Request) {
+	cookie, err := a.getCookie(r)
+	if err == nil {
 		a.CookieModel.Delete(cookie.CookieID)
-		a.setCookie(res, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain)
+		a.setCookie(w, cookie.CookieID, time.Now().Add(-100*time.Second), a.Config.Exec.UserRoutesDomain)
 	}
 }
 
@@ -123,37 +132,40 @@ func (a *Authenticator) Unset(res http.ResponseWriter, req *http.Request) {
 // - get cookie value
 // - get
 
-func (a *Authenticator) getCookie(req *http.Request) (*domain.Cookie, error) {
-	c, err := req.Cookie("session_token")
+var errNoCookie = errors.New("no valid cookie")
+
+func (a *Authenticator) getCookie(r *http.Request) (domain.Cookie, error) {
+	c, err := r.Cookie("session_token")
 	if err != nil {
 		if err == http.ErrNoCookie {
 			// If the cookie is not set, return unauthorized
-			return nil, nil
+			return domain.Cookie{}, errNoCookie
 		}
 		// In current version of Go, the only error is ErrNoCookie
 		// If we get here log it
-		return nil, err
+		return domain.Cookie{}, err
 	}
 
 	cookie, err := a.CookieModel.Get(c.Value)
 	if err != nil {
-		return nil, err //this should be internal error?
-	}
-	if cookie == nil {
-		return nil, nil
+		if err == sql.ErrNoRows {
+			err = errNoCookie
+		}
+		return domain.Cookie{}, err
 	}
 	if cookie.Expires.Before(time.Now()) {
-		return nil, nil
+		return domain.Cookie{}, errNoCookie
 	}
 
 	return cookie, nil
 }
 
 // refreshCookie updates the expires time on both DB and client
-func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) {
+// I don't love this interface. sending the wrong domain is too easy.
+func (a *Authenticator) refreshCookie(w http.ResponseWriter, cookie domain.Cookie) {
 	expires := time.Now().Add(cookieExpMinutes * time.Minute)
 
-	err := a.CookieModel.UpdateExpires(cookieID, expires)
+	err := a.CookieModel.UpdateExpires(cookie.CookieID, expires)
 	if err != nil {
 		// hmmm. If norows just skip it.
 		// If something else, log it then ...?
@@ -162,11 +174,11 @@ func (a *Authenticator) refreshCookie(res http.ResponseWriter, cookieID string) 
 		return
 	}
 
-	a.setCookie(res, cookieID, expires, "domain") // TODO: not sure how to get domain on cookie refresh?
+	a.setCookie(w, cookie.CookieID, expires, cookie.DomainName)
 }
 
-func (a *Authenticator) setCookie(res http.ResponseWriter, cookieID string, expires time.Time, domain string) {
-	http.SetCookie(res, &http.Cookie{
+func (a *Authenticator) setCookie(w http.ResponseWriter, cookieID string, expires time.Time, domain string) {
+	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    cookieID,
 		Expires:  expires, // so here we should have sync between cookie store and cookie sent to client

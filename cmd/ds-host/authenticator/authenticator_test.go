@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 // TODO: need tests for appspace user auth
@@ -36,7 +37,7 @@ func TestRefreshCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cm := domain.NewMockCookieModel(mockCtrl)
+	cm := testmocks.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
@@ -45,7 +46,7 @@ func TestRefreshCookie(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	a.refreshCookie(rr, "abc")
+	a.refreshCookie(rr, domain.Cookie{CookieID: "abc", DomainName: "dropid.ds.dev"})
 
 	sch, ok := rr.Result().Header["Set-Cookie"]
 	if !ok {
@@ -57,6 +58,9 @@ func TestRefreshCookie(t *testing.T) {
 }
 
 func TestAccountUserNoCookie(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	a := &Authenticator{
 		Config: getConfig()}
 
@@ -86,8 +90,8 @@ func TestAccountUserNoDBCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cm := domain.NewMockCookieModel(mockCtrl)
-	cm.EXPECT().Get("abc").Return(nil, nil)
+	cm := testmocks.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get("abc").Return(domain.Cookie{}, errNoCookie)
 
 	a := &Authenticator{
 		Config:      getConfig(),
@@ -124,8 +128,8 @@ func TestAccountUserWithAppspaceCookie(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cm := domain.NewMockCookieModel(mockCtrl)
-	cm.EXPECT().Get("abc").Return(&domain.Cookie{
+	cm := testmocks.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get("abc").Return(domain.Cookie{
 		CookieID:    "abc",
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
@@ -170,8 +174,8 @@ func TestAccountUserExpired(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cm := domain.NewMockCookieModel(mockCtrl)
-	cm.EXPECT().Get("abc").Return(&domain.Cookie{
+	cm := testmocks.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get("abc").Return(domain.Cookie{
 		CookieID:    "abc",
 		UserID:      domain.UserID(1),
 		Expires:     time.Now().Add(-time.Hour),
@@ -215,13 +219,14 @@ func TestAccountUser(t *testing.T) {
 
 	userID := domain.UserID(7)
 
-	cm := domain.NewMockCookieModel(mockCtrl)
-	cm.EXPECT().Get("abc").Return(&domain.Cookie{
+	cm := testmocks.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get("abc").Return(domain.Cookie{
 		CookieID:    "abc",
 		UserID:      userID,
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: true,
 	}, nil)
+	cm.EXPECT().UpdateExpires("abc", gomock.Any()).Return(nil)
 
 	a := &Authenticator{
 		Config:      getConfig(),
@@ -269,7 +274,7 @@ func TestSetForAccount(t *testing.T) {
 
 	userID := domain.UserID(1)
 
-	cm := domain.NewMockCookieModel(mockCtrl)
+	cm := testmocks.NewMockCookieModel(mockCtrl)
 	cm.EXPECT().Create(gomock.Any()).Return("abc", nil)
 
 	a := Authenticator{
@@ -295,8 +300,8 @@ func TestUnset(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cm := domain.NewMockCookieModel(mockCtrl)
-	cm.EXPECT().Get(gomock.Any()).Return(&domain.Cookie{
+	cm := testmocks.NewMockCookieModel(mockCtrl)
+	cm.EXPECT().Get(gomock.Any()).Return(domain.Cookie{
 		CookieID:    "abc123",
 		UserAccount: true,
 		Expires:     time.Now().Add(120 * time.Second)}, nil)

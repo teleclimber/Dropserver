@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,CookieModel,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -252,15 +252,6 @@ type User struct {
 	Email  string
 }
 
-// CookieModel is the interface for storing and retriving cookies
-type CookieModel interface {
-	PrepareStatements()
-	Get(string) (*Cookie, error)
-	Create(Cookie) (string, error)
-	UpdateExpires(string, time.Time) error
-	Delete(string) error
-}
-
 // Cookie represents the server-side representation of a stored cookie
 // Might be called DBCookie to differentiate from thing that came from client?
 type Cookie struct {
@@ -281,8 +272,9 @@ type Cookie struct {
 	// ProxyID is for appspace users (including owner id)
 	ProxyID ProxyID `db:"proxy_id"`
 
-	// Maybe we need an IsOwner flag? Or might be able to use UserID for now, since it's there.
-	// I think "is owner" comes from appspace users table
+	// DomainName is the domain that the cookie is set to
+	// kind of redundant but simplifies sending cookie with updated expiration
+	DomainName string `db:"domain"`
 }
 
 // DomainData tells how a domain name can be used
