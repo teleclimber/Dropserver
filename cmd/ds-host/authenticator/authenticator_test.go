@@ -134,21 +134,13 @@ func TestAccountUserWithAppspaceCookie(t *testing.T) {
 		Expires:     time.Now().Add(time.Hour),
 		UserAccount: false,
 	}, nil)
+	cm.EXPECT().Delete("abc")
 
 	a := &Authenticator{
 		Config:      getConfig(),
 		CookieModel: cm}
 	nextCalled := false
 	handler := a.AccountUser(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		_, ok := domain.CtxAuthUserID(r.Context())
-		if ok {
-			t.Error("there should not be an auth user")
-		}
-		_, ok = domain.CtxSessionID(r.Context())
-		if ok {
-			t.Error("there should not be a cookie id")
-		}
-
 		nextCalled = true
 	}))
 
@@ -162,11 +154,11 @@ func TestAccountUserWithAppspaceCookie(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	if rr.Result().StatusCode != 200 {
-		t.Error("should have 200 status")
+	if rr.Result().StatusCode != 500 {
+		t.Error("should have 500 status")
 	}
-	if !nextCalled {
-		t.Error("next was not called")
+	if nextCalled {
+		t.Error("next was called")
 	}
 }
 

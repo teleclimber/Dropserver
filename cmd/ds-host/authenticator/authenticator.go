@@ -30,13 +30,14 @@ func (a *Authenticator) SetForAccount(w http.ResponseWriter, userID domain.UserI
 	cookie := domain.Cookie{
 		UserID:      userID,
 		UserAccount: true,
+		DomainName:  a.Config.Exec.UserRoutesDomain,
 		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
 	cookieID, err := a.CookieModel.Create(cookie)
 	if err != nil {
 		return err
 	}
 
-	a.setCookie(w, cookieID, cookie.Expires, a.Config.Exec.UserRoutesDomain)
+	a.setCookie(w, cookieID, cookie.Expires, cookie.DomainName)
 
 	return nil
 }
@@ -52,6 +53,7 @@ func (a *Authenticator) SetForAppspace(w http.ResponseWriter, proxyID domain.Pro
 		ProxyID:     proxyID,
 		AppspaceID:  appspaceID,
 		UserAccount: false,
+		DomainName:  dom,
 		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
 	cookieID, err := a.CookieModel.Create(cookie)
 	if err != nil {
@@ -72,7 +74,15 @@ func (a *Authenticator) AccountUser(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		if err == nil && cookie.UserAccount {
+		if err == nil {
+			if !cookie.UserAccount {
+				a.getLogger("AccountUser").
+					AddNote(fmt.Sprintf("%v", cookie)).
+					Error(errors.New("got a cookie for appspace"))
+				a.CookieModel.Delete(cookie.CookieID)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 			ctx := domain.CtxWithAuthUserID(r.Context(), cookie.UserID)
 			ctx = domain.CtxWithSessionID(ctx, cookie.CookieID)
 			r = r.WithContext(ctx)
@@ -102,7 +112,7 @@ func (a *Authenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
 					AddNote(fmt.Sprintf("%v", cookie)).
 					AppspaceID(appspace.AppspaceID).
 					Error(errors.New("got a cookie for wrong appspace or for user account"))
-				// also cookie should be deleted
+				a.CookieModel.Delete(cookie.CookieID)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
