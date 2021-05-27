@@ -12,6 +12,7 @@ import (
 )
 
 const cookieExpMinutes = 30
+const appspaceExpMinutes = 14 * 24 * 60 // temporary: two week lifetime for appspace sessions
 
 // Authenticator contains middleware functions for performing authentication
 type Authenticator struct {
@@ -31,7 +32,7 @@ func (a *Authenticator) SetForAccount(w http.ResponseWriter, userID domain.UserI
 		UserID:      userID,
 		UserAccount: true,
 		DomainName:  a.Config.Exec.UserRoutesDomain,
-		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
+		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)}
 	cookieID, err := a.CookieModel.Create(cookie)
 	if err != nil {
 		return err
@@ -54,7 +55,7 @@ func (a *Authenticator) SetForAppspace(w http.ResponseWriter, proxyID domain.Pro
 		AppspaceID:  appspaceID,
 		UserAccount: false,
 		DomainName:  dom,
-		Expires:     time.Now().Add(cookieExpMinutes * time.Minute)} // set expires on cookie And use that on one sent down.
+		Expires:     time.Now().Add(appspaceExpMinutes * time.Minute)}
 	cookieID, err := a.CookieModel.Create(cookie)
 	if err != nil {
 		return "", err
@@ -170,6 +171,9 @@ func (a *Authenticator) getCookie(r *http.Request) (domain.Cookie, error) {
 // I don't love this interface. sending the wrong domain is too easy.
 func (a *Authenticator) refreshCookie(w http.ResponseWriter, cookie domain.Cookie) {
 	expires := time.Now().Add(cookieExpMinutes * time.Minute)
+	if !cookie.UserAccount {
+		expires = time.Now().Add(appspaceExpMinutes * time.Minute)
+	}
 
 	err := a.CookieModel.UpdateExpires(cookie.CookieID, expires)
 	if err != nil {
