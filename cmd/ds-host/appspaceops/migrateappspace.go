@@ -35,7 +35,7 @@ type MigrationJobController struct {
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	}
-	BackupAppspace interface {
+	BackupAppspace interface { //optional
 		BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 		RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
 	}
@@ -271,10 +271,13 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 	}
 
 	// everything checks out so before running actual migration take a backup
-	backupZip, err := c.BackupAppspace.BackupNoPause(appspaceID)
-	if err != nil {
-		job.errStr.SetString("Error creating backup: " + err.Error())
-		return
+	var backupZip string
+	if c.BackupAppspace != nil {
+		backupZip, err = c.BackupAppspace.BackupNoPause(appspaceID)
+		if err != nil {
+			job.errStr.SetString("Error creating backup: " + err.Error())
+			return
+		}
 	}
 
 	err = job.runMigration()
@@ -282,11 +285,13 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		errStr := "Error running Migration: " + err.Error()
 
 		// restore data
-		err = c.BackupAppspace.RestoreBackup(appspaceID, backupZip)
-		if err != nil {
-			errStr += " and error restoring appspace: " + err.Error()
-		} else {
-			errStr += "; appspace restored"
+		if c.BackupAppspace != nil {
+			err = c.BackupAppspace.RestoreBackup(appspaceID, backupZip)
+			if err != nil {
+				errStr += " and error restoring appspace: " + err.Error()
+			} else {
+				errStr += "; appspace restored"
+			}
 		}
 		job.errStr.SetString(errStr)
 		return

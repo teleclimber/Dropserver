@@ -52,7 +52,9 @@ func (arV0 *V0) Init() {
 	// - next handler splits on function versus static
 
 	mux := chi.NewRouter()
-	mux.Use(arV0.routeHit, arV0.loadRouteConfig, arV0.processLoginToken, arV0.loadAppspaceUser, arV0.authorizeRoute)
+	mux.Use(arV0.loadRouteConfig, arV0.routeHit, arV0.processLoginToken, arV0.loadAppspaceUser, arV0.authorizeRoute)
+	// Note change route hit such that it's driven independently and references a request id.
+	// ..each middelware that has new info on request should push that to some route hit data aggregator.
 
 	mux.Handle("/*", http.HandlerFunc(arV0.handleRoute))
 

@@ -210,12 +210,23 @@ func main() {
 		Authenticator:       devAuth,
 		RouteHitEvents:      routeHitEvents,
 		Config:              runtimeConfig}
+	appspaceRouterV0.Init()
+
+	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
+		AppspaceModel: devAppspaceModel,
+		Authenticator: devAuth,
+	}
+	dropserverRoutes := &appspacerouter.DropserverRoutes{
+		V0DropServerRoutes: v0dropserverRoutes,
+	}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
+		Authenticator:    devAuth,
 		AppModel:         devAppModel,
 		AppspaceModel:    devAppspaceModel,
 		AppspaceStatus:   appspaceStatus,
 		V0AppspaceRouter: appspaceRouterV0,
+		DropserverRoutes: dropserverRoutes,
 	}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter

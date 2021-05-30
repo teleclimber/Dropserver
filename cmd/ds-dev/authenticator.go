@@ -14,6 +14,7 @@ type DevAuthenticator struct {
 
 // SetNoAuth makes Authenticator return nil on auth
 func (a *DevAuthenticator) SetNoAuth() {
+	a.auth = domain.Authentication{}
 	a.noAuth = true
 }
 
@@ -27,4 +28,23 @@ func (a *DevAuthenticator) Set(auth domain.Authentication) {
 func (a *DevAuthenticator) SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error) {
 	// I don't think this should ever be used
 	return "", nil
+}
+
+// AppspaceUserProxyID middleware sets the proxy ID for
+// the user authenticated for the requested appspace
+func (a *DevAuthenticator) AppspaceUserProxyID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !a.noAuth {
+			ctx := domain.CtxWithAppspaceUserProxyID(r.Context(), a.auth.ProxyID)
+			ctx = domain.CtxWithSessionID(ctx, a.auth.CookieID)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *DevAuthenticator) Unset(w http.ResponseWriter, r *http.Request) {
+	a.SetNoAuth()
+	// This implies user clicked on "logout" in appspace.
+	// This should be reflected in ds-dev frontend
 }
