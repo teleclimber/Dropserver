@@ -31,27 +31,11 @@ func (s *Server) Start() { //return a server type
 
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		//s.getLogger("Start(), http.ListenAndServeTLS").Error(err)
 		os.Exit(1)
 	}
 }
 
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	// Can we have some application-global iddlewares at work here?
-	// Like CSRF? -> Any POST, PUT, PATCH, .. gets checked for a CSRF token?
-	// I guess the middleware would have same signature as others, and include reouteData
-	//
-
-	// temporary CORS header to allow frontend dev.
-	// TODO: Make this a config option!
-	res.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// switch on top level routes:
-	// - admin
-	// - user
-	// - auth
-	// - appspace...
-
 	head, tail := shiftpath.ShiftPath(req.URL.Path)
 	switch head {
 	case "dropserver":
