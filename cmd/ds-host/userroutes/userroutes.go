@@ -76,8 +76,6 @@ type UserRoutes struct {
 func (u *UserRoutes) Init() {
 	r := chi.NewRouter()
 
-	r.Use(u.corsHeader)
-
 	// Load auth user ID for all requests.
 	r.Use(u.Authenticator.AccountUser)
 
@@ -140,19 +138,6 @@ func (u *UserRoutes) DumpRoutes(dumpRoutes string) {
 	} else {
 		u.getLogger("Init").Log("Dumped routes to file " + dumpRoutes)
 	}
-}
-
-func (u *UserRoutes) corsHeader(next http.Handler) http.Handler {
-	corsVal := "https://"
-	if u.Config.Server.NoSsl {
-		corsVal = "http://"
-	}
-	corsVal += u.Config.Exec.UserRoutesDomain + u.Config.PortString
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", corsVal)
-		w.Header().Add("Vary", "Origin") // will have to sort this out if other places add a Vary header.
-		next.ServeHTTP(w, r)
-	})
 }
 
 // mustBeAuthenticated redirects to login or sends unauthorized response
