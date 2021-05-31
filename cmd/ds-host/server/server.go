@@ -65,20 +65,6 @@ func (s *Server) Shutdown() {
 }
 
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	// TODO: Potential CSRF middleware for login, signup, forgotten email, etc... pages.
-
-	// temporary CORS header to allow frontend dev.
-	// TODO: Make this a config option!
-	res.Header().Set("Access-Control-Allow-Origin", "*")
-	// TODO: tighten this up!!
-	// This should not be here. Depends whether it is user or appspace, among other things.
-
-	// switch on top level routes:
-	// - admin
-	// - user
-	// - auth
-	// - appspace...
-
 	host, err := getcleanhost.GetCleanHost(req.Host)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)

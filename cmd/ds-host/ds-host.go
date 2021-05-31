@@ -461,6 +461,7 @@ func main() {
 	}
 
 	userRoutes := &userroutes.UserRoutes{
+		Config:               runtimeConfig,
 		Authenticator:        authenticator,
 		AuthRoutes:           authRoutes,
 		AppspaceLoginRoutes:  appspaceLoginRoutes,
