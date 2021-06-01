@@ -52,6 +52,7 @@ func (arV0 *V0) Init() {
 	// - next handler splits on function versus static
 
 	mux := chi.NewRouter()
+	mux.Use(arV0.securityHeaders)
 	mux.Use(arV0.loadRouteConfig, arV0.routeHit, arV0.processLoginToken, arV0.loadAppspaceUser, arV0.authorizeRoute)
 	// Note change route hit such that it's driven independently and references a request id.
 	// ..each middelware that has new info on request should push that to some route hit data aggregator.
@@ -63,6 +64,22 @@ func (arV0 *V0) Init() {
 
 func (arV0 *V0) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	arV0.mux.ServeHTTP(w, r)
+}
+
+// securityHeaders is where we would loosen CORS CSP and other headers for an appspace
+// if that appspace is set to allow some cross-origin requests
+func (arV0 *V0) securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//appspace, _ := domain.CtxAppspaceData(r.Context())
+
+		// deny deny deny by default
+		w.Header().Set("Content-Security-Policy", "default-src 'self'")
+
+		// do CORS header here too if appspace config allows for loosened access
+		// HSTS?
+		// HPKP (deprecated) Certificate transparency headers would be good
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (arV0 *V0) routeHit(next http.Handler) http.Handler {

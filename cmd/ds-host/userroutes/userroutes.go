@@ -76,6 +76,8 @@ type UserRoutes struct {
 func (u *UserRoutes) Init() {
 	r := chi.NewRouter()
 
+	r.Use(addCSPHeaders)
+
 	// Load auth user ID for all requests.
 	r.Use(u.Authenticator.AccountUser)
 
@@ -138,6 +140,13 @@ func (u *UserRoutes) DumpRoutes(dumpRoutes string) {
 	} else {
 		u.getLogger("Init").Log("Dumped routes to file " + dumpRoutes)
 	}
+}
+
+func addCSPHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'self'")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // mustBeAuthenticated redirects to login or sends unauthorized response
