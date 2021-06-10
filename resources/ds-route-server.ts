@@ -1,6 +1,6 @@
-import * as path from "https://deno.land/std/path/mod.ts";
-import { Server } from "https://deno.land/std/http/server.ts";
-import type {ServerRequest} from "https://deno.land/std/http/server.ts";
+import * as path from "https://deno.land/std@0.97.0/path/mod.ts";
+import { Server } from "https://deno.land/std@0.97.0/http/server.ts";
+import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
 
 import type {ReceivedMessageI} from './twine/twine.ts';
 

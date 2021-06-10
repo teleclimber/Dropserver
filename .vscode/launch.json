@@ -34,7 +34,7 @@
 			"request": "launch",
 			"runtimeExecutable": "deno",
 			"cwd": "${workspaceFolder}/resources/",
-			"runtimeArgs": ["test", "--inspect-brk", "--allow-net", "--unstable", "twine-test.ts"],
+			"runtimeArgs": ["test", "--inspect-brk", "--allow-net", "--unstable", "twine/twine_test.ts"],
 			"port": 9229
 		},{
 			"name": "Launch test package",

@@ -1,6 +1,6 @@
 import Twine from "./twine.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
-import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
+import * as path from "https://deno.land/std@0.97.0/path/mod.ts";
+import { assertEquals, assert } from "https://deno.land/std@0.97.0/testing/asserts.ts";
 
 Deno.test({
 	name: "send",
@@ -135,6 +135,8 @@ Deno.test({
 		console.log("got OK");
 
 		await twine_client.graceful();
+
+		console.log("after graceful...")
 
 		await Deno.remove(temp_dir, {recursive: true});
 	}
