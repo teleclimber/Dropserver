@@ -202,10 +202,6 @@ export default class Twine {
 
 		let pSize = view.getUint16(offset);
 		offset += 2;
-		if( pSize === 0xff ) {
-			pSize = view.getUint32(offset);
-			offset += 4;
-		}
 
 		if( chunk.length < offset+pSize ) {
 			throw new Error("didn't get the full message with payload");
@@ -243,16 +239,11 @@ export default class Twine {
 		}
 
 		let pSize = payload === undefined ? 0 : payload.length;
-		if( pSize >= 0xff ) {
-			view.setUint16(cur_offset, 0xff);
-			cur_offset += 2;
-			view.setUint32(cur_offset, pSize);
-			cur_offset += 4;
+		if( pSize > 0xffff ) {
+			throw new Error("Twine send: message too big "+pSize)
 		}
-		else {
-			view.setUint16(cur_offset, pSize);
-			cur_offset += 2;
-		}
+		view.setUint16(cur_offset, pSize);
+		cur_offset += 2;
 
 		return new Uint8Array(buf, 0, cur_offset);
 	}

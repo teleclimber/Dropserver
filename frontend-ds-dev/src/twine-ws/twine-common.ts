@@ -45,16 +45,11 @@ export function encodeMessageMeta(msgID: number, refMsgID: number, service: numb
 	}
 
 	let pSize = payload === undefined ? 0 : payload.length;
-	if( pSize >= 0xff ) {
-		view.setUint16(cur_offset, 0xff);
-		cur_offset += 2;
-		view.setUint32(cur_offset, pSize);
-		cur_offset += 4;
+	if( pSize > 0xffff ) {
+		throw new Error("Twine send: message too big "+pSize)
 	}
-	else {
-		view.setUint16(cur_offset, pSize);
-		cur_offset += 2;
-	}
+	view.setUint16(cur_offset, pSize);
+	cur_offset += 2;
 
 	return new Uint8Array(buf, 0, cur_offset);
 }
@@ -81,11 +76,6 @@ function decodeMeta(view:DataView) :incomingMessage|undefined {
 	if( view.byteLength < offset +2 ) return;
 	let pSize = view.getUint16(offset);
 	offset += 2;
-	if( pSize === 0xff ) {
-		if( view.byteLength < offset +4 ) return;
-		pSize = view.getUint32(offset);
-		offset += 4;
-	}
 
 	return {msg, meta_length:offset, payload_remaining:pSize};
 }

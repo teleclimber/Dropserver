@@ -770,17 +770,11 @@ func encodeMessage(msgID int, refMsgID int, service serviceID, cmd commandID, pa
 		size = len(payload)
 	}
 	bSmol := make([]byte, 2)
-	if size >= 0xff {
-		binary.BigEndian.PutUint16(bSmol, 0xff)
-		metaBytes = append(metaBytes, bSmol...)
-
-		bBig := make([]byte, 4)
-		binary.BigEndian.PutUint32(bBig, uint32(size))
-		metaBytes = append(metaBytes, bBig...)
-	} else {
-		binary.BigEndian.PutUint16(bSmol, uint16(size))
-		metaBytes = append(metaBytes, bSmol...)
+	if size >= 0xffff {
+		return metaBytes, fmt.Errorf("cmd id is out of bounds: %v", cmd)
 	}
+	binary.BigEndian.PutUint16(bSmol, uint16(size))
+	metaBytes = append(metaBytes, bSmol...)
 
 	return metaBytes, nil
 }
@@ -828,18 +822,8 @@ func decodeMessage(msgData []byte) (decodedMessage, []byte, error) {
 		}
 	}
 
-	var size int
-	sizeSmol := binary.BigEndian.Uint16(msgData[cursor : cursor+2])
+	size := int(binary.BigEndian.Uint16(msgData[cursor : cursor+2]))
 	cursor += 2
-	if sizeSmol == 0xff {
-		if dataLength < cursor+4 {
-			return m, msgData, errMessageIncomplete
-		}
-		size = int(binary.BigEndian.Uint32(msgData[cursor : cursor+4])) // four for big ... that's 4Gigabytes!!!!!! :/
-		cursor += 4
-	} else {
-		size = int(sizeSmol)
-	}
 
 	return decodedMessage{
 		service:     service,

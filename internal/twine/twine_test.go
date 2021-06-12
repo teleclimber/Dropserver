@@ -101,38 +101,6 @@ func TestDecodeMessageRefRequest(t *testing.T) {
 	}
 }
 
-func TestDecodeMessageBigPayload(t *testing.T) {
-	refMsg := decodedMessage{
-		service:     serviceID(7),
-		command:     commandID(11),
-		msgID:       15,
-		payloadSize: 100000}
-
-	metaBytes := make([]byte, 5, 10)
-
-	metaBytes[0] = uint8(refMsg.service)
-	metaBytes[1] = uint8(refMsg.command)
-	metaBytes[2] = uint8(refMsg.msgID)
-
-	binary.BigEndian.PutUint16(metaBytes[3:5], uint16(0xff))
-
-	bigBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bigBytes, uint32(refMsg.payloadSize))
-	metaBytes = append(metaBytes, bigBytes...)
-
-	msg, remainder, err := decodeMessage(metaBytes)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(remainder) != 0 {
-		t.Error("expected empty remainder")
-	}
-	err = verifyDecodedEqual(refMsg, msg)
-	if err != nil {
-		t.Error(err)
-	}
-}
-
 func TestDecodeMessageRemainder(t *testing.T) {
 	refMsg := decodedMessage{
 		service:     serviceID(7),
@@ -140,7 +108,7 @@ func TestDecodeMessageRemainder(t *testing.T) {
 		msgID:       15,
 		payloadSize: 60000}
 
-	metaBytes := make([]byte, 10, 10)
+	metaBytes := make([]byte, 10)
 
 	metaBytes[0] = uint8(refMsg.service)
 	metaBytes[1] = uint8(refMsg.command)

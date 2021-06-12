@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/twine"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -192,6 +193,14 @@ func (s *V0Service) handleQueryDB(message twine.ReceivedMessageI) {
 	}
 
 	message.Reply(0, result)
+}
+
+func (s *V0Service) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("v0appspacedb V0Service").AppspaceID(s.appspace.AppspaceID)
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }
 
 func v0makeArgs(qData domain.V0AppspaceDBQuery) (args []interface{}, makeArgErr error) {
