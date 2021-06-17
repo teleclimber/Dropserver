@@ -64,7 +64,7 @@ func TestSandboxExecFn(t *testing.T) {
 
 	sM.Init()
 
-	sandboxChan := sM.GetForAppSpace(&appVersion, &appspace)
+	sandboxChan := sM.GetForAppspace(&appVersion, &appspace)
 	sb := <-sandboxChan
 	if sb == nil {
 		t.Error("Sandbox channel closed")
@@ -159,7 +159,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	appspaceMetaDb.Create(appspace.AppspaceID, 0)
 	sM.Init()
 
-	sandboxChan := sM.GetForAppSpace(&appVersion, &appspace)
+	sandboxChan := sM.GetForAppspace(&appVersion, &appspace)
 	sb := <-sandboxChan
 	defer sb.Graceful()
 

@@ -92,9 +92,8 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 	}()
 }
 
-// GetForAppSpace records the need for a sandbox and returns a channel
-// OK, this might work
-func (sM *Manager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
+// GetForAppspace records the need for a sandbox and returns a channel
+func (sM *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
 
 	// get appVersion from model

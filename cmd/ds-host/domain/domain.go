@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,SandboxManagerI,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -97,12 +97,6 @@ const (
 // MetricsI represents the global Metrics interface
 type MetricsI interface {
 	HostHandleReq(start time.Time)
-}
-
-// SandboxManagerI is an interface that describes sm
-type SandboxManagerI interface {
-	GetForAppSpace(appVersion *AppVersion, appspace *Appspace) chan SandboxI
-	StopAppspace(AppspaceID)
 }
 
 // SandboxStatus represents the Status of a Sandbox

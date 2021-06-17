@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 // can we test more situations?
@@ -33,7 +34,7 @@ import (
 type testMocks struct {
 	tempDir        string
 	sandbox        *domain.MockSandboxI
-	sandboxManager *domain.MockSandboxManagerI
+	sandboxManager *testmocks.MockSandboxManager
 	sandboxProxy   *SandboxProxy
 	sandboxServer  *http.Server
 	appVersion     domain.AppVersion
@@ -48,8 +49,8 @@ func TestSandboxBadStart(t *testing.T) {
 	ch := make(chan domain.SandboxI)
 	close(ch) //sandbox manager closes the channel to indicate bad start.
 
-	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
-	sandboxManager.EXPECT().GetForAppSpace(gomock.Any(), gomock.Any()).Return(ch)
+	sandboxManager := testmocks.NewMockSandboxManager(mockCtrl)
+	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).Return(ch)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -144,7 +145,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	}
 	serverSocket := filepath.Join(tempDir, "server.sock")
 
-	sandboxManager := domain.NewMockSandboxManagerI(mockCtrl)
+	sandboxManager := testmocks.NewMockSandboxManager(mockCtrl)
 
 	sandboxProxy := &SandboxProxy{
 		SandboxManager: sandboxManager}
@@ -175,7 +176,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		fmt.Println("task done")
 	}()
 
-	sandboxManager.EXPECT().GetForAppSpace(gomock.Any(), gomock.Any()).DoAndReturn(func(av *domain.AppVersion, as *domain.Appspace) chan domain.SandboxI {
+	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).DoAndReturn(func(av *domain.AppVersion, as *domain.Appspace) chan domain.SandboxI {
 		sandboxChan := make(chan domain.SandboxI)
 		go func() {
 			sandboxChan <- sandbox

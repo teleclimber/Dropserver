@@ -43,8 +43,8 @@ func (sM *DevSandboxManager) Init() {
 
 // need Start/Stop/Restart functions
 
-// GetForAppSpace always returns the crrent sandbox
-func (sM *DevSandboxManager) GetForAppSpace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
+// GetForAppspace always returns the crrent sandbox
+func (sM *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
 
 	if sM.sb != nil {
@@ -123,7 +123,7 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 }
 
 // Make a new migration sandbox
-func (m *DevSandboxMaker) Make(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
+func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
 	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
 	sandboxID++
 	s.AppspaceLogger = m.AppspaceLogger

@@ -11,7 +11,7 @@ import (
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
 	SandboxManager interface {
-		GetForAppSpace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
+		GetForAppspace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
 	} // not needed at server level
 }
 
@@ -24,7 +24,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(ctx)
 	appspace, _ := domain.CtxAppspaceData(ctx)
 
-	sandboxChan := s.SandboxManager.GetForAppSpace(&appVersion, &appspace) // Change this to more solid IDs
+	sandboxChan := s.SandboxManager.GetForAppspace(&appVersion, &appspace) // Change this to more solid IDs
 	sb := <-sandboxChan
 
 	if sb == nil {

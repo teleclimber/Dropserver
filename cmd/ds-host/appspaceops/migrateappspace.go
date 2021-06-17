@@ -39,8 +39,12 @@ type MigrationJobController struct {
 		BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 		RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
 	}
-	SandboxManager domain.SandboxManagerI // regular appspace sandboxes
-	SandboxMaker   SandboxMakerI
+	SandboxManager interface { // regular appspace sandboxes
+		StopAppspace(domain.AppspaceID)
+	}
+	SandboxMaker interface {
+		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI
+	}
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex
@@ -350,11 +354,13 @@ type runningJob struct {
 	toSchema     int
 	curSchema    int // not sure about this one
 	migrateDown  bool
-	sandboxMaker SandboxMakerI
-	sandbox      domain.SandboxI
-	status       domain.MigrationJobStatus
-	errStr       nulltypes.NullString
-	statusSubs   []chan<- runningJobStatus
+	sandboxMaker interface {
+		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI
+	}
+	sandbox    domain.SandboxI
+	status     domain.MigrationJobStatus
+	errStr     nulltypes.NullString
+	statusSubs []chan<- runningJobStatus
 	//curStatusData domain.MigrationStatusData
 	statusMux sync.Mutex
 }
@@ -375,7 +381,7 @@ func (r *runningJob) runMigration() error {
 
 	r.getLogger("runMigration()").Debug("about to start migration")
 
-	r.sandbox = r.sandboxMaker.Make(r.useVersion, r.appspace)
+	r.sandbox = r.sandboxMaker.ForMigration(r.useVersion, r.appspace)
 
 	defer r.sandbox.Graceful()
 	err := r.sandbox.Start()

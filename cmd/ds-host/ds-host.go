@@ -224,6 +224,11 @@ func main() {
 	migrationJobModel.PrepareStatements()
 	migrationJobModel.StartupFinishStartedJobs("Job found unfinished at startup")
 
+	sandboxMaker := &sandbox.SandboxMaker{
+		AppspaceLogger: appspaceLogger,
+		Config:         runtimeConfig,
+		//Services: , // below
+	}
 	sandboxManager := &sandbox.Manager{
 		AppspaceLogger: appspaceLogger,
 		Config:         runtimeConfig}
@@ -237,16 +242,12 @@ func main() {
 		AppspaceLogger: appspaceLogger,
 	}
 
-	migrationSandboxMaker := &appspaceops.SandboxMaker{
-		AppspaceLogger: appspaceLogger,
-		Config:         runtimeConfig}
-
 	migrationJobCtl := &appspaceops.MigrationJobController{
 		AppspaceModel:      appspaceModel,
 		AppModel:           appModel,
 		AppspaceInfoModels: appspaceInfoModels,
 		SandboxManager:     sandboxManager,
-		SandboxMaker:       migrationSandboxMaker,
+		SandboxMaker:       sandboxMaker,
 		BackupAppspace:     backupAppspace,
 		MigrationJobModel:  migrationJobModel}
 
@@ -523,7 +524,7 @@ func main() {
 		UserModels:   vxUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 	sandboxManager.Services = services
-	migrationSandboxMaker.Services = services
+	sandboxMaker.Services = services
 
 	// Create server.
 	server := &server.Server{

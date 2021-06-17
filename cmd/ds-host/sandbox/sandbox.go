@@ -28,13 +28,39 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// OK so this is going to be significantly different.
-// ..we may even need to delete entirely and create a fresh new module.
-// - create sandbox on-demand on incoming request (this is a limitation from Deno, for now)
-// - need to detect when it crashes/hangs
-// - need to be able to send a die message
-// - need to be able to kill if misbehaving
-// - We need a appspace-api server on host for all api requests that emanate from appspaces.
+// SandboxMaker creates unmanaged sandboxes for
+// use in migrations and and other maintenancne tasks
+type SandboxMaker struct {
+	AppspaceLogger interface {
+		Log(domain.AppspaceID, string, string)
+	}
+	Services interface {
+		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	}
+	Config *domain.RuntimeConfig
+}
+
+func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) domain.SandboxI {
+	return &Sandbox{
+		id:         0,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:     m.Config}
+	// Need to add a logger of some sort.
+}
+
+func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
+	return &Sandbox{
+		id:             0,
+		appVersion:     appVersion,
+		appspace:       appspace,
+		services:       m.Services.Get(appspace, appVersion.APIVersion),
+		status:         domain.SandboxStarting,
+		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:         m.Config,
+		AppspaceLogger: m.AppspaceLogger}
+}
 
 type appSpaceSession struct {
 	tasks      []*Task
@@ -82,6 +108,8 @@ type Sandbox struct {
 }
 
 // NewSandbox creates a new sandbox with the passed parameters
+// This sandbox is intended to be used when serving requests
+// or executing functions in a running appspace
 func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.Appspace, services domain.ReverseServiceI, config *domain.RuntimeConfig) *Sandbox {
 	newSandbox := &Sandbox{
 		id:         sandboxID,
@@ -93,15 +121,6 @@ func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.A
 		Config:     config}
 
 	return newSandbox
-}
-
-func NewAppOnlySandbox(appVersion *domain.AppVersion, config *domain.RuntimeConfig) *Sandbox {
-	return &Sandbox{ // <-- this really needs a maker fn of some sort??
-		id:         0,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:     config}
 }
 
 // SetInspect sets the inspect flag which will cause the sandbox to start with --inspect-brk
