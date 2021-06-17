@@ -320,7 +320,7 @@ func TestGetFilePath(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := "/data-dir/apps-path/app-version-123/static-files/css/style.css"
+	expected := "/data-dir/apps-path/app-version-123/app/static-files/css/style.css"
 	if p != expected {
 		t.Error("expected " + expected)
 	}
@@ -344,7 +344,7 @@ func TestGetFilePath(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = "/data-dir/apps-path/app-version-123/static-files/style.css"
+	expected = "/data-dir/apps-path/app-version-123/app/static-files/style.css"
 	if p != expected {
 		t.Error("expected " + expected)
 	}
@@ -374,7 +374,7 @@ func TestServeFile(t *testing.T) {
 		Config: config,
 	}
 
-	p := filepath.Join(dir, "app-version-123", "static-files", "css")
+	p := filepath.Join(dir, "app-version-123", "app", "static-files", "css")
 	err = os.MkdirAll(p, 0755)
 	if err != nil {
 		t.Error(err)

@@ -35,21 +35,26 @@ func TestIntegration1(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	appLoc := "app123"
+	appspaceLoc := "appspace123"
+
 	socketsDir := path.Join(dir, "sockets")
 	os.MkdirAll(socketsDir, 0700)
 
 	dataDir := path.Join(dir, "data")
 	os.MkdirAll(dataDir, 0700)
 
+	os.MkdirAll(filepath.Join(dataDir, "appspaces", appspaceLoc), 0700)
+
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir
 	cfg.DataDir = dataDir
 	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
-	cfg.Exec.SandboxRunnerPath = getJSRuntimePath()
+	cfg.Exec.SandboxCodePath = getJSRuntimePath()
 
-	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1)}
-	//appVersion := &domain.AppVersion{LocationKey: "loc123"}
+	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1), LocationKey: appspaceLoc}
+	appVersion := &domain.AppVersion{LocationKey: appLoc}
 
 	tl := &testLogger{
 		t: t}
@@ -66,16 +71,16 @@ func TestIntegration1(t *testing.T) {
 
 	sM.Init()
 
-	// routeData := &domain.AppspaceRouteData{
-	// 	URLTail:    "/abc", // parametrize
-	// 	App:        &domain.App{Name: "app1"},
-	// 	AppVersion: appVersion,
-	// 	Appspace:   appspace,
-	// 	RouteConfig: &domain.AppspaceRouteConfig{
-	// 		Handler: domain.AppspaceRouteHandler{
-	// 			File:     "@app/hello.js",
-	// 			Function: "hello",
-	// 		}}}
+	routeConfig := domain.AppspaceRouteConfig{
+		Methods: []string{"get"},
+		Path:    "/abc",
+		Auth:    domain.AppspaceRouteAuth{Allow: "public"},
+		Handler: domain.AppspaceRouteHandler{
+			Type:     "function",
+			File:     "@app/hello.js",
+			Function: "hello",
+		},
+	}
 
 	// So now we need to put a hello.js file at dataDir/apps/loc123/hello.js
 
@@ -85,7 +90,7 @@ func TestIntegration1(t *testing.T) {
 	}
 	`)
 
-	appDir := path.Join(dataDir, "apps", "loc123")
+	appDir := filepath.Join(dataDir, "apps", appLoc, "app")
 	os.MkdirAll(appDir, 0700)
 
 	err = ioutil.WriteFile(path.Join(appDir, "hello.js"), js, 0644)
@@ -99,6 +104,10 @@ func TestIntegration1(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Host = "as1.ds.dev" //not necessary??
+	ctx := domain.CtxWithAppVersionData(req.Context(), *appVersion)
+	ctx = domain.CtxWithAppspaceData(ctx, *appspace)
+	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	req = req.WithContext(ctx)
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
@@ -127,7 +136,7 @@ func getJSRuntimePath() string {
 		log.Fatal(err)
 	}
 
-	jsRuntime := path.Join(dir, "../../../resources/ds-sandbox-runner.ts")
+	jsRuntime := path.Join(dir, "../../../resources/")
 
 	return jsRuntime
 }

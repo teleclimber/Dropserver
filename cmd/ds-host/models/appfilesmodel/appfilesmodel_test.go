@@ -90,7 +90,7 @@ func TestSave(t *testing.T) {
 		t.Error(dsErr)
 	}
 
-	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "file1"))
+	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "file1"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -98,7 +98,7 @@ func TestSave(t *testing.T) {
 		t.Error("didn't get the same file data", string(dat))
 	}
 
-	dat, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "bar/baz/file2.txt"))
+	dat, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "bar/baz/file2.txt"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -170,7 +170,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal(dsErr)
 	}
 
-	_, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "file1"))
+	_, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "file1"))
 	if err != nil {
 		t.Fatal(err)
 	}

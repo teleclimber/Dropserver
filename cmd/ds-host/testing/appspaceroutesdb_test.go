@@ -39,7 +39,7 @@ func TestSandboxExecFn(t *testing.T) {
 	socketsDir := path.Join(dir, "sockets")
 	os.MkdirAll(socketsDir, 0700)
 	dataDir := path.Join(dir, "data")
-	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location", "app"), 0700)
 	os.MkdirAll(filepath.Join(dataDir, "appspaces", "appspace-location"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
@@ -48,7 +48,6 @@ func TestSandboxExecFn(t *testing.T) {
 	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 
 	appVersion := domain.AppVersion{
 		LocationKey: "app-location"}
@@ -73,7 +72,7 @@ func TestSandboxExecFn(t *testing.T) {
 	defer sb.Graceful()
 
 	data := []byte("export default function testFn() { console.log(\"testFn running\"); };")
-	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "test-file.ts"), data, 0600)
+	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "app", "test-file.ts"), data, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -86,6 +85,7 @@ func TestSandboxExecFn(t *testing.T) {
 	}
 }
 
+// This fails, but should get replaced with running a router, etc...
 func TestSandboxCreateRoute(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -104,7 +104,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	socketsDir := path.Join(dir, "sockets")
 	os.MkdirAll(socketsDir, 0700)
 	dataDir := path.Join(dir, "data")
-	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location"), 0700)
+	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location", "app"), 0700)
 	os.MkdirAll(filepath.Join(dataDir, "appspaces", "appspace-location"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
@@ -113,7 +113,6 @@ func TestSandboxCreateRoute(t *testing.T) {
 	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 
 	appspaceID := domain.AppspaceID(13)
 
@@ -171,7 +170,7 @@ func TestSandboxCreateRoute(t *testing.T) {
 	}`
 
 	data := []byte(ts)
-	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "test-file.ts"), data, 0600)
+	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "app", "test-file.ts"), data, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -201,7 +200,4 @@ func getSandboxCodePath() string {
 	}
 
 	return filepath.Join(dir, "../../../resources/")
-}
-func getSandboxRunnerPath() string {
-	return filepath.Join(getSandboxCodePath(), "ds-sandbox-runner.ts")
 }

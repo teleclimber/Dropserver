@@ -30,14 +30,23 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 
 	err := os.MkdirAll(appsPath, 0766)
 	if err != nil {
-		logger.AddNote("os.MkdirAll()").Error(err)
-		return "", errors.New("Internal error saving app files")
+		logger.AddNote("os.MkdirAll() appsPath").Error(err)
+		return "", errors.New("internal error saving app files")
 	}
 
 	appPath, err := ioutil.TempDir(appsPath, "app")
 	if err != nil {
 		logger.AddNote("ioutil.TempDir()").Error(err)
-		return "", errors.New("Internal error saving app files")
+		return "", errors.New("internal error saving app files")
+	}
+
+	locationKey := filepath.Base(appPath)
+
+	appPath = filepath.Join(appPath, "app")
+	err = os.MkdirAll(appPath, 0766) // omg permissions!
+	if err != nil {
+		logger.AddNote("os.MkdirAll() app").Error(err)
+		return "", errors.New("internal error saving app files")
 	}
 
 	logger.AddNote("files loop")
@@ -59,7 +68,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 		err = os.MkdirAll(filepath.Dir(fPath), 0766)
 		if err != nil {
 			logger.AddNote(fmt.Sprintf("os.MkdirAll(): %v", f)).Error(err)
-			return "", errors.New("Internal error saving app files")
+			return "", errors.New("internal error saving app files")
 		}
 
 		err = ioutil.WriteFile(fPath, data, 0666) // TODO: correct permissions?
@@ -71,10 +80,8 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 	}
 
 	if writeErr {
-		return "", errors.New("Internal error saving app files")
+		return "", errors.New("internal error saving app files")
 	}
-
-	locationKey := filepath.Base(appPath)
 
 	return locationKey, nil
 }
@@ -89,7 +96,7 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
 			a.getLogger(fmt.Sprintf("ReadMeta(), location key: %v", locationKey)).Error(err)
-			return nil, errors.New("Internal error reading app meta data")
+			return nil, errors.New("internal error reading app meta data")
 		}
 		return nil, domain.ErrAppConfigNotFound
 	}

@@ -63,7 +63,6 @@ type RuntimeConfig struct {
 		StaticAssetsDir     string
 		UserRoutesDomain    string
 		SandboxCodePath     string
-		SandboxRunnerPath   string
 		MigratorScriptPath  string
 		AppsPath            string
 		AppspacesPath       string

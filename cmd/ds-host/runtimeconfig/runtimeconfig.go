@@ -68,7 +68,6 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	rtc.Exec.WebpackTemplatesDir = filepath.Join(binDir, "../resources/webpack-html")
 	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static")
 	rtc.Exec.SandboxCodePath = filepath.Join(binDir, "../resources/")
-	rtc.Exec.SandboxRunnerPath = filepath.Join(binDir, "../resources/ds-sandbox-runner.ts")
 
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")

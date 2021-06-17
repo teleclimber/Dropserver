@@ -83,7 +83,7 @@ type Sandbox struct {
 
 // NewSandbox creates a new sandbox with the passed parameters
 func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.Appspace, services domain.ReverseServiceI, config *domain.RuntimeConfig) *Sandbox {
-	newSandbox := &Sandbox{ // <-- this really needs a maker fn of some sort??
+	newSandbox := &Sandbox{
 		id:         sandboxID,
 		appVersion: appVersion,
 		appspace:   appspace,
@@ -93,6 +93,15 @@ func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.A
 		Config:     config}
 
 	return newSandbox
+}
+
+func NewAppOnlySandbox(appVersion *domain.AppVersion, config *domain.RuntimeConfig) *Sandbox {
+	return &Sandbox{ // <-- this really needs a maker fn of some sort??
+		id:         0,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:     config}
 }
 
 // SetInspect sets the inspect flag which will cause the sandbox to start with --inspect-brk
@@ -141,6 +150,11 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		return err // return user-centered error
 	}
 
+	appspacePath := "/dev/null"
+	if s.appspace != nil {
+		appspacePath = s.getAppspaceFilesPath()
+	}
+
 	// Probably need to think more about flags we pass, such as --no-remote?
 	denoArgs := make([]string, 0, 10)
 	denoArgs = append(denoArgs, "run", "--unstable")
@@ -149,14 +163,15 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	}
 	runArgs := []string{
 		"--importmap=" + s.getImportPathFile(),
-		"--allow-read",                  // TODO app dir and appspace dir, and sockets
-		"--allow-write",                 // TODO appspace dir, sockets
-		"--allow-net",                   // TODO needed to import remote modules until Deno gives me more options
-		s.Config.Exec.SandboxRunnerPath, // TODO This should be versioned according to Dropserver API version
+		"--allow-read",  // TODO app dir and appspace dir, and sockets
+		"--allow-write", // TODO appspace dir, sockets
+		"--allow-net",   // TODO needed to import remote modules until Deno gives me more options
+		filepath.Join(s.Config.Exec.SandboxCodePath, "ds-sandbox-runner.ts"), // TODO This should be versioned according to Dropserver API version
 		s.socketsDir,
 		s.getAppFilesPath(), // while we have an import-map, these are stil needed to read files without importing
-		s.getAppspaceFilesPath(),
+		appspacePath,
 	}
+
 	denoArgs = append(denoArgs, runArgs...)
 	s.cmd = exec.Command("deno", denoArgs...)
 
@@ -254,7 +269,7 @@ func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
 		n, err := rc.Read(buf)
 		if n > 0 {
 			logString := string(buf[0:n])
-			if s.AppspaceLogger != nil {
+			if s.AppspaceLogger != nil && s.appspace != nil {
 				go s.AppspaceLogger.Log(s.appspace.AppspaceID, logSource, logString)
 			}
 		}
@@ -276,26 +291,18 @@ func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
 // For more fine-grained stuff, user a set of realtime events?
 // This, as we know, will eventually tie-in to logging for the sake of billing. (or not, really.)
 
-func printLogs(r io.ReadCloser) {
-	buf := make([]byte, 80)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			fmt.Printf("%s", buf[0:n]) // OK not sure about these. IS this effectively console.log output?
-		}
-		if err != nil {
-			break
-		}
-	}
-}
-
 func (s *Sandbox) listenMessages() {
 	for message := range s.twine.MessageChan {
 		switch message.ServiceID() {
 		case sandboxService:
 			go s.handleMessage(message)
 		default:
-			go s.services.HandleMessage(message)
+			if s.services != nil {
+				go s.services.HandleMessage(message)
+			} else {
+				s.getLogger("listenMessages()").Error(fmt.Errorf("sandboxed code trying to access service but no service attached to sandbox, service: %v", message.ServiceID()))
+				message.SendError("No services attached to sandbox")
+			}
 		}
 	}
 }
@@ -619,7 +626,9 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 }
 
 func (s *Sandbox) appspaceLog(logString string) {
-	if s.AppspaceLogger != nil {
+	// Maybe make that either app or appspace
+	// or somehow make it a generic log and handle the app/appspace -specific stuff otuside.
+	if s.AppspaceLogger != nil && s.appspace != nil {
 		go s.AppspaceLogger.Log(s.appspace.AppspaceID, "sandbox-"+strconv.Itoa(s.id), logString)
 	}
 }
@@ -631,20 +640,33 @@ type ImportPaths struct {
 
 func (s *Sandbox) makeImportMap() (*[]byte, error) {
 	appPath := trailingSlash(s.getAppFilesPath())
-	appspacePath := trailingSlash(s.getAppspaceFilesPath())
 	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
+
 	im := ImportPaths{
 		Imports: map[string]string{
 			"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
 			"@app/":        appPath,
-			"@appspace/":   appspacePath,
 			"@dropserver/": dropserverPath,
 			appPath:        appPath,
-			appspacePath:   appspacePath,
 			dropserverPath: dropserverPath,
 		}}
+
+	if s.appspace != nil {
+		appspacePath := trailingSlash(s.getAppspaceFilesPath())
+		im = ImportPaths{
+			Imports: map[string]string{
+				"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
+				"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
+				"@app/":        appPath,
+				"@appspace/":   appspacePath,
+				"@dropserver/": dropserverPath,
+				appPath:        appPath,
+				appspacePath:   appspacePath,
+				dropserverPath: dropserverPath,
+			}}
+	}
 
 	j, err := json.Marshal(im)
 	if err != nil {
@@ -677,11 +699,15 @@ func (s *Sandbox) writeImportMap() error {
 }
 
 func (s *Sandbox) getAppFilesPath() string {
-	return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey)
+	return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, "app")
 }
 func (s *Sandbox) getAppspaceFilesPath() string {
 	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data", "files")
 }
 func (s *Sandbox) getImportPathFile() string {
-	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
+	if s.appspace != nil {
+		return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
+	} else {
+		return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, "import-paths.json")
+	}
 }

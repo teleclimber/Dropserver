@@ -304,7 +304,7 @@ func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 			panic("v0appspaceRouter getFilePath: expected an app version")
 		}
 		p = strings.TrimPrefix(p, "@app/")
-		root = filepath.Join(arV0.Config.Exec.AppsPath, appVersion.LocationKey)
+		root = filepath.Join(arV0.Config.Exec.AppsPath, appVersion.LocationKey, "app")
 	} else {
 		arV0.getLogger("getFilePath").Log("Path prefix not recognized: " + p) // This should be logged to appspace log, not general log
 		return "", errors.New("path prefix not recognized")

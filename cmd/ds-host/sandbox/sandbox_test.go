@@ -35,7 +35,7 @@ func TestImportMaps(t *testing.T) {
 
 	str := string(*b)
 	t.Log(str)
-	if !strings.Contains(str, "/av-loc-77/\"") {
+	if !strings.Contains(str, "/av-loc-77/app/\"") {
 		t.Error("expected path with trailing slash")
 	}
 }
@@ -176,7 +176,6 @@ func TestRunnerScriptError(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxRunnerPath = scriptPath
 	cfg.Exec.AppspacesPath = dir
 
 	s := &Sandbox{
@@ -218,7 +217,6 @@ func TestStart(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = dir
 
@@ -261,6 +259,52 @@ func TestStart(t *testing.T) {
 	s.WaitFor(domain.SandboxDead)
 }
 
+func TestStartAppOnly(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	os.MkdirAll(filepath.Join(dir, "app-loc"), 0700)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.Sandbox.SocketsDir = dir
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.AppsPath = dir
+
+	appVersion := &domain.AppVersion{
+		LocationKey: "app-loc"}
+
+	s := &Sandbox{
+		id:         7,
+		appVersion: appVersion,
+		status:     domain.SandboxStarting,
+		Config:     cfg,
+		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+
+	err = s.Start()
+	if err != nil {
+		t.Fatal(err)
+		s.Kill()
+	}
+
+	s.WaitFor(domain.SandboxReady)
+
+	if s.Status() != domain.SandboxReady {
+		t.Fatal("sandbox status should be ready")
+	}
+
+	time.Sleep(time.Second)
+
+	s.Graceful()
+
+	s.WaitFor(domain.SandboxDead)
+}
+
 func TestExecFn(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -277,7 +321,7 @@ func TestExecFn(t *testing.T) {
 	defer os.RemoveAll(appDir)
 
 	appLocation := "app-loc"
-	err = os.MkdirAll(path.Join(appDir, appLocation), 0755)
+	err = os.MkdirAll(path.Join(appDir, appLocation, "app"), 0755)
 	if err != nil {
 		t.Error(err)
 	}
@@ -285,7 +329,6 @@ func TestExecFn(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = appDir
 
@@ -295,7 +338,7 @@ func TestExecFn(t *testing.T) {
 		AppspaceID:  domain.AppspaceID(13),
 		LocationKey: "appspace-loc"}
 
-	scriptPath := path.Join(appDir, appLocation, "app.ts")
+	scriptPath := path.Join(appDir, appLocation, "app", "app.ts")
 
 	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
 	if err != nil {
@@ -359,7 +402,6 @@ func TestExecForbiddenImport(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.SandboxRunnerPath = getSandboxRunnerPath()
 	cfg.Exec.AppspacesPath = dir
 	cfg.Exec.AppsPath = dir
 
@@ -412,9 +454,6 @@ func getSandboxCodePath() string {
 		log.Fatal(err)
 	}
 	return filepath.Join(dir, "../../../resources/")
-}
-func getSandboxRunnerPath() string {
-	return filepath.Join(getSandboxCodePath(), "ds-sandbox-runner.ts")
 }
 
 // test logger
