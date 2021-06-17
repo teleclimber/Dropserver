@@ -123,10 +123,17 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 }
 
 // Make a new migration sandbox
-func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
+func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
 	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
 	sandboxID++
 	s.AppspaceLogger = m.AppspaceLogger
 	s.SetInspect(m.inspect)
-	return s
+
+	err := s.Start()
+	if err != nil {
+		return nil, err
+	}
+	s.WaitFor(domain.SandboxReady)
+
+	return s, nil
 }

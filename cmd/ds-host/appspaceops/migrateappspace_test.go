@@ -89,13 +89,11 @@ func TestRunJob(t *testing.T) {
 	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
-	sandbox.EXPECT().Start().Return(nil)
-	sandbox.EXPECT().WaitFor(gomock.Any())
 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
 	sandbox.EXPECT().Graceful()
 
 	sandboxMaker := testmocks.NewMockSandboxMaker(mockCtrl)
-	sandboxMaker.EXPECT().ForMigration(gomock.Any(), gomock.Any()).Return(sandbox)
+	sandboxMaker.EXPECT().ForMigration(gomock.Any(), gomock.Any()).Return(sandbox, nil)
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))

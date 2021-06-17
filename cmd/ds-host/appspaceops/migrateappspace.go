@@ -43,7 +43,7 @@ type MigrationJobController struct {
 		StopAppspace(domain.AppspaceID)
 	}
 	SandboxMaker interface {
-		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI
+		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	}
 
 	runningJobs map[domain.JobID]*runningJob
@@ -355,7 +355,7 @@ type runningJob struct {
 	curSchema    int // not sure about this one
 	migrateDown  bool
 	sandboxMaker interface {
-		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI
+		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	}
 	sandbox    domain.SandboxI
 	status     domain.MigrationJobStatus
@@ -381,23 +381,13 @@ func (r *runningJob) runMigration() error {
 
 	r.getLogger("runMigration()").Debug("about to start migration")
 
-	r.sandbox = r.sandboxMaker.ForMigration(r.useVersion, r.appspace)
-
-	defer r.sandbox.Graceful()
-	err := r.sandbox.Start()
+	s, err := r.sandboxMaker.ForMigration(r.useVersion, r.appspace)
 	if err != nil {
-		// host level error? log it
-		r.getLogger("runMigration, sandbox.Start()").Error(err)
 		return err
 	}
-	r.sandbox.WaitFor(domain.SandboxReady)
-	// sandbox may not be ready if it failed to start.
-	// check status?
-	// Maybe WaitFor could return an error if the status is changed to something that can never become Ready.
+	r.sandbox = s
 
-	// Here we should have a migration service
-	// Send message to migrate from a -> b
-	// .. which might be incremental  version-by-version?
+	defer r.sandbox.Graceful()
 
 	p := struct {
 		FromSchema int `json:"from"`

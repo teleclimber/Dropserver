@@ -34,11 +34,12 @@ func (m *MockSandboxMaker) EXPECT() *MockSandboxMakerMockRecorder {
 }
 
 // ForApp mocks base method
-func (m *MockSandboxMaker) ForApp(arg0 *domain.AppVersion) domain.SandboxI {
+func (m *MockSandboxMaker) ForApp(arg0 *domain.AppVersion) (domain.SandboxI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForApp", arg0)
 	ret0, _ := ret[0].(domain.SandboxI)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ForApp indicates an expected call of ForApp
@@ -48,11 +49,12 @@ func (mr *MockSandboxMakerMockRecorder) ForApp(arg0 interface{}) *gomock.Call {
 }
 
 // ForMigration mocks base method
-func (m *MockSandboxMaker) ForMigration(arg0 *domain.AppVersion, arg1 *domain.Appspace) domain.SandboxI {
+func (m *MockSandboxMaker) ForMigration(arg0 *domain.AppVersion, arg1 *domain.Appspace) (domain.SandboxI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForMigration", arg0, arg1)
 	ret0, _ := ret[0].(domain.SandboxI)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ForMigration indicates an expected call of ForMigration

@@ -40,18 +40,27 @@ type SandboxMaker struct {
 	Config *domain.RuntimeConfig
 }
 
-func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) domain.SandboxI {
-	return &Sandbox{
+func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
+	s := &Sandbox{
 		id:         0,
 		appVersion: appVersion,
 		status:     domain.SandboxStarting,
 		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Config:     m.Config}
 	// Need to add a logger of some sort.
+
+	err := s.Start()
+	if err != nil {
+		m.getLogger("ForApp, sandbox.Start()").Error(err)
+		return nil, err
+	}
+	s.WaitFor(domain.SandboxReady)
+
+	return s, nil
 }
 
-func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) domain.SandboxI {
-	return &Sandbox{
+func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
+	s := &Sandbox{
 		id:             0,
 		appVersion:     appVersion,
 		appspace:       appspace,
@@ -60,6 +69,23 @@ func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *dom
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Config:         m.Config,
 		AppspaceLogger: m.AppspaceLogger}
+
+	err := s.Start()
+	if err != nil {
+		m.getLogger("ForMigration, sandbox.Start()").Error(err)
+		return nil, err
+	}
+	s.WaitFor(domain.SandboxReady)
+
+	return s, nil
+}
+
+func (m *SandboxMaker) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("SandboxMaker")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }
 
 type appSpaceSession struct {
