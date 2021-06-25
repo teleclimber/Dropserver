@@ -22,10 +22,10 @@ func TestImportMaps(t *testing.T) {
 			AppspaceID:  domain.AppspaceID(13)},
 		appVersion: &domain.AppVersion{
 			LocationKey: "av-loc-77"},
-		Config: &domain.RuntimeConfig{}}
+		Location2Path: &l2p{app: "/temp/apps-path", appFiles: "/temp/apps-path"},
+		Config:        &domain.RuntimeConfig{}}
 
 	s.Config.Exec.AppspacesPath = "/temp/as-path"
-	s.Config.Exec.AppsPath = "/temp/apps-path"
 	s.Config.Exec.SandboxCodePath = "/temp/sandbox-code-path"
 
 	b, err := s.makeImportMap()
@@ -179,12 +179,13 @@ func TestRunnerScriptError(t *testing.T) {
 	cfg.Exec.AppspacesPath = dir
 
 	s := &Sandbox{
-		id:         7,
-		appVersion: &domain.AppVersion{},
-		appspace:   &domain.Appspace{},
-		status:     domain.SandboxStarting,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:     cfg}
+		id:            7,
+		appVersion:    &domain.AppVersion{},
+		appspace:      &domain.Appspace{},
+		status:        domain.SandboxStarting,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path: &l2p{app: dir, appFiles: dir},
+		Config:        cfg}
 
 	err = s.Start()
 	if err == nil {
@@ -218,7 +219,6 @@ func TestStart(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.AppspacesPath = dir
-	cfg.Exec.AppsPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: "app-loc"}
@@ -236,6 +236,7 @@ func TestStart(t *testing.T) {
 		appspace:       appspace,
 		appVersion:     appVersion,
 		status:         domain.SandboxStarting,
+		Location2Path:  &l2p{app: dir, appFiles: dir},
 		Config:         cfg,
 		AppspaceLogger: log,
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
@@ -274,17 +275,17 @@ func TestStartAppOnly(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.AppsPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: "app-loc"}
 
 	s := &Sandbox{
-		id:         7,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		Config:     cfg,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		id:            7,
+		appVersion:    appVersion,
+		status:        domain.SandboxStarting,
+		Location2Path: &l2p{app: dir, appFiles: dir},
+		Config:        cfg,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -320,8 +321,10 @@ func TestExecFn(t *testing.T) {
 	}
 	defer os.RemoveAll(appDir)
 
+	l2p := &l2p{app: dir, appFiles: dir}
+
 	appLocation := "app-loc"
-	err = os.MkdirAll(path.Join(appDir, appLocation, "app"), 0755)
+	err = os.MkdirAll(l2p.AppFiles(appLocation), 0755)
 	if err != nil {
 		t.Error(err)
 	}
@@ -330,7 +333,6 @@ func TestExecFn(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.AppspacesPath = dir
-	cfg.Exec.AppsPath = appDir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: appLocation}
@@ -338,7 +340,7 @@ func TestExecFn(t *testing.T) {
 		AppspaceID:  domain.AppspaceID(13),
 		LocationKey: "appspace-loc"}
 
-	scriptPath := path.Join(appDir, appLocation, "app", "app.ts")
+	scriptPath := path.Join(l2p.AppFiles(appLocation), "app.ts")
 
 	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
 	if err != nil {
@@ -355,6 +357,7 @@ func TestExecFn(t *testing.T) {
 		appspace:       appspace,
 		appVersion:     appVersion,
 		status:         domain.SandboxStarting,
+		Location2Path:  l2p,
 		Config:         cfg,
 		AppspaceLogger: log,
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
@@ -403,7 +406,6 @@ func TestExecForbiddenImport(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.AppspacesPath = dir
-	cfg.Exec.AppsPath = dir
 
 	appVersion := &domain.AppVersion{
 		LocationKey: "app-loc"}
@@ -418,12 +420,13 @@ func TestExecForbiddenImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &Sandbox{
-		id:         7,
-		appspace:   appspace,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		Config:     cfg,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		id:            7,
+		appspace:      appspace,
+		appVersion:    appVersion,
+		status:        domain.SandboxStarting,
+		Location2Path: &l2p{app: dir, appFiles: dir},
+		Config:        cfg,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -463,4 +466,17 @@ type testLogger2 struct {
 
 func (l *testLogger2) Log(_ domain.AppspaceID, source string, message string) {
 	l.log(source, message)
+}
+
+// l2p Location2Path standin
+type l2p struct {
+	appFiles string
+	app      string
+}
+
+func (l *l2p) App(loc string) string {
+	return filepath.Join(l.app, loc)
+}
+func (l *l2p) AppFiles(loc string) string {
+	return filepath.Join(l.appFiles, loc, "app")
 }

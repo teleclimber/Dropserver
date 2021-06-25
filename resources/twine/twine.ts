@@ -119,8 +119,12 @@ export default class Twine {
 				}
 			}
 			catch(e) {
-				if (!(e instanceof Deno.errors.BadResource)) { // could be more subtle by checking if we intended to close the conn with if( this.stop ) or whtaevr
-					throw e; 
+				console.log("conn read error. Graceful? "+this._graceful);
+				if( e instanceof Deno.errors.Interrupted && this._graceful ) {
+					console.log("Interrupted error while shutting down: not an error");
+				}
+				else {
+					throw e;
 				}
 			}
 		})();

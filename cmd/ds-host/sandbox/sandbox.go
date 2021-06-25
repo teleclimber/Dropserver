@@ -105,10 +105,6 @@ const sandboxService = 11
 // remote exec fn service
 const executeService = 12
 
-// MigrateService is for appspace migration
-// presumably remote?
-const MigrateService = 13 // hmm...
-
 const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
@@ -130,7 +126,11 @@ type Sandbox struct {
 	appSpaceSession appSpaceSession // put a getter for that?
 	killScore       float64         // this should not be here.
 	inspect         bool
-	Config          *domain.RuntimeConfig
+	Location2Path   interface {
+		App(string) string
+		AppFiles(string) string
+	}
+	Config *domain.RuntimeConfig
 }
 
 // NewSandbox creates a new sandbox with the passed parameters
@@ -525,10 +525,6 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 		taskCh <- true
 	}()
 
-	// need to change file path so it can be resolved from inside sandbox.
-	// for now assemble an absolute path
-	//handler.File = path.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, handler.File)
-
 	payload, err := json.Marshal(handler)
 	if err != nil {
 		// this is an input error. The caller is at fault probably. Don't log.
@@ -744,7 +740,7 @@ func (s *Sandbox) writeImportMap() error {
 }
 
 func (s *Sandbox) getAppFilesPath() string {
-	return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, "app")
+	return s.Location2Path.AppFiles(s.appVersion.LocationKey)
 }
 func (s *Sandbox) getAppspaceFilesPath() string {
 	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data", "files")
@@ -753,6 +749,7 @@ func (s *Sandbox) getImportPathFile() string {
 	if s.appspace != nil {
 		return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
 	} else {
-		return filepath.Join(s.Config.Exec.AppsPath, s.appVersion.LocationKey, "import-paths.json")
+		return filepath.Join(s.Location2Path.App(s.appVersion.LocationKey), "import-paths.json")
+		// TODO change this to location 2 path, usgin "app meta" or something?
 	}
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 )
 
 //ignorePaths is a set of paths relative to the root of the app that should be ignored
@@ -20,7 +19,9 @@ var ignorePaths = []string{
 
 // DevAppWatcher reloads the app files as needed and sends events
 type DevAppWatcher struct {
-	AppFilesModel    *appfilesmodel.AppFilesModel
+	AppFilesModel interface {
+		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
+	}
 	DevAppModel      *DevAppModel
 	DevAppspaceModel *DevAppspaceModel
 	AppVersionEvents interface {

@@ -7,23 +7,25 @@
 	</span>
 	<span v-else>???</span>
 
-	<span class="border-b border-gray-400 pl-2" style="font-variant-caps: all-small-caps">{{route.methods.join(' ')}}</span>
-	<span class="bg-gray-200 text-gray-900 pl-2 text-sm font-bold border-b border-gray-400">{{route.path}}</span>
+	<span class="border-b border-gray-400 pl-2" style="font-variant-caps: all-small-caps">{{route.method}}</span>
+	<span class="bg-gray-200 text-gray-900 pl-2 text-sm font-bold border-b border-gray-400">
+		{{route.path.path}}
+		<span v-if="!route.path.end">**</span>
+	</span>
 	
-	<template v-if="route.handler.type === 'file'">
+	<template v-if="route.type === 'static'">
 		<span class="border-b border-gray-400 px-1 text-sm italic text-right">Serve files:</span>
-		<span class="border-b border-gray-400 font-mono pl-2 ">{{route.handler.path}}</span>
+		<span class="border-b border-gray-400 font-mono pl-2 ">{{route.options.path}}</span>
 	</template>
-	<template v-else-if="route.handler.type === 'function'">
+	<template v-else-if="route.type === 'function'">
 		<span class="border-b border-gray-400 px-1 text-sm italic text-right bg-orange-100">Call function:</span>
 		<div class="border-b border-gray-400 bg-orange-100">
-			<span class="font-mono pl-2">{{route.handler.file}}</span>
-			<span class="italic font-mono pl-2 text-yellow-800">{{route.handler.function}}()</span>
+			<span class="font-mono pl-2">{{route.options.name}}</span>
 		</div>
 	</template>
 	<template v-else>
 		<span class="border-b border-gray-400 bg-yellow-500 text-yellow-100 px-1 text-sm">
-			{{route.handler.type}}
+			{{route.type}}
 		</span>
 		<span class="border-b border-gray-400">not implemented</span>
 	</template>
@@ -31,7 +33,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from 'vue';
-import type {RouteConfig} from '../models/appspace-routes-data';
+import type {RouteConfig} from '../models/app-routes';
 
 export default defineComponent({
 	name: 'AppspaceRoute',

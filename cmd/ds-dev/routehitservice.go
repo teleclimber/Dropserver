@@ -16,12 +16,12 @@ type RequestJSON struct {
 	Method string `json:"method"`
 }
 type RouteHitEventJSON struct {
-	Timestamp   time.Time                   `json:"timestamp"`
-	Request     RequestJSON                 `json:"request"`
-	RouteConfig *domain.AppspaceRouteConfig `json:"route_config"` // this might be nil.OK?
-	User        *domain.AppspaceUser        `json:"user"`         //make nil OK
-	Authorized  bool                        `json:"authorized"`
-	Status      int                         `json:"status"`
+	Timestamp     time.Time            `json:"timestamp"`
+	Request       RequestJSON          `json:"request"`
+	V0RouteConfig *domain.V0AppRoute   `json:"v0_route_config"` // this might be nil.OK?
+	User          *domain.AppspaceUser `json:"user"`            //make nil OK
+	Authorized    bool                 `json:"authorized"`
+	Status        int                  `json:"status"`
 }
 
 // RouteHitService forwards route hit events to provided twine instance
@@ -63,9 +63,9 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 		Request: RequestJSON{
 			URL:    routeEvent.Request.URL.String(),
 			Method: routeEvent.Request.Method},
-		RouteConfig: routeEvent.RouteConfig,
-		Authorized:  routeEvent.Authorized,
-		Status:      routeEvent.Status}
+		V0RouteConfig: routeEvent.V0RouteConfig,
+		Authorized:    routeEvent.Authorized,
+		Status:        routeEvent.Status}
 
 	if routeEvent.Credentials.ProxyID != "" {
 		user, err := s.AppspaceUserModel.Get(appspaceID, routeEvent.Credentials.ProxyID)

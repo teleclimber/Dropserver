@@ -7,7 +7,6 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
@@ -402,7 +401,7 @@ func (r *runningJob) runMigration() error {
 		return err // "internal error"
 	}
 
-	sent, err := r.sandbox.SendMessage(sandbox.MigrateService, migrateCommand, payload)
+	sent, err := r.sandbox.SendMessage(domain.SandboxMigrateService, migrateCommand, payload)
 	if err != nil {
 		r.getLogger("runMigration, sandbox.SendMessage").Error(err)
 		return err

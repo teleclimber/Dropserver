@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/appgetter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
@@ -83,7 +84,6 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appVersionEvents := &AppVersionEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
-	appspaceRouteEvents := &AppspaceRouteEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
@@ -92,9 +92,18 @@ func main() {
 	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
 	runtimeConfig.Sandbox.SocketsDir = socketsDir
 
+	location2path := &Location2Path{
+		Config: runtimeConfig}
+
 	appFilesModel := &appfilesmodel.AppFilesModel{
-		Config: runtimeConfig,
+		Location2Path: location2path,
+		Config:        runtimeConfig,
 	}
+	devAppFilesModel := &DevAppFilesModel{
+		*appFilesModel,
+		nil,
+	}
+
 	devAppModel := &DevAppModel{}
 
 	devAppspaceModel := &DevAppspaceModel{
@@ -105,13 +114,29 @@ func main() {
 
 	//devAppspaceContactModel := &DevAppspaceContactModel{}
 
+	v0AppRoutes := &appspacerouter.V0AppRoutes{
+		AppModel:      devAppModel,
+		AppFilesModel: devAppFilesModel,
+		Config:        *runtimeConfig,
+	}
+
+	appGetter := &appgetter.AppGetter{
+		V0AppRoutes: v0AppRoutes,
+		//SandboxMaker: ,	// added below
+	}
+
+	appRoutesService := &AppRoutesService{
+		AppFilesModel:    devAppFilesModel,
+		AppGetter:        appGetter,
+		AppVersionEvents: appVersionEvents,
+	}
+
 	devAppWatcher := &DevAppWatcher{
-		AppFilesModel:    appFilesModel,
+		AppFilesModel:    devAppFilesModel,
 		DevAppModel:      devAppModel,
 		DevAppspaceModel: devAppspaceModel,
 		AppVersionEvents: appVersionEvents,
 	}
-	devAppWatcher.Start(*appDirFlag)
 
 	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
@@ -131,18 +156,6 @@ func main() {
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb}
 	appspaceInfoModels.Init()
-
-	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
-		Config:         runtimeConfig,
-		AppspaceMetaDB: appspaceMetaDb,
-		RouteEvents:    appspaceRouteEvents}
-	appspaceRouteModels.Init()
-
-	// appspaceUserModels := &appspacemetadb.AppspaceUserModels{
-	// 	// apparently config and validator are unused
-	// 	AppspaceMetaDB: appspaceMetaDb,
-	// }
-	// appspaceUserModels.Init()
 
 	devAuth := &DevAuthenticator{
 		noAuth: true} // start as public
@@ -171,6 +184,7 @@ func main() {
 		AppspaceLogger:   appspaceLogger,
 		Config:           runtimeConfig,
 		AppVersionEvents: appVersionEvents,
+		Location2Path:    location2path,
 	}
 	devSandboxManager.Init()
 
@@ -204,12 +218,13 @@ func main() {
 		SandboxManager: devSandboxManager}
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceUserModel:   devAppspaceUserModel,
-		AppspaceRouteModels: appspaceRouteModels,
-		SandboxProxy:        sandboxProxy,
-		Authenticator:       devAuth,
-		RouteHitEvents:      routeHitEvents,
-		Config:              runtimeConfig}
+		AppspaceUserModel: devAppspaceUserModel,
+		V0AppRoutes:       v0AppRoutes,
+		SandboxProxy:      sandboxProxy,
+		Authenticator:     devAuth,
+		RouteHitEvents:    routeHitEvents,
+		Location2Path:     location2path,
+		Config:            runtimeConfig}
 	appspaceRouterV0.Init()
 
 	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
@@ -241,7 +256,6 @@ func main() {
 		AppspaceUserModel: devAppspaceUserModel,
 	}
 	services := &vxservices.VXServices{
-		RouteModels:  appspaceRouteModels,
 		UserModels:   vxUserModels,
 		V0AppspaceDB: appspaceDB.V0}
 
@@ -250,9 +264,13 @@ func main() {
 	devSandboxMaker := &DevSandboxMaker{
 		AppspaceLogger: appspaceLogger,
 		Services:       services,
+		Location2Path:  location2path,
 		Config:         runtimeConfig}
 
 	migrateJobController.SandboxMaker = devSandboxMaker
+	appGetter.SandboxMaker = devSandboxMaker
+
+	devAppWatcher.Start(*appDirFlag)
 
 	migrateJobController.Start()
 
@@ -261,12 +279,8 @@ func main() {
 	// Ds-dev frontend twine services:
 	appMetaService := &AppMetaService{
 		AppVersionEvents: appVersionEvents,
-		AppFilesModel:    appFilesModel,
+		AppFilesModel:    devAppFilesModel,
 	}
-	routesService := &RoutesService{
-		AppspaceRouteModels: appspaceRouteModels,
-		AppspaceRouteEvents: appspaceRouteEvents,
-		AppspaceFilesEvents: appspaceFilesEvents}
 
 	userService := &UserService{
 		DevAuthenticator:    devAuth,
@@ -285,7 +299,7 @@ func main() {
 
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
-		AppFilesModel:          appFilesModel,
+		AppFilesModel:          devAppFilesModel,
 		AppspaceFiles:          appspaceFiles,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
@@ -298,7 +312,7 @@ func main() {
 		AppspaceStatus:         appspaceStatus,
 		Config:                 runtimeConfig,
 		AppMetaService:         appMetaService,
-		RoutesService:          routesService,
+		AppRoutesService:       appRoutesService,
 		UserService:            userService,
 		RouteHitService:        routeHitService,
 		AppspaceStatusEvents:   appspaceStatusEvents,

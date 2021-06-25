@@ -42,15 +42,15 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 		reqTaskCh <- true
 	}()
 
-	routeConfig, _ := domain.CtxRouteConfig(ctx)
+	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 
 	header := cloneHeader(oReq.Header)
-	header["appspace-module"] = []string{routeConfig.Handler.File} // verify routeData has a route config, otherwise this fails hard.
-	header["appspace-function"] = []string{routeConfig.Handler.Function}
+	header["X-Dropserver-Request-URL"] = []string{oReq.URL.Path}
+	header["X-Dropserver-Route-ID"] = []string{routeConfig.ID}
 
 	proxyID, ok := domain.CtxAppspaceUserProxyID(ctx)
 	if ok {
-		header["user-id"] = []string{string(proxyID)}
+		header["X-Dropserver-User-ID"] = []string{string(proxyID)}
 	}
 
 	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)

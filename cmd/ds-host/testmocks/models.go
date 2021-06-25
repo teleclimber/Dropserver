@@ -49,6 +49,8 @@ type UserInvitationModel interface {
 type AppFilesModel interface {
 	Save(*map[string][]byte) (string, error)
 	ReadMeta(string) (*domain.AppFilesMetadata, error)
+	WriteRoutes(locationKey string, routesData []byte) error
+	ReadRoutes(locationKey string) ([]byte, error)
 	Delete(string) error
 }
 

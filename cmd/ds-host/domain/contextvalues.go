@@ -116,16 +116,16 @@ func CtxAppspaceUserData(ctx context.Context) (AppspaceUser, bool) {
 	return t, ok
 }
 
-// Appspace Route Config Data
-const routeConfigDataCtxKey = ctxKey("appspace route config user data")
+// App Route Config Data
+const v0routeConfigDataCtxKey = ctxKey("V0 appspace route config user data")
 
 // CtxWithRouteConfig sets the appspace route data for the request
-func CtxWithRouteConfig(ctx context.Context, routeConfig AppspaceRouteConfig) context.Context {
-	return context.WithValue(ctx, routeConfigDataCtxKey, routeConfig)
+func CtxWithV0RouteConfig(ctx context.Context, routeConfig V0AppRoute) context.Context {
+	return context.WithValue(ctx, v0routeConfigDataCtxKey, routeConfig)
 }
 
 // CtxRouteConfig gets the appspace route config data for the request
-func CtxRouteConfig(ctx context.Context) (AppspaceRouteConfig, bool) {
-	t, ok := ctx.Value(routeConfigDataCtxKey).(AppspaceRouteConfig)
+func CtxV0RouteConfig(ctx context.Context) (V0AppRoute, bool) {
+	t, ok := ctx.Value(v0routeConfigDataCtxKey).(V0AppRoute)
 	return t, ok
 }

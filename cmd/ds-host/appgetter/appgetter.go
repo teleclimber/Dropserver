@@ -1,13 +1,16 @@
 package appgetter
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"sort"
 	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 type AppGetData struct {
@@ -25,12 +28,19 @@ type AppGetter struct {
 	AppFilesModel interface {
 		Save(*map[string][]byte) (string, error)
 		ReadMeta(string) (*domain.AppFilesMetadata, error)
+		WriteRoutes(string, []byte) error
 		Delete(string) error
 	}
 	AppModel interface {
 		Create(domain.UserID, string) (*domain.App, error)
 		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
+	}
+	SandboxMaker interface {
+		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
+	}
+	V0AppRoutes interface {
+		ValidateStoredRoutes(routes []domain.V0AppRoute) error
 	}
 
 	keys map[domain.AppGetKey]AppGetData
@@ -79,6 +89,7 @@ func (g *AppGetter) GetUser(key domain.AppGetKey) (domain.UserID, bool) {
 // read everything make sure it makes sense on its own
 // if there is an app id compare with existing versions.
 // version should be unique, schemas should increment
+// TODO After an initial read to determine DS API version, branch to version-specific
 func (g *AppGetter) GetMetaData(key domain.AppGetKey) (domain.AppGetMeta, error) { // will need to figure out what to return.
 	keyData, ok := g.keys[key]
 	if !ok {
@@ -111,7 +122,66 @@ func (g *AppGetter) GetMetaData(key domain.AppGetKey) (domain.AppGetMeta, error)
 		}
 	}
 
+	// also start a sandbox and read the router data.
+	routerData, err := g.GetRouterData(keyData.locationKey)
+	if err != nil {
+		return ret, err
+	}
+
+	err = g.V0AppRoutes.ValidateStoredRoutes(routerData)
+	if err != nil {
+		return ret, err
+	}
+
+	routerJson, err := json.Marshal(routerData)
+	if err != nil {
+		g.getLogger("GetMetaData() json.Marshal").Error(err)
+		return ret, err
+	}
+
+	err = g.AppFilesModel.WriteRoutes(keyData.locationKey, routerJson)
+	if err != nil {
+		return ret, err
+	}
+
 	return ret, nil
+}
+
+// TODO Heads up this is a versioned API!
+func (g *AppGetter) GetRouterData(loc string) ([]domain.V0AppRoute, error) {
+	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: loc})
+	if err != nil {
+		return nil, err
+	}
+
+	defer s.Graceful()
+
+	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
+	if err != nil {
+		g.getLogger("getRouterData, s.SendMessage").Error(err)
+		return nil, err
+	}
+
+	reply, err := sent.WaitReply()
+	if err != nil {
+		// This one probaly means the sandbox crashed or some such
+		g.getLogger("getRouterData, sent.WaitReply").Error(err)
+		return nil, err
+	}
+
+	// Should also verify that the response is command 11?
+
+	fmt.Println("json payload", string(reply.Payload()))
+
+	var routes []domain.V0AppRoute
+
+	err = json.Unmarshal(reply.Payload(), &routes)
+	if err != nil {
+		g.getLogger("getRouterData, json.Unmarshal").Error(err)
+		return nil, err
+	}
+
+	return routes, nil
 }
 
 // validate that app version has a name
@@ -272,6 +342,14 @@ func (g *AppGetter) set(d AppGetData) (key domain.AppGetKey) {
 	g.keys[key] = d
 
 	return
+}
+
+func (g *AppGetter) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("AppGetter")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }
 
 ////////////

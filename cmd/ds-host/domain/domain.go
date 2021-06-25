@@ -448,6 +448,32 @@ type AppspaceRouteConfig struct {
 	Handler AppspaceRouteHandler `json:"handler"`
 }
 
+// New appspace route stuff:
+
+// V0AppRoute is route config for appspace as stored with app
+type V0AppRoute struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Path   V0AppRoutePath `json:"path"`
+	// Type is either "function" or "static" for now
+	Type    string            `json:"type"`
+	Auth    AppspaceRouteAuth `json:"auth"`
+	Options V0AppRouteOptions `json:"options"`
+}
+
+// V0AppRoutePath
+type V0AppRoutePath struct {
+	Path string `json:"path"`
+	End  bool   `json:"end"`
+}
+
+// V0AppRouteOptions is a JSON friendly struct
+// that describes the desired handling for the route
+type V0AppRouteOptions struct {
+	Name string `json:"name,omitempty"` // this is called "location" downstream. (but why?)
+	Path string `json:"path,omitempty"`
+}
+
 // DropID represents a golbally unique identification
 // a user can ue to communicate with other DropServer instances
 type DropID struct {
@@ -548,6 +574,13 @@ type ReverseServiceI interface {
 	HandleMessage(twine.ReceivedMessageI)
 }
 
+// SandboxMigrateService is the Twine service ID for appspace migration
+const SandboxMigrateService = 13
+
+// SandboxAppService is the Twine service ID for querying the app for things like routes, exec fns,
+// ..and anything else that is set in code.
+const SandboxAppService = 14
+
 // TwineService attach to a twine instance to handle two-way communication
 // with a remote twine client
 type TwineService interface {
@@ -564,10 +597,10 @@ type AppspacePausedEvent struct {
 }
 
 // AppspaceRouteEvent carries information about a change in an appspace's routes
-type AppspaceRouteEvent struct {
-	AppspaceID AppspaceID `json:"appspace_id"`
-	Path       string     `json:"path"`
-}
+// type AppspaceRouteEvent struct {
+// 	AppspaceID AppspaceID `json:"appspace_id"`
+// 	Path       string     `json:"path"`
+// }
 
 //AppspaceStatusEvent indicates readiness of appspace and the reason
 type AppspaceStatusEvent struct {
@@ -590,11 +623,13 @@ type AppspaceLogEvent struct {
 }
 
 // AppspaceRouteHitEvent contains the route that was matched with the request
+// Is this versioned or not? It would be easier if not.
+// Or at least have basic data unversioned, and more details versioned?
 type AppspaceRouteHitEvent struct {
-	Timestamp   time.Time
-	AppspaceID  AppspaceID
-	Request     *http.Request
-	RouteConfig *AppspaceRouteConfig
+	Timestamp     time.Time
+	AppspaceID    AppspaceID
+	Request       *http.Request
+	V0RouteConfig *V0AppRoute
 	// Credentials presented by the requester
 	// zero-values indicate credential not presented
 	Credentials struct {

@@ -14,7 +14,7 @@ import (
 )
 
 func TestAuthorizePublic(t *testing.T) {
-	routeConfig := domain.AppspaceRouteConfig{
+	routeConfig := domain.V0AppRoute{
 		Auth: domain.AppspaceRouteAuth{
 			Allow: "public",
 		},
@@ -28,7 +28,7 @@ func TestAuthorizePublic(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), routeConfig))
+	req = req.WithContext(domain.CtxWithV0RouteConfig(req.Context(), routeConfig))
 
 	rr := httptest.NewRecorder()
 
@@ -43,7 +43,7 @@ func TestAuthorizePublic(t *testing.T) {
 }
 
 func TestAuthorizeForbidden(t *testing.T) {
-	routeConfig := domain.AppspaceRouteConfig{
+	routeConfig := domain.V0AppRoute{
 		Auth: domain.AppspaceRouteAuth{
 			Allow: "authorized",
 		},
@@ -57,7 +57,7 @@ func TestAuthorizeForbidden(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), routeConfig))
+	req = req.WithContext(domain.CtxWithV0RouteConfig(req.Context(), routeConfig))
 
 	rr := httptest.NewRecorder()
 
@@ -72,7 +72,7 @@ func TestAuthorizeForbidden(t *testing.T) {
 }
 
 func TestAuthorizedUser(t *testing.T) {
-	routeConfig := domain.AppspaceRouteConfig{
+	routeConfig := domain.V0AppRoute{
 		Auth: domain.AppspaceRouteAuth{
 			Allow: "authorized",
 		},
@@ -88,7 +88,7 @@ func TestAuthorizedUser(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx := domain.CtxWithV0RouteConfig(req.Context(), routeConfig)
 	ctx = domain.CtxWithAppspaceUserData(ctx, user)
 
 	rr := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestAuthorizedUser(t *testing.T) {
 }
 
 func TestAuthorizePermissionDenied(t *testing.T) {
-	routeConfig := domain.AppspaceRouteConfig{
+	routeConfig := domain.V0AppRoute{
 		Auth: domain.AppspaceRouteAuth{
 			Allow:      "authorized",
 			Permission: "delete",
@@ -121,7 +121,7 @@ func TestAuthorizePermissionDenied(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx := domain.CtxWithV0RouteConfig(req.Context(), routeConfig)
 	ctx = domain.CtxWithAppspaceUserData(ctx, user)
 
 	rr := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestAuthorizePermissionDenied(t *testing.T) {
 }
 
 func TestAuthorizePermissionAllowed(t *testing.T) {
-	routeConfig := domain.AppspaceRouteConfig{
+	routeConfig := domain.V0AppRoute{
 		Auth: domain.AppspaceRouteAuth{
 			Allow:      "authorized",
 			Permission: "delete",
@@ -154,7 +154,7 @@ func TestAuthorizePermissionAllowed(t *testing.T) {
 	}))
 
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	ctx := domain.CtxWithRouteConfig(req.Context(), routeConfig)
+	ctx := domain.CtxWithV0RouteConfig(req.Context(), routeConfig)
 	ctx = domain.CtxWithAppspaceUserData(ctx, user)
 
 	rr := httptest.NewRecorder()
@@ -294,27 +294,24 @@ func TestLoginToken(t *testing.T) {
 }
 
 func TestGetFilePath(t *testing.T) {
-	config := &domain.RuntimeConfig{}
-	config.Exec.AppsPath = "/data-dir/apps-path"
-
 	appVersion := domain.AppVersion{
 		LocationKey: "app-version-123",
 	}
 
-	routeConfig := domain.AppspaceRouteConfig{
-		Path: "/some-files",
-		Handler: domain.AppspaceRouteHandler{
-			Type: "file",
+	routeConfig := domain.V0AppRoute{
+		Path: domain.V0AppRoutePath{Path: "/some-files", End: true},
+		Type: "static",
+		Options: domain.V0AppRouteOptions{
 			Path: "@app/static-files/",
 		}}
 
 	v0 := &V0{
-		Config: config,
+		Location2Path: &l2p{appFiles: "/data-dir/apps-path"},
 	}
 
 	req, _ := http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
 	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
 
 	p, err := v0.getFilePath(req.WithContext(ctx))
 	if err != nil {
@@ -328,18 +325,18 @@ func TestGetFilePath(t *testing.T) {
 	// now try illegal path:
 	req, _ = http.NewRequest(http.MethodGet, "/some-files/../../gotcha.txt", nil)
 	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
 	p, err = v0.getFilePath(req.WithContext(ctx))
 	if err == nil {
 		t.Error("expected error, got " + p)
 	}
 
 	// now try a specific file for route path
-	routeConfig.Path = "/some-files/css/style.css"
-	routeConfig.Handler.Path = "@app/static-files/style.css"
+	routeConfig.Path.Path = "/some-files/css/style.css"
+	routeConfig.Options.Path = "@app/static-files/style.css"
 	req, _ = http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
 	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
 	p, err = v0.getFilePath(req.WithContext(ctx))
 	if err != nil {
 		t.Error(err)
@@ -357,21 +354,18 @@ func TestServeFile(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	config := &domain.RuntimeConfig{}
-	config.Exec.AppsPath = dir
-
 	appVersion := domain.AppVersion{
 		LocationKey: "app-version-123",
 	}
-	routeConfig := domain.AppspaceRouteConfig{
-		Path: "/some-files",
-		Handler: domain.AppspaceRouteHandler{
-			Type: "file",
+	routeConfig := domain.V0AppRoute{
+		Path: domain.V0AppRoutePath{Path: "/some-files", End: true},
+		Type: "static",
+		Options: domain.V0AppRouteOptions{
 			Path: "@app/static-files/",
 		}}
 
 	v0 := &V0{
-		Config: config,
+		Location2Path: &l2p{appFiles: dir},
 	}
 
 	p := filepath.Join(dir, "app-version-123", "app", "static-files", "css")
@@ -384,7 +378,7 @@ func TestServeFile(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/some-files/css/style.css", nil)
 	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
 	rr := httptest.NewRecorder()
 
 	v0.serveFile(rr, req.WithContext(ctx))
@@ -402,21 +396,23 @@ func TestServeFileOverlapPath(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	config := &domain.RuntimeConfig{}
-	config.Exec.AppsPath = dir
+	// config := &domain.RuntimeConfig{}
+	// config.Exec.AppsPath = dir
+
 	appVersion := domain.AppVersion{
 		LocationKey: "app-version-123",
 	}
-	routeConfig := domain.AppspaceRouteConfig{
-		Path: "/",
-		Handler: domain.AppspaceRouteHandler{
-			Type: "file",
+	routeConfig := domain.V0AppRoute{
+		Path: domain.V0AppRoutePath{Path: "/", End: true},
+		Type: "static",
+		Options: domain.V0AppRouteOptions{
 			Path: "@app/static-files/index.html",
 		},
 	}
 
 	v0 := &V0{
-		Config: config,
+		Location2Path: &l2p{appFiles: dir},
+		//Config: config,
 	}
 
 	p := filepath.Join(dir, "app-version-123", "static-files")
@@ -429,7 +425,7 @@ func TestServeFileOverlapPath(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/favicon.ico", nil)
 	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithRouteConfig(ctx, routeConfig)
+	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
 	rr := httptest.NewRecorder()
 
 	v0.serveFile(rr, req.WithContext(ctx))
@@ -439,52 +435,10 @@ func TestServeFileOverlapPath(t *testing.T) {
 	}
 }
 
-// with appspace and route assume route is proxy
-// -> calls proxy
-// func TestServeHTTPProxyRoute(t *testing.T) {
+type l2p struct {
+	appFiles string
+}
 
-// 	mockCtrl := gomock.NewController(t)
-// 	defer mockCtrl.Finish()
-
-// 	appspaceID := domain.AppspaceID(7)
-// 	//proxyID := domain.ProxyID("abc")
-
-// 	routesV0 := domain.NewMockV0RouteModel(mockCtrl)
-// 	routesV0.EXPECT().Match("GET", "/abc").Return(&domain.AppspaceRouteConfig{
-// 		Handler: domain.AppspaceRouteHandler{Type: "function"},
-// 		Auth:    domain.AppspaceRouteAuth{Allow: "public"},
-// 	}, nil)
-// 	asRoutesModel := domain.NewMockAppspaceRouteModels(mockCtrl)
-// 	asRoutesModel.EXPECT().GetV0(appspaceID).Return(routesV0)
-// 	// asUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
-// 	// asUserModel.EXPECT().Get(appspaceID, proxyID).Return(domain.AppspaceUser{AppspaceID: appspaceID, ProxyID: proxyID}, nil)
-// 	sandboxProxy := domain.NewMockRouteHandler(mockCtrl)
-
-// 	v0 := &V0{
-// 		AppspaceRouteModels: asRoutesModel,
-// 		//AppspaceUserModel:   asUserModel,
-// 		SandboxProxy: sandboxProxy}
-
-// 	routeData := &domain.AppspaceRouteData{
-// 		URLTail: "/abc",
-// 		Appspace: &domain.Appspace{
-// 			AppspaceID: appspaceID,
-// 		},
-// 	}
-
-// 	req, err := http.NewRequest("GET", "/", nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	rr := httptest.NewRecorder()
-
-// 	sandboxProxy.EXPECT().ServeHTTP(gomock.Any(), req, routeData)
-
-// 	// ^^ here we are checking against routeData, which is a pointer
-// 	// so it's not testing whether the call populated routeData correctly.
-
-// 	v0.ServeHTTP(rr, req)
-
-// 	// TODO: check routeData was properly augmented (app, appspace)
-// }
+func (l *l2p) AppFiles(loc string) string {
+	return filepath.Join(l.appFiles, loc, "app")
+}

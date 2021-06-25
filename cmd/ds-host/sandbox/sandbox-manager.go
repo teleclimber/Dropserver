@@ -27,7 +27,10 @@ type Manager struct {
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	}
-
+	Location2Path interface {
+		App(string) string
+		AppFiles(string) string
+	}
 	Config *domain.RuntimeConfig
 }
 
@@ -72,8 +75,17 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a mutex to lock!
 	// .. or trust that it only gets called with poolMux locked by caller.
 
-	newSandbox := NewSandbox(sandboxID, appVersion, appspace, sM.Services.Get(appspace, appVersion.APIVersion), sM.Config)
-	newSandbox.AppspaceLogger = sM.AppspaceLogger
+	newSandbox := &Sandbox{
+		id:             sandboxID,
+		appVersion:     appVersion,
+		appspace:       appspace,
+		AppspaceLogger: sM.AppspaceLogger,
+		services:       sM.Services.Get(appspace, appVersion.APIVersion),
+		status:         domain.SandboxStarting,
+		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path:  sM.Location2Path,
+		Config:         sM.Config}
+
 	sM.sandboxes[appspace.AppspaceID] = newSandbox
 
 	sM.recordSandboxStatusMetric()

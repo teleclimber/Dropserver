@@ -4,6 +4,8 @@ import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
 
 import type {ReceivedMessageI} from './twine/twine.ts';
 
+import AppRouter from './app-router.ts';
+import type {Context} from './app-router.ts';
 import Metadata from "./ds-metadata.ts";
 import DsServices from './ds-services.ts';
 
@@ -14,6 +16,8 @@ export class DsRouteServer {
 	private sock_file:string;
 	private server :Server|undefined;
 
+	private app_router:AppRouter|undefined;
+
 	private mod_cache :Map<string,any> = new Map;
 
 	private stop_resolve :undefined | ((value?: unknown) => void);
@@ -22,7 +26,19 @@ export class DsRouteServer {
 		this.sock_file = path.join(Metadata.sock_path, 'server.sock');
 	}
 
+	async loadAppRouter() {
+		try {
+			const mod = await import(path.join(Metadata.app_path, "router.ts"));	// def don't hardcode router.ts!
+			this.app_router = <AppRouter>mod.default;
+		} catch(e) {
+			console.error("failed to load app router", e)
+			this.app_router = new AppRouter;
+		}
+	}
+
 	async startServer() {
+		await this.loadAppRouter();
+
 		const listener = await Deno.listen({ path: this.sock_file, transport: "unix" });
 		this.server = new Server(listener);
 
@@ -63,50 +79,37 @@ export class DsRouteServer {
 		});
 	}
 
-	async handleServiceMessage(m :ReceivedMessageI) {
-		switch (m.command) {
-			case 13:	// graceful shutdown
-				try {
-					await this.stopServer();
-				}
-				catch(e) {
-					m.sendError(e);
-				}
-				m.sendOK();
-			default:
-				m.sendError("What is this command? "+m.command);
-		}
-	}
-
 	async handleRequest(request :ServerRequest) {
 		const t0 = performance.now();
 
+		if( !this.app_router ) {
+			this.replyError(request, "app ruouter not loaded");
+			return;
+		}
+
 		const headers = request.headers;
-		const mod_file = headers.get('appspace-module');
-
-		const fn = headers.get('appspace-function');
-
-		if( mod_file === null ) {
-			this.replyError(request, "appspace-module header is null");
+		// Big changes here...
+		const matched_route = headers.get("X-Dropserver-Route-ID");
+		if( matched_route === null ) {
+			this.replyError(request, "X-Dropserver-Route-ID header is null");
+			return;
+		}
+		const route = this.app_router.getRoute(matched_route);
+		if( route === undefined) {
+			this.replyError(request, "route id not found");
+			return;
+		}
+		if( !route.handler ) {
+			this.replyError(request, "no handler attached to route");
 			return;
 		}
 
-		let mod : any;
-		try {
-			mod = await this.loadModule(mod_file);
-		}
-		catch(e) {
-			this.replyError(request, "Failed to import module "+mod_file+" Error: "+e);
-			return;
-		}
-
-		let fnc = mod;
-		if( fn ) {
-			fnc = mod[fn];
-		}
+		const ctx :Context = {
+			req: request,
+		};
 
 		try {
-			fnc(request);
+			route.handler(ctx);
 		}
 		catch(e) {
 			this.replyError(request, e);

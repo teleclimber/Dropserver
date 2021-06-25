@@ -19,8 +19,8 @@ const appspaceControlService = 12 // incmoing? For appspace control (pause, migr
 const baseDataService = 13
 const migrationJobService = 14
 const appspaceLogService = 15
-const appspaceRouteService = 16 // keeps a live list of appspace routes from appspace meta db
-const userControlService = 17   //incoming / outgoing
+const appRoutesService = 16   // keeps a live list of app routes
+const userControlService = 17 //incoming / outgoing
 
 type twineService interface {
 	Start(*twine.Twine)
@@ -74,10 +74,10 @@ type DropserverDevServer struct {
 	}
 
 	// Dev Services:
-	AppMetaService  twineService
-	RoutesService   twineService
-	UserService     twineService
-	RouteHitService twineService
+	AppMetaService   twineService
+	AppRoutesService twineService
+	UserService      twineService
+	RouteHitService  twineService
 
 	// Services:
 	MigrationJobService domain.TwineService
@@ -174,7 +174,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	}()
 
 	go s.AppMetaService.Start(t)
-	go s.RoutesService.Start(t)
+	go s.AppRoutesService.Start(t)
 	go s.UserService.Start(t)
 	go s.RouteHitService.Start(t)
 
@@ -198,7 +198,10 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 				go s.UserService.HandleMessage(m)
 			case migrationJobService:
 				go s.MigrationJobService.HandleMessage(m)
+			case appRoutesService:
+				go s.AppRoutesService.HandleMessage(m)
 			default:
+				fmt.Println("Service not found ")
 				m.SendError("Service not found")
 			}
 

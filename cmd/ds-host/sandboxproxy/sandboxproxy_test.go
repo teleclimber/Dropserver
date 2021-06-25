@@ -39,7 +39,7 @@ type testMocks struct {
 	sandboxServer  *http.Server
 	appVersion     domain.AppVersion
 	appspace       domain.Appspace
-	routeConfig    domain.AppspaceRouteConfig
+	routeConfig    domain.V0AppRoute
 }
 
 func TestSandboxBadStart(t *testing.T) {
@@ -79,9 +79,9 @@ func TestServeHTTP200(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
-		modFile := r.Header.Get("appspace-module")
-		if modFile != "@app/module-abc.ts" {
-			t.Error("wrong modfile: " + modFile)
+		routeID := r.Header.Get("X-Dropserver-Route-ID")
+		if routeID != "test-route-id" {
+			t.Error("wrong route id: " + routeID)
 		}
 		w.WriteHeader(200)            // parametrize
 		fmt.Fprintf(w, "Hello World") // return w? Or parametrize the handler.
@@ -94,7 +94,7 @@ func TestServeHTTP200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), tm.routeConfig))
+	req = req.WithContext(domain.CtxWithV0RouteConfig(req.Context(), tm.routeConfig))
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
@@ -192,11 +192,10 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		sandboxServer:  &server,
 		appVersion:     domain.AppVersion{},
 		appspace:       domain.Appspace{DomainName: "as1.ds.dev"},
-		routeConfig: domain.AppspaceRouteConfig{
-			Handler: domain.AppspaceRouteHandler{
-				File: "@app/module-abc.ts",
-			}},
-	}
+		routeConfig: domain.V0AppRoute{
+			ID:   "test-route-id",
+			Type: "function",
+		}}
 
 }
 

@@ -48,7 +48,6 @@
 		</label>
 
 		<span class="flex bg-gray-200 items-baseline">
-			<span class="px-2">Migrate:</span>
 			<select class="rounded-l border-2 text-lg" v-model="migrate_to_schema">
 				<option v-for="m in baseData.possible_migrations" :value="m">{{m}}</option>
 			</select>
@@ -64,14 +63,21 @@
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
 			</svg>
-			Kill Sandbox
+			Kill
 		</button>
 
-		<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 rounded" type="submit" @click.stop.prevent="importAndMigrate.start">
+		<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 mr-4 rounded" type="submit" @click.stop.prevent="importAndMigrate.start">
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
 			</svg>
 			{{importAndMigrate.cur_state}}
+		</button>
+
+		<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 rounded" type="submit" @click.stop.prevent="appRoutesData.reloadRoutes">
+			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+			</svg>
+			Routes
 		</button>
 	</div>
 </template>
@@ -79,6 +85,7 @@
 <script lang="ts">
 import { defineComponent, reactive } from 'vue';
 import baseData, { pauseAppspace, runMigration, setInspect, stopSandbox, ImportAndMigrate } from '../models/base-data';
+import appRoutesData from '../models/app-routes';
 
 export default defineComponent({
 	name: 'AppspaceControl',
@@ -96,7 +103,8 @@ export default defineComponent({
 		importAndMigrate.reset();
 		return {
 			baseData,
-			importAndMigrate
+			importAndMigrate,
+			appRoutesData
 		};
 	},
 	computed: {

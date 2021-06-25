@@ -20,6 +20,10 @@ import (
 
 // AppFilesModel is struct for application files manager
 type AppFilesModel struct {
+	Location2Path interface {
+		App(string) string
+		AppFiles(string) string
+	}
 	Config *domain.RuntimeConfig
 }
 
@@ -88,7 +92,7 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 
 // ReadMeta reads metadata from the files at location key
 func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, error) {
-	jsonPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "dropapp.json")
+	jsonPath := filepath.Join(a.Location2Path.AppFiles(locationKey), "dropapp.json")
 	jsonHandle, err := os.Open(jsonPath)
 	if err != nil {
 		// here the error might be that dropapp.json is not in app?
@@ -128,13 +132,33 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 	return meta, nil
 }
 
+func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error {
+	routesFile := filepath.Join(a.Location2Path.App(locationKey), "routes.json")
+	err := ioutil.WriteFile(routesFile, routesData, 0666) // TODO: correct permissions?
+	if err != nil {
+		a.getLogger(fmt.Sprintf("WriteRoutes(), location key: %v", locationKey)).Error(err)
+		return err
+	}
+	return nil
+}
+
+func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
+	routesFile := filepath.Join(a.Location2Path.App(locationKey), "routes.json")
+	routesData, err := ioutil.ReadFile(routesFile)
+	if err != nil {
+		a.getLogger(fmt.Sprintf("ReadRoutes(), location key: %v", locationKey)).Error(err)
+		return nil, err
+	}
+	return routesData, nil
+}
+
 // Delete removes the files from the system
 func (a *AppFilesModel) Delete(locationKey string) error {
 	if !a.locationKeyExists(locationKey) {
 		return nil //is that an error or do we consider this OK?
 	}
 
-	err := os.RemoveAll(filepath.Join(a.Config.Exec.AppsPath, locationKey))
+	err := os.RemoveAll(a.Location2Path.App(locationKey))
 	if err != nil {
 		a.getLogger("Delete()").Error(err)
 		return err
@@ -162,7 +186,7 @@ func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, error) {
 }
 
 func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err error) {
-	mPath := filepath.Join(a.Config.Exec.AppsPath, locationKey, "migrations")
+	mPath := filepath.Join(a.Location2Path.AppFiles(locationKey), "migrations")
 
 	mDir, err := os.Open(mPath)
 	if err != nil {
@@ -200,7 +224,7 @@ func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err err
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
-	_, err := os.Stat(filepath.Join(a.Config.Exec.AppsPath, locationKey))
+	_, err := os.Stat(a.Location2Path.App(locationKey))
 	if err == nil {
 		return true
 	}

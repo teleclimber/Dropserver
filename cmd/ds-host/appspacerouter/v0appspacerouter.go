@@ -18,15 +18,15 @@ import (
 
 // V0 handles routes for appspaces.
 type V0 struct {
-	AppspaceRouteModels interface {
-		GetV0(domain.AppspaceID) domain.V0RouteModel
-	}
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	}
 	SandboxProxy   http.Handler // versioned?
 	V0TokenManager interface {
 		CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool)
+	}
+	V0AppRoutes interface {
+		Match(appID domain.AppID, version domain.Version, method string, reqPath string) (domain.V0AppRoute, error)
 	}
 	Authenticator interface {
 		// should have ProcessLoginToken instead. Also removes dep on Token Manager
@@ -35,6 +35,9 @@ type V0 struct {
 	}
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
+	}
+	Location2Path interface {
+		AppFiles(string) string
 	}
 	Config *domain.RuntimeConfig
 
@@ -90,7 +93,7 @@ func (arV0 *V0) routeHit(next http.Handler) http.Handler {
 		ctx := r.Context()
 		appspace, _ := domain.CtxAppspaceData(ctx)
 		proxyID, _ := domain.CtxAppspaceUserProxyID(ctx)
-		routeConfig, _ := domain.CtxRouteConfig(ctx)
+		routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 		cred := struct {
 			ProxyID domain.ProxyID
 		}{proxyID}
@@ -100,12 +103,12 @@ func (arV0 *V0) routeHit(next http.Handler) http.Handler {
 				arV0.RouteHitEvents.Send(&e)
 			}
 		}(domain.AppspaceRouteHitEvent{
-			AppspaceID:  appspace.AppspaceID,
-			Request:     r,
-			RouteConfig: &routeConfig,
-			Credentials: cred,
-			Authorized:  statusW.status != http.StatusForbidden, //redundant with status?
-			Status:      statusW.status})
+			AppspaceID:    appspace.AppspaceID,
+			Request:       r,
+			V0RouteConfig: &routeConfig,
+			Credentials:   cred,
+			Authorized:    statusW.status != http.StatusForbidden, //redundant with status?
+			Status:        statusW.status})
 	})
 }
 
@@ -114,19 +117,17 @@ func (arV0 *V0) loadRouteConfig(next http.Handler) http.Handler {
 		ctx := r.Context()
 		appspace, _ := domain.CtxAppspaceData(ctx)
 
-		routeModel := arV0.AppspaceRouteModels.GetV0(appspace.AppspaceID)
-		routeConfig, err := routeModel.Match(r.Method, r.URL.Path)
+		route, err := arV0.V0AppRoutes.Match(appspace.AppID, appspace.AppVersion, r.Method, r.URL.Path)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		if routeConfig == nil {
+		if route == (domain.V0AppRoute{}) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		ctx = domain.CtxWithRouteConfig(ctx, *routeConfig)
+		ctx = domain.CtxWithV0RouteConfig(ctx, route)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -202,7 +203,7 @@ func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
 
 		// [if no user but api key, repeat for api key (look it up, get permissions, find match)]
 		ctx := r.Context()
-		routeConfig, _ := domain.CtxRouteConfig(ctx)
+		routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 
 		// if it's public route, then always authorized
 		if routeConfig.Auth.Allow == "public" {
@@ -235,14 +236,14 @@ func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
 
 // ServeHTTP handles http traffic to the appspace
 func (arV0 *V0) handleRoute(w http.ResponseWriter, r *http.Request) {
-	routeConfig, _ := domain.CtxRouteConfig(r.Context())
-	switch routeConfig.Handler.Type {
+	routeConfig, _ := domain.CtxV0RouteConfig(r.Context())
+	switch routeConfig.Type {
 	case "function":
 		arV0.SandboxProxy.ServeHTTP(w, r)
-	case "file":
+	case "static":
 		arV0.serveFile(w, r)
 	default:
-		arV0.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Handler.Type)
+		arV0.getLogger("ServeHTTP").Log("route type not implemented: " + routeConfig.Type)
 		http.Error(w, "route type not implemented", http.StatusInternalServerError)
 	}
 }
@@ -287,10 +288,10 @@ func (arV0 *V0) serveFile(w http.ResponseWriter, r *http.Request) {
 // - then tack on the
 func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 	ctx := r.Context()
-	routeConfig, _ := domain.CtxRouteConfig(ctx)
+	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 	// from route config + appspace/app locations, determine the path of the desired file on local system
 	root := ""
-	p := routeConfig.Handler.Path
+	p := routeConfig.Options.Path
 	if strings.HasPrefix(p, "@appspace/") {
 		appspace, ok := domain.CtxAppspaceData(ctx)
 		if !ok {
@@ -304,7 +305,7 @@ func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 			panic("v0appspaceRouter getFilePath: expected an app version")
 		}
 		p = strings.TrimPrefix(p, "@app/")
-		root = filepath.Join(arV0.Config.Exec.AppsPath, appVersion.LocationKey, "app")
+		root = arV0.Location2Path.AppFiles(appVersion.LocationKey)
 	} else {
 		arV0.getLogger("getFilePath").Log("Path prefix not recognized: " + p) // This should be logged to appspace log, not general log
 		return "", errors.New("path prefix not recognized")
@@ -320,7 +321,7 @@ func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 	// Now determine the path of the file requested from the url
 	urlTail := filepath.FromSlash(r.URL.Path)
 	// have to remove the prefix from urltail.
-	urlPrefix := routeConfig.Path
+	urlPrefix := routeConfig.Path.Path
 	urlTail = strings.TrimPrefix(urlTail, urlPrefix) // doing this with strings like that is super error-prone!
 
 	p = filepath.Join(serveRoot, urlTail)

@@ -116,18 +116,17 @@ func TestGetMigrationDirs(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	cfg := &domain.RuntimeConfig{}
-	cfg.DataDir = dir
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
+	loc := "abc-loc"
 
 	m := AppFilesModel{
-		Config: cfg}
-
-	for _, d := range []string{"boo", "0", "5", "zoink", "2b", "3"} {
-		os.MkdirAll(filepath.Join(cfg.Exec.AppsPath, "abc", "migrations", d), 0766)
+		Location2Path: &l2p{appFiles: dir},
 	}
 
-	mInts, dsErr := m.getMigrationDirs("abc")
+	for _, d := range []string{"boo", "0", "5", "zoink", "2b", "3"} {
+		os.MkdirAll(filepath.Join(m.Location2Path.AppFiles(loc), "migrations", d), 0766)
+	}
+
+	mInts, dsErr := m.getMigrationDirs(loc)
 	if dsErr != nil {
 		t.Fatal(dsErr)
 	}
@@ -138,7 +137,6 @@ func TestGetMigrationDirs(t *testing.T) {
 	if mInts[0] != 3 {
 		t.Fatal("wrong order for migrations", mInts)
 	}
-
 }
 
 // test removal please
@@ -154,34 +152,46 @@ func TestDelete(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.DataDir = dir
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
+	cfg.Exec.AppsPath = dir
 
 	m := AppFilesModel{
-		Config: cfg}
+		Location2Path: &l2p{appFiles: dir, app: dir},
+		Config:        cfg}
 
 	files := map[string][]byte{
 		"file1":             []byte("hello world"),
 		"bar/baz/file2.txt": []byte("oink oink oink"),
 	}
 
-	locKey, dsErr := m.Save(&files)
-	if dsErr != nil {
-		t.Fatal(dsErr)
-	}
-
-	_, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "file1"))
+	locKey, err := m.Save(&files)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	dsErr = m.Delete(locKey)
-	if dsErr != nil {
-		t.Fatal(dsErr)
+	_, err = ioutil.ReadFile(filepath.Join(m.Location2Path.AppFiles(locKey), "file1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = m.Delete(locKey)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	_, err = os.Stat(filepath.Join(cfg.Exec.AppsPath, locKey))
 	if err == nil || !os.IsNotExist(err) {
 		t.Fatal("expected not exist error", err)
 	}
+}
+
+type l2p struct {
+	appFiles string
+	app      string
+}
+
+func (l *l2p) App(loc string) string {
+	return filepath.Join(l.app, loc)
+}
+func (l *l2p) AppFiles(loc string) string {
+	return filepath.Join(l.appFiles, loc, "app")
 }

@@ -14,6 +14,7 @@ import type {ReceivedMessageI} from './twine/twine.ts';
 const sandboxService = 11;
 const executeService = 12;
 const migrateService = 13;
+const appService = 14;
 
 export class DsServices {
 	private twine:Twine|undefined;
@@ -38,7 +39,10 @@ export class DsServices {
 					const exec_mod = await import("./ds-exec-service.ts");
 					exec_mod.handleMessage(message);
 					break;
-
+				case appService:
+					const app_service_mod = await import("./ds-app-service.ts");
+					app_service_mod.handleMessage(message);
+					break;
 				case migrateService:
 					const migrate_mod = await import('./ds-migrate-service.ts');
 					migrate_mod.handleMessage(message);
@@ -54,9 +58,20 @@ export class DsServices {
 		return this.twine;
 	}
 
-	private async handleMessage(message:ReceivedMessageI) {
-		// For now just pipe straight to route server.
-		DsRouteServer.handleServiceMessage(message);
+	private async handleMessage(m:ReceivedMessageI) {
+		switch (m.command) {
+			case 13:	// graceful shutdown
+				try {
+					// All we need to do is stop the route server, and the script will exit. I think.
+					await DsRouteServer.stopServer();
+				}
+				catch(e) {
+					m.sendError(e);
+				}
+				m.sendOK();
+			default:
+				m.sendError("What is this command? "+m.command);
+		}
 	}
 }
 

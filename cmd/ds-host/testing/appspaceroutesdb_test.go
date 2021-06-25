@@ -9,12 +9,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
-	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 )
 
 func TestSandboxExecFn(t *testing.T) {
@@ -45,9 +42,11 @@ func TestSandboxExecFn(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = socketsDir
 	cfg.DataDir = dataDir
-	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+
+	appsPath := filepath.Join(dataDir, "apps")
+	l2p := &l2p{appFiles: appsPath, app: appsPath}
 
 	appVersion := domain.AppVersion{
 		LocationKey: "app-location"}
@@ -59,8 +58,9 @@ func TestSandboxExecFn(t *testing.T) {
 	services.EXPECT().Get(&appspace, domain.APIVersion(0))
 
 	sM := sandbox.Manager{
-		Services: services,
-		Config:   cfg}
+		Services:      services,
+		Location2Path: l2p,
+		Config:        cfg}
 
 	sM.Init()
 
@@ -72,105 +72,7 @@ func TestSandboxExecFn(t *testing.T) {
 	defer sb.Graceful()
 
 	data := []byte("export default function testFn() { console.log(\"testFn running\"); };")
-	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "app", "test-file.ts"), data, 0600)
-	if err != nil {
-		t.Error(err)
-	}
-
-	handler := domain.AppspaceRouteHandler{
-		File: "@app/test-file.ts"}
-	dsErr := sb.ExecFn(handler)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-}
-
-// This fails, but should get replaced with running a router, etc...
-func TestSandboxCreateRoute(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	// Need:
-	// - appspace script that creates route
-	// - sandbox
-	// - meta db with in-memroy db
-
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(dir)
-
-	socketsDir := path.Join(dir, "sockets")
-	os.MkdirAll(socketsDir, 0700)
-	dataDir := path.Join(dir, "data")
-	os.MkdirAll(filepath.Join(dataDir, "apps", "app-location", "app"), 0700)
-	os.MkdirAll(filepath.Join(dataDir, "appspaces", "appspace-location"), 0700)
-
-	cfg := &domain.RuntimeConfig{}
-	cfg.Sandbox.SocketsDir = socketsDir
-	cfg.DataDir = dataDir
-	cfg.Exec.AppsPath = filepath.Join(dataDir, "apps")
-	cfg.Exec.AppspacesPath = filepath.Join(dataDir, "appspaces")
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-
-	appspaceID := domain.AppspaceID(13)
-
-	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
-
-	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
-	appspaceStatus.EXPECT().IsLockedClosed(appspaceID).Return(false)
-
-	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
-		AppspaceModel:  appspaceModel,
-		AppspaceStatus: appspaceStatus,
-		Config:         cfg}
-	appspaceMetaDb.Init()
-
-	vxUserModels := &vxservices.VxUserModels{
-		//AppspaceUserModel: appspaceUserModel,
-	}
-
-	appspaceRouteModels := &appspacemetadb.AppspaceRouteModels{
-		Config:         cfg,
-		AppspaceMetaDB: appspaceMetaDb}
-	appspaceRouteModels.Init()
-
-	appspaceDB := &appspacedb.AppspaceDB{
-		Config: cfg}
-	appspaceDB.Init()
-
-	services := &vxservices.VXServices{
-		RouteModels:  appspaceRouteModels,
-		UserModels:   vxUserModels,
-		V0AppspaceDB: appspaceDB.V0}
-
-	sM := sandbox.Manager{
-		Services: services,
-		Config:   cfg}
-
-	appVersion := domain.AppVersion{
-		LocationKey: "app-location"}
-	appspace := domain.Appspace{
-		AppspaceID:  appspaceID,
-		LocationKey: "appspace-location"}
-
-	appspaceMetaDb.Create(appspace.AppspaceID, 0)
-	sM.Init()
-
-	sandboxChan := sM.GetForAppspace(&appVersion, &appspace)
-	sb := <-sandboxChan
-	defer sb.Graceful()
-
-	ts := `
-	import Routes from "@dropserver/appspace-routes-db.ts";
-	export default async function createRoute() {
-		await Routes.createRoute(["get", "post"], "/some/path", {allow:"authorized"}, {file:"file.ts", function:"handleRoute", type:"function"});
-	}`
-
-	data := []byte(ts)
-	err = ioutil.WriteFile(path.Join(cfg.Exec.AppsPath, "app-location", "app", "test-file.ts"), data, 0600)
+	err = ioutil.WriteFile(path.Join(l2p.AppFiles(appVersion.LocationKey), "test-file.ts"), data, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,16 +82,6 @@ func TestSandboxCreateRoute(t *testing.T) {
 	err = sb.ExecFn(handler)
 	if err != nil {
 		t.Error(err)
-	}
-
-	// check to see if the route exists in the DB...
-	rm := appspaceRouteModels.GetV0(domain.AppspaceID(13))
-	route, dsErr := rm.Match("get", "/some/path")
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-	if route == nil {
-		t.Error("Expected one route")
 	}
 }
 

@@ -11,7 +11,7 @@ import Metadata from "./ds-metadata.ts";
 
 Deno.test({
 	name: "start and stop server",
-	ignore: true,
+	ignore: true,	// Probably need to put more thought into how the app router is loaded to make this test worthwhile.
 	fn: async () => {
 		const t = new Twine("", false);
 		//@ts-ignore
@@ -23,6 +23,9 @@ Deno.test({
 
 		const orig_sock_path = Metadata.sock_path;
 		Metadata.sock_path = dir;
+
+		const orig_app_path = Metadata.app_path;
+		Metadata.app_path = "/"; //???
 
 		const serv_mod = await import('./ds-route-server.ts');
 		const s = serv_mod.default;
@@ -82,7 +85,14 @@ Deno.test({
 			for await( let m of sandbox_twine.incomingMessages() ) {
 				if( m.service == 11 && m.command == 13 ) {
 					console.log("got message to stop server");
-					s.handleServiceMessage(m);
+					try {
+						// All we need to do is stop the route server, and the script will exit. I think.
+						await s.stopServer();
+					}
+					catch(e) {
+						m.sendError(e);
+					}
+					m.sendOK();
 				}
 			}
 		})();
