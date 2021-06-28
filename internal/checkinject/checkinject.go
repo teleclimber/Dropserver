@@ -1,6 +1,7 @@
 package checkinject
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -91,8 +92,6 @@ func (d *DepGraph) getNodeDeps(val reflect.Value) (string, bool) {
 		valName, ok := d.getNodeDeps(val.Field(i))
 		if ok {
 			con.ValueName = valName
-		} else if tag.Required {
-			fmt.Printf("Missing required dependency in %v: %v", node.Name, con.FieldName)
 		}
 		node.Deps = append(node.Deps, con)
 	}
@@ -166,7 +165,7 @@ func isEvent(name string) bool {
 	return strings.Contains(strings.ToLower(name), "event")
 }
 
-func (d *DepGraph) PanicOnMissing() {
+func (d *DepGraph) CheckMissing() error {
 	missing := false
 	for _, node := range d.Nodes {
 		for _, dep := range node.Deps {
@@ -177,8 +176,9 @@ func (d *DepGraph) PanicOnMissing() {
 		}
 	}
 	if missing {
-		panic("checkinject detected missing dependencies.")
+		return errors.New("checkinject detected missing dependencies")
 	}
+	return nil
 }
 
 func getTag(f reflect.StructField) (tagValue, bool) {

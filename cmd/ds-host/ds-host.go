@@ -547,11 +547,11 @@ func main() {
 	server.Init()
 
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
-		depTree := checkinject.Collect(*server)
+		depGraph := checkinject.Collect(*server)
 		if *checkInjectOut != "" {
-			depTree.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
+			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
 		}
-		depTree.PanicOnMissing()
+		depGraph.CheckMissing()
 	}
 
 	// start things up

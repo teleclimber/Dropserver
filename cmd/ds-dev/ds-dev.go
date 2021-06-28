@@ -48,7 +48,7 @@ var appspaceDirFlag = flag.String("appspace", "", "specify root directory of app
 
 var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
 
-var checkInject = flag.String("checkinject-out", "", "dump checkinject data to specified file")
+var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 const ownerID = domain.UserID(7)
 const appID = domain.AppID(11)
@@ -330,12 +330,12 @@ func main() {
 		AppspaceRouter:       appspaceRouter}
 
 	// experimental:
-	if os.Getenv("DEBUG") != "" || *checkInject != "" {
-		depTree := checkinject.Collect(*server)
-		if *checkInject != "" {
-			depTree.GenerateDotFile(*checkInject, []interface{}{runtimeConfig, location2path})
+	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
+		depGraph := checkinject.Collect(*server)
+		if *checkInjectOut != "" {
+			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
 		}
-		depTree.PanicOnMissing()
+		depGraph.CheckMissing()
 	}
 
 	fmt.Println("starting server")
