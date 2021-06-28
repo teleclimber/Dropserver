@@ -30,18 +30,18 @@ type AppGetter struct {
 		ReadMeta(string) (*domain.AppFilesMetadata, error)
 		WriteRoutes(string, []byte) error
 		Delete(string) error
-	}
+	} `checkinject:"required"`
 	AppModel interface {
 		Create(domain.UserID, string) (*domain.App, error)
 		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	SandboxMaker interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
-	}
+	} `checkinject:"required"`
 	V0AppRoutes interface {
 		ValidateStoredRoutes(routes []domain.V0AppRoute) error
-	}
+	} `checkinject:"required"`
 
 	keys map[domain.AppGetKey]AppGetData
 }

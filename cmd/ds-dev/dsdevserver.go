@@ -30,57 +30,57 @@ type twineService interface {
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config        *domain.RuntimeConfig
-	DevAppModel   *DevAppModel
+	Config        *domain.RuntimeConfig `checkinject:"required"`
+	DevAppModel   *DevAppModel          `checkinject:"required"`
 	AppFilesModel interface {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
-	}
+	} `checkinject:"required"`
 	AppspaceFiles interface {
 		Reset()
-	}
-	DevAppspaceModel *DevAppspaceModel
+	} `checkinject:"required"`
+	DevAppspaceModel *DevAppspaceModel `checkinject:"required"`
 	AppspaceMetaDB   interface {
 		CloseConn(domain.AppspaceID) error
-	}
+	} `checkinject:"required"`
 	AppspaceDB interface {
 		CloseAppspace(domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
-	}
+	} `checkinject:"required"`
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 		SetInspect(bool)
-	}
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
-	}
+	} `checkinject:"required"`
 	DevSandboxMaker interface {
 		SetInspect(bool)
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(domain.AppspaceID, string) chan struct{}
-	}
+	} `checkinject:"required"`
 	AppspaceLogEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
-	}
+	} `checkinject:"required"`
 	AppspaceStatusEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
-	}
+	} `checkinject:"required"`
 
 	// Dev Services:
-	AppMetaService   twineService
-	AppRoutesService twineService
-	UserService      twineService
-	RouteHitService  twineService
+	AppMetaService   twineService `checkinject:"required"`
+	AppRoutesService twineService `checkinject:"required"`
+	UserService      twineService `checkinject:"required"`
+	RouteHitService  twineService `checkinject:"required"`
 
 	// Services:
-	MigrationJobService domain.TwineService
+	MigrationJobService domain.TwineService `checkinject:"required"`
 
 	appPath      string
 	appspacePath string

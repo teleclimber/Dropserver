@@ -9,7 +9,7 @@ import (
 type DropserverRoutes struct {
 	V0DropServerRoutes interface {
 		subRouter() http.Handler
-	}
+	} `checkinject:"required"`
 }
 
 // this needs to be subroutes

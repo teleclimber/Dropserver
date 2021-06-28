@@ -19,16 +19,16 @@ const loginTokenDuration = time.Minute
 // V0TokenManager creates appspace login tokens
 // and sends them as needed
 type V0TokenManager struct {
-	Config domain.RuntimeConfig
+	Config domain.RuntimeConfig `checkinject:"required"`
 	DS2DS  interface {
 		GetClient() *http.Client
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		GetByDropID(domain.AppspaceID, string) (domain.AppspaceUser, error)
-	}
+	} `checkinject:"required"`
 
 	tokensMux sync.Mutex
 	tokens    map[string]domain.V0AppspaceLoginToken

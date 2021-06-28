@@ -19,14 +19,14 @@ import (
 
 // AppspaceMetaDB opens and tracks connections to appspace meta DBs
 type AppspaceMetaDB struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 	//Validator     domain.Validator
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		IsLockedClosed(domain.AppspaceID) bool
-	}
+	} `checkinject:"required"`
 
 	connsMux sync.Mutex
 	conns    map[domain.AppspaceID]*DbConn

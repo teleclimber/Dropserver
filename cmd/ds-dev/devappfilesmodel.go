@@ -5,7 +5,7 @@ import "github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 // DevAppFilesModel embeds AppFilesModel to intercept
 // Read/Write Routes to avoid writing to disk
 type DevAppFilesModel struct {
-	appfilesmodel.AppFilesModel
+	appfilesmodel.AppFilesModel `checkinject:"required"`
 
 	routesData []byte
 }

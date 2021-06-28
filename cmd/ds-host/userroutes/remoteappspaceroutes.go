@@ -23,19 +23,19 @@ type RemoteAppspaceMeta struct {
 }
 
 type RemoteAppspaceRoutes struct {
-	Config              domain.RuntimeConfig
+	Config              domain.RuntimeConfig `checkinject:"required"`
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
 		GetForUser(userID domain.UserID) ([]domain.RemoteAppspace, error)
 		Create(userID domain.UserID, domainName string, ownerDropID string, dropID string) error
 		Delete(userID domain.UserID, domainName string) error
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	DropIDModel interface {
 		Get(handle string, dom string) (domain.DropID, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (a *RemoteAppspaceRoutes) subRouter() http.Handler {

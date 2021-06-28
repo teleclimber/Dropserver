@@ -16,9 +16,9 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config               *domain.RuntimeConfig
-	DropserverDevHandler http.Handler
-	AppspaceRouter       http.Handler
+	Config               *domain.RuntimeConfig `checkinject:"required"`
+	DropserverDevHandler http.Handler          `checkinject:"required"`
+	AppspaceRouter       http.Handler          `checkinject:"required"`
 }
 
 // Start starts up the server so it listens for connections

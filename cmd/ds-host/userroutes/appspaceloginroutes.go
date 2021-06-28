@@ -12,22 +12,22 @@ import (
 
 // AppspaceLoginRoutes handle
 type AppspaceLoginRoutes struct {
-	Config        *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromDomain(dom string) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
-	}
+	} `checkinject:"required"`
 	DS2DS interface {
 		GetRemoteAPIVersion(domainName string) (int, error)
-	}
+	} `checkinject:"required"`
 	V0RequestToken interface {
 		RequestToken(ctx context.Context, userID domain.UserID, appspaceDomain string, sessionID string) (string, error)
-	}
+	} `checkinject:"required"`
 	V0TokenManager interface {
 		GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (u *AppspaceLoginRoutes) routeGroup(r chi.Router) {

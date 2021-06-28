@@ -12,7 +12,7 @@ import (
 
 // Manager manages the connection for the database
 type Manager struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 	handle *sqlx.DB
 }
 

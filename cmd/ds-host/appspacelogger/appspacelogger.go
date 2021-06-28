@@ -27,10 +27,10 @@ type logger struct {
 type AppspaceLogger struct {
 	AppspaceLogEvents interface {
 		Send(domain.AppspaceLogEvent)
-	}
+	} `checkinject:"optional"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 
 	Config *domain.RuntimeConfig
 

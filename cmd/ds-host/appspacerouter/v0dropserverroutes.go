@@ -24,17 +24,17 @@ import (
 type V0DropserverRoutes struct {
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	Authenticator interface {
 		Unset(w http.ResponseWriter, r *http.Request)
-	}
+	} `checkinject:"required"`
 	V0RequestToken interface {
 		ReceiveToken(ref, token string)
 		ReceiveError(ref string, err error)
-	}
+	} `checkinject:"required"`
 	V0TokenManager interface {
 		SendLoginToken(appspaceID domain.AppspaceID, dropID string, ref string) error
-	}
+	} `checkinject:"required"`
 }
 
 func (d *V0DropserverRoutes) subRouter() http.Handler {

@@ -12,7 +12,7 @@ import (
 type SandboxProxy struct {
 	SandboxManager interface {
 		GetForAppspace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
-	} // not needed at server level
+	} `checkinject:"required"`
 }
 
 // ServeHTTP forwards the request to a sandbox

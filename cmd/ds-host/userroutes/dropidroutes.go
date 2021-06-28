@@ -13,13 +13,13 @@ import (
 type DropIDRoutes struct {
 	DomainController interface {
 		GetDropIDDomains(userID domain.UserID) ([]domain.DomainData, error)
-	}
+	} `checkinject:"required"`
 	DropIDModel interface {
 		Create(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
 		Update(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error)
 		Get(handle string, dom string) (domain.DropID, error)
 		GetForUser(userID domain.UserID) ([]domain.DropID, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (d *DropIDRoutes) subRouter() http.Handler {

@@ -20,21 +20,21 @@ import (
 type AppspaceRouter struct {
 	Authenticator interface {
 		AppspaceUserProxyID(http.Handler) http.Handler
-	}
+	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
-	}
+	} `checkinject:"required"`
 	DropserverRoutes interface {
 		Router() http.Handler
-	}
-	V0AppspaceRouter http.Handler
+	} `checkinject:"required"`
+	V0AppspaceRouter http.Handler `checkinject:"required"`
 
 	liveCounterMux sync.Mutex
 	liveCounter    map[domain.AppspaceID]int

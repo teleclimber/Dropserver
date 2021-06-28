@@ -33,11 +33,11 @@ import (
 type SandboxMaker struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
-	}
+	} `checkinject:"required"`
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	}
-	Config *domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {

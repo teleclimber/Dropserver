@@ -14,17 +14,17 @@ type AdminRoutes struct {
 		GetAll() ([]domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 		GetAllAdmins() ([]domain.UserID, error)
-	}
+	} `checkinject:"required"`
 	SettingsModel interface {
 		Get() (domain.Settings, error)
 		Set(domain.Settings) error
-	}
+	} `checkinject:"required"`
 	UserInvitationModel interface {
 		GetAll() ([]domain.UserInvitation, error)
 		Get(email string) (domain.UserInvitation, error)
 		Create(email string) error
 		Delete(email string) error
-	}
+	} `checkinject:"required"`
 }
 
 func (a *AdminRoutes) subRouter() http.Handler {

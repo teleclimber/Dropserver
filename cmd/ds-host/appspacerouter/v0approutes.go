@@ -27,11 +27,11 @@ type appVersionKey struct {
 type V0AppRoutes struct {
 	AppModel interface {
 		GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppFilesModel interface {
 		ReadRoutes(locationKey string) ([]byte, error)
-	}
-	Config domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 
 	appRoutes map[appVersionKey][]compiledRoute
 

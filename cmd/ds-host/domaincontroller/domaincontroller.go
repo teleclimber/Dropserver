@@ -12,10 +12,10 @@ import (
 // this might be where we cache domains and their associations
 // ..for faster lookups on requests
 type DomainController struct {
-	Config        *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromDomain(dom string) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 }
 
 // GetDomains for user. Includes all available domains for all use cases

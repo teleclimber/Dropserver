@@ -31,7 +31,7 @@ type AppspaceUserRoutes struct {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
-	}
+	} `checkinject:"required"`
 }
 
 func (a *AppspaceUserRoutes) subRouter() http.Handler {

@@ -12,14 +12,14 @@ import (
 type MigrationJobService struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		GetRunning() ([]domain.MigrationJob, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobEvents interface {
 		SubscribeAppspace(domain.AppspaceID, chan<- domain.MigrationJob)
 		Unsubscribe(chan<- domain.MigrationJob)
-	}
+	} `checkinject:"required"`
 
 	authUser domain.UserID
 }

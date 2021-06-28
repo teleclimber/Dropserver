@@ -68,38 +68,38 @@ type statusData struct {
 type AppspaceStatus struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspacePausedEvent interface {
 		Subscribe(chan<- domain.AppspacePausedEvent)
-	}
+	} `checkinject:"required"`
 	AppModel interface {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 
 	AppspaceInfoModels interface {
 		GetSchema(domain.AppspaceID) (int, error)
-	}
+	} `checkinject:"required"`
 
 	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 	AppspaceRouter interface {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
-	}
+	} `checkinject:"required"`
 	MigrationJobEvents interface {
 		Subscribe(chan<- domain.MigrationJob)
-	}
+	} `checkinject:"required"`
 
 	//AppVersionEvent for when an app version can change its schema/whatever live
 	// This is only relevant in ds-dev and can be left nil in prod.
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
-	}
+	} `checkinject:"optional"`
 
 	AppspaceStatusEvents interface {
 		Send(domain.AppspaceID, domain.AppspaceStatusEvent)
-	}
+	} `checkinject:"required"`
 
 	hostStopMux sync.Mutex
 	hostStop    bool

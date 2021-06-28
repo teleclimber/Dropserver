@@ -18,21 +18,21 @@ type AuthRoutes struct {
 	Views interface {
 		Login(http.ResponseWriter, domain.LoginViewData)
 		Signup(http.ResponseWriter, domain.SignupViewData)
-	}
+	} `checkinject:"required"`
 	SettingsModel interface {
 		Get() (domain.Settings, error)
-	}
+	} `checkinject:"required"`
 	UserModel interface {
 		Create(email, password string) (domain.User, error)
 		GetFromEmailPassword(email, password string) (domain.User, error)
-	}
+	} `checkinject:"required"`
 	UserInvitationModel interface {
 		Get(email string) (domain.UserInvitation, error)
-	}
+	} `checkinject:"required"`
 	Authenticator interface {
 		SetForAccount(http.ResponseWriter, domain.UserID) error
 		Unset(http.ResponseWriter, *http.Request)
-	}
+	} `checkinject:"required"`
 }
 
 func (a *AuthRoutes) routeGroup(r chi.Router) {

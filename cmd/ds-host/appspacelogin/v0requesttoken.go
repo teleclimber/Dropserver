@@ -29,13 +29,13 @@ type requestResults struct {
 var timeout = 30 * time.Second
 
 type V0RequestToken struct {
-	Config domain.RuntimeConfig
+	Config domain.RuntimeConfig `checkinject:"required"`
 	DS2DS  interface {
 		GetClient() *http.Client
-	}
+	} `checkinject:"required"`
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
-	}
+	} `checkinject:"required"`
 
 	reqsMux sync.Mutex
 	reqs    []tokenRequest

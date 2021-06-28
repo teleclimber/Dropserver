@@ -30,7 +30,7 @@ type ContactRoutes struct {
 		Delete(userID domain.UserID, contactID domain.ContactID) error
 		Get(contactID domain.ContactID) (domain.Contact, error)
 		GetForUser(userID domain.UserID) ([]domain.Contact, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (c *ContactRoutes) subRouter() http.Handler {

@@ -47,7 +47,7 @@ import (
 // ..that is not implemented but is said to serve login token requests.
 
 type DS2DS struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 	client *http.Client
 }
 

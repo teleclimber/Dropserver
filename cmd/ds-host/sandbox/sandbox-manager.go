@@ -19,19 +19,19 @@ import (
 type Manager struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
-	}
+	} `checkinject:"required"`
 	nextID    int
 	poolMux   sync.Mutex
 	sandboxes map[domain.AppspaceID]domain.SandboxI // all sandboxes are always committed
 
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	}
+	} `checkinject:"required"`
 	Location2Path interface {
 		App(string) string
 		AppFiles(string) string
-	}
-	Config *domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 type request struct {

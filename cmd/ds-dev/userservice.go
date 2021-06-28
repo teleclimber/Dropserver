@@ -17,18 +17,18 @@ import (
 // UserService is a twine service that sets the desired user params
 // and keeps the frontend up to date with app's declared permissions
 type UserService struct {
-	DevAuthenticator  *DevAuthenticator
+	DevAuthenticator  *DevAuthenticator `checkinject:"required"`
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
-	}
+	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
 		Unsubscribe(chan<- domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 }
 
 // Start creates listeners and then shuts everything down when twine exits

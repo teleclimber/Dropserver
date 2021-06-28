@@ -12,18 +12,18 @@ import (
 type MigrationJobRoutes struct {
 	AppModel interface {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
 		GetJob(jobID domain.JobID) (*domain.MigrationJob, error)
 		GetForAppspace(appspaceID domain.AppspaceID) ([]*domain.MigrationJob, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
-	}
+	} `checkinject:"required"`
 }
 
 func (j *MigrationJobRoutes) subRouter() http.Handler {

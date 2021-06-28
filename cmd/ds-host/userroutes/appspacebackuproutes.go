@@ -18,14 +18,14 @@ type BackupFile struct {
 }
 
 type AppspaceBackupRoutes struct {
-	Config             *domain.RuntimeConfig
+	Config             *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceFilesModel interface {
 		GetBackups(locationKey string) ([]string, error)
 		DeleteBackup(locationKey string, filename string) error
-	}
+	} `checkinject:"required"`
 	BackupAppspace interface {
 		CreateBackup(appspaceID domain.AppspaceID) (string, error)
-	}
+	} `checkinject:"required"`
 }
 
 // not 100% sure what the api is here.

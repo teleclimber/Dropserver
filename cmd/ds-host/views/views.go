@@ -13,7 +13,7 @@ import (
 
 // Views struct handles server-rendered templated views
 type Views struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 
 	base BaseData
 

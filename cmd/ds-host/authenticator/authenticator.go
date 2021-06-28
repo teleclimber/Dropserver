@@ -16,13 +16,13 @@ const appspaceExpMinutes = 14 * 24 * 60 // temporary: two week lifetime for apps
 
 // Authenticator contains middleware functions for performing authentication
 type Authenticator struct {
-	Config      *domain.RuntimeConfig
+	Config      *domain.RuntimeConfig `checkinject:"required"`
 	CookieModel interface {
 		Get(cookieID string) (domain.Cookie, error)
 		Create(domain.Cookie) (string, error)
 		UpdateExpires(cookieID string, exp time.Time) error
 		Delete(cookieID string) error
-	}
+	} `checkinject:"required"`
 }
 
 // SetForAccount creates a cookie and sends it down

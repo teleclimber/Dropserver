@@ -7,7 +7,7 @@ import (
 )
 
 type Location2Path struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 // App return the app files directory as well

@@ -10,19 +10,19 @@ type DeleteAppspace struct {
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 		LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		Delete(domain.AppspaceID) error
-	}
+	} `checkinject:"required"`
 	AppspaceFilesModel interface {
 		DeleteLocation(string) error
-	}
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		DeleteForAppspace(domain.AppspaceID) error
-	}
+	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		DeleteForAppspace(domain.AppspaceID) error
-	}
+	} `checkinject:"required"`
 }
 
 // Delete permanently deletes all data associated with an appspace

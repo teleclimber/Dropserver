@@ -31,14 +31,14 @@ type AppRoutesService struct {
 	AppFilesModel interface {
 		ReadRoutes(locationKey string) ([]byte, error)
 		WriteRoutes(locationKey string, routesData []byte) error
-	}
+	} `checkinject:"required"`
 	AppGetter interface {
 		GetRouterData(loc string) ([]domain.V0AppRoute, error)
-	}
+	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
 		Unsubscribe(chan<- domain.AppID)
-	}
+	} `checkinject:"required"`
 
 	routeError error
 

@@ -12,14 +12,14 @@ import (
 type AppspaceStatusService struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Track(domain.AppspaceID) domain.AppspaceStatusEvent
-	}
+	} `checkinject:"required"`
 	AppspaceStatusEvents interface {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
-	}
+	} `checkinject:"required"`
 
 	authUser domain.UserID
 }

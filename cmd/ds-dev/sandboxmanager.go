@@ -13,18 +13,18 @@ var sandboxID = 0
 type DevSandboxManager struct {
 	AppspaceLogger interface {
 		Log(domain.AppspaceID, string, string)
-	}
+	} `checkinject:"required"`
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	}
+	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
-	}
+	} `checkinject:"required"`
 	Location2Path interface {
 		App(string) string
 		AppFiles(string) string
-	}
-	Config *domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 
 	sb      domain.SandboxI
 	inspect bool

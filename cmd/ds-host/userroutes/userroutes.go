@@ -44,31 +44,31 @@ type routeGroup interface {
 
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
-	Config        *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	Authenticator interface {
 		AccountUser(http.Handler) http.Handler
-	}
+	} `checkinject:"required"`
 	Views interface {
 		GetStaticFS() fs.FS
-	}
-	AuthRoutes           routeGroup
-	AppspaceLoginRoutes  routeGroup
-	ApplicationRoutes    subRoutes
-	AppspaceRoutes       subRoutes
-	RemoteAppspaceRoutes subRoutes
-	ContactRoutes        subRoutes
-	DomainRoutes         subRoutes
-	DropIDRoutes         subRoutes
-	MigrationJobRoutes   subRoutes
-	AdminRoutes          subRoutes
-	AppspaceStatusTwine  domain.TwineService
-	MigrationJobTwine    domain.TwineService
+	} `checkinject:"required"`
+	AuthRoutes           routeGroup          `checkinject:"required"`
+	AppspaceLoginRoutes  routeGroup          `checkinject:"required"`
+	ApplicationRoutes    subRoutes           `checkinject:"required"`
+	AppspaceRoutes       subRoutes           `checkinject:"required"`
+	RemoteAppspaceRoutes subRoutes           `checkinject:"required"`
+	ContactRoutes        subRoutes           `checkinject:"required"`
+	DomainRoutes         subRoutes           `checkinject:"required"`
+	DropIDRoutes         subRoutes           `checkinject:"required"`
+	MigrationJobRoutes   subRoutes           `checkinject:"required"`
+	AdminRoutes          subRoutes           `checkinject:"required"`
+	AppspaceStatusTwine  domain.TwineService `checkinject:"required"`
+	MigrationJobTwine    domain.TwineService `checkinject:"required"`
 	UserModel            interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdatePassword(userID domain.UserID, password string) error
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
-	}
+	} `checkinject:"required"`
 
 	mux *chi.Mux
 }

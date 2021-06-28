@@ -13,10 +13,10 @@ import (
 type MigrationMinder struct {
 	AppModel interface {
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 }
 
 // GetAllForOwner checks each appspace for potential migration available

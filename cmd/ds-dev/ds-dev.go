@@ -21,6 +21,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	"github.com/teleclimber/DropServer/internal/checkinject"
 )
 
 // Some lifecycle sequences:
@@ -46,6 +47,8 @@ var appDirFlag = flag.String("app", "", "specify root directory of app code")
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
 
 var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
+
+var checkInject = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 const ownerID = domain.UserID(7)
 const appID = domain.AppID(11)
@@ -117,7 +120,7 @@ func main() {
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
 		AppModel:      devAppModel,
 		AppFilesModel: devAppFilesModel,
-		Config:        *runtimeConfig,
+		Config:        runtimeConfig,
 	}
 
 	appGetter := &appgetter.AppGetter{
@@ -325,6 +328,15 @@ func main() {
 		Config:               runtimeConfig,
 		DropserverDevHandler: dsDevHandler,
 		AppspaceRouter:       appspaceRouter}
+
+	// experimental:
+	if os.Getenv("DEBUG") != "" || *checkInject != "" {
+		depTree := checkinject.Collect(*server)
+		if *checkInject != "" {
+			depTree.GenerateDotFile(*checkInject, []interface{}{runtimeConfig, location2path})
+		}
+		depTree.PanicOnMissing()
+	}
 
 	fmt.Println("starting server")
 

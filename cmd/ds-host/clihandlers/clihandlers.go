@@ -15,9 +15,9 @@ type CliHandlers struct {
 		Create(email, password string) (domain.User, error)
 		GetFromEmail(email string) (domain.User, error)
 		MakeAdmin(userID domain.UserID) error
-	}
+	} `checkinject:"required"`
 	//Validator domain.Validator
-	StdInput domain.StdInput
+	StdInput domain.StdInput `checkinject:"required"`
 }
 
 // AddAdmin adds a user and sets them as administrator

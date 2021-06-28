@@ -4,7 +4,7 @@ import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
 
 //AppspaceDB holds various api versions of AppspaceDB
 type AppspaceDB struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 	V0     *V0
 
 	connManager *ConnManager

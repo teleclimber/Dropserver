@@ -23,8 +23,8 @@ type AppFilesModel struct {
 	Location2Path interface {
 		App(string) string
 		AppFiles(string) string
-	}
-	Config *domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 // Save puts the data passed in files in an apps directory

@@ -20,26 +20,26 @@ import (
 type V0 struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-	}
-	SandboxProxy   http.Handler // versioned?
+	} `checkinject:"required"`
+	SandboxProxy   http.Handler `checkinject:"required"` // versioned?
 	V0TokenManager interface {
 		CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool)
-	}
+	} `checkinject:"required"`
 	V0AppRoutes interface {
 		Match(appID domain.AppID, version domain.Version, method string, reqPath string) (domain.V0AppRoute, error)
-	}
+	} `checkinject:"required"`
 	Authenticator interface {
 		// should have ProcessLoginToken instead. Also removes dep on Token Manager
 		// Exepct all this stuff is versioned.
 		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
-	}
+	} `checkinject:"required"`
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
-	}
+	} `checkinject:"optional"`
 	Location2Path interface {
 		AppFiles(string) string
-	}
-	Config *domain.RuntimeConfig
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 
 	mux *chi.Mux
 }

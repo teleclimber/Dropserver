@@ -13,10 +13,10 @@ import (
 type DevAppspaceFiles struct {
 	AppspaceMetaDb interface {
 		Create(appspaceID domain.AppspaceID, dsAPIVersion int) error
-	}
+	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
 		Send(domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 	sourceDir string
 	destDir   string
 }

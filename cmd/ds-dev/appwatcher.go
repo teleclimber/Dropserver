@@ -21,12 +21,12 @@ var ignorePaths = []string{
 type DevAppWatcher struct {
 	AppFilesModel interface {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
-	}
-	DevAppModel      *DevAppModel
-	DevAppspaceModel *DevAppspaceModel
+	} `checkinject:"required"`
+	DevAppModel      *DevAppModel      `checkinject:"required"`
+	DevAppspaceModel *DevAppspaceModel `checkinject:"required"`
 	AppVersionEvents interface {
 		Send(domain.AppID)
-	}
+	} `checkinject:"required"`
 
 	watcher     *fsnotify.Watcher
 	ignorePaths []string

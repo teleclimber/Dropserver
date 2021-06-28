@@ -19,25 +19,25 @@ import (
 var fileDateFormat = "2006-01-02_1504"
 
 type BackupAppspace struct {
-	Config        *domain.RuntimeConfig
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 		IsTempPaused(appspaceID domain.AppspaceID) bool
 		LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
-	}
+	} `checkinject:"required"`
 	AppspaceMetaDB interface {
 		CloseConn(appspaceID domain.AppspaceID) error
-	}
+	} `checkinject:"required"`
 	AppspaceDB interface {
 		CloseAppspace(appspaceID domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
 		EjectLogger(appspaceID domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 }
 
 // CreateBackup everything that an appspace might need to be re-created somewhere.

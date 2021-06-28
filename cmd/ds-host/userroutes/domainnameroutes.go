@@ -13,7 +13,7 @@ type DomainNameRoutes struct {
 	DomainController interface {
 		GetDomains(userID domain.UserID) ([]domain.DomainData, error)
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (d *DomainNameRoutes) subRouter() http.Handler {

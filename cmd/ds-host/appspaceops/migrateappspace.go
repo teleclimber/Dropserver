@@ -20,30 +20,30 @@ type MigrationJobController struct {
 		GetPending() ([]*domain.MigrationJob, error)
 		SetStarted(domain.JobID) (bool, error)
 		SetFinished(domain.JobID, nulltypes.NullString) error
-	}
+	} `checkinject:"required"`
 	AppModel interface {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		SetVersion(domain.AppspaceID, domain.Version) error
-	}
+	} `checkinject:"required"`
 	AppspaceInfoModels interface {
 		Get(domain.AppspaceID) domain.AppspaceInfoModel
-	}
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
-	}
+	} `checkinject:"required"`
 	BackupAppspace interface { //optional
 		BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 		RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
-	}
+	} `checkinject:"optional"`
 	SandboxManager interface { // regular appspace sandboxes
 		StopAppspace(domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 	SandboxMaker interface {
 		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
-	}
+	} `checkinject:"required"`
 
 	runningJobs map[domain.JobID]*runningJob
 	runningMux  sync.Mutex

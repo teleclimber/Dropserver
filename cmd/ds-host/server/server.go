@@ -14,11 +14,11 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config *domain.RuntimeConfig
+	Config *domain.RuntimeConfig `checkinject:"required"`
 
 	// admin routes, user routes, auth routes....
-	UserRoutes     http.Handler
-	AppspaceRouter http.Handler
+	UserRoutes     http.Handler `checkinject:"required"`
+	AppspaceRouter http.Handler `checkinject:"required"`
 
 	server *http.Server
 }

@@ -51,20 +51,20 @@ type ApplicationRoutes struct {
 		GetMetaData(domain.AppGetKey) (domain.AppGetMeta, error)
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
 		Delete(domain.AppGetKey)
-	}
+	} `checkinject:"required"`
 	AppFilesModel interface {
 		Delete(string) error
-	}
+	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 		DeleteVersion(domain.AppID, domain.Version) error
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForApp(domain.AppID) ([]*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (a *ApplicationRoutes) subRouter() http.Handler {

@@ -28,46 +28,46 @@ type AppspaceMeta struct {
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
-	Config               domain.RuntimeConfig
-	AppspaceUserRoutes   subRoutes
-	AppspaceExportRoutes subRoutes
+	Config               domain.RuntimeConfig `checkinject:"required"`
+	AppspaceUserRoutes   subRoutes            `checkinject:"required"`
+	AppspaceExportRoutes subRoutes            `checkinject:"required"`
 	AppModel             interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	}
+	} `checkinject:"required"`
 	AppspaceFilesModel interface {
 		CreateLocation() (string, error)
-	}
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
-	}
+	} `checkinject:"required"`
 	DeleteAppspace interface {
 		Delete(domain.Appspace) error
-	}
+	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
-	}
+	} `checkinject:"required"`
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
-	}
+	} `checkinject:"required"`
 	DropIDModel interface {
 		Get(handle string, dom string) (domain.DropID, error)
-	}
+	} `checkinject:"required"`
 	MigrationMinder interface {
 		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
-	}
-	AppspaceMetaDB    domain.AppspaceMetaDB
+	} `checkinject:"required"`
+	AppspaceMetaDB    domain.AppspaceMetaDB `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
-	}
+	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
-	}
+	} `checkinject:"required"`
 }
 
 func (a *AppspaceRoutes) subRouter() http.Handler {

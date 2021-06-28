@@ -45,6 +45,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	"github.com/teleclimber/DropServer/internal/checkinject"
 	"github.com/teleclimber/DropServer/internal/stdinput"
 )
 
@@ -59,6 +60,8 @@ var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
 
 var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown format to this location")
+
+var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 func main() {
 	//startServer := true	// currnetly actually not used.
@@ -226,7 +229,7 @@ func main() {
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
 		AppModel:      appModel,
 		AppFilesModel: appFilesModel,
-		Config:        *runtimeConfig,
+		Config:        runtimeConfig,
 	}
 	v0AppRoutes.Init()
 
@@ -352,7 +355,7 @@ func main() {
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
 		SandboxMaker:  sandboxMaker,
-		//V0AppRoutes: ,
+		V0AppRoutes:   v0AppRoutes,
 	}
 	appGetter.Init()
 
@@ -512,7 +515,8 @@ func main() {
 		SandboxProxy:      sandboxProxy,
 		Authenticator:     authenticator,
 		V0TokenManager:    v0tokenManager,
-		Config:            runtimeConfig}
+		Config:            runtimeConfig,
+		Location2Path:     location2path}
 	v0appspaceRouter.Init()
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
@@ -541,6 +545,14 @@ func main() {
 		UserRoutes:     userRoutes,
 		AppspaceRouter: appspaceRouter}
 	server.Init()
+
+	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
+		depTree := checkinject.Collect(*server)
+		if *checkInjectOut != "" {
+			depTree.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
+		}
+		depTree.PanicOnMissing()
+	}
 
 	// start things up
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run

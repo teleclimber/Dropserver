@@ -17,12 +17,12 @@ import (
 type Migrator struct {
 	OrderedSteps []string
 	StringSteps  map[string]migrationStep
-	Config       *domain.RuntimeConfig
+	Config       *domain.RuntimeConfig `checkinject:"required"`
 	DBManager    interface {
 		GetHandle() *domain.DB
 		GetSchema() string
 		SetSchema(string) error
-	}
+	} `checkinject:"required"`
 
 	// import other things that migration steps need to touch
 }

@@ -80,7 +80,7 @@ func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*d
 type DevAppspaceModel struct {
 	AsPausedEvent interface {
 		Send(domain.AppspaceID, bool)
-	}
+	} `checkinject:"required"`
 	Appspace domain.Appspace
 }
 
@@ -205,7 +205,7 @@ func randomProxyID() domain.ProxyID {
 type DevMigrationJobModel struct {
 	MigrationJobEvents interface {
 		Send(domain.MigrationJob)
-	}
+	} `checkinject:"required"`
 
 	nextJobID int
 	job       *domain.MigrationJob

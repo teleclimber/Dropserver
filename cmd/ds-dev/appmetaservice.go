@@ -11,11 +11,11 @@ import (
 type AppMetaService struct {
 	AppFilesModel interface {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
-	}
+	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Subscribe(chan<- domain.AppID)
 		Unsubscribe(chan<- domain.AppID)
-	}
+	} `checkinject:"required"`
 }
 
 func (s *AppMetaService) HandleMessage(m twine.ReceivedMessageI) {

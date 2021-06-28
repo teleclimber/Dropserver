@@ -29,10 +29,10 @@ type RouteHitService struct {
 	RouteHitEvents interface {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
-	}
+	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-	}
+	} `checkinject:"required"`
 }
 
 func (s *RouteHitService) Start(t *twine.Twine) {

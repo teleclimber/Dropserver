@@ -14,8 +14,8 @@ const schemaKey = "schema"
 
 // AppspaceInfoModels keeps InfoModels for each appspace
 type AppspaceInfoModels struct {
-	Config         *domain.RuntimeConfig
-	AppspaceMetaDB domain.AppspaceMetaDB
+	Config         *domain.RuntimeConfig `checkinject:"required"`
+	AppspaceMetaDB domain.AppspaceMetaDB `checkinject:"required"`
 
 	modelsMux sync.Mutex
 	models    map[domain.AppspaceID]*InfoModel
