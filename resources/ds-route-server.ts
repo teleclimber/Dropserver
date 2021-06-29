@@ -2,8 +2,6 @@ import * as path from "https://deno.land/std@0.97.0/path/mod.ts";
 import { Server } from "https://deno.land/std@0.97.0/http/server.ts";
 import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
 
-import type {ReceivedMessageI} from './twine/twine.ts';
-
 import AppRouter from './app-router.ts';
 import type {Context} from './app-router.ts';
 import Metadata from "./ds-metadata.ts";
@@ -43,7 +41,7 @@ export class DsRouteServer {
 		this.server = new Server(listener);
 
 		const listenP = this.listen();	// does this mean errors are uncaught?
-		(async function() {
+		(function() {
 			listenP.catch((reason) => {
 				console.error("liste rejected: "+reason);
 			});
@@ -66,7 +64,7 @@ export class DsRouteServer {
 			this.stop_resolve();
 		}
 	}
-	async stopServer() {
+	stopServer() {
 		return new Promise((resolve, reject) => {
 			console.log("Shutting down server");
 			if( this.stop_resolve != undefined ) {
@@ -94,7 +92,7 @@ export class DsRouteServer {
 			this.replyError(request, "X-Dropserver-Route-ID header is null");
 			return;
 		}
-		const route = this.app_router.getRoute(matched_route);
+		const route = this.app_router.getRouteWithMatch(matched_route);
 		if( route === undefined) {
 			this.replyError(request, "route id not found");
 			return;
@@ -103,13 +101,27 @@ export class DsRouteServer {
 			this.replyError(request, "no handler attached to route");
 			return;
 		}
+		if( route.match === undefined ) {
+			throw new Error("route returned without match function");
+		}
+
+		const req_url = headers.get("X-Dropserver-Request-URL");
+		if( req_url === null ) {
+			throw new Error("request missing request url")
+		}
+		const route_match = route.match(req_url);
+		if( !route_match ) {
+			this.replyError(request, "route failed to match in sandbox");
+			return
+		}
 
 		const ctx :Context = {
 			req: request,
+			params: route_match.params
 		};
 
 		try {
-			route.handler(ctx);
+			await route.handler(ctx);
 		}
 		catch(e) {
 			this.replyError(request, e);
@@ -129,7 +141,7 @@ export class DsRouteServer {
 		return mod;
 	}
 	
-	async replyError(req :ServerRequest, message :string) {
+	replyError(req :ServerRequest, message :string) {
 		console.error(message);
 		req.respond({status: 500, body: message})
 	}

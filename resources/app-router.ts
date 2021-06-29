@@ -1,13 +1,15 @@
 import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
+import {match} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
+import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
 
 // Let's make an extremely simple POC router
 // That shows that we can create routes programmatically
 // in sandbox
 // and use them from host side.
 
-export type Context = {
+export interface Context<P extends object = object> {
 	req: ServerRequest
-	// path params
+	params: P
 	// user data
 }
 
@@ -33,7 +35,8 @@ type Route = {
 	method: string,
 	path: Path,
 	auth: Auth,
-	handler: Handler
+	handler: Handler,
+	match: undefined | MatchFunction
 }
 
 enum RouteType {
@@ -59,7 +62,7 @@ export default class AppRouter {
 	dict: Map<string,Route> = new Map();
 	static_handlers: Map<Handler,staticOpts> = new Map();
 
-	add(method:string, path:string|Path, auth:Auth, handler:Handler):void {
+	add(method:string, path:string|Path, auth:Auth, handler:Handler):string {
 		method = normalizeMethod(method);
 		if( typeof path === 'string' ) path = {path:path, end:true};
 		// should normalize path (trailing slash? caps?)
@@ -69,11 +72,14 @@ export default class AppRouter {
 			method,
 			path,
 			auth,
-			handler
+			handler,
+			match: undefined
 		};
 
 		this.stack.push(r);
 		this.dict.set(r.id, r);
+
+		return r.id;
 	}
 
 	staticFileHandler(opts:staticOpts) :Handler {
@@ -104,8 +110,13 @@ export default class AppRouter {
 		});
 	}
 
-	getRoute(route_id:string) :Route|undefined {
-		return this.dict.get(route_id);
+	getRouteWithMatch(route_id:string) :Route|undefined {
+		const r = this.dict.get(route_id);
+		if( r === undefined ) return undefined;
+		if( r.match === undefined ) {
+			r.match = match(r.path.path, {end:r.path.end});
+		}
+		return r;
 	}
 }
 
