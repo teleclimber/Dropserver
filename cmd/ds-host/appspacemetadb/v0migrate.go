@@ -38,24 +38,26 @@ func (h *v0handle) migrateUpToV0() {
 	)`)
 	h.exec(`CREATE UNIQUE INDEX info_index ON info (name)`)
 
-	h.exec(`CREATE TABLE routes (
-		"methods" INT,
-		"path" TEXT,
-		"auth" TEXT,
-		"handler" TEXT
-	)`)
+	// routes is not currently used! May come back as appspace routes, but for now it stays empty
+	// h.exec(`CREATE TABLE routes (
+	// 	"methods" INT,
+	// 	"path" TEXT,
+	// 	"auth" TEXT,
+	// 	"handler" TEXT
+	// )`)
 	// h.exec(`CREATE UNIQUE INDEX routes_index ON routes (methods, url)`)
 	//^^ no that's not the index. We should def index url though
-	h.exec(`CREATE INDEX routes_path_index ON routes (path)`)
+	//h.exec(`CREATE INDEX routes_path_index ON routes (path)`)
 	// Do we need a inherent order? I think we might (essentially number of url path elements, and it should be inherent weight)
 	// presume auth and handler are json.
 
-	h.exec(`CREATE TABLE users (
-		"proxy_id" TEXT,
-		"display_name" TEXT,
-		"permissions" TEXT
-	)`)
-	h.exec(`CREATE UNIQUE INDEX users_proxy_id ON users (proxy_id)`)
+	// Also unused! for now
+	// h.exec(`CREATE TABLE users (
+	// 	"proxy_id" TEXT,
+	// 	"display_name" TEXT,
+	// 	"permissions" TEXT
+	// )`)
+	// h.exec(`CREATE UNIQUE INDEX users_proxy_id ON users (proxy_id)`)
 	// Should we have an is_owner here? Might simplify some things:
 	// - app does getUser, it knows right away if user is owner.
 	// - in ds-dev, is_owner is readily availble, no need to set it (since appspace is divorced from host)

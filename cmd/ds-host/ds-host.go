@@ -241,6 +241,7 @@ func main() {
 
 	sandboxMaker := &sandbox.SandboxMaker{
 		AppspaceLogger: appspaceLogger,
+		Location2Path:  location2path,
 		Config:         runtimeConfig,
 		//Services: , // below
 	}

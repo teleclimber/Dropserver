@@ -37,16 +37,21 @@ type SandboxMaker struct {
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
+	Location2Path interface {
+		App(string) string
+		AppFiles(string) string
+	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
 	s := &Sandbox{
-		id:         0,
-		appVersion: appVersion,
-		status:     domain.SandboxStarting,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:     m.Config}
+		id:            0,
+		appVersion:    appVersion,
+		status:        domain.SandboxStarting,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path: m.Location2Path,
+		Config:        m.Config}
 	// Need to add a logger of some sort.
 
 	err := s.Start()
@@ -67,6 +72,7 @@ func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *dom
 		services:       m.Services.Get(appspace, appVersion.APIVersion),
 		status:         domain.SandboxStarting,
 		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path:  m.Location2Path,
 		Config:         m.Config,
 		AppspaceLogger: m.AppspaceLogger}
 

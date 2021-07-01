@@ -129,7 +129,8 @@ func (r *V0AppRoutes) validateStoredRoute(route domain.V0AppRoute) error {
 		return errors.New("empty path is not allowed")
 	}
 	var tokens []pathToRegexp.Token
-	_, err := pathToRegexp.PathToRegexp(route.Path, &tokens, nil)
+	options := getOptions(route)
+	_, err := pathToRegexp.PathToRegexp(route.Path.Path, &tokens, &options)
 	if err != nil {
 		// need to return a good erro
 		return fmt.Errorf("failed to turn path %v into regex: %w", route.Path, err)
@@ -143,9 +144,7 @@ func (r *V0AppRoutes) validateStoredRoute(route domain.V0AppRoute) error {
 }
 
 func (r *V0AppRoutes) getMatchFn(route domain.V0AppRoute) (func(string) (*pathToRegexp.MatchResult, error), error) {
-	options := pathToRegexp.Options{
-		End: &route.Path.End,
-	}
+	options := getOptions(route)
 	matchFn, err := pathToRegexp.Match(route.Path.Path, &options)
 	return matchFn, err
 }
@@ -156,4 +155,10 @@ func (r *V0AppRoutes) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
+}
+
+func getOptions(route domain.V0AppRoute) pathToRegexp.Options {
+	return pathToRegexp.Options{
+		End: &route.Path.End,
+	}
 }
