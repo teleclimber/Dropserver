@@ -252,9 +252,11 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 	}
 
 	if toVersion.Schema == fromSchema {
-		// any cleanup?
-		// still need to stop the appspace sandbox and restart it with the correct app code
-		// Also probably need to clear caches... of various... things?
+		err = c.AppspaceModel.SetVersion(appspaceID, toVersion.Version)
+		if err != nil {
+			job.errStr.SetString("Error setting new Version: " + err.Error())
+			return
+		}
 		return
 	}
 
