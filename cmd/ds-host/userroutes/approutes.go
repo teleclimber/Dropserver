@@ -52,18 +52,15 @@ type ApplicationRoutes struct {
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
 		Delete(domain.AppGetKey)
 	} `checkinject:"required"`
-	AppFilesModel interface {
-		Delete(string) error
+	DeleteApp interface {
+		Delete(appID domain.AppID) error
+		DeleteVersion(appID domain.AppID, version domain.Version) error
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-		DeleteVersion(domain.AppID, domain.Version) error
-	} `checkinject:"required"`
-	AppspaceModel interface {
-		GetForApp(domain.AppID) ([]*domain.Appspace, error)
 	} `checkinject:"required"`
 }
 
@@ -77,6 +74,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Route("/{application}", func(r chi.Router) {
 		r.Use(a.applicationCtx)
 		r.Get("/", a.getApplication)
+		r.Delete("/", a.delete)
 		r.Post("/version", a.postNewVersion)
 		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
 		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
@@ -144,6 +142,14 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSON(w, respData)
+}
+
+func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	err := a.DeleteApp.Delete(app.AppID)
+	if err != nil {
+		returnError(w, err)
+	}
 }
 
 func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Request) {
@@ -329,33 +335,15 @@ func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
 
 func (a *ApplicationRoutes) deleteVersion(w http.ResponseWriter, r *http.Request) {
 	version, _ := domain.CtxAppVersionData(r.Context())
-	appspaces, err := a.AppspaceModel.GetForApp(version.AppID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
-	found := false
-	for _, as := range appspaces {
-		if as.AppVersion == version.Version {
-			found = true
-			break
+	err := a.DeleteApp.DeleteVersion(version.AppID, version.Version)
+	if err != nil {
+		if err == domain.ErrAppVersionInUse {
+			http.Error(w, "appspaces use this version of app", http.StatusConflict)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-	}
-	if found {
-		http.Error(w, "appspaces use this version of app", http.StatusConflict)
 		return
-	}
-
-	err = a.AppModel.DeleteVersion(version.AppID, version.Version)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	err = a.AppFilesModel.Delete(version.LocationKey)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
 	}
 }
 

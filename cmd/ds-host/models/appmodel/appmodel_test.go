@@ -133,6 +133,61 @@ func TestGetOwner(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	app, err := appModel.Create(7, "test-app")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = appModel.Delete(app.AppID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = appModel.GetFromID(app.AppID)
+	if err != sql.ErrNoRows {
+		t.Error("expecte err no rows")
+	}
+}
+
+func TestDeleteWithVersions(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	app, err := appModel.Create(7, "test-app")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = appModel.CreateVersion(app.AppID, domain.Version("1.2.3"), 0, domain.APIVersion(0), "loc")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = appModel.Delete(app.AppID)
+	if err == nil {
+		t.Error("expected error")
+	}
+}
+
 func TestVersion(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()

@@ -6,7 +6,12 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks BackupAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks DeleteApp,BackupAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+
+type DeleteApp interface {
+	Delete(appID domain.AppID) error
+	DeleteVersion(appID domain.AppID, version domain.Version) error
+}
 
 type BackupAppspace interface {
 	CreateBackup(appspaceID domain.AppspaceID) (string, error)

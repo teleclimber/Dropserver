@@ -1,4 +1,4 @@
-package appgetter
+package appops
 
 import (
 	"testing"

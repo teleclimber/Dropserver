@@ -1,9 +1,11 @@
 package userroutes
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -92,5 +94,73 @@ func TestGetAppspaceCtxForbidden(t *testing.T) {
 
 	if rr.Result().StatusCode != http.StatusForbidden {
 		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
+	}
+}
+
+func TestGetAppspacesForApp(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userID := domain.UserID(7)
+	appID := domain.AppID(11)
+
+	am := testmocks.NewMockAppModel(mockCtrl)
+	am.EXPECT().GetFromID(appID).Return(&domain.App{OwnerID: userID}, nil)
+
+	asm := testmocks.NewMockAppspaceModel(mockCtrl)
+	asm.EXPECT().GetForApp(appID).Return([]*domain.Appspace{{DomainName: "appspace.sub.domain", AppID: appID, OwnerID: userID}}, nil)
+
+	a := AppspaceRoutes{
+		AppModel:      am,
+		AppspaceModel: asm,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), userID))
+
+	rr := httptest.NewRecorder()
+
+	a.getAppspaces(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK status, got %v", rr.Result().Status)
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(rr.Result().Body)
+	if !strings.Contains(buf.String(), "appspace.sub.domain") {
+		t.Error("expected JSON response to contain the appspace domain")
+	}
+}
+
+func TestGetAppspacesForAppForbidden(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userID := domain.UserID(7)
+	appID := domain.AppID(11)
+
+	am := testmocks.NewMockAppModel(mockCtrl)
+	am.EXPECT().GetFromID(appID).Return(&domain.App{OwnerID: domain.UserID(13)}, nil)
+
+	a := AppspaceRoutes{
+		AppModel: am,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), userID))
+
+	rr := httptest.NewRecorder()
+
+	a.getAppspaces(rr, req)
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected Forbidden status, got %v", rr.Result().Status)
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/teleclimber/DropServer/cmd/ds-host/appgetter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
@@ -352,13 +352,19 @@ func main() {
 		AppspaceModel: appspaceModel,
 	}
 
-	appGetter := &appgetter.AppGetter{
+	appGetter := &appops.AppGetter{
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
 		SandboxMaker:  sandboxMaker,
 		V0AppRoutes:   v0AppRoutes,
 	}
 	appGetter.Init()
+
+	deleteApp := &appops.DeleteApp{
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+		AppspaceModel: appspaceModel,
+	}
 
 	appspaceStatus := &appspacestatus.AppspaceStatus{
 		AppspaceModel:        appspaceModel,
@@ -414,10 +420,9 @@ func main() {
 		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		AppGetter:     appGetter,
-		AppFilesModel: appFilesModel,
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel}
+		AppGetter: appGetter,
+		DeleteApp: deleteApp,
+		AppModel:  appModel}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUserModel: appspaceUserModel,

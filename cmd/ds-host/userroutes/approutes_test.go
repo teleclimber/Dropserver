@@ -383,23 +383,11 @@ func TestDeleteVersion(t *testing.T) {
 	v := domain.Version("0.1.2")
 	loc := "test-loc"
 
-	appspace := domain.Appspace{
-		AppID:      appID,
-		AppVersion: domain.Version("0.0.1")}
-
-	asModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
-
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
-
-	afModel := testmocks.NewMockAppFilesModel(mockCtrl)
-	afModel.EXPECT().Delete(loc).Return(nil)
+	deleteApp := testmocks.NewMockDeleteApp(mockCtrl)
+	deleteApp.EXPECT().DeleteVersion(appID, v).Return(nil)
 
 	a := ApplicationRoutes{
-		AppModel:      appModel,
-		AppFilesModel: afModel,
-		AppspaceModel: asModel,
+		DeleteApp: deleteApp,
 	}
 
 	req, _ := http.NewRequest("get", "/", nil)
@@ -421,15 +409,11 @@ func TestDeleteVersionInUse(t *testing.T) {
 	appID := domain.AppID(7)
 	v := domain.Version("0.1.2")
 
-	appspace := domain.Appspace{
-		AppID:      appID,
-		AppVersion: v}
-
-	asModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	asModel.EXPECT().GetForApp(appID).Return([]*domain.Appspace{&appspace}, nil)
+	deleteApp := testmocks.NewMockDeleteApp(mockCtrl)
+	deleteApp.EXPECT().DeleteVersion(appID, v).Return(domain.ErrAppVersionInUse)
 
 	a := ApplicationRoutes{
-		AppspaceModel: asModel,
+		DeleteApp: deleteApp,
 	}
 
 	req, _ := http.NewRequest("get", "/", nil)

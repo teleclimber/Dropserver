@@ -95,6 +95,15 @@ export class Appspaces {
 		});
 		this.loaded = true;
 	}
+	async fetchForApp(app_id: number) {
+		const resp_data = await get('/appspace?app='+app_id);
+		resp_data.forEach( (raw:any) => {
+			const appspace = new Appspace;
+			appspace.setFromRaw(raw);
+			this.as.set(appspace.id, appspace);
+		});
+		this.loaded = true;
+	}
 
 	get asArray() : Appspace[] {
 		// maybe this should return an empty array if all_loaded === false

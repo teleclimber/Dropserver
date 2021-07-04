@@ -473,6 +473,21 @@ func (mr *MockAppFilesModelMockRecorder) ReadMeta(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMeta", reflect.TypeOf((*MockAppFilesModel)(nil).ReadMeta), arg0)
 }
 
+// ReadRoutes mocks base method
+func (m *MockAppFilesModel) ReadRoutes(arg0 string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadRoutes", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadRoutes indicates an expected call of ReadRoutes
+func (mr *MockAppFilesModelMockRecorder) ReadRoutes(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadRoutes", reflect.TypeOf((*MockAppFilesModel)(nil).ReadRoutes), arg0)
+}
+
 // Save mocks base method
 func (m *MockAppFilesModel) Save(arg0 *map[string][]byte) (string, error) {
 	m.ctrl.T.Helper()
@@ -486,6 +501,20 @@ func (m *MockAppFilesModel) Save(arg0 *map[string][]byte) (string, error) {
 func (mr *MockAppFilesModelMockRecorder) Save(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockAppFilesModel)(nil).Save), arg0)
+}
+
+// WriteRoutes mocks base method
+func (m *MockAppFilesModel) WriteRoutes(arg0 string, arg1 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteRoutes", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteRoutes indicates an expected call of WriteRoutes
+func (mr *MockAppFilesModelMockRecorder) WriteRoutes(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteRoutes", reflect.TypeOf((*MockAppFilesModel)(nil).WriteRoutes), arg0, arg1)
 }
 
 // MockAppModel is a mock of AppModel interface
@@ -539,6 +568,20 @@ func (m *MockAppModel) CreateVersion(arg0 domain.AppID, arg1 domain.Version, arg
 func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2, arg3, arg4)
+}
+
+// Delete mocks base method
+func (m *MockAppModel) Delete(arg0 domain.AppID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockAppModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppModel)(nil).Delete), arg0)
 }
 
 // DeleteVersion mocks base method

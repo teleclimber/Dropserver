@@ -8,8 +8,19 @@
 				<div class="px-4 py-5 sm:px-6">
 					<p>Application created {{app.created_dt.toLocaleString()}}</p>
 					<p>[Description...]</p>
-					<p>[Usage...]</p>
 				</div>
+				<div class="px-4 py-5 sm:px-6">
+					<h4>Used by Appspaces:</h4>
+					<ul v-if="appspaces.as.size !== 0">
+						<li v-for="appspace in appspaces.asArray" :key="'appspace-'+appspace.id">
+							{{appspace.domain_name}}
+							({{appspace.app_version}})
+							<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn">Manage</router-link>
+						</li>
+					</ul>
+					<p v-else>[not used by any appspace]</p>
+				</div>
+
 			</div>
 
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -21,7 +32,7 @@
 				</div>
 
 				<ul class="border-t border-b border-gray-200 divide-y divide-gray-200">
-					<li v-for="ver in app.versions" :key="ver.version" class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+					<li v-for="ver in versions" :key="ver.version" class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
 						<div class="w-0 flex-1 flex items-center">
 							<span class="ml-2 flex-1 w-0 font-bold">
 								{{ver.version}}
@@ -42,17 +53,38 @@
 								{{ver.created_dt.toLocaleString()}}
 							</span>
 						</div>
-						<div class="ml-4 flex-shrink-0">
-							<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:ver.version}}" class="btn flex items-center">
-								<svg class="h-6 w-6 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-									<path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
-								</svg>Appspace
-							</router-link>
+						<div class="">
+							<span v-if="ver.deleting">deleting</span>
+							<span v-else-if="ver.appspaces.length">in use</span>
+							<button v-else @click.stop.prevent="deleteVersion(ver.version)" class="btn text-red-700">
+								<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+								</svg>
+								<span class="hidden sm:inline-block">delete</span>
+							</button>
 						</div>
+
 					</li>
 				</ul>
 
-				
+			</div>
+
+			<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg flex justify-between">
+				<div class="px-4 py-5 sm:px-6 ">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Delete App</h3>
+					<p class="mt-1 max-w-2xl text-sm text-gray-700">
+						<template v-if="delete_app_ok">
+							Delete the app and all its versions.
+						</template>
+						<template v-else>
+							Unable to delete: app is used by appspaces.
+						</template>
+					</p>
+				</div>
+				<div class="px-4 sm:px-6 flex justify-end">
+					<button v-if="!deleting_app" @click.stop.prevent="delApp" class="btn btn-blue self-center" :disabled="!delete_app_ok">delete</button>
+					<span v-else>Deleting...</span>
+				</div>
 			</div>
 		</template>
 		<BigLoader v-else></BigLoader> 
@@ -61,14 +93,21 @@
 
 
 <script lang="ts">
-import {useRoute} from 'vue-router';
-import { defineComponent, ref, reactive, onMounted, onUnmounted } from 'vue';
-
+import { defineComponent, ref, reactive, onMounted, onUnmounted, computed } from 'vue';
+import router from '../router';
 import {setTitle} from '../controllers/nav';
-import { App } from '../models/apps';
+import { App, deleteAppVersion, deleteApp } from '../models/apps';
+import type {AppVersion} from '../models/app_versions';
+import { Appspaces } from '../models/appspaces'
+import type { Appspace } from '../models/appspaces'
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
+
+interface VersionView extends AppVersion {
+	appspaces: Appspace[],
+	deleting: boolean
+}
 
 export default defineComponent({
 	name: 'ManageApp',
@@ -76,19 +115,68 @@ export default defineComponent({
 		ViewWrap,
 		BigLoader
 	},
-	setup() {
-		const route = useRoute();
+	props: {
+		id: {
+				type: String,
+				required: true
+		}
+	},
+	setup(props) {
+		const app_id = Number(props.id);
 		const app = reactive(new App);
-		onMounted( async () => {
-			await app.fetch(Number(route.params.id));
+
+		app.fetch(app_id).then( () => {
 			setTitle(app.name);
 		});
+
+		const appspaces = reactive(new Appspaces);
+		appspaces.fetchForApp(app_id);
+
+		const versions = computed( () => {
+			return app.versions.map( v => {
+				(v as VersionView).appspaces = appspaces.asArray.filter( a => a.app_version === v.version );
+				(v as VersionView).deleting = false;
+				return <VersionView>v;
+			});
+		});
+
 		onUnmounted( () => {
 			setTitle("");
 		});
 
+		async function deleteVersion(version:string) {
+			const v_index = versions.value.findIndex( v => v.version === version );
+			const v = versions.value[v_index];
+			if( v === undefined ) throw new Error("did not find the version");
+			if( v.appspaces.length ) {
+				alert("Can't delete an app version that is used by appspaces")
+				return;
+			}
+
+			v.deleting = true;
+			await deleteAppVersion(app_id, version);
+
+			app.versions.splice(v_index, 1);
+		}
+
+		const delete_app_ok = computed( () => {
+			return !appspaces.as.size
+		});
+
+		const deleting_app = ref(false);
+
+		async function delApp() {
+			deleting_app.value = true;
+			await deleteApp(app_id);
+			router.push({name: 'apps'});
+		}
+
 		return {
+			appspaces,
+			versions,
 			app,
+			deleteVersion,
+			delete_app_ok, deleting_app, delApp,
 		};
 	}
 });

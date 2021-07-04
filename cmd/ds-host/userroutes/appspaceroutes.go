@@ -41,6 +41,7 @@ type AppspaceRoutes struct {
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
+		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
@@ -74,7 +75,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Use(mustBeAuthenticated)
 
-	r.Get("/", a.getAllAppspaces)
+	r.Get("/", a.getAppspaces)
 	r.Post("/", a.postNewAppspace)
 
 	r.Route("/{appspace}", func(r chi.Router) {
@@ -139,17 +140,57 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, respData)
 }
 
-func (a *AppspaceRoutes) getAllAppspaces(w http.ResponseWriter, r *http.Request) {
+func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
+	_, ok := r.URL.Query()["app"]
+	if ok {
+		a.getAppspacesForApp(w, r)
+	} else {
+		a.getAppspacesForUser(w, r)
+	}
+}
+
+func (a *AppspaceRoutes) getAppspacesForApp(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
 
+	query := r.URL.Query()
+	appIDStr := query["app"]
+	appIDInt, err := strconv.Atoi(appIDStr[0])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	appID := domain.AppID(appIDInt)
+
+	// need to check that app id is owned by owner
+	app, err := a.AppModel.GetFromID(appID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if app.OwnerID != userID {
+		http.Error(w, "app not owned by user", http.StatusForbidden)
+		return
+	}
+	appspaces, err := a.AppspaceModel.GetForApp(appID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respData := make([]AppspaceMeta, len(appspaces))
+	for i, appspace := range appspaces {
+		respData[i] = a.makeAppspaceMeta(*appspace)
+	}
+	writeJSON(w, respData)
+}
+
+func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
 	appspaces, err := a.AppspaceModel.GetForOwner(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	respData := make([]AppspaceMeta, 0)
-
 	for _, appspace := range appspaces {
 		appspaceMeta := a.makeAppspaceMeta(*appspace)
 		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
@@ -163,7 +204,6 @@ func (a *AppspaceRoutes) getAllAppspaces(w http.ResponseWriter, r *http.Request)
 		}
 		respData = append(respData, appspaceMeta)
 	}
-
 	writeJSON(w, respData)
 }
 

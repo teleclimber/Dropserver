@@ -26,6 +26,7 @@ type AppModel struct {
 		selectID         *sqlx.Stmt
 		selectOwner      *sqlx.Stmt
 		insertApp        *sqlx.Stmt
+		deleteApp        *sqlx.Stmt
 		selectVersion    *sqlx.Stmt
 		selectAppVerions *sqlx.Stmt
 		insertVersion    *sqlx.Stmt
@@ -65,6 +66,9 @@ func (m *AppModel) PrepareStatements() {
 	// insert app:
 	m.stmt.insertApp = p.exec(`INSERT INTO apps 
 		("owner_id", "name", "created") VALUES (?, ?, datetime("now"))`)
+
+	// delete app
+	m.stmt.deleteApp = p.exec(`DELETE FROM apps WHERE app_id = ?`)
 
 	// get version
 	m.stmt.selectVersion = p.exec(`SELECT * FROM app_versions WHERE app_id = ? AND version = ?`)
@@ -152,6 +156,27 @@ func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, erro
 	}
 
 	return app, nil
+}
+
+// Delete the app from the DB row.
+// It fails if there are versions of the app in the DB
+func (m *AppModel) Delete(appID domain.AppID) error {
+	versions, err := m.GetVersionsForApp(appID)
+	if err != nil {
+		return err
+	}
+	if len(versions) != 0 {
+		err = errors.New("found app versions in db while trying to delete app")
+		m.getLogger("Delete").AppID(appID).Error(err)
+		return err
+	}
+
+	_, err = m.stmt.deleteApp.Exec(appID)
+	if err != nil {
+		m.getLogger("Delete(), deleteApp.Exec()").AppID(appID).Error(err)
+		return err
+	}
+	return nil
 }
 
 // GetVersion returns the version for the app

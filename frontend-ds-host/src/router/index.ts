@@ -76,7 +76,8 @@ const routes: Array<RouteRecordRaw> = [
 	},{
 		path: '/app/:id',
 		name: 'manage-app',
-		component: ManageApp
+		component: ManageApp,
+		props: true
 	},{
 		path: '/app/:id/new-version',
 		name: 'new-app-version',

@@ -1,5 +1,5 @@
 import {reactive} from 'vue';
-import {get, post} from '../controllers/userapi';
+import {get, post, del} from '../controllers/userapi';
 
 import {AppVersion} from './app_versions';
 
@@ -123,5 +123,13 @@ export async function commitNewAppVersion(app_id:number, key:string): Promise<Ap
 	const app = new App;
 	app.setFromRaw(resp_data);
 	return app;
+}
+
+export async function deleteAppVersion(app_id: number, version:string) {
+	await del('/application/'+app_id+'/version/'+version);
+}
+
+export async function deleteApp(app_id: number) {
+	await del('/application/'+app_id);
 }
 

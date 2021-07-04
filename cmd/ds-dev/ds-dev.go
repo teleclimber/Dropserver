@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/teleclimber/DropServer/cmd/ds-host/appgetter"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
@@ -123,7 +123,7 @@ func main() {
 		Config:        runtimeConfig,
 	}
 
-	appGetter := &appgetter.AppGetter{
+	appGetter := &appops.AppGetter{
 		V0AppRoutes: v0AppRoutes,
 		//SandboxMaker: ,	// added below
 	}
