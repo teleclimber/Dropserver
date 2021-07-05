@@ -4,6 +4,7 @@ import type Twine from "./twine/twine.ts";
 const service = 16;
 
 const getUserCmd     = 12;
+const getAllUsersCmd = 13;
 
 type User = {
 	proxy_id: string,
@@ -29,6 +30,20 @@ class Users {
 		reply.sendOK();
 
 		return user;
+	}
+
+	async getAllUsers() :Promise<User[]> {
+		const reply = await this.twine.sendBlock(service, getAllUsersCmd, undefined);
+		if(reply.error) {
+			console.error("Failed to get users: "+reply.error);
+			throw new Error(reply.error);
+		}
+
+		const users = <User[]> JSON.parse(new TextDecoder().decode(reply.payload));
+
+		reply.sendOK();
+
+		return users;
 	}
 }
 

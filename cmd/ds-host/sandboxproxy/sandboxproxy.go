@@ -50,7 +50,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 
 	proxyID, ok := domain.CtxAppspaceUserProxyID(ctx)
 	if ok {
-		header["X-Dropserver-User-ID"] = []string{string(proxyID)}
+		header["X-Dropserver-User-ProxyID"] = []string{string(proxyID)}
 	}
 
 	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)

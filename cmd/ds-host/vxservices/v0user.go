@@ -11,6 +11,7 @@ import (
 type VxUserModels struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	}
 }
 
@@ -22,13 +23,15 @@ func (m *VxUserModels) GetV0(appspaceID domain.AppspaceID) *V0UserModel {
 }
 
 const (
-	getUserCmd = 12
+	getUserCmd     = 12
+	getAllUsersCmd = 13
 )
 
 // V0UserModel responds to requests about appspace users for the appspace
 type V0UserModel struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	}
 
 	appspaceID domain.AppspaceID
@@ -45,6 +48,9 @@ func (m *V0UserModel) HandleMessage(message twine.ReceivedMessageI) {
 		// from proxy id fetch user's name and permissions
 		// and figure out if they are owner or not.
 		m.handleGetUserCommand(message)
+	case getAllUsersCmd:
+		// get all users for the appspace
+		m.handleGetAllUsersCommand(message)
 	default:
 		message.SendError("Command not recognized")
 	}
@@ -67,6 +73,21 @@ func (m *V0UserModel) handleGetUserCommand(message twine.ReceivedMessageI) {
 		}
 		message.Reply(14, bytes)
 	}
+}
+
+func (m *V0UserModel) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
+	users, err := m.AppspaceUserModel.GetForAppspace(m.appspaceID)
+	if err != nil {
+		message.SendError(err.Error())
+		return
+	}
+
+	bytes, err := json.Marshal(users)
+	if err != nil {
+		m.getLogger("handleGetAllUsersCommand(), json Marshal error").Error(err)
+		message.SendError("Error on host")
+	}
+	message.Reply(14, bytes)
 }
 
 func (m *V0UserModel) getLogger(note string) *record.DsLogger {

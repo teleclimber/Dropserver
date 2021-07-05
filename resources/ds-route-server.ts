@@ -115,9 +115,12 @@ export class DsRouteServer {
 			return
 		}
 
+		const proxy_id = headers.get("X-Dropserver-User-ProxyID");
+
 		const ctx :Context = {
 			req: request,
-			params: route_match.params
+			params: route_match.params,
+			proxy_id: proxy_id
 		};
 
 		try {
