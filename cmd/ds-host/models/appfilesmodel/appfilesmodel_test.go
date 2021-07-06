@@ -189,7 +189,7 @@ type l2p struct {
 	app      string
 }
 
-func (l *l2p) App(loc string) string {
+func (l *l2p) AppMeta(loc string) string {
 	return filepath.Join(l.app, loc)
 }
 func (l *l2p) AppFiles(loc string) string {

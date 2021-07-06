@@ -11,7 +11,7 @@ type Location2Path struct {
 }
 
 // App returns the path to the App's generated files
-func (l *Location2Path) App(locationKey string) string {
+func (l *Location2Path) AppMeta(locationKey string) string {
 	return filepath.Join(l.Config.Exec.AppsPath, locationKey)
 }
 

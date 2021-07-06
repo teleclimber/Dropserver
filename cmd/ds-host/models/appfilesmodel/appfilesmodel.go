@@ -21,7 +21,7 @@ import (
 // AppFilesModel is struct for application files manager
 type AppFilesModel struct {
 	Location2Path interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
@@ -133,7 +133,7 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 }
 
 func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error {
-	routesFile := filepath.Join(a.Location2Path.App(locationKey), "routes.json")
+	routesFile := filepath.Join(a.Location2Path.AppMeta(locationKey), "routes.json")
 	err := ioutil.WriteFile(routesFile, routesData, 0666) // TODO: correct permissions?
 	if err != nil {
 		a.getLogger(fmt.Sprintf("WriteRoutes(), location key: %v", locationKey)).Error(err)
@@ -143,7 +143,7 @@ func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error
 }
 
 func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
-	routesFile := filepath.Join(a.Location2Path.App(locationKey), "routes.json")
+	routesFile := filepath.Join(a.Location2Path.AppMeta(locationKey), "routes.json")
 	routesData, err := ioutil.ReadFile(routesFile)
 	if err != nil {
 		a.getLogger(fmt.Sprintf("ReadRoutes(), location key: %v", locationKey)).Error(err)
@@ -158,7 +158,7 @@ func (a *AppFilesModel) Delete(locationKey string) error {
 		return nil //is that an error or do we consider this OK?
 	}
 
-	err := os.RemoveAll(a.Location2Path.App(locationKey))
+	err := os.RemoveAll(a.Location2Path.AppMeta(locationKey))
 	if err != nil {
 		a.getLogger("Delete()").Error(err)
 		return err
@@ -224,7 +224,7 @@ func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err err
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
-	_, err := os.Stat(a.Location2Path.App(locationKey))
+	_, err := os.Stat(a.Location2Path.AppMeta(locationKey))
 	if err == nil {
 		return true
 	}

@@ -38,7 +38,7 @@ type SandboxMaker struct {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
 	Location2Path interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
@@ -133,7 +133,7 @@ type Sandbox struct {
 	killScore       float64         // this should not be here.
 	inspect         bool
 	Location2Path   interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	}
 	Config *domain.RuntimeConfig
@@ -755,7 +755,6 @@ func (s *Sandbox) getImportPathFile() string {
 	if s.appspace != nil {
 		return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
 	} else {
-		return filepath.Join(s.Location2Path.App(s.appVersion.LocationKey), "import-paths.json")
-		// TODO change this to location 2 path, usgin "app meta" or something?
+		return filepath.Join(s.Location2Path.AppMeta(s.appVersion.LocationKey), "import-paths.json")
 	}
 }

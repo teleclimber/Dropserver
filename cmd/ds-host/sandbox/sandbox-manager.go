@@ -28,7 +28,7 @@ type Manager struct {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
 	Location2Path interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`

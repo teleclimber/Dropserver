@@ -83,6 +83,14 @@ func main() {
 		panic(err)
 	}
 
+	// in ds-host app meta is in the folder above actual app code
+	// In ds-dev, since we read app files directly, have to stash app meta elsewhere.
+	appMetaDir := filepath.Join(tempDir, "app-meta")
+	err = os.MkdirAll(appMetaDir, 0744)
+	if err != nil {
+		panic(err)
+	}
+
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appVersionEvents := &AppVersionEvents{}
@@ -96,7 +104,8 @@ func main() {
 	runtimeConfig.Sandbox.SocketsDir = socketsDir
 
 	location2path := &Location2Path{
-		Config: runtimeConfig}
+		AppMetaDir: appMetaDir,
+		Config:     runtimeConfig}
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
 		Location2Path: location2path,

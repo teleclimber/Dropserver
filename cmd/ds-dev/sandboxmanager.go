@@ -21,7 +21,7 @@ type DevSandboxManager struct {
 		Subscribe(chan<- domain.AppID)
 	} `checkinject:"required"`
 	Location2Path interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
@@ -116,7 +116,7 @@ type DevSandboxMaker struct {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	}
 	Location2Path interface {
-		App(string) string
+		AppMeta(string) string
 		AppFiles(string) string
 	}
 	Config  *domain.RuntimeConfig
