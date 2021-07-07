@@ -156,7 +156,7 @@ func (m *DevAppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID 
 	}
 
 	user.DisplayName = displayName
-	user.Permissions = strings.Join(permissions, ",")
+	user.Permissions = permissions
 
 	m.users[proxyID] = user
 

@@ -223,7 +223,7 @@ func (arV0 *V0) authorizeRoute(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		for _, p := range strings.Split(user.Permissions, ",") {
+		for _, p := range user.Permissions {
 			if p == routeConfig.Auth.Permission {
 				next.ServeHTTP(w, r)
 				return

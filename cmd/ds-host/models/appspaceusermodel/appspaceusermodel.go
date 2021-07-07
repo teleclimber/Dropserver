@@ -10,9 +10,22 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
+
+type appspaceUser struct {
+	AppspaceID  domain.AppspaceID  `db:"appspace_id"`
+	ProxyID     domain.ProxyID     `db:"proxy_id"`
+	AuthType    string             `db:"auth_type"`
+	AuthID      string             `db:"auth_id"`
+	DisplayName string             `db:"display_name"`
+	Avatar      string             `db:"avatar"`
+	Permissions string             `db:"permissions"`
+	Created     time.Time          `db:"created"`
+	LastSeen    nulltypes.NullTime `db:"last_seen"`
+}
 
 // ErrAuthIDExists is returned when the appspace already has a user with that auth_id string
 var ErrAuthIDExists = errors.New("auth ID (email or dropid) not unique in this appspace")
@@ -119,8 +132,8 @@ func (m *AppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID dom
 
 // Get returns an AppspaceUser
 func (m *AppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
-	var appspaceUser domain.AppspaceUser
-	err := m.stmt.get.QueryRowx(appspaceID, proxyID).StructScan(&appspaceUser)
+	var u appspaceUser
+	err := m.stmt.get.QueryRowx(appspaceID, proxyID).StructScan(&u)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			m.getLogger("Get()").Error(err)
@@ -128,14 +141,14 @@ func (m *AppspaceUserModel) Get(appspaceID domain.AppspaceID, proxyID domain.Pro
 		return domain.AppspaceUser{}, err
 	}
 
-	return appspaceUser, nil
+	return toDomainStruct(u), nil
 }
 
 // GetByDropID returns an appspace that matches the dropid string
 // It returns sql.ErrNoRows if not found
 func (m *AppspaceUserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
-	var appspaceUser domain.AppspaceUser
-	err := m.stmt.getAppspaceDropID.QueryRowx(appspaceID, dropID).StructScan(&appspaceUser)
+	var u appspaceUser
+	err := m.stmt.getAppspaceDropID.QueryRowx(appspaceID, dropID).StructScan(&u)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			m.getLogger("GetByDropID()").Error(err)
@@ -143,18 +156,22 @@ func (m *AppspaceUserModel) GetByDropID(appspaceID domain.AppspaceID, dropID str
 		return domain.AppspaceUser{}, err
 	}
 
-	return appspaceUser, nil
+	return toDomainStruct(u), nil
 }
 
 // GetForAppspace returns an appspace's list of users.
 func (m *AppspaceUserModel) GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
-	appspaceUsers := []domain.AppspaceUser{}
-	err := m.stmt.getForAppspace.Select(&appspaceUsers, appspaceID)
+	users := []appspaceUser{}
+	err := m.stmt.getForAppspace.Select(&users, appspaceID)
 	if err != nil {
 		m.getLogger("GetForAppspace()").AppspaceID(appspaceID).Error(err)
 		return nil, err
 	}
-	return appspaceUsers, nil
+	ret := make([]domain.AppspaceUser, len(users))
+	for i, u := range users {
+		ret[i] = toDomainStruct(u)
+	}
+	return ret, nil
 }
 
 // Delete the appspace user
@@ -194,6 +211,20 @@ func validatePermissions(permissions []string) error {
 		}
 	}
 	return nil
+}
+
+func toDomainStruct(u appspaceUser) domain.AppspaceUser {
+	return domain.AppspaceUser{
+		AppspaceID:  u.AppspaceID,
+		ProxyID:     u.ProxyID,
+		AuthType:    u.AuthType,
+		AuthID:      u.AuthID,
+		DisplayName: u.DisplayName,
+		Avatar:      u.Avatar,
+		Permissions: strings.Split(u.Permissions, ","),
+		Created:     u.Created,
+		LastSeen:    u.LastSeen,
+	}
 }
 
 ////////////

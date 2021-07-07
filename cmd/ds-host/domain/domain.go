@@ -497,14 +497,14 @@ type Contact struct {
 // AppspaceUser identifies a user of an appspace
 // Not sure we want this to have this form? -> permissions as []string, and Auth as its own struct?
 type AppspaceUser struct {
-	AppspaceID  AppspaceID         `db:"appspace_id" json:"appspace_id"`
-	ProxyID     ProxyID            `db:"proxy_id" json:"proxy_id"`
-	AuthType    string             `db:"auth_type" json:"auth_type"`
-	AuthID      string             `db:"auth_id" json:"auth_id"`
-	DisplayName string             `db:"display_name" json:"display_name"`
-	Permissions string             `db:"permissions" json:"permissions"` // this is unfortunate because we'd like to split them first
-	Created     time.Time          `db:"created" json:"created_dt"`
-	LastSeen    nulltypes.NullTime `db:"last_seen" json:"last_seen"`
+	AppspaceID  AppspaceID         `json:"appspace_id"`
+	ProxyID     ProxyID            `json:"proxy_id"`
+	AuthType    string             `json:"auth_type"`
+	AuthID      string             `json:"auth_id"`
+	DisplayName string             `json:"display_name"`
+	Permissions []string           `json:"permissions"`
+	Created     time.Time          `json:"created_dt"`
+	LastSeen    nulltypes.NullTime `json:"last_seen"`
 }
 
 type DbConn interface {

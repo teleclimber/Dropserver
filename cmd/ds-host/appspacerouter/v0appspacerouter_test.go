@@ -111,7 +111,7 @@ func TestAuthorizePermissionDenied(t *testing.T) {
 		},
 	}
 
-	user := domain.AppspaceUser{Permissions: "create,update"}
+	user := domain.AppspaceUser{Permissions: []string{"create", "update"}}
 
 	v0 := &V0{}
 
@@ -144,7 +144,7 @@ func TestAuthorizePermissionAllowed(t *testing.T) {
 		},
 	}
 
-	user := domain.AppspaceUser{Permissions: "create,update,delete"}
+	user := domain.AppspaceUser{Permissions: []string{"create", "update", "delete"}}
 
 	v0 := &V0{}
 
