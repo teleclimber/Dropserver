@@ -5,12 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	dsappdevfrontend "github.com/teleclimber/DropServer/frontend-ds-dev"
-	"github.com/teleclimber/DropServer/internal/shiftpath"
 	"github.com/teleclimber/DropServer/internal/twine"
 )
 
@@ -30,8 +27,7 @@ type twineService interface {
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config        *domain.RuntimeConfig `checkinject:"required"`
-	DevAppModel   *DevAppModel          `checkinject:"required"`
+	DevAppModel   *DevAppModel `checkinject:"required"`
 	AppFilesModel interface {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
 	} `checkinject:"required"`
@@ -86,69 +82,23 @@ type DropserverDevServer struct {
 	appspacePath string
 }
 
-func (s *DropserverDevServer) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	fmt.Println("DropserverDevServer url: " + req.URL.String())
-
-	// switch through possible commands
-	// and default to serving frontend files
-	// what are some things?
-	// - open twine connection over websockets....
-	// - get debugger port?
-	// - get basics of application?
-
-	// What information do we want to have on frontend:
-	// - basic info about app being run (app meta)
-	// - appspace meta
-	// - appspace routes
-	// - explore appspace files
-	// - explore appspace dbs
-	// - live sandbox status (stopped starting, running; debug mode)
-	// - live http hits
-
-	frontendFS, fserr := fs.Sub(dsappdevfrontend.FS, "dist")
-	if fserr != nil {
-		panic(fserr)
-	}
-	staticHandler := http.FileServer(http.FS(frontendFS))
-
-	head, _ := shiftpath.ShiftPath(req.URL.Path)
-	switch head {
-
-	case "base-data":
-		appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
-		if err != nil {
-			fmt.Println("failed to get appspace schema: " + err.Error())
-		}
-
-		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusOK)
-
-		baseData := BaseData{
-			AppPath:      s.appPath, // these don't change
-			AppspacePath: s.appspacePath,
-
-			AppspaceSchema: appspaceSchema} // this is appspace-related, and should be sent via a different command? Like appspace status event?
-
-		json.NewEncoder(res).Encode(baseData)
-
-	case "livedata":
-		s.StartLivedata(res, req)
-
-	case "appspacelogin":
-		s.appspaceLogin(res, req)
-
-	default:
-		// file serve the frontend dist dir
-		//http.Error(res, "dropserver-dev route not found", http.StatusNotFound)
-		staticHandler.ServeHTTP(res, req)
+func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Request) {
+	appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+	if err != nil {
+		fmt.Println("failed to get appspace schema: " + err.Error())
 	}
 
-}
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
 
-func (s *DropserverDevServer) appspaceLogin(res http.ResponseWriter, req *http.Request) {
-	// Here we can get the token, retrieve the corresponding data,
+	baseData := BaseData{
+		AppPath:      s.appPath, // these don't change
+		AppspacePath: s.appspacePath,
 
-	res.Write([]byte("try again:"))
+		AppspaceSchema: appspaceSchema} // this is appspace-related, and should be sent via a different command? Like appspace status event?
+
+	json.NewEncoder(res).Encode(baseData)
+
 }
 
 func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.Request) {

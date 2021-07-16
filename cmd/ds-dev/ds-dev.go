@@ -322,7 +322,6 @@ func main() {
 		MigrationJobController: migrateJobController,
 		DevSandboxMaker:        devSandboxMaker,
 		AppspaceStatus:         appspaceStatus,
-		Config:                 runtimeConfig,
 		AppMetaService:         appMetaService,
 		AppRoutesService:       appRoutesService,
 		UserService:            userService,

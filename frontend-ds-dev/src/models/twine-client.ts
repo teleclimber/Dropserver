@@ -5,7 +5,7 @@ interface LocalService {
 	handleMessage(m : ReceivedMessageI) :void
 }
 
-const ws_addr = 'ws://'+location.hostname+(location.port ? ':'+location.port: '')+'/dropserver-dev/livedata/';
+const ws_addr = 'ws://'+location.hostname+(location.port ? ':'+location.port: '')+'/dropserver-dev/livedata';
 
 class TwineClient {
 	_ready = false;
