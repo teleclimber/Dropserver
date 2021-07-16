@@ -111,6 +111,28 @@ func TestDBName(t *testing.T) {
 	}
 }
 
+func TestAppspaceAvatarFilename(t *testing.T) {
+	cases := []struct {
+		b   string
+		err bool
+	}{
+		{"abc-def.jpg", false},
+		{"../abc-def.jpg", true},
+		{"abc-d/../../ef.jpg", true},
+		{"../../abc-def.jpg", true},
+		{"..-..jpg", true},
+	}
+
+	for _, c := range cases {
+		err := AppspaceAvatarFilename(c.b)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
+			t.Error("should have gotten error")
+		}
+	}
+}
+
 func TestAppspaceBackupFile(t *testing.T) {
 	cases := []struct {
 		b   string

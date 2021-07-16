@@ -1,16 +1,19 @@
 <template>
-	<div>
-		<div class="pb-1 flex items-baseline justify-between">
+	<div class="flex">
+		<img v-if="user.avatarURL" :src="user.avatarURL" class="w-12 h-12 flex-shrink-0 rounded-full bg-clip-border">
+		<div v-else class="w-12 h-12 flex-shrink-0 rounded-full bg-clip-border bg-gray-200">&nbsp;</div>
+		<div class="flex-grow flex-shrink pl-4 overflow-hidden">
 			<div class="flex flex-col sm:flex-row items-baseline">
-				<span class="pr-2 font-bold text-xl">{{user.display_name}}</span>
+				<span class="pr-2 font-bold text-l">{{user.display_name}}</span>
 				<div>
 					<span v-for="p in user.permissions" :key="p">{{p}}</span>
 					<span class="italic text-gray-400" v-if="user.permissions.length === 0">No permissions</span>
 				</div>
 			</div>
-			<router-link class="btn" :to="{name:'appspace-user', params:{id: appspace_id, proxy_id:user.proxy_id}}">Edit</router-link>
+			<div class="text-gray-600">{{user.auth_id}}</div>
 		</div>
-		<div class="text-gray-600">{{user.auth_id}}</div>
+		<router-link class="btn self-start flex-shrink-0" :to="{name:'appspace-user', params:{id: appspace_id, proxy_id:user.proxy_id}}">Edit</router-link>
+		
 	</div>
 </template>
 

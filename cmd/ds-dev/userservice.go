@@ -22,7 +22,7 @@ type UserService struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
+		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
@@ -137,7 +137,8 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		m.SendError(err.Error())
 		panic(err)
 	}
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, incomingUser.Permissions)
+	// TODO avatar? Where is this used?
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, "", incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -169,7 +170,8 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, incomingUser.Permissions)
+	// TODO handle avatar
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, "", incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)

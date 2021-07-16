@@ -17,6 +17,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/mattn/go-sqlite3 v1.14.0
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/otiai10/copy v1.2.0
 	github.com/prometheus/client_golang v1.10.0
 	github.com/soongo/path-to-regexp v1.6.3

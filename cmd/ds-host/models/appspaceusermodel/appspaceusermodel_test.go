@@ -1,6 +1,7 @@
 package appspaceusermodel
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -18,6 +19,16 @@ func TestPrepareStatements(t *testing.T) {
 		DB: db}
 
 	model.PrepareStatements()
+}
+
+func TestToDomainStructPermissions(t *testing.T) {
+	user := toDomainStruct(appspaceUser{
+		Permissions: "",
+	})
+
+	if len(user.Permissions) != 0 {
+		t.Errorf("expected 0 permissions %v", len(user.Permissions))
+	}
 }
 
 func TestCreate(t *testing.T) {
@@ -42,7 +53,7 @@ func TestCreate(t *testing.T) {
 
 }
 
-func TestUpdateAuth(t *testing.T) {
+func TestUpdateMeta(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -58,7 +69,9 @@ func TestUpdateAuth(t *testing.T) {
 	}
 
 	displayName := "ME me me"
-	err = model.UpdateMeta(appspaceID, proxyID, displayName, []string{"read", "write"})
+	avatar := "mememe.jpg"
+	permissions := []string{"read", "write"}
+	err = model.UpdateMeta(appspaceID, proxyID, displayName, avatar, permissions)
 	if err != nil {
 		t.Error(err)
 	}
@@ -70,6 +83,12 @@ func TestUpdateAuth(t *testing.T) {
 
 	if appspaceUser.DisplayName != displayName {
 		t.Errorf("display name is diefferent: %v - %v", appspaceUser.DisplayName, displayName)
+	}
+	if appspaceUser.Avatar != avatar {
+		t.Errorf("avatar is diefferent: %v - %v", appspaceUser.Avatar, avatar)
+	}
+	if !reflect.DeepEqual(appspaceUser.Permissions, permissions) {
+		t.Errorf("permissions different: %v - %v ", appspaceUser.Permissions, permissions)
 	}
 }
 

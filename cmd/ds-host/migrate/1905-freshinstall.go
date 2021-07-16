@@ -132,6 +132,7 @@ func freshInstallUp(args *stepArgs) error {
 		"auth_type" TEXT,
 		"auth_id" TEXT,
 		"display_name" TEXT NOT NULL DEFAULT "",
+		"avatar" TEXT NOT NULL DEFAULT "",
 		"permissions" TEXT NOT NULL DEFAULT "",
 		"created" DATETIME,
 		"last_seen" DATETIME,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -149,13 +148,14 @@ func (m *DevAppspaceUserModel) Create(appspaceID domain.AppspaceID, authType str
 	return user.ProxyID, nil
 }
 
-func (m *DevAppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error {
+func (m *DevAppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {
 	user, ok := m.users[proxyID]
 	if !ok {
 		return sql.ErrNoRows
 	}
 
 	user.DisplayName = displayName
+	user.Avatar = avatar
 	user.Permissions = permissions
 
 	m.users[proxyID] = user

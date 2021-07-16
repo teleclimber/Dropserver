@@ -60,7 +60,7 @@ func (m *AppspaceUserModel) PrepareStatements() {
 		WHERE appspace_id = ? AND proxy_id = ?`)
 
 	m.stmt.updateMeta = p.Prep(`UPDATE appspace_users SET 
-		display_name = ?, permissions = ?
+		display_name = ?, avatar = ?, permissions = ?
 		WHERE appspace_id = ? AND proxy_id = ?`)
 
 	m.stmt.updateLastSeen = p.Prep(`UPDATE appspace_users SET 
@@ -112,7 +112,7 @@ func (m *AppspaceUserModel) Create(appspaceID domain.AppspaceID, authType string
 // You probably will have an update auth function, but I'm not sure exactly what form that will take.
 
 // UpdateMeta updates the appspace-facing data for the user
-func (m *AppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error {
+func (m *AppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {
 	err := validatePermissions(permissions)
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func (m *AppspaceUserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID dom
 		return err
 	}
 
-	_, err = m.stmt.updateMeta.Stmt.Exec(displayName, strings.Join(permissions, ","), appspaceID, proxyID)
+	_, err = m.stmt.updateMeta.Stmt.Exec(displayName, avatar, strings.Join(permissions, ","), appspaceID, proxyID)
 	if err != nil {
 		m.getLogger("UpdateMeta").AddNote("updateMeta.Stmt.Exec").AppspaceID(appspaceID).Error(err)
 		return err
@@ -214,6 +214,11 @@ func validatePermissions(permissions []string) error {
 }
 
 func toDomainStruct(u appspaceUser) domain.AppspaceUser {
+	// in Go, splitting an empty string return []string{""}, instead of []string{}
+	p := []string{}
+	if len(u.Permissions) > 0 {
+		p = strings.Split(u.Permissions, ",")
+	}
 	return domain.AppspaceUser{
 		AppspaceID:  u.AppspaceID,
 		ProxyID:     u.ProxyID,
@@ -221,7 +226,7 @@ func toDomainStruct(u appspaceUser) domain.AppspaceUser {
 		AuthID:      u.AuthID,
 		DisplayName: u.DisplayName,
 		Avatar:      u.Avatar,
-		Permissions: strings.Split(u.Permissions, ","),
+		Permissions: p,
 		Created:     u.Created,
 		LastSeen:    u.LastSeen,
 	}

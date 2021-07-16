@@ -9,10 +9,15 @@
 					<router-link class="btn" :to="{name:'manage-appspace', params:{id:appspace.id}}">back to appspace</router-link>
 				</div>
 			</div>
-			<div v-if="proxy_id" class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
-				<div>{{user.auth_id}}</div>
-				<div>[add to contacts / see in contacts]</div>
-				<!-- Need: delete, block, change auth -->
+			<div v-if="proxy_id" class="px-4 py-5 sm:px-6 border-b border-gray-200 ">
+				<div class="flex justify-between">
+					<div>{{user.auth_id}}</div>
+					<div>[add to contacts / see in contacts]</div>
+				</div>
+				<div>
+					<p>[Change Auth?]</p>
+					<p>Show display name and avatar inherited from auth data (drop id or contact)</p>
+				</div>
 			</div>
 			<div v-else class="py-5 border-b border-gray-200">
 				<DataDef field="Add Using:">
@@ -35,9 +40,15 @@
 				</DataDef>
 			</div>
 			<div class="py-5 border-b border-gray-200">
+				<h3 class="px-4 sm:px-6 font-bold text-gray-900">Set or Override User Display:</h3>
 				<DataDef field="Display Name:">
 					<input type="text" v-model="display_name" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 				</DataDef>
+				<DataDef field="Avatar:">
+					<Avatar :current="user.avatarURL" @changed="avatarChanged"></Avatar>
+				</DataDef>
+			</div>
+			<div class="py-5 border-b border-gray-200">
 				<DataDef field="Permissions:">
 					[Permisssions to be implemented]
 				</DataDef>
@@ -45,6 +56,18 @@
 			<div class="py-5 px-4 sm:px-6 flex items-baseline justify-between">
 				<router-link class="btn" :to="{name:'manage-appspace', params:{id:appspace.id}}">back to appspace</router-link>
 				<button class="btn-blue" @click="save">Save</button>
+			</div>
+		</div>
+
+		<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-yellow-200">
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Delete or Block User</h3>
+				<p class="mt-1 max-w-2xl text-sm text-gray-700">
+					Delete to completely eliminate the user, Block to prevent further access.
+				</p>
+			</div>
+			<div class="px-4 py-5 sm:px-6">
+				<p>Not implemented </p>
 			</div>
 		</div>
 	</ViewWrap>
@@ -58,16 +81,18 @@ import { defineComponent, ref, Ref, reactive, computed, onMounted, onUnmounted, 
 import {setTitle} from '../controllers/nav';
 
 import {Appspace} from '../models/appspaces';
-import {AppspaceUser, saveNewUser, updateUserMeta} from '../models/appspace_users';
+import {AppspaceUser, AvatarState, saveNewUser, updateUserMeta} from '../models/appspace_users';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
+import Avatar from '../components/ui/Avatar.vue';
 
 export default defineComponent({
 	name: 'ManageAppspaceUser',
 	components: {
 		ViewWrap,
-		DataDef
+		DataDef,
+		Avatar
 	},
 	setup() {
 		const route = useRoute();
@@ -102,13 +127,32 @@ export default defineComponent({
 			setTitle("");
 		});
 
+		let avatar_state = AvatarState.Preserve;
+		let avatar :Blob|null = null;
+
+		async function avatarChanged(ev:any) {
+			if( ev ) {
+				avatar = ev;
+				avatar_state = AvatarState.Replace;
+			}
+			else {
+				avatar = null;
+				avatar_state = AvatarState.Delete;
+			}
+		}
+
 		async function save() {
+			if( display_name.value.trim() === "" ) {
+				alert("please enter a display name");
+				return;
+			}
 			if( proxy_id.value ) {
 				// update
 				await updateUserMeta(appspace.id, proxy_id.value, {
 					display_name: display_name.value,
-					permissions: []
-				});
+					permissions: [],
+					avatar: avatar_state
+				}, avatar);
 			}
 			else {
 				let auth_type = "";
@@ -130,11 +174,14 @@ export default defineComponent({
 					auth_type,
 					auth_id,
 					display_name: display_name.value,
-					permissions: []
-				});
+					permissions: [],
+					avatar: avatar_state
+				}, avatar);
 			}
 			router.push({name: 'manage-appspace', params:{id: appspace.id}});
 		}
+
+		
 
 		return {
 			appspace,
@@ -145,7 +192,7 @@ export default defineComponent({
 			drop_id,
 			email,
 			display_name,
-			save,
+			avatarChanged, save,
 		}
 	}
 

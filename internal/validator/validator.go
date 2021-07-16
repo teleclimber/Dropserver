@@ -101,6 +101,15 @@ func AppspacePermission(p string) error {
 	return goVal.Var(p, "min=1,max=20")
 }
 
+var validAppspaceAvatarFilename = regexp.MustCompile(`^[0-9a-zA-Z]+-[0-9a-zA-Z]+\.jpg$`)
+
+func AppspaceAvatarFilename(f string) error {
+	if !validAppspaceAvatarFilename.MatchString(f) {
+		return errors.New("invalid format for appspace avatar file name")
+	}
+	return nil
+}
+
 var validBackupFile = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}(?:_[1-9])?\.zip$`)
 
 // AppspaceBackupFile validates names of appspace backup files (sans .zip extension)

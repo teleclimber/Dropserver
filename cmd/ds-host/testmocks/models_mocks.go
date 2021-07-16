@@ -1108,17 +1108,17 @@ func (mr *MockAppspaceUserModelMockRecorder) GetForAppspace(arg0 interface{}) *g
 }
 
 // UpdateMeta mocks base method
-func (m *MockAppspaceUserModel) UpdateMeta(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2 string, arg3 []string) error {
+func (m *MockAppspaceUserModel) UpdateMeta(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string, arg4 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMeta", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpdateMeta", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateMeta indicates an expected call of UpdateMeta
-func (mr *MockAppspaceUserModelMockRecorder) UpdateMeta(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockAppspaceUserModelMockRecorder) UpdateMeta(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMeta", reflect.TypeOf((*MockAppspaceUserModel)(nil).UpdateMeta), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMeta", reflect.TypeOf((*MockAppspaceUserModel)(nil).UpdateMeta), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockContactModel is a mock of ContactModel interface

@@ -502,6 +502,7 @@ type AppspaceUser struct {
 	AuthType    string             `json:"auth_type"`
 	AuthID      string             `json:"auth_id"`
 	DisplayName string             `json:"display_name"`
+	Avatar      string             `json:"avatar"`
 	Permissions []string           `json:"permissions"`
 	Created     time.Time          `json:"created_dt"`
 	LastSeen    nulltypes.NullTime `json:"last_seen"`

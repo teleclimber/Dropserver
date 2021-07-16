@@ -51,7 +51,6 @@ type AppspaceRoutes struct {
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
 	} `checkinject:"required"`
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
@@ -326,11 +325,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 		returnError(w, err)
 		return
 	}
-
-	// set permissions for owner to max permissions.
-	// 	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, []string{})
-	// 	if err != nil {
-	// 	}
+	// TODO use whatver process that sets values of display name and avatar to set those for owner user
 
 	// migrate to whatever version was selected
 	_, err = a.MigrationJobModel.Create(userID, appspace.AppspaceID, version.Version, true)

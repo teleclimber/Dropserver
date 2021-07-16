@@ -106,7 +106,7 @@ type AppspaceUserModel interface {
 	GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error)
 	GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
+	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 	Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	DeleteForAppspace(appspaceID domain.AppspaceID) error
 }

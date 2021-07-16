@@ -2,8 +2,13 @@ package userroutes
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -14,11 +19,13 @@ type PostAppspaceUser struct {
 	AuthType    string   `json:"auth_type"`
 	AuthID      string   `json:"auth_id"`
 	DisplayName string   `json:"display_name"`
+	Avatar      string   `json:"avatar"` //  "replace", any other value means no avatar is loaded
 	Permissions []string `json:"permissions"`
 }
 
 type PatchAppspaceUserMeta struct {
 	DisplayName string   `json:"display_name"`
+	Avatar      string   `json:"avatar"` // either "preserve", "replace", "delete"
 	Permissions []string `json:"permissions"`
 }
 
@@ -29,9 +36,14 @@ type AppspaceUserRoutes struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, permissions []string) error
+		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
+	Avatars interface {
+		Save(appspace domain.Appspace, proxyID domain.ProxyID, img io.Reader) (string, error)
+		Remove(appspace domain.Appspace, fn string) error
+	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 func (a *AppspaceUserRoutes) subRouter() http.Handler {
@@ -46,6 +58,7 @@ func (a *AppspaceUserRoutes) subRouter() http.Handler {
 		r.Get("/", a.getUser)
 		r.Patch("/", a.updateUserMeta)
 		r.Delete("/", a.deleteUser)
+		r.Get("/avatar/{filename}", a.getAvatar)
 	})
 
 	return r
@@ -96,24 +109,69 @@ func (a *AppspaceUserRoutes) getAllUsers(w http.ResponseWriter, r *http.Request)
 
 func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
-	reqData := PostAppspaceUser{}
-	err := readJSON(r, &reqData)
+
+	// multi part
+	err := r.ParseMultipartForm(16 << 20) // maxMemory 16MB
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "failed to parse multipart message: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	f, _, err := r.FormFile("metadata")
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	metadata, err := ioutil.ReadAll(f)
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	reqData := PostAppspaceUser{}
+	err = json.Unmarshal(metadata, &reqData)
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
 		return
 	}
 
-	displayName := ""
-	if reqData.DisplayName != "" {
-		displayName = validator.NormalizeDisplayName(reqData.DisplayName)
-		if err = validator.DisplayName(displayName); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+	displayName := validator.NormalizeDisplayName(reqData.DisplayName)
+	// For now display name can not be blank.
+	// Revisit when display name can be inherited from contact info or dropid
+	if displayName == "" {
+		http.Error(w, "display name can not be blank", http.StatusBadRequest)
+		return
+	}
+	if err = validator.DisplayName(displayName); err != nil {
+		http.Error(w, fmt.Errorf("failed to normalize display name: %w", err).Error(), http.StatusBadRequest)
+		return
+	}
+
+	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, reqData.AuthType, authID)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	// handle avatar...
+	avatar := ""
+	if reqData.Avatar == "replace" {
+		f, _, err = r.FormFile("avatar")
+		if err != nil {
+			// this should trigger a rollback
+			http.Error(w, "unable to get avatar from multipart: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		avatar, err = a.Avatars.Save(appspace, proxyID, f)
+		if err != nil {
+			// trigger rollback
+			http.Error(w, "unable to save avatar: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -125,20 +183,14 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		// hasMeta = true
 	}
 
-	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, reqData.AuthType, authID)
+	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, avatar, []string{})
 	if err != nil {
+		// This is where it would be nice to roll back....
+		// We can ignore the error and return the result of "get"
+		// And user will notice that something didn't quite work.
+		// error is captured in logger in model
 		returnError(w, err)
 		return
-	}
-
-	if displayName != "" {
-		err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, []string{})
-		if err != nil {
-			// This is where it would be nice to roll back....
-			// We can ignore the error and return the result of "get"
-			// And user will notice that something didn't quite work.
-			// error is captured in logger in model
-		}
 	}
 
 	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
@@ -159,10 +211,29 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 	user, _ := domain.CtxAppspaceUserData(r.Context())
 
-	reqData := PatchAppspaceUserMeta{}
-	err := readJSON(r, &reqData)
+	// multi part
+	err := r.ParseMultipartForm(16 << 20) // maxMemory 16MB
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "failed to parse multipart message: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// now get the metadata from parts:
+	f, _, err := r.FormFile("metadata")
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	metadata, err := ioutil.ReadAll(f)
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	reqData := PatchAppspaceUserMeta{}
+	err = json.Unmarshal(metadata, &reqData)
+	if err != nil {
+		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -172,6 +243,35 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	avatar := ""
+	switch reqData.Avatar {
+	case "preserve":
+		avatar = user.Avatar
+	case "delete":
+		if user.Avatar != "" {
+			a.Avatars.Remove(appspace, user.Avatar)
+		}
+		avatar = ""
+	case "replace":
+		// load image data from request, then process
+		f, _, err = r.FormFile("avatar")
+		if err != nil {
+			http.Error(w, "unable to get avatar from multipart: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		avatar, err = a.Avatars.Save(appspace, user.ProxyID, f)
+		if err != nil {
+			http.Error(w, "unable to save avatar: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		// now delete the old avatar...
+		if user.Avatar != "" {
+			a.Avatars.Remove(appspace, user.Avatar)
+		}
+	default:
+		http.Error(w, "avatar metadata not recognized: "+reqData.Avatar, http.StatusBadRequest)
+	}
+
 	// not yet sure how to deal with permissions....
 	if len(reqData.Permissions) != 0 {
 		// if( len)
@@ -179,7 +279,7 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		// hasMeta = true
 	}
 
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, []string{})
+	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, avatar, []string{})
 	if err != nil {
 		returnError(w, err)
 		return
@@ -202,6 +302,20 @@ func (a *AppspaceUserRoutes) deleteUser(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		returnError(w, err)
 	}
+}
+
+func (a *AppspaceUserRoutes) getAvatar(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	avatarFilename := chi.URLParam(r, "filename")
+
+	err := validator.AppspaceAvatarFilename(avatarFilename)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	fp := filepath.Join(a.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars", avatarFilename)
+	http.ServeFile(w, r, fp)
 }
 
 func validateAuthStrings(authType, authID string) (string, error) {

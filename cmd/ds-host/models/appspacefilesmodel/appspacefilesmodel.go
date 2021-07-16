@@ -20,6 +20,7 @@ import (
 //     - files/
 //     - logs/
 //     - dbs/ ? We should consider putting appspace dbs in the regular data files?
+//     - avatars (readonly from sandbox?)
 //     - appspacemeta.db
 //     - [appspace-export.json]
 //   - import-paths.json
@@ -110,6 +111,12 @@ func (a *AppspaceFilesModel) CreateDirs(base string) error {
 	err = os.MkdirAll(filepath.Join(base, "data", "dbs"), 0766)
 	if err != nil {
 		a.getLogger("CreateDirs(), os.Mkdirall for dbs").Error(err)
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Join(base, "data", "avatars"), 0766)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Mkdirall for avatars").Error(err)
 		return err
 	}
 

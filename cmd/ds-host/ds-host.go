@@ -383,6 +383,11 @@ func main() {
 		AppspaceModel: appspaceModel,
 	}
 
+	appspaceAvatars := &appspaceops.Avatars{
+		AppspaceUserModel: appspaceUserModel,
+		Config:            runtimeConfig,
+	}
+
 	backupAppspace.AppspaceStatus = appspaceStatus
 	migrationJobCtl.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
@@ -426,6 +431,8 @@ func main() {
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUserModel: appspaceUserModel,
+		Avatars:           appspaceAvatars,
+		Config:            runtimeConfig,
 	}
 	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
 		Config:             runtimeConfig,

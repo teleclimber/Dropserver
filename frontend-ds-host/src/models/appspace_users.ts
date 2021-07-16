@@ -19,6 +19,7 @@ export class AppspaceUser {
 	auth_type = "";
 	auth_id = "";
 	display_name = "";
+	avatar = "";
 	permissions :string[] = [];
 	created_dt = new Date();
 	last_seen :Date|undefined;
@@ -29,7 +30,8 @@ export class AppspaceUser {
 		this.auth_type = raw.auth_type+'';
 		this.auth_id = raw.auth_id+'';
 		this.display_name = raw.display_name+'';
-		this.permissions = raw.permissions === "" ? [] : raw.permissions.split(",");	//are we doing commas. Ideally we'd get this as an array from above
+		this.avatar = raw.avatar+'';
+		this.permissions = raw.permissions;
 		this.created_dt = new Date(raw.created_dt);
 		this.last_seen = raw.last_seen ? new Date(raw.last_seen) : undefined;
 
@@ -38,6 +40,12 @@ export class AppspaceUser {
 	async fetch(appspace_id: number, proxy_id:string) {
 		const resp_data = await get('/appspace/'+appspace_id+'/user/'+proxy_id);
 		this.setFromRaw(resp_data);
+	}
+	get avatarURL() :string {
+		if( this.avatar ) {
+			return `/api/appspace/${this.appspace_id}/user/${this.proxy_id}/avatar/${this.avatar}`;
+		}
+		return "";
 	}
 }
 
@@ -62,20 +70,44 @@ export type AppspaceUserAuth = {
 	auth_type: 'email'|'dropid',
 	auth_id: string
 }
+export enum AvatarState {
+	Preserve = "preserve",
+	Delete = "delete",
+	Replace = "replace"
+}
 export type AppspaceUserMeta = {
 	display_name: string,
+	avatar: AvatarState,
 	permissions: string[]
 }
 export type PostAppspaceUser = {
 	auth_type: string,
 	auth_id: string,
 	display_name: string,
+	avatar: AvatarState,
 	permissions: string[]
 }
-export async function saveNewUser(appspace_id:number, data :PostAppspaceUser ) {
-	const resp_data = await post('/appspace/'+appspace_id+'/user', data);
+// ^^ we really need to merge those types or something...
+
+export async function saveNewUser(appspace_id:number, data :PostAppspaceUser, avatarData:Blob|null ) {
+	const resp_data = await post('/appspace/'+appspace_id+'/user', getFormData(data, avatarData));
 }
 
-export async function updateUserMeta(appspace_id:number, proxy_id:string, data:AppspaceUserMeta) {
-	const resp_data = await patch('/appspace/'+appspace_id+'/user/'+proxy_id, data);
+export async function updateUserMeta(appspace_id:number, proxy_id:string, data:AppspaceUserMeta, avatarData:Blob|null) {
+	const resp_data = await patch('/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
+}
+
+
+function getFormData(data:PostAppspaceUser|AppspaceUserMeta, avatarData:Blob|null) :FormData {
+	const formData = new FormData();
+	if( avatarData !== null ) formData.append('avatar', avatarData);
+
+	const json = JSON.stringify(data);
+	const json_blob = new Blob([json], {
+		type: 'application/json'
+	});
+
+	formData.append('metadata', json_blob);
+
+	return formData;
 }
