@@ -145,7 +145,7 @@ function userFromRaw(u:any) :User {
 	return {
 		proxy_id: u.proxy_id+'',
 		display_name: u.display_name+'',
-		permissions: u.permissions.split(",")
+		permissions: u.permissions
 	}
 }
 
