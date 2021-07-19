@@ -29,11 +29,6 @@ import (
 // Also will trigger notifications of changes so appspace app can regenerate whatever it needs.
 
 type Avatars struct {
-	AppspaceUserModel interface {
-		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
-	} `checkinject:"required"`
-
 	Config *domain.RuntimeConfig `checkinject:"required"`
 	// Would like location 2 path but for appspaces?
 }
@@ -63,13 +58,14 @@ type Avatars struct {
 //   - [trigger event for appspace (later)]
 
 // Save cuts the image down to size and saves it in appspace data dir
-func (a *Avatars) Save(appspace domain.Appspace, proxyID domain.ProxyID, img io.Reader) (string, error) {
+// It returns the filename of the image as a string
+func (a *Avatars) Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error) {
 	appspaceImg, err := a.makeImage(img)
 	if err != nil {
 		return "", err
 	}
 
-	fn, err := a.imageToFile(appspace.LocationKey, proxyID, appspaceImg)
+	fn, err := a.imageToFile(locationKey, proxyID, appspaceImg)
 	if err != nil {
 		return "", err
 	}
@@ -109,17 +105,8 @@ func (a *Avatars) imageToFile(loc string, proxyID domain.ProxyID, img []byte) (s
 	return fn, nil
 }
 
-func (a *Avatars) Remove(appspace domain.Appspace, fn string) error {
-	err := a.removeFile(appspace.LocationKey, fn)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (a *Avatars) removeFile(loc, fn string) error {
-	err := os.Remove(filepath.Join(a.Config.Exec.AppspacesPath, loc, "data", "avatars", fn))
+func (a *Avatars) Remove(locationKey string, fn string) error {
+	err := os.Remove(filepath.Join(a.Config.Exec.AppspacesPath, locationKey, "data", "avatars", fn))
 	if err != nil {
 		a.getLogger("removeFile").Error(err)
 		return err

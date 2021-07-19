@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"path/filepath"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/twine"
@@ -24,6 +26,10 @@ type UserService struct {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
+	} `checkinject:"required"`
+	Avatars interface {
+		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
+		Remove(locationKey string, fn string) error
 	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
 		Subscribe(chan<- domain.AppspaceID)
@@ -84,6 +90,7 @@ func (u *UserService) sendUsers(twine *twine.Twine) {
 type IncomingUser struct {
 	ProxyID     domain.ProxyID `json:"proxy_id"`
 	DisplayName string         `json:"display_name"`
+	Avatar      string         `json:"avatar"`
 	Permissions []string       `json:"permissions"`
 }
 
@@ -137,8 +144,21 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		m.SendError(err.Error())
 		panic(err)
 	}
-	// TODO avatar? Where is this used?
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, "", incomingUser.Permissions)
+
+	avatar := ""
+	if incomingUser.Avatar != "" {
+		// for now we assume avatar is from baked-in avatars
+		f, err := avatarsFS.Open(filepath.Join("avatars", incomingUser.Avatar))
+		if err != nil {
+			panic(err)
+		}
+		avatar, err = u.Avatars.Save("", proxyID, f)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -167,23 +187,82 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 	var incomingUser IncomingUser
 	err := json.Unmarshal(m.Payload(), &incomingUser)
 	if err != nil {
+		m.SendError(err.Error())
 		panic(err)
 	}
 
-	// TODO handle avatar
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, "", incomingUser.Permissions)
+	avatar := ""
+	user, err := u.AppspaceUserModel.Get(appspaceID, incomingUser.ProxyID)
+	if err != nil {
+		m.SendError(err.Error())
+		panic(err)
+	}
+	// create new avatar:
+	if incomingUser.Avatar != "" && user.Avatar != incomingUser.Avatar {
+		// for now we assume avatar is from baked-in avatars
+		f, err := avatarsFS.Open(filepath.Join("avatars", incomingUser.Avatar))
+		if err != nil {
+			m.SendError(err.Error())
+			panic(err)
+		}
+		avatar, err = u.Avatars.Save("", incomingUser.ProxyID, f)
+		if err != nil {
+			m.SendError(err.Error())
+			panic(err)
+		}
+	}
+	// remove old avatar
+	if user.Avatar != "" && user.Avatar != incomingUser.Avatar {
+		err = u.Avatars.Remove("", user.Avatar)
+		if err != nil {
+			m.SendError(err.Error())
+			panic(err)
+		}
+	}
+
+	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
 
-	m.SendOK()
+	// send the full user as a reply? would make sense.
+	user, err = u.AppspaceUserModel.Get(appspaceID, incomingUser.ProxyID)
+	if err != nil {
+		m.SendError(err.Error())
+		panic(err)
+	}
+
+	payload, err := json.Marshal(user)
+	if err != nil {
+		m.SendError(err.Error())
+		panic(err)
+	}
+
+	err = m.Reply(11, payload)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	proxyID := domain.ProxyID(string(m.Payload()))
 
-	err := u.AppspaceUserModel.Delete(appspaceID, proxyID)
+	user, err := u.AppspaceUserModel.Get(appspaceID, proxyID)
+	if err != nil {
+		m.SendError(err.Error())
+		panic(err)
+	}
+
+	if user.Avatar != "" {
+		err = u.Avatars.Remove("", user.Avatar)
+		if err != nil {
+			m.SendError(err.Error())
+			panic(err)
+		}
+	}
+
+	err = u.AppspaceUserModel.Delete(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)

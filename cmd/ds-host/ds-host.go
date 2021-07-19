@@ -384,8 +384,7 @@ func main() {
 	}
 
 	appspaceAvatars := &appspaceops.Avatars{
-		AppspaceUserModel: appspaceUserModel,
-		Config:            runtimeConfig,
+		Config: runtimeConfig,
 	}
 
 	backupAppspace.AppspaceStatus = appspaceStatus

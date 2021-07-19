@@ -40,8 +40,8 @@ type AppspaceUserRoutes struct {
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
 	Avatars interface {
-		Save(appspace domain.Appspace, proxyID domain.ProxyID, img io.Reader) (string, error)
-		Remove(appspace domain.Appspace, fn string) error
+		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
+		Remove(locationKey string, fn string) error
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 }
@@ -168,7 +168,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unable to get avatar from multipart: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		avatar, err = a.Avatars.Save(appspace, proxyID, f)
+		avatar, err = a.Avatars.Save(appspace.LocationKey, proxyID, f)
 		if err != nil {
 			// trigger rollback
 			http.Error(w, "unable to save avatar: "+err.Error(), http.StatusBadRequest)
@@ -249,7 +249,7 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		avatar = user.Avatar
 	case "delete":
 		if user.Avatar != "" {
-			a.Avatars.Remove(appspace, user.Avatar)
+			a.Avatars.Remove(appspace.LocationKey, user.Avatar)
 		}
 		avatar = ""
 	case "replace":
@@ -259,14 +259,14 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 			http.Error(w, "unable to get avatar from multipart: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		avatar, err = a.Avatars.Save(appspace, user.ProxyID, f)
+		avatar, err = a.Avatars.Save(appspace.LocationKey, user.ProxyID, f)
 		if err != nil {
 			http.Error(w, "unable to save avatar: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		// now delete the old avatar...
 		if user.Avatar != "" {
-			a.Avatars.Remove(appspace, user.Avatar)
+			a.Avatars.Remove(appspace.LocationKey, user.Avatar)
 		}
 	default:
 		http.Error(w, "avatar metadata not recognized: "+reqData.Avatar, http.StatusBadRequest)

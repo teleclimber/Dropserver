@@ -1,7 +1,7 @@
 <style scoped>
 	.log-grid {
 		display: grid;
-		grid-template-columns: 3rem 10rem 5rem 1fr 8rem;
+		grid-template-columns: 3rem 50px 10rem 5rem 1fr 8rem;
 	}
 </style>
 
@@ -17,6 +17,8 @@
 							<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 						</svg>
 					</span>
+					<img v-if="user.avatar" :src="'avatar/appspace/'+user.avatar">
+					<div v-else class="bg-gray-300 border-b border-gray-400">&nbsp;</div>
 					<span class="bg-gray-200 text-gray-700 pl-2 py-2 text-lg font-bold border-b border-gray-400">{{user.display_name}}</span>
 					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm font-mono border-b border-gray-400">{{user.proxy_id}}</span>
 					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm border-b border-gray-400">{{user.permissions.join(", ")}}</span>
@@ -31,6 +33,7 @@
 						<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 					</svg>
 				</span>
+				<div class="bg-blue-100 border-b border-gray-400">&nbsp;</div>
 				<span style="grid-column: span 4" class="bg-blue-100 text-blue-700 pl-2 py-2 text-lg font-bold border-b border-gray-400 italic">Public</span>
 					
 			</div>
@@ -45,6 +48,20 @@
 				<div class="flex flex-col my-2">
 					<label for="display_name" class="">Display Name:</label>
 					<input type="text" ref="display_name_input" name="display_name" id="display_name" v-model="display_name" class="border rounded p-2">
+				</div>
+				<div class="my-2 flex">
+					<div class="flex flex-col">
+						Avatar:
+						<img v-if="avatar" :src="avatar_url" class="w-24 h-24">
+						<div v-else class="w-24 h-24 flex-grow bg-gray-100 text-gray-500 flex justify-center italic items-center">none</div>
+					</div>
+					<div class="pl-4 flex flex-col">
+						Select Avatar:
+						<div class="flex items-start">
+							<div class="w-16 h-16 bg-gray-100 text-gray-500 flex justify-center italic items-center"  @click="avatarChanged('')">none</div>
+							<img v-for="a in baked_in_avatars" :key="a" class="w-16 h-16 opacity-50 hover:opacity-100" :src="'avatar/baked-in/'+a" @click="avatarChanged(a)">
+						</div>
+					</div>
 				</div>
 				<div>Permissions:</div>
 				<label v-for="permission in baseData.user_permissions" :key="permission.key">
@@ -67,7 +84,7 @@
 
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent, reactive, ref, Ref, nextTick} from 'vue';
 
 import baseData from '../models/base-data';
 import userData from '../models/user-data';
@@ -85,99 +102,130 @@ import userData from '../models/user-data';
 
 export default defineComponent({
 	name: 'UserControl',
-	data() {
-		return {
-			edit_user_open: false,
-			is_edit: false,
-			display_name: "",
-			permissions: <{[permission:string]:boolean}>{},		// improve that
-			proxy_id: ""
-		}
-	},
 	components: {
 	},
 	setup(props, context) {
-		return { userData, baseData };
-	},
-	methods: {
-		showAddUser() {
-			if( this.edit_user_open ) return;
+		const display_name_input :Ref<HTMLInputElement|null> = ref(null);
+		const edit_user_open = ref(false);
+		const is_edit = ref(false);
+		const proxy_id = ref("");
+		const display_name = ref("");
+		const avatar = ref("");
+		const avatar_url = ref("");	// either avatar/appspace/<appspace avatar file> or avatar/baked-in/<baked-in-file>
 
-			this.is_edit = false;
+		const permissions :{[key:string]:boolean} = reactive({});
 
-			this.proxy_id = "";
-			this.display_name = "";
-			this.permissions = {};
+		const baked_in_avatars :Ref<string[]> = ref([]);
+		fetch('avatar/baked-in').then( async (resp) => {
+			if( !resp.ok ) throw new Error("fetch error for basic data");
+			baked_in_avatars.value = await resp.json();
+		});
 
-			this.edit_user_open = true;
+		function avatarChanged(a :string) {
+			console.log("change", a);
+			avatar.value = a;
+			avatar_url.value = "avatar/baked-in/"+a;
+		}
 
-			this.focusModal();
-		},
-		showEditUser(proxy_id:string) {
-			if( this.edit_user_open ) return;
+		function showAddUser() {
+			if( edit_user_open.value ) return;
 
-			this.is_edit = true;
+			is_edit.value = false;
 
-			const u = this.userData.getUser(proxy_id);
+			proxy_id.value = "";
+			display_name.value = "";
+			avatar.value = "";
+			avatar_url.value = "";
+
+			for( let p in permissions ) {
+				permissions[p] = false;
+			}
+
+			edit_user_open.value = true;
+
+			focusModal();
+		}
+		function showEditUser(p_id:string) {
+			if( edit_user_open.value ) return;
+
+			is_edit.value = true;
+
+			const u = userData.getUser(p_id);
 			if( u === undefined ) {
-				throw new Error("can't find user: "+proxy_id);
+				throw new Error("can't find user: "+p_id);
 			}
 
 			// get user and copy values
-			this.proxy_id = proxy_id;
-			this.display_name = u.display_name;
-			this.permissions = {};
+			proxy_id.value = p_id;
+			display_name.value = u.display_name;
+			avatar.value = u.avatar;
+			avatar_url.value = "avatar/appspace/"+u.avatar;
+
+			// first reset permissions:
+			for( let p in permissions ) {
+				permissions[p] = false;
+			}
 			u.permissions.forEach((p) => {
-				this.permissions[p] = true;
+				permissions[p] = true;
 			});
 
-			this.edit_user_open = true;
+			edit_user_open.value = true;
 
-			this.focusModal();
-		},
-		focusModal() {
-			this.$nextTick( () => {
-				const input = <HTMLInputElement>this.$refs.display_name_input;
-				input.focus();
+			focusModal();
+		}
+		function focusModal() {
+			nextTick( () => {
+				if( !display_name_input.value ) return;
+				display_name_input.value.focus();
 			});
-		},
-		saveEditUser() {
-			if( !this.edit_user_open ) return;
+		}
+		function saveEditUser() {
+			if( !edit_user_open.value ) return;
 
-			if( this.display_name == "" || this.display_name.length > 20 ) return;	//what are the validatiosn again?
+			if( display_name.value == "" || display_name.value.length > 20 ) return;	//what are the validatiosn again?
 			// maybe let the user model perform validations. Just wait for response?
 
-			const permissions :string[] = [];
-			for( let p in this.permissions ) {
-				if(this.permissions[p])	permissions.push(p);
-			};
+			const ps :string[] = [];
+			for( let p in permissions ) {
+				if( permissions[p] ) ps.push(p);
+			}
 
-			if( this.is_edit ) {
+			if( is_edit.value ) {
 				//this.userData.editUser();
-				this.userData.editUser(this.proxy_id, this.display_name, permissions)
+				userData.editUser(proxy_id.value, display_name.value, avatar.value, ps)
 			}
 			else {
-				this.userData.addUser(this.display_name, permissions)
+				userData.addUser(display_name.value, avatar.value, ps)
 			}
-			this.closeUserModal();
-		},
-		closeUserModal() {
+			closeUserModal();
+		}
+		function closeUserModal() {
 			// move focus back
-			if( this.is_edit ) {
+			if( is_edit.value ) {
 				// 
 			} 
 			else {
-				(<HTMLInputElement>this.$refs.add_btn).focus();
+				//TODO later... (<HTMLInputElement>this.$refs.add_btn).focus();
 			}
-			this.edit_user_open = false;
-		},
-		delUser(proxy_id: string) {
-			const u = this.userData.getUser(proxy_id);
+			edit_user_open.value = false;
+		}
+		
+		function delUser(proxy_id: string) {
+			const u = userData.getUser(proxy_id);
 			if( u === undefined ) return;
 			if( confirm("Delete "+u.display_name+"?") ) {
-				this.userData.deleteUser(proxy_id);
+				userData.deleteUser(proxy_id);
 			}
-		},
-	}
+		}
+
+		return { userData, baseData, 
+			edit_user_open, is_edit,
+			display_name_input, display_name,
+			permissions,
+			showAddUser, showEditUser, saveEditUser, closeUserModal,
+			baked_in_avatars, avatar, avatar_url, avatarChanged,
+			delUser,
+		};
+	},
 });
 </script>

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/go-chi/chi"
@@ -29,11 +31,19 @@ func (s *Server) Start() { //return a server type
 	if fserr != nil {
 		panic(fserr)
 	}
+	avatarsSubFS, fserr := fs.Sub(avatarsFS, "avatars")
+	if fserr != nil {
+		panic(fserr)
+	}
 
 	r := chi.NewRouter()
 	r.Route("/dropserver-dev", func(r chi.Router) {
 		r.Get("/base-data", s.DropserverDevHandler.GetBaseData)
 		r.Get("/livedata", s.DropserverDevHandler.StartLivedata)
+
+		r.Get("/avatar/baked-in", s.getAvatarList)
+		r.Handle("/avatar/baked-in/*", http.StripPrefix("/dropserver-dev/avatar/baked-in/", http.FileServer(http.FS(avatarsSubFS))))
+		r.Handle("/avatar/appspace/*", http.StripPrefix("/dropserver-dev/avatar/appspace/", http.FileServer(http.Dir(filepath.Join(s.Config.Exec.AppspacesPath, "data", "avatars")))))
 
 		r.Get("/", s.serveAppIndex)
 		r.Handle("/*", http.StripPrefix("/dropserver-dev/", http.FileServer(http.FS(frontendFS))))
@@ -56,4 +66,19 @@ func (s *Server) serveAppIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(htmlBytes)
+}
+
+func (s *Server) getAvatarList(w http.ResponseWriter, r *http.Request) {
+	dirs, err := avatarsFS.ReadDir("avatars")
+	if err != nil {
+		panic(err)
+	}
+
+	respData := make([]string, len(dirs))
+	for i, d := range dirs {
+		respData[i] = d.Name()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(respData)
 }

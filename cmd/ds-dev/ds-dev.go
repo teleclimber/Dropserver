@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -42,6 +43,9 @@ import (
 // - stop the appspace completely
 // - wait until fully stopped
 // - enter "migration" mode in UI: show migrate buttons, hide route hits etc...
+
+//go:embed avatars
+var avatarsFS embed.FS
 
 var appDirFlag = flag.String("app", "", "specify root directory of app code")
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
@@ -163,6 +167,10 @@ func main() {
 		destDir:             appspaceWorkingDir,
 	}
 	appspaceFiles.Reset()
+
+	avatars := &appspaceops.Avatars{
+		Config: runtimeConfig,
+	}
 
 	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
 		Config:         runtimeConfig,
@@ -297,6 +305,7 @@ func main() {
 	userService := &UserService{
 		DevAuthenticator:    devAuth,
 		AppspaceUserModel:   devAppspaceUserModel,
+		Avatars:             avatars,
 		AppspaceFilesEvents: appspaceFilesEvents}
 
 	routeHitService := &RouteHitService{

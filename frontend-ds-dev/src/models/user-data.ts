@@ -25,6 +25,7 @@ const userSelectUserCmd  = 15
 export type User = {
 	permissions: string[],
 	display_name: string,
+	avatar: string,
 	proxy_id: string
 }
 
@@ -75,9 +76,10 @@ class UserData {
 	// 	}
 	// }
 
-	async addUser(display_name: string, permissions: string[]) {
+	async addUser(display_name: string, avatar:string, permissions: string[]) {
 		const user :User = {
 			display_name,
+			avatar,
 			permissions,
 			proxy_id: ""
 		};
@@ -95,24 +97,28 @@ class UserData {
 
 	}
 
-	async editUser(proxy_id:string, display_name: string, permissions: string[]) {
+	async editUser(proxy_id:string, display_name: string, avatar:string, permissions: string[]) {
 		const user :User = {
 			proxy_id,
 			display_name,
+			avatar,
 			permissions
 		};
 
 		const payload = new TextEncoder().encode(JSON.stringify(user))
 		const reply = await twineClient.twine.sendBlock(userService, userUpdateCmd, payload);
 
-		if( !reply.ok ) {
+		if( reply.error ) {
 			console.error(reply.error);
 			return;
 		}
 
+		const u = JSON.parse(new TextDecoder().decode(reply.payload))
+
 		const i = this.users.findIndex((u:User) => u.proxy_id === proxy_id);
 		if( i == -1 ) throw new Error("couldn't find user to update");
-		this.users[i] = user;
+
+		this.users[i] = userFromRaw(u);
 	}
 	async deleteUser(proxy_id:string) {
 		const payload = new TextEncoder().encode(proxy_id);
@@ -145,6 +151,7 @@ function userFromRaw(u:any) :User {
 	return {
 		proxy_id: u.proxy_id+'',
 		display_name: u.display_name+'',
+		avatar: u.avatar+'',
 		permissions: u.permissions
 	}
 }
