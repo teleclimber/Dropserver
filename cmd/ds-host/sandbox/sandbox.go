@@ -203,7 +203,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 
 	appspacePath := "/dev/null"
 	if s.appspace != nil {
-		appspacePath = s.getAppspaceFilesPath()
+		appspacePath = s.getAppspaceDataPath()
 	}
 
 	// Probably need to think more about flags we pass, such as --no-remote?
@@ -747,6 +747,9 @@ func (s *Sandbox) writeImportMap() error {
 
 func (s *Sandbox) getAppFilesPath() string {
 	return s.Location2Path.AppFiles(s.appVersion.LocationKey)
+}
+func (s *Sandbox) getAppspaceDataPath() string {
+	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data")
 }
 func (s *Sandbox) getAppspaceFilesPath() string {
 	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data", "files")

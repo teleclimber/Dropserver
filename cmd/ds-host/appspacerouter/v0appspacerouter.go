@@ -299,6 +299,13 @@ func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 		}
 		p = strings.TrimPrefix(p, "@appspace/")
 		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "files")
+	} else if strings.HasPrefix(p, "@avatars/") {
+		appspace, ok := domain.CtxAppspaceData(ctx)
+		if !ok {
+			panic("v0appspaceRouter getFilePath: expected an appspace")
+		}
+		p = strings.TrimPrefix(p, "@avatars/")
+		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars")
 	} else if strings.HasPrefix(p, "@app/") {
 		appVersion, ok := domain.CtxAppVersionData(ctx)
 		if !ok {
