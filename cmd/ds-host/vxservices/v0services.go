@@ -16,8 +16,7 @@ const v0usersService = 16 //no more?
 
 //V0Services is a twine handler for reverse services with API version 0
 type V0Services struct {
-	RouteModel domain.ReverseServiceI
-	UserModel  domain.ReverseServiceI
+	UsersModel domain.ReverseServiceI
 	AppspaceDB domain.ReverseServiceI
 }
 
@@ -27,7 +26,7 @@ func (s *V0Services) HandleMessage(message twine.ReceivedMessageI) {
 	case v0databaseService:
 		s.AppspaceDB.HandleMessage(message)
 	case v0usersService:
-		s.UserModel.HandleMessage(message) // not anymore
+		s.UsersModel.HandleMessage(message) // not anymore
 	default:
 		s.getLogger("listenMessages()").Log(fmt.Sprintf("Service not recognized: %v, command: %v", message.ServiceID(), message.CommandID()))
 		message.SendError("service not recognized")

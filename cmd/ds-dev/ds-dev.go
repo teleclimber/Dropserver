@@ -125,9 +125,6 @@ func main() {
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
 
-	devAppspaceUserModel := &DevAppspaceUserModel{}
-	devAppspaceUserModel.Init()
-
 	//devAppspaceContactModel := &DevAppspaceContactModel{}
 
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
@@ -176,6 +173,10 @@ func main() {
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb}
 	appspaceInfoModels.Init()
+
+	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
+		AppspaceMetaDB: appspaceMetaDb,
+	}
 
 	devAuth := &DevAuthenticator{
 		noAuth: true} // start as public
@@ -238,13 +239,13 @@ func main() {
 		SandboxManager: devSandboxManager}
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceUserModel: devAppspaceUserModel,
-		V0AppRoutes:       v0AppRoutes,
-		SandboxProxy:      sandboxProxy,
-		Authenticator:     devAuth,
-		RouteHitEvents:    routeHitEvents,
-		Location2Path:     location2path,
-		Config:            runtimeConfig}
+		AppspaceUsersModelV0: appspaceUsersModelV0,
+		V0AppRoutes:          v0AppRoutes,
+		SandboxProxy:         sandboxProxy,
+		Authenticator:        devAuth,
+		RouteHitEvents:       routeHitEvents,
+		Location2Path:        location2path,
+		Config:               runtimeConfig}
 	appspaceRouterV0.Init()
 
 	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
@@ -271,13 +272,9 @@ func main() {
 	}
 	appspaceDB.Init()
 
-	// Appspace sandbox twine services:
-	vxUserModels := &vxservices.VxUserModels{
-		AppspaceUserModel: devAppspaceUserModel,
-	}
 	services := &vxservices.VXServices{
-		UserModels:   vxUserModels,
-		V0AppspaceDB: appspaceDB.V0}
+		AppspaceUsersV0: appspaceUsersModelV0,
+		V0AppspaceDB:    appspaceDB.V0}
 
 	devSandboxManager.Services = services
 
@@ -303,14 +300,14 @@ func main() {
 	}
 
 	userService := &UserService{
-		DevAuthenticator:    devAuth,
-		AppspaceUserModel:   devAppspaceUserModel,
-		Avatars:             avatars,
-		AppspaceFilesEvents: appspaceFilesEvents}
+		DevAuthenticator:     devAuth,
+		AppspaceUsersModelV0: appspaceUsersModelV0,
+		Avatars:              avatars,
+		AppspaceFilesEvents:  appspaceFilesEvents}
 
 	routeHitService := &RouteHitService{
-		RouteHitEvents:    routeHitEvents,
-		AppspaceUserModel: devAppspaceUserModel}
+		RouteHitEvents:       routeHitEvents,
+		AppspaceUsersModelV0: appspaceUsersModelV0}
 
 	migrationJobTwine := &twineservices.MigrationJobService{
 		AppspaceModel:      devAppspaceModel,

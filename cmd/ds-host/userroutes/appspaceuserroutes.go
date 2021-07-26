@@ -29,12 +29,14 @@ type PatchAppspaceUserMeta struct {
 	Permissions []string `json:"permissions"`
 }
 
+// All this needs to be versioned?
+
 // AppspaceUserRoutes handles routes for getting and mainpulating
 // appspace users
 type AppspaceUserRoutes struct {
-	AppspaceUserModel interface {
+	AppspaceUsersModelV0 interface { // change this to get appspace user v0, or something.
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
+		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
@@ -78,7 +80,7 @@ func (a *AppspaceUserRoutes) userCtx(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := a.AppspaceUserModel.Get(appspace.AppspaceID, domain.ProxyID(proxyStr))
+		user, err := a.AppspaceUsersModelV0.Get(appspace.AppspaceID, domain.ProxyID(proxyStr))
 		if err != nil {
 			if err == sql.ErrNoRows {
 				returnError(w, errNotFound)
@@ -96,7 +98,7 @@ func (a *AppspaceUserRoutes) userCtx(next http.Handler) http.Handler {
 
 func (a *AppspaceUserRoutes) getAllUsers(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
-	users, err := a.AppspaceUserModel.GetForAppspace(appspace.AppspaceID)
+	users, err := a.AppspaceUsersModelV0.GetAll(appspace.AppspaceID)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -153,7 +155,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, reqData.AuthType, authID)
+	proxyID, err := a.AppspaceUsersModelV0.Create(appspace.AppspaceID, reqData.AuthType, authID)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -183,7 +185,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		// hasMeta = true
 	}
 
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, avatar, []string{})
+	err = a.AppspaceUsersModelV0.UpdateMeta(appspace.AppspaceID, proxyID, displayName, avatar, []string{})
 	if err != nil {
 		// This is where it would be nice to roll back....
 		// We can ignore the error and return the result of "get"
@@ -193,7 +195,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
+	appspaceUser, err := a.AppspaceUsersModelV0.Get(appspace.AppspaceID, proxyID)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -279,13 +281,13 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		// hasMeta = true
 	}
 
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, avatar, []string{})
+	err = a.AppspaceUsersModelV0.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, avatar, []string{})
 	if err != nil {
 		returnError(w, err)
 		return
 	}
 
-	appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, user.ProxyID)
+	appspaceUser, err := a.AppspaceUsersModelV0.Get(appspace.AppspaceID, user.ProxyID)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -298,7 +300,7 @@ func (a *AppspaceUserRoutes) deleteUser(w http.ResponseWriter, r *http.Request) 
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 	user, _ := domain.CtxAppspaceUserData(r.Context())
 
-	err := a.AppspaceUserModel.Delete(appspace.AppspaceID, user.ProxyID)
+	err := a.AppspaceUsersModelV0.Delete(appspace.AppspaceID, user.ProxyID)
 	if err != nil {
 		returnError(w, err)
 	}

@@ -126,32 +126,6 @@ func freshInstallUp(args *stepArgs) error {
 	args.dbExec(`CREATE INDEX contact_user_id ON contacts (user_id)`)
 	// Might need a "block" flag and other controls?
 
-	args.dbExec(`CREATE TABLE "appspace_users" (
-		"appspace_id" INTEGER NOT NULL,
-		"proxy_id" TEXT,
-		"auth_type" TEXT,
-		"auth_id" TEXT,
-		"display_name" TEXT NOT NULL DEFAULT "",
-		"avatar" TEXT NOT NULL DEFAULT "",
-		"permissions" TEXT NOT NULL DEFAULT "",
-		"created" DATETIME,
-		"last_seen" DATETIME,
-		PRIMARY KEY (appspace_id, proxy_id)
-	)`)
-	args.dbExec(`CREATE UNIQUE INDEX appspace_proxy_id ON appspace_users (appspace_id, proxy_id)`)
-	args.dbExec(`CREATE UNIQUE INDEX appspace_auth_id ON appspace_users (appspace_id, auth_type, auth_id)`)
-	args.dbExec(`CREATE INDEX appspace_users_appspace ON appspace_users (appspace_id)`)
-	args.dbExec(`CREATE INDEX user_auth_id ON appspace_users (auth_type, auth_id)`)
-	// you also can't have two users with the same auth id. Otherwise, upon authenticating, what proxy id do you assign?
-	// Some more posible columns:
-	// - self-reg versus invited
-	// - self-reg status
-	// - block
-
-	// Do we need a "block" flag? We'd need it on appspaces (kind of like a "pause" but for a user)
-	// Also would need a block flag at the contact level, which blocks contact from all appspaces.
-	// The per-appspace block would be in the appspace meta data itself, so that non-contacts can be blocked.
-
 	// migration jobs
 	args.dbExec(`CREATE TABLE "migrationjobs" (
 		"job_id" INTEGER PRIMARY KEY AUTOINCREMENT,

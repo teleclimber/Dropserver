@@ -7,7 +7,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceInfoModels,AppspaceUserModel,ContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceInfoModels,ContactModel,DropIDModel,MigrationJobModel
 
 type CookieModel interface {
 	Get(cookieID string) (domain.Cookie, error)
@@ -98,17 +98,6 @@ type AppspaceInfoModels interface {
 	Init()
 	Get(domain.AppspaceID) domain.AppspaceInfoModel
 	GetSchema(domain.AppspaceID) (int, error)
-}
-
-// AppspaceUserModel stores the users of an appspace
-type AppspaceUserModel interface {
-	Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-	GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error)
-	GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
-	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
-	Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
-	DeleteForAppspace(appspaceID domain.AppspaceID) error
 }
 
 // ContactModel stores a user's contacts

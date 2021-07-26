@@ -495,7 +495,8 @@ type Contact struct {
 }
 
 // AppspaceUser identifies a user of an appspace
-// Not sure we want this to have this form? -> permissions as []string, and Auth as its own struct?
+// Not sure we want this to have this form? Auth should be its own struct?
+// TODO this is AppspaceUserV0
 type AppspaceUser struct {
 	AppspaceID  AppspaceID         `json:"appspace_id"`
 	ProxyID     ProxyID            `json:"proxy_id"`
@@ -548,26 +549,6 @@ type V0RouteModel interface {
 // AppspaceRouteModels returns models of the desired version
 type AppspaceRouteModels interface {
 	GetV0(AppspaceID) V0RouteModel
-}
-
-// V0UserModel serves appsace user data queries at API 0
-type V0UserModel interface {
-	ReverseServiceI
-
-	// Get a appspace user by proxy id
-	// If proxy id does not exist it returns zero-value V0User and nil error
-	Get(ProxyID) (V0User, error)
-	GetAll() ([]V0User, error)
-	Create(proxyID ProxyID, displayName string, permissions []string) error
-	Update(proxyID ProxyID, displayName string, permissions []string) error
-	Delete(ProxyID) error
-}
-
-// V0User is an appspace user as stored in the appspace
-type V0User struct {
-	ProxyID     ProxyID  `json:"proxy_id"`
-	Permissions []string `json:"permissions"`
-	DisplayName string   `json:"display_name"`
 }
 
 // ReverseServiceI is a common interface for reverse services of all versions
@@ -630,7 +611,7 @@ type AppspaceRouteHitEvent struct {
 	Timestamp     time.Time
 	AppspaceID    AppspaceID
 	Request       *http.Request
-	V0RouteConfig *V0AppRoute
+	V0RouteConfig *V0AppRoute // use generic app route, not versioned
 	// Credentials presented by the requester
 	// zero-values indicate credential not presented
 	Credentials struct {

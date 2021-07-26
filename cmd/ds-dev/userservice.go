@@ -19,10 +19,10 @@ import (
 // UserService is a twine service that sets the desired user params
 // and keeps the frontend up to date with app's declared permissions
 type UserService struct {
-	DevAuthenticator  *DevAuthenticator `checkinject:"required"`
-	AppspaceUserModel interface {
+	DevAuthenticator     *DevAuthenticator `checkinject:"required"`
+	AppspaceUsersModelV0 interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
-		GetForAppspace(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
+		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
@@ -35,6 +35,8 @@ type UserService struct {
 		Subscribe(chan<- domain.AppspaceID)
 		Unsubscribe(chan<- domain.AppspaceID)
 	} `checkinject:"required"`
+
+	dummyDropidNum int
 }
 
 // Start creates listeners and then shuts everything down when twine exits
@@ -63,6 +65,7 @@ func (u *UserService) Start(t *twine.Twine) {
 	u.AppspaceFilesEvents.Unsubscribe(asFilesCh)
 	close(asFilesCh)
 
+	u.dummyDropidNum = 0
 }
 
 // outgoing commnds:
@@ -71,7 +74,7 @@ const (
 )
 
 func (u *UserService) sendUsers(twine *twine.Twine) {
-	users, err := u.AppspaceUserModel.GetForAppspace(appspaceID)
+	users, err := u.AppspaceUsersModelV0.GetAll(appspaceID)
 	if err != nil {
 		fmt.Println("sendUsers error getting users: " + err.Error())
 	}
@@ -139,7 +142,8 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	proxyID, err := u.AppspaceUserModel.Create(appspaceID, "dropid", "dropid.dummy.develop")
+	u.dummyDropidNum++
+	proxyID, err := u.AppspaceUsersModelV0.Create(appspaceID, "dropid", fmt.Sprintf("dropid.dummy.develop/%v", u.dummyDropidNum))
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -158,14 +162,14 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
+	err = u.AppspaceUsersModelV0.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
 
 	// send the full user as a reply? would make sense.
-	user, err := u.AppspaceUserModel.Get(appspaceID, proxyID)
+	user, err := u.AppspaceUsersModelV0.Get(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -192,7 +196,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 	}
 
 	avatar := ""
-	user, err := u.AppspaceUserModel.Get(appspaceID, incomingUser.ProxyID)
+	user, err := u.AppspaceUsersModelV0.Get(appspaceID, incomingUser.ProxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -220,14 +224,14 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUserModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
+	err = u.AppspaceUsersModelV0.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
 
 	// send the full user as a reply? would make sense.
-	user, err = u.AppspaceUserModel.Get(appspaceID, incomingUser.ProxyID)
+	user, err = u.AppspaceUsersModelV0.Get(appspaceID, incomingUser.ProxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -248,7 +252,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	proxyID := domain.ProxyID(string(m.Payload()))
 
-	user, err := u.AppspaceUserModel.Get(appspaceID, proxyID)
+	user, err := u.AppspaceUsersModelV0.Get(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -262,7 +266,7 @@ func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUserModel.Delete(appspaceID, proxyID)
+	err = u.AppspaceUsersModelV0.Delete(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)

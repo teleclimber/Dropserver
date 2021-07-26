@@ -15,7 +15,7 @@ func TestInfoGetNoSchema(t *testing.T) {
 
 	asID := domain.AppspaceID(7)
 
-	db := getInfoTestDBHandle()
+	db := getV0TestDBHandle()
 	dbConn := domain.NewMockDbConn(mockCtrl)
 	dbConn.EXPECT().GetHandle().Return(db)
 
@@ -41,7 +41,7 @@ func TestInfoSetSchema(t *testing.T) {
 
 	asID := domain.AppspaceID(7)
 
-	db := getInfoTestDBHandle()
+	db := getV0TestDBHandle()
 	dbConn := domain.NewMockDbConn(mockCtrl)
 	dbConn.EXPECT().GetHandle().AnyTimes().Return(db)
 
@@ -66,7 +66,7 @@ func TestInfoSetSchema(t *testing.T) {
 	}
 }
 
-func getInfoTestDBHandle() *sqlx.DB {
+func getV0TestDBHandle() *sqlx.DB {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?
 	// See: https://github.com/jmoiron/sqlx/issues/164

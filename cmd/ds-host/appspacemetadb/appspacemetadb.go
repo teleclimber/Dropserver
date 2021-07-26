@@ -15,7 +15,7 @@ import (
 // can create and destroy appspace meta db file
 // gets and holds connection to appspace meta db
 // Models stored in that db should be separate files/structs/interfaces
-// Like routes for example
+// Like users for example
 
 // AppspaceMetaDB opens and tracks connections to appspace meta DBs
 type AppspaceMetaDB struct {

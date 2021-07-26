@@ -30,7 +30,7 @@ type RouteHitService struct {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	} `checkinject:"required"`
-	AppspaceUserModel interface {
+	AppspaceUsersModelV0 interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 }
@@ -68,7 +68,7 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 		Status:        routeEvent.Status}
 
 	if routeEvent.Credentials.ProxyID != "" {
-		user, err := s.AppspaceUserModel.Get(appspaceID, routeEvent.Credentials.ProxyID)
+		user, err := s.AppspaceUsersModelV0.Get(appspaceID, routeEvent.Credentials.ProxyID)
 		if err != nil {
 			panic(err)
 		}

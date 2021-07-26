@@ -27,7 +27,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspaceusermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
@@ -201,10 +200,6 @@ func main() {
 	}
 	remoteAppspaceModel.PrepareStatements()
 
-	appspaceUserModel := &appspaceusermodel.AppspaceUserModel{
-		DB: db}
-	appspaceUserModel.PrepareStatements()
-
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel:     appspaceModel,
 		AppspaceLogEvents: appspaceLogEvents,
@@ -220,6 +215,10 @@ func main() {
 		Config:         runtimeConfig,
 		AppspaceMetaDB: appspaceMetaDb}
 	appspaceInfoModels.Init()
+
+	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
+		AppspaceMetaDB: appspaceMetaDb,
+	}
 
 	appspaceDB := &appspacedb.AppspaceDB{
 		Config: runtimeConfig,
@@ -273,7 +272,6 @@ func main() {
 		AppspaceModel:      appspaceModel,
 		AppspaceFilesModel: appspaceFilesModel,
 		MigrationJobModel:  migrationJobModel,
-		AppspaceUserModel:  appspaceUserModel,
 	}
 
 	// auth
@@ -287,10 +285,10 @@ func main() {
 	ds2ds.Init()
 
 	v0tokenManager := &appspacelogin.V0TokenManager{
-		Config:            *runtimeConfig,
-		DS2DS:             ds2ds,
-		AppspaceModel:     appspaceModel,
-		AppspaceUserModel: appspaceUserModel,
+		Config:               *runtimeConfig,
+		DS2DS:                ds2ds,
+		AppspaceModel:        appspaceModel,
+		AppspaceUsersModelV0: appspaceUsersModelV0,
 	}
 	v0tokenManager.Start()
 
@@ -429,9 +427,9 @@ func main() {
 		AppModel:  appModel}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
-		AppspaceUserModel: appspaceUserModel,
-		Avatars:           appspaceAvatars,
-		Config:            runtimeConfig,
+		AppspaceUsersModelV0: appspaceUsersModelV0,
+		Avatars:              appspaceAvatars,
+		Config:               runtimeConfig,
 	}
 	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
 		Config:             runtimeConfig,
@@ -443,7 +441,7 @@ func main() {
 		AppspaceUserRoutes:     userAppspaceUserRoutes,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceModel:          appspaceModel,
-		AppspaceUserModel:      appspaceUserModel,
+		AppspaceUsersModelV0:   appspaceUsersModelV0,
 		AppspaceExportRoutes:   exportAppspaceRoutes,
 		DropIDModel:            dropIDModel,
 		MigrationMinder:        migrationMinder,
@@ -522,13 +520,13 @@ func main() {
 	}
 
 	v0appspaceRouter := &appspacerouter.V0{
-		V0AppRoutes:       v0AppRoutes,
-		AppspaceUserModel: appspaceUserModel,
-		SandboxProxy:      sandboxProxy,
-		Authenticator:     authenticator,
-		V0TokenManager:    v0tokenManager,
-		Config:            runtimeConfig,
-		Location2Path:     location2path}
+		V0AppRoutes:          v0AppRoutes,
+		AppspaceUsersModelV0: appspaceUsersModelV0,
+		SandboxProxy:         sandboxProxy,
+		Authenticator:        authenticator,
+		V0TokenManager:       v0tokenManager,
+		Config:               runtimeConfig,
+		Location2Path:        location2path}
 	v0appspaceRouter.Init()
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
@@ -541,13 +539,9 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
-	vxUserModels := &vxservices.VxUserModels{
-		AppspaceUserModel: appspaceUserModel,
-	}
-
 	services := &vxservices.VXServices{
-		UserModels:   vxUserModels,
-		V0AppspaceDB: appspaceDB.V0}
+		AppspaceUsersV0: appspaceUsersModelV0,
+		V0AppspaceDB:    appspaceDB.V0}
 	sandboxManager.Services = services
 	sandboxMaker.Services = services
 

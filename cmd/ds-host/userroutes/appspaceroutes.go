@@ -49,7 +49,7 @@ type AppspaceRoutes struct {
 	DeleteAppspace interface {
 		Delete(domain.Appspace) error
 	} `checkinject:"required"`
-	AppspaceUserModel interface {
+	AppspaceUsersModelV0 interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 	} `checkinject:"required"`
 	DomainController interface {
@@ -320,7 +320,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create owner user
-	_, err = a.AppspaceUserModel.Create(appspace.AppspaceID, "dropid", dropIDStr)
+	_, err = a.AppspaceUsersModelV0.Create(appspace.AppspaceID, "dropid", dropIDStr)
 	if err != nil {
 		returnError(w, err)
 		return

@@ -26,9 +26,7 @@ func (g *AppspaceInfoModels) Init() {
 	g.models = make(map[domain.AppspaceID]*InfoModel)
 }
 
-// Get returns the route model for the appspace
-// There i a single RouteModel per appspaceID so that caching can be implemented in it.
-// There will be different route model versions!
+// Get returns the info model for the appspace
 func (g *AppspaceInfoModels) Get(appspaceID domain.AppspaceID) domain.AppspaceInfoModel {
 	g.modelsMux.Lock()
 	defer g.modelsMux.Unlock()

@@ -38,6 +38,29 @@ func (h *v0handle) migrateUpToV0() {
 	)`)
 	h.exec(`CREATE UNIQUE INDEX info_index ON info (name)`)
 
+	h.exec(`CREATE TABLE "users" (
+		"proxy_id" TEXT,
+		"auth_type" TEXT,
+		"auth_id" TEXT,
+		"display_name" TEXT NOT NULL DEFAULT "",
+		"avatar" TEXT NOT NULL DEFAULT "",
+		"permissions" TEXT NOT NULL DEFAULT "",
+		"created" DATETIME,
+		"last_seen" DATETIME,
+		PRIMARY KEY (proxy_id)
+	)`)
+	h.exec(`CREATE UNIQUE INDEX appspace_proxy_id ON users (proxy_id)`)
+	h.exec(`CREATE UNIQUE INDEX appspace_auth_id ON users (auth_type, auth_id)`)
+	// you also can't have two users with the same auth id. Otherwise, upon authenticating, what proxy id do you assign?
+	// Some more posible columns:
+	// - self-reg versus invited
+	// - self-reg status
+	// - block
+
+	// Do we need a "block" flag? We'd need it on appspaces (kind of like a "pause" but for a user)
+	// Also would need a block flag at the contact level, which blocks contact from all appspaces.
+	// The per-appspace block would be in the appspace meta data itself, so that non-contacts can be blocked.
+
 	// routes is not currently used! May come back as appspace routes, but for now it stays empty
 	// h.exec(`CREATE TABLE routes (
 	// 	"methods" INT,
@@ -50,21 +73,6 @@ func (h *v0handle) migrateUpToV0() {
 	//h.exec(`CREATE INDEX routes_path_index ON routes (path)`)
 	// Do we need a inherent order? I think we might (essentially number of url path elements, and it should be inherent weight)
 	// presume auth and handler are json.
-
-	// Also unused! for now
-	// h.exec(`CREATE TABLE users (
-	// 	"proxy_id" TEXT,
-	// 	"display_name" TEXT,
-	// 	"permissions" TEXT
-	// )`)
-	// h.exec(`CREATE UNIQUE INDEX users_proxy_id ON users (proxy_id)`)
-	// Should we have an is_owner here? Might simplify some things:
-	// - app does getUser, it knows right away if user is owner.
-	// - in ds-dev, is_owner is readily availble, no need to set it (since appspace is divorced from host)
-	// - it might mean that the appspace contacts table need not have the owner  in it? Though maybe that makes things mre complicated
-
-	// possibility of adding a users_identification table or something
-	// to store registration credentials for self-registration
 
 	// Set schema version using pragma or wahtever. I think sqlite has a field in the DB for that.
 	h.exec(`INSERT INTO info (name, value) VALUES("ds-api-version", "0")`)

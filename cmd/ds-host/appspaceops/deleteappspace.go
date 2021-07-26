@@ -20,9 +20,6 @@ type DeleteAppspace struct {
 	MigrationJobModel interface {
 		DeleteForAppspace(domain.AppspaceID) error
 	} `checkinject:"required"`
-	AppspaceUserModel interface {
-		DeleteForAppspace(domain.AppspaceID) error
-	} `checkinject:"required"`
 }
 
 // Delete permanently deletes all data associated with an appspace
@@ -42,11 +39,6 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 	// Delete from cookies table?
 
 	err := d.MigrationJobModel.DeleteForAppspace(appspace.AppspaceID)
-	if err != nil {
-		return err
-	}
-
-	err = d.AppspaceUserModel.DeleteForAppspace(appspace.AppspaceID)
 	if err != nil {
 		return err
 	}

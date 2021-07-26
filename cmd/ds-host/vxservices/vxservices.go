@@ -8,8 +8,9 @@ type serviceGetter interface {
 
 // VXServices holds the structs necessary to create a service for any api version
 type VXServices struct {
-	UserModels interface {
-		GetV0(appspaceID domain.AppspaceID) *V0UserModel
+	AppspaceUsersV0 interface {
+		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	}
 	V0AppspaceDB serviceGetter
 }
@@ -19,7 +20,9 @@ func (x *VXServices) Get(appspace *domain.Appspace, api domain.APIVersion) (serv
 	switch api {
 	case 0:
 		service = &V0Services{
-			UserModel:  x.UserModels.GetV0(appspace.AppspaceID),
+			UsersModel: &UsersV0{
+				AppspaceUsersV0: x.AppspaceUsersV0,
+				appspaceID:      appspace.AppspaceID},
 			AppspaceDB: x.V0AppspaceDB.GetService(appspace),
 		}
 	}
