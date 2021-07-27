@@ -43,8 +43,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 
 	readyChan := make(chan struct{})
 	conn := &DbConn{
-		readySub:     []chan struct{}{readyChan},
-		liveRequests: 1,
+		readySub: []chan struct{}{readyChan},
 	}
 
 	mdb.startConn(conn, appspaceID, true)
@@ -71,10 +70,8 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 	return nil
 }
 
-// need a migrate function too. It's just a fact.
-
-// GetConn returns the existing conn for the appspace ID or creates one if necessary
-func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn, error) {
+// getConn returns the existing conn for the appspace ID or creates one if necessary
+func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*DbConn, error) {
 	locked := mdb.AppspaceStatus.IsLockedClosed(appspaceID)
 	if locked {
 		return nil, domain.ErrAppspaceLockedClosed
@@ -86,7 +83,6 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 	conn, ok := mdb.conns[appspaceID]
 	if ok {
 		conn.statusMux.Lock()
-		conn.liveRequests++
 		if conn.handle == nil && conn.connError == nil { // not ready yet
 			readyChan = make(chan struct{})
 			conn.readySub = append(conn.readySub, readyChan)
@@ -95,8 +91,7 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 	} else {
 		readyChan = make(chan struct{})
 		mdb.conns[appspaceID] = &DbConn{
-			readySub:     []chan struct{}{readyChan},
-			liveRequests: 1,
+			readySub: []chan struct{}{readyChan},
 		}
 		conn = mdb.conns[appspaceID]
 
@@ -109,10 +104,19 @@ func (mdb *AppspaceMetaDB) GetConn(appspaceID domain.AppspaceID) (domain.DbConn,
 	}
 
 	if conn.connError != nil {
-		mdb.getLogger("GetConn(), connError").Error(conn.connError)
+		mdb.getLogger("getConn(), connError").Error(conn.connError)
 	}
 
 	return conn, conn.connError
+}
+
+// GetHandle returns the db handle for the appspace
+func (mdb *AppspaceMetaDB) GetHandle(appspaceID domain.AppspaceID) (*sqlx.DB, error) {
+	conn, err := mdb.getConn(appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	return conn.GetHandle(), nil
 }
 
 // CloseConn closes the db file and removes connection from conns
@@ -131,6 +135,7 @@ func (mdb *AppspaceMetaDB) CloseConn(appspaceID domain.AppspaceID) error {
 		if err != nil {
 			return err
 		}
+		conn.handle = nil
 	}
 	return nil
 }
@@ -175,7 +180,6 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 
 	conn.statusMux.Lock()
 	conn.handle = handle
-	conn.stmts = make(map[string]*sqlx.Stmt)
 	conn.statusMux.Unlock()
 
 	for _, ch := range conn.readySub {
@@ -203,13 +207,10 @@ func setConnError(conn *DbConn, e error) {
 
 // DbConn holds the db handle and relevant request data
 type DbConn struct {
-	statusMux    sync.Mutex // not 100% sure what it's covering.
-	handle       *sqlx.DB   // maybe sqlx for this one?
-	connError    error
-	readySub     []chan struct{}
-	liveRequests int // I think this counts ongoing requests that are "claimed" towards this conn. Can't close unless it's zero
-
-	stmts map[string]*sqlx.Stmt
+	statusMux sync.Mutex // not 100% sure what it's covering.
+	handle    *sqlx.DB
+	connError error
+	readySub  []chan struct{}
 }
 
 // GetHandle returns the DB handle for theis connection

@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestInfoGetNoSchema(t *testing.T) {
@@ -16,17 +17,14 @@ func TestInfoGetNoSchema(t *testing.T) {
 	asID := domain.AppspaceID(7)
 
 	db := getV0TestDBHandle()
-	dbConn := domain.NewMockDbConn(mockCtrl)
-	dbConn.EXPECT().GetHandle().Return(db)
 
-	appspaceMetaDB := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetConn(asID).Return(dbConn, nil)
+	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
+	appspaceMetaDB.EXPECT().GetHandle(asID).Return(db, nil)
 
 	infoModel := &InfoModel{
-		AppspaceMetaDB: appspaceMetaDB,
-		appspaceID:     asID}
+		AppspaceMetaDB: appspaceMetaDB}
 
-	s, err := infoModel.GetSchema()
+	s, err := infoModel.GetSchema(asID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -42,22 +40,18 @@ func TestInfoSetSchema(t *testing.T) {
 	asID := domain.AppspaceID(7)
 
 	db := getV0TestDBHandle()
-	dbConn := domain.NewMockDbConn(mockCtrl)
-	dbConn.EXPECT().GetHandle().AnyTimes().Return(db)
-
-	appspaceMetaDB := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetConn(asID).AnyTimes().Return(dbConn, nil)
+	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
+	appspaceMetaDB.EXPECT().GetHandle(asID).AnyTimes().Return(db, nil)
 
 	infoModel := &InfoModel{
-		AppspaceMetaDB: appspaceMetaDB,
-		appspaceID:     asID}
+		AppspaceMetaDB: appspaceMetaDB}
 
-	err := infoModel.SetSchema(2)
+	err := infoModel.SetSchema(asID, 2)
 	if err != nil {
 		t.Error(err)
 	}
 
-	s, err := infoModel.GetSchema()
+	s, err := infoModel.GetSchema(asID)
 	if err != nil {
 		t.Error(err)
 	}

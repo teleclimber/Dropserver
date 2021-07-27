@@ -7,7 +7,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceInfoModels,ContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,ContactModel,DropIDModel,MigrationJobModel
 
 type CookieModel interface {
 	Get(cookieID string) (domain.Cookie, error)
@@ -91,13 +91,6 @@ type RemoteAppspaceModel interface {
 type AppspaceFilesModel interface {
 	CreateLocation() (string, error)
 	//DeleteLocation(string) error
-}
-
-// AppspaceInfoModels caches and dishes AppspaceInfoModels
-type AppspaceInfoModels interface {
-	Init()
-	Get(domain.AppspaceID) domain.AppspaceInfoModel
-	GetSchema(domain.AppspaceID) (int, error)
 }
 
 // ContactModel stores a user's contacts

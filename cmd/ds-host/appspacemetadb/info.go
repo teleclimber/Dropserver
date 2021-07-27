@@ -3,7 +3,6 @@ package appspacemetadb
 import (
 	"database/sql"
 	"strconv"
-	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -12,61 +11,11 @@ import (
 
 const schemaKey = "schema"
 
-// AppspaceInfoModels keeps InfoModels for each appspace
-type AppspaceInfoModels struct {
-	Config         *domain.RuntimeConfig `checkinject:"required"`
-	AppspaceMetaDB domain.AppspaceMetaDB `checkinject:"required"`
-
-	modelsMux sync.Mutex
-	models    map[domain.AppspaceID]*InfoModel
-}
-
-// Init the data structures as necessary
-func (g *AppspaceInfoModels) Init() {
-	g.models = make(map[domain.AppspaceID]*InfoModel)
-}
-
-// Get returns the info model for the appspace
-func (g *AppspaceInfoModels) Get(appspaceID domain.AppspaceID) domain.AppspaceInfoModel {
-	g.modelsMux.Lock()
-	defer g.modelsMux.Unlock()
-
-	var m *InfoModel
-
-	m, ok := g.models[appspaceID]
-	if !ok {
-		// make it and add it
-		m = &InfoModel{
-			AppspaceMetaDB: g.AppspaceMetaDB,
-			appspaceID:     appspaceID,
-		}
-		g.models[appspaceID] = m
-	}
-
-	return m
-}
-
-// GetSchema is a convenience function that returns the current schema for the appspaceID
-func (g *AppspaceInfoModels) GetSchema(appspaceID domain.AppspaceID) (int, error) {
-	m := g.Get(appspaceID)
-	return m.GetSchema()
-}
-
 // InfoModel interacts with the info table of appspace meata db
 type InfoModel struct {
-	AppspaceMetaDB domain.AppspaceMetaDB
-	appspaceID     domain.AppspaceID
-	//do we need stmts? (I think these should be in the DB obj)
-}
-
-func (m *InfoModel) getDB() (*sqlx.DB, error) {
-	// should probably cache that? Maybe?
-	// -> OK, but need to contend with possibility that the conn gets shut down.
-	dbConn, err := m.AppspaceMetaDB.GetConn(m.appspaceID) // use location key instead of apspace id
-	if err != nil {
-		return nil, err
+	AppspaceMetaDB interface {
+		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
 	}
-	return dbConn.GetHandle(), err
 }
 
 // SetDsAPIVersion sets the ds api version
@@ -80,22 +29,22 @@ func (m *InfoModel) getDB() (*sqlx.DB, error) {
 // }
 
 // SetSchema sets the schema in the info db
-func (m *InfoModel) SetSchema(schema int) error {
-	db, err := m.getDB()
+func (m *InfoModel) SetSchema(appspaceID domain.AppspaceID, schema int) error {
+	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
 	}
 
 	_, err = db.Exec(`DELETE FROM info WHERE name = ?`, schemaKey)
 	if err != nil {
-		m.getLogger("SetSchema(), Exec Delete").Error(err)
+		m.getLogger("SetSchema(), Exec Delete").AppspaceID(appspaceID).Error(err)
 		// does Exec error if no rows area affected?
 		return err
 	}
 
 	_, err = db.Exec(`INSERT INTO info (name, value) VALUES (?, ?)`, schemaKey, schema)
 	if err != nil {
-		m.getLogger("SetSchema(), Exec Insert").Error(err)
+		m.getLogger("SetSchema(), Exec Insert").AppspaceID(appspaceID).Error(err)
 		return err
 	}
 
@@ -103,10 +52,10 @@ func (m *InfoModel) SetSchema(schema int) error {
 }
 
 //GetSchema returns the schema or 0 if none exists
-func (m *InfoModel) GetSchema() (int, error) {
+func (m *InfoModel) GetSchema(appspaceID domain.AppspaceID) (int, error) {
 	// for now just read it from the DB?
 	// In future, cache it, and invalidate on SetSchema
-	db, err := m.getDB()
+	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return 0, err
 	}
@@ -121,7 +70,7 @@ func (m *InfoModel) GetSchema() (int, error) {
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
-		m.getLogger("GetSchema()").Error(err)
+		m.getLogger("GetSchema()").AppspaceID(appspaceID).Error(err)
 		return 0, err
 	}
 
@@ -135,7 +84,7 @@ func (m *InfoModel) GetSchema() (int, error) {
 }
 
 func (m *InfoModel) getLogger(note string) *record.DsLogger {
-	l := record.NewDsLogger().AddNote("InfoModel").AppspaceID(m.appspaceID)
+	l := record.NewDsLogger().AddNote("InfoModel")
 	if note != "" {
 		l.AddNote(note)
 	}

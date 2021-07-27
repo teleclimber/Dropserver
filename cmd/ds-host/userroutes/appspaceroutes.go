@@ -61,7 +61,9 @@ type AppspaceRoutes struct {
 	MigrationMinder interface {
 		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
 	} `checkinject:"required"`
-	AppspaceMetaDB    domain.AppspaceMetaDB `checkinject:"required"`
+	AppspaceMetaDB interface {
+		Create(domain.AppspaceID, int) error
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
 	} `checkinject:"required"`

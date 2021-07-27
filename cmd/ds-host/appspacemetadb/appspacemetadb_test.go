@@ -23,8 +23,7 @@ func TestStartConn(t *testing.T) {
 
 	readyChan := make(chan struct{})
 	conn := &DbConn{
-		readySub:     []chan struct{}{readyChan},
-		liveRequests: 1,
+		readySub: []chan struct{}{readyChan},
 	}
 
 	cfg := &domain.RuntimeConfig{}
@@ -88,11 +87,10 @@ func TestCreateAndGet(t *testing.T) {
 
 	// OK, now test Get
 
-	dbConn, err := mdb.GetConn(appspaceID)
+	h, err := mdb.GetHandle(appspaceID)
 	if err != nil {
 		t.Error(err)
 	}
-	h := dbConn.GetHandle()
 
 	var res struct {
 		Value int

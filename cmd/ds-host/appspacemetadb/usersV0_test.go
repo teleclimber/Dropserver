@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 var asID = domain.AppspaceID(7)
@@ -149,11 +150,8 @@ func TestDelete(t *testing.T) {
 
 func makeUsersV0(mockCtrl *gomock.Controller) *UsersV0 {
 	db := getV0TestDBHandle()
-	dbConn := domain.NewMockDbConn(mockCtrl)
-	dbConn.EXPECT().GetHandle().Return(db).AnyTimes()
-
-	appspaceMetaDB := domain.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetConn(asID).Return(dbConn, nil).AnyTimes()
+	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
+	appspaceMetaDB.EXPECT().GetHandle(asID).Return(db, nil).AnyTimes()
 
 	return &UsersV0{
 		AppspaceMetaDB: appspaceMetaDB}

@@ -41,7 +41,7 @@ type DropserverDevServer struct {
 	AppspaceDB interface {
 		CloseAppspace(domain.AppspaceID)
 	} `checkinject:"required"`
-	AppspaceInfoModels interface {
+	AppspaceInfoModel interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	} `checkinject:"required"`
 	DevSandboxManager interface {
@@ -83,7 +83,7 @@ type DropserverDevServer struct {
 }
 
 func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Request) {
-	appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+	appspaceSchema, err := s.AppspaceInfoModel.GetSchema(appspaceID)
 	if err != nil {
 		fmt.Println("failed to get appspace schema: " + err.Error())
 	}
@@ -280,7 +280,7 @@ var errNoMigrationNeeded = errors.New("no migration needed")
 // If migrating down, then create dummy version with lower version, to-schema.
 // Location key and rest is immaterial as it souldn't get used.
 func (s *DropserverDevServer) migrate(migrateTo int) error {
-	appspaceSchema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+	appspaceSchema, err := s.AppspaceInfoModel.GetSchema(appspaceID)
 	if err != nil {
 		return err
 	}

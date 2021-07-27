@@ -76,11 +76,9 @@ func TestRunJob(t *testing.T) {
 
 	appspaceModel.EXPECT().SetVersion(appspaceID, toVersion).Return(nil)
 
-	infoModel := domain.NewMockAppspaceInfoModel(mockCtrl)
-	infoModel.EXPECT().GetSchema().Return(1, nil)
-	infoModel.EXPECT().SetSchema(2).Return(nil)
-	infoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
-	infoModels.EXPECT().Get(appspaceID).Return(infoModel)
+	infoModel := testmocks.NewMockAppspaceInfoModel(mockCtrl)
+	infoModel.EXPECT().GetSchema(appspaceID).Return(1, nil)
+	infoModel.EXPECT().SetSchema(appspaceID, 2).Return(nil)
 
 	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
 	replyMessage.EXPECT().OK().Return(true)
@@ -102,13 +100,13 @@ func TestRunJob(t *testing.T) {
 	backupAppspace.EXPECT().BackupNoPause(appspaceID).Return("some-zip-file.zip", nil)
 
 	c := &MigrationJobController{
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		AppspaceInfoModels: infoModels,
-		BackupAppspace:     backupAppspace,
-		SandboxManager:     sandboxManager,
-		SandboxMaker:       sandboxMaker,
-		AppspaceStatus:     appspaceStatus,
+		AppspaceModel:     appspaceModel,
+		AppModel:          appModel,
+		AppspaceInfoModel: infoModel,
+		BackupAppspace:    backupAppspace,
+		SandboxManager:    sandboxManager,
+		SandboxMaker:      sandboxMaker,
+		AppspaceStatus:    appspaceStatus,
 	}
 
 	rj := c.createRunningJob(job)

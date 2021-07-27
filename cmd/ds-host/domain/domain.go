@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,DbConn,AppspaceMetaDB,AppspaceInfoModel,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,V0RouteModel,AppspaceRouteModels,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -507,22 +507,6 @@ type AppspaceUser struct {
 	Permissions []string           `json:"permissions"`
 	Created     time.Time          `json:"created_dt"`
 	LastSeen    nulltypes.NullTime `json:"last_seen"`
-}
-
-type DbConn interface {
-	GetHandle() *sqlx.DB
-}
-
-// AppspaceMetaDB manages the files and connections for each appspace's metadata DB
-type AppspaceMetaDB interface {
-	Create(AppspaceID, int) error
-	GetConn(AppspaceID) (DbConn, error)
-}
-
-// AppspaceInfoModel holds metadata like current schema and ds api version for the appspace.
-type AppspaceInfoModel interface {
-	GetSchema() (int, error)
-	SetSchema(int) error
 }
 
 // V0RouteModel serves route data queries at version 0

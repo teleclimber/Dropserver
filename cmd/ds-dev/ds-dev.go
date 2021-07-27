@@ -169,10 +169,8 @@ func main() {
 		Config: runtimeConfig,
 	}
 
-	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
-		Config:         runtimeConfig,
+	appspaceInfoModel := &appspacemetadb.InfoModel{
 		AppspaceMetaDB: appspaceMetaDb}
-	appspaceInfoModels.Init()
 
 	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
 		AppspaceMetaDB: appspaceMetaDb,
@@ -210,20 +208,20 @@ func main() {
 	devSandboxManager.Init()
 
 	migrateJobController := &appspaceops.MigrationJobController{
-		MigrationJobModel:  devMigrationJobModel,
-		AppModel:           devAppModel,
-		AppspaceInfoModels: appspaceInfoModels,
-		AppspaceModel:      devAppspaceModel,
-		AppspaceStatus:     nil, //set below
-		BackupAppspace:     nil, // TODO going to need something like this!
-		SandboxMaker:       nil, // added below
-		SandboxManager:     devSandboxManager}
+		MigrationJobModel: devMigrationJobModel,
+		AppModel:          devAppModel,
+		AppspaceInfoModel: appspaceInfoModel,
+		AppspaceModel:     devAppspaceModel,
+		AppspaceStatus:    nil, //set below
+		BackupAppspace:    nil, // TODO going to need something like this!
+		SandboxMaker:      nil, // added below
+		SandboxManager:    devSandboxManager}
 
 	//devAppspaceStatus := &DevAppspaceStatus{}
 	appspaceStatus := &appspacestatus.AppspaceStatus{
 		AppspaceModel:        devAppspaceModel,
 		AppModel:             devAppModel,
-		AppspaceInfoModels:   appspaceInfoModels,
+		AppspaceInfoModel:    appspaceInfoModel,
 		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspaceRouter:       nil, //added below
@@ -322,7 +320,7 @@ func main() {
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceDB:             appspaceDB,
-		AppspaceInfoModels:     appspaceInfoModels,
+		AppspaceInfoModel:      appspaceInfoModel,
 		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,

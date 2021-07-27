@@ -28,8 +28,9 @@ type MigrationJobController struct {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		SetVersion(domain.AppspaceID, domain.Version) error
 	} `checkinject:"required"`
-	AppspaceInfoModels interface {
-		Get(domain.AppspaceID) domain.AppspaceInfoModel
+	AppspaceInfoModel interface {
+		GetSchema(domain.AppspaceID) (int, error)
+		SetSchema(domain.AppspaceID, int) error
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
@@ -235,8 +236,7 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		// otherwise, bigger problem.
 	}
 
-	infoModel := c.AppspaceInfoModels.Get(appspaceID)
-	fromSchema, err := infoModel.GetSchema()
+	fromSchema, err := c.AppspaceInfoModel.GetSchema(appspaceID)
 	if err != nil {
 		job.errStr.SetString("Error getting current schema: " + err.Error())
 		return
@@ -302,7 +302,7 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		return
 	}
 
-	err = infoModel.SetSchema(job.toSchema)
+	err = c.AppspaceInfoModel.SetSchema(appspaceID, job.toSchema)
 	if err != nil {
 		job.errStr.SetString("Error setting schema after Migration: " + err.Error())
 		return

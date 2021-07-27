@@ -211,10 +211,8 @@ func main() {
 		AppspaceModel: appspaceModel}
 	appspaceMetaDb.Init()
 
-	appspaceInfoModels := &appspacemetadb.AppspaceInfoModels{
-		Config:         runtimeConfig,
+	appspaceInfoModel := &appspacemetadb.InfoModel{
 		AppspaceMetaDB: appspaceMetaDb}
-	appspaceInfoModels.Init()
 
 	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
 		AppspaceMetaDB: appspaceMetaDb,
@@ -259,13 +257,13 @@ func main() {
 	}
 
 	migrationJobCtl := &appspaceops.MigrationJobController{
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		AppspaceInfoModels: appspaceInfoModels,
-		SandboxManager:     sandboxManager,
-		SandboxMaker:       sandboxMaker,
-		BackupAppspace:     backupAppspace,
-		MigrationJobModel:  migrationJobModel}
+		AppspaceModel:     appspaceModel,
+		AppModel:          appModel,
+		AppspaceInfoModel: appspaceInfoModel,
+		SandboxManager:    sandboxManager,
+		SandboxMaker:      sandboxMaker,
+		BackupAppspace:    backupAppspace,
+		MigrationJobModel: migrationJobModel}
 
 	deleteAppspace := &appspaceops.DeleteAppspace{
 		AppspaceStatus:     nil,
@@ -367,7 +365,7 @@ func main() {
 	appspaceStatus := &appspacestatus.AppspaceStatus{
 		AppspaceModel:        appspaceModel,
 		AppModel:             appModel,
-		AppspaceInfoModels:   appspaceInfoModels,
+		AppspaceInfoModel:    appspaceInfoModel,
 		MigrationJobEvents:   migrationJobEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspacePausedEvent:  appspacePausedEvent,

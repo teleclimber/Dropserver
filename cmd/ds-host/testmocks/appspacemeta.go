@@ -1,10 +1,22 @@
 package testmocks
 
-import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
+import (
+	"github.com/jmoiron/sqlx"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+)
 
-// all v0 versioned interfaces
+//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceMetaDB,AppspaceInfoModel,UsersV0
 
-//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks UsersV0
+type AppspaceMetaDB interface {
+	Create(domain.AppspaceID, int) error
+	GetHandle(domain.AppspaceID) (*sqlx.DB, error)
+}
+
+// AppspaceInfoModel caches and dishes AppspaceInfoModels
+type AppspaceInfoModel interface {
+	GetSchema(domain.AppspaceID) (int, error)
+	SetSchema(domain.AppspaceID, int) error
+}
 
 type UsersV0 interface {
 	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)

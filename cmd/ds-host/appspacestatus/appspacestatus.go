@@ -76,7 +76,7 @@ type AppspaceStatus struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	} `checkinject:"required"`
 
-	AppspaceInfoModels interface {
+	AppspaceInfoModel interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	} `checkinject:"required"`
 
@@ -295,8 +295,8 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	// Head's up: there is a chance that the meta db isn't created yet
 	// But that's not an error, and we should just get a 0
 	// (note info model returns zero if no schema set, but returns error if no db present (I think?))
-	// Note that you don't need to subscribe, since change should only be possible via migration.
-	schema, err := s.AppspaceInfoModels.GetSchema(appspaceID)
+	// Note that you don't need to subscribe, since change should only be possible via migration or appspace restore
+	schema, err := s.AppspaceInfoModel.GetSchema(appspaceID)
 	if err != nil {
 		data.problem = true
 	}

@@ -31,18 +31,9 @@ var ErrAuthIDExists = errors.New("auth ID (email or dropid) not unique in this a
 
 // UsersV0 stores the user's DropIDs
 type UsersV0 struct {
-	AppspaceMetaDB domain.AppspaceMetaDB
-	//appspaceID     domain.AppspaceID
-}
-
-func (u *UsersV0) getDB(appspaceID domain.AppspaceID) (*sqlx.DB, error) {
-	// should probably cache that? Maybe?
-	// -> OK, but need to contend with possibility that the conn gets shut down.
-	dbConn, err := u.AppspaceMetaDB.GetConn(appspaceID) // use location key instead of apspace id
-	if err != nil {
-		return nil, err
+	AppspaceMetaDB interface {
+		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
 	}
-	return dbConn.GetHandle(), err
 }
 
 // Create an appspace user with provided auth.
@@ -54,7 +45,7 @@ func (u *UsersV0) Create(appspaceID domain.AppspaceID, authType string, authID s
 		panic("invalid auth type " + authType)
 	}
 
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return proxyID, err
 	}
@@ -97,7 +88,7 @@ func (u *UsersV0) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyI
 		return err
 	}
 
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
 	}
@@ -116,7 +107,7 @@ func (u *UsersV0) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyI
 
 // Get returns an AppspaceUser
 func (u *UsersV0) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return domain.AppspaceUser{}, err
 	}
@@ -138,7 +129,7 @@ func (u *UsersV0) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (dom
 // GetByDropID returns an appspace that matches the dropid string
 // It returns sql.ErrNoRows if not found
 func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return domain.AppspaceUser{}, err
 	}
@@ -159,7 +150,7 @@ func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (doma
 
 // GetForAppspace returns an appspace's list of users.
 func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) { // TODO this should return a V0 user type
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +174,7 @@ func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, e
 // Note: need more thought on what it measn to "delete":
 // What happens with the user's data on the appspace?
 func (u *UsersV0) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error {
-	db, err := u.getDB(appspaceID)
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
 	}

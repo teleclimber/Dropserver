@@ -22,13 +22,13 @@ func TestLoadStatus(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
-	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
+	appspaceInfoModel := testmocks.NewMockAppspaceInfoModel(mockCtrl)
+	appspaceInfoModel.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
 	s := &AppspaceStatus{
-		AppspaceModel:      appspaceModel,
-		AppModel:           appModel,
-		AppspaceInfoModels: appspaceInfoModels,
+		AppspaceModel:     appspaceModel,
+		AppModel:          appModel,
+		AppspaceInfoModel: appspaceInfoModel,
 	}
 
 	status := s.getData(appspaceID)
@@ -251,8 +251,8 @@ func TestMigrationEvent(t *testing.T) {
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
 
-	appspaceInfoModels := testmocks.NewMockAppspaceInfoModels(mockCtrl)
-	appspaceInfoModels.EXPECT().GetSchema(appspaceID).Return(4, nil)
+	appspaceInfoModel := testmocks.NewMockAppspaceInfoModel(mockCtrl)
+	appspaceInfoModel.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
 	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
 	appspaceStatusEvents.EXPECT().Send(appspaceID, event1)
@@ -260,7 +260,7 @@ func TestMigrationEvent(t *testing.T) {
 	s := AppspaceStatus{
 		AppspaceModel:        appspaceModel,
 		AppModel:             appModel,
-		AppspaceInfoModels:   appspaceInfoModels,
+		AppspaceInfoModel:    appspaceInfoModel,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		status:               make(map[domain.AppspaceID]*status),
 	}
