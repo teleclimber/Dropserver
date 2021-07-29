@@ -18,7 +18,7 @@ type MigrationJobModel struct {
 	// add migration job events?
 	MigrationJobEvents interface {
 		Send(domain.MigrationJob)
-	}
+	} `checkinject:"required"`
 
 	stmt struct {
 		create         *sqlx.Stmt

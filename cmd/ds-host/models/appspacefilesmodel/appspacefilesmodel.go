@@ -27,7 +27,11 @@ import (
 
 // AppspaceFilesModel is struct for appspace data directory manager
 type AppspaceFilesModel struct {
-	Config *domain.RuntimeConfig
+	Config              *domain.RuntimeConfig `checkinject:"required"`
+	AppspaceFilesEvents interface {
+		Send(appspaceID domain.AppspaceID)
+	} `checkinject:"required"`
+	// need appspace files events fire event
 }
 
 // TODO: add appspace files event interface and call upon change.

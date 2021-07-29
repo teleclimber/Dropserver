@@ -17,7 +17,7 @@ type AppspaceModel struct {
 
 	AsPausedEvent interface {
 		Send(domain.AppspaceID, bool)
-	}
+	} `checkinject:"required"`
 
 	stmt struct {
 		selectID         *sqlx.Stmt
