@@ -16,3 +16,8 @@ var ErrAppspaceLockedClosed = errors.New("appspace is locked closed")
 // on the app version because something (probably an appspace)
 // depends on it
 var ErrAppVersionInUse = errors.New("app version in use")
+
+// ErrTokenNotFound is used when a token is ued to gain access to a
+// process or to data. This error indicates that the token may have expired
+// or it never existed
+var ErrTokenNotFound = errors.New("token not found")

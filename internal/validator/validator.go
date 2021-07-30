@@ -26,6 +26,10 @@ func DomainName(domainName string) error {
 	return goVal.Var(domainName, "required,fqdn")
 }
 
+func LocationKey(loc string) error {
+	return goVal.Var(loc, "min=8,max=16,alphanum") //as531411051
+}
+
 // V0AppspaceLoginToken is used to obtain a session cookie for an appspace
 func V0AppspaceLoginToken(token string) error {
 	return goVal.Var(token, "min=20,max=30,alphanum")

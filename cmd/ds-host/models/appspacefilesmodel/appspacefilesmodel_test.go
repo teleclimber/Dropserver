@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestDelete(t *testing.T) {
@@ -22,7 +23,6 @@ func TestDelete(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.DataDir = dir
 	cfg.Exec.AppspacesPath = dir
 
 	m := AppspaceFilesModel{
@@ -72,6 +72,57 @@ func TestDeleteBadLocations(t *testing.T) {
 		} else if err.Error() != "invalid location key" {
 			t.Error("expected invalid location key " + err.Error())
 		}
+	}
+}
+
+func TestReplaceData(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// create temp dir and put that in runtime config.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	appspacesDir := filepath.Join(dir, "appspaces")
+	err = os.MkdirAll(appspacesDir, 0766)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replaceDir := filepath.Join(dir, "replace")
+	err = os.MkdirAll(replaceDir, 0766)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ioutil.WriteFile(filepath.Join(replaceDir, "hello.txt"), []byte("Hello World!"), 0644)
+
+	cfg := &domain.RuntimeConfig{}
+	cfg.Exec.AppspacesPath = appspacesDir
+
+	asfEvents := testmocks.NewMockAppspaceFilesEvents(mockCtrl)
+	asfEvents.EXPECT().Send(domain.AppspaceID(7))
+
+	m := AppspaceFilesModel{
+		Config:              cfg,
+		AppspaceFilesEvents: asfEvents}
+
+	locKey, err := m.CreateLocation()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	appspace := domain.Appspace{AppspaceID: domain.AppspaceID(7), LocationKey: locKey}
+
+	err = m.ReplaceData(appspace, replaceDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(appspacesDir, locKey, "data", "hello.txt")); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		t.Fatal("hello.txt should exist")
 	}
 }
 

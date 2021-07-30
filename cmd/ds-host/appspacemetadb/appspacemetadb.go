@@ -114,6 +114,7 @@ func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*DbConn, error
 func (mdb *AppspaceMetaDB) GetHandle(appspaceID domain.AppspaceID) (*sqlx.DB, error) {
 	conn, err := mdb.getConn(appspaceID)
 	if err != nil {
+		mdb.getLogger("GetHandle(), getConn()").AppspaceID(appspaceID).Error(conn.connError)
 		return nil, err
 	}
 	return conn.GetHandle(), nil
@@ -236,4 +237,23 @@ func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) error {
 	}
 
 	return err
+}
+
+// getDb returns a db handle for an appspace meta db located at dataPath
+// This should only be used to open DBs that are not part of an active appspace
+// Meaning: use this to open appspace meta db of backup files, or imported files
+func getDb(dataPath string) (*sqlx.DB, error) {
+	dbFile := filepath.Join(dataPath, "appspace-meta.db")
+	dsn := "file:" + dbFile + "?mode=rw"
+
+	handle, err := sqlx.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handle.Ping()
+	if err != nil {
+		return nil, err
+	}
+	return handle, err
 }

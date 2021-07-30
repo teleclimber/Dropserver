@@ -347,6 +347,13 @@ type RemoteAppspace struct {
 	Created     time.Time `db:"created"`
 }
 
+// AppspaceMetaInfo is stored in the appspace meta db
+// and represents the current state of the appspace's data
+type AppspaceMetaInfo struct {
+	Schema int
+	// Add more stuff like DS API, and maybe make it versioned later
+}
+
 // AppspaceUserPermission describes a permission that can be granted to
 // a user, or via other means. The name and description are user-facing,
 // the key is used internally.

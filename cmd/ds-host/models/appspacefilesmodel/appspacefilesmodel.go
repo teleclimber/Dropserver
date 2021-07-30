@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/otiai10/copy"
+
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -31,12 +33,7 @@ type AppspaceFilesModel struct {
 	AppspaceFilesEvents interface {
 		Send(appspaceID domain.AppspaceID)
 	} `checkinject:"required"`
-	// need appspace files events fire event
 }
-
-// TODO: add appspace files event interface and call upon change.
-
-// Probably need a create location
 
 // CreateLocation creates a new location for an appspace
 // This will need more subtlety when we import appspace files ( don't create "files", for ex)
@@ -64,7 +61,8 @@ func (a *AppspaceFilesModel) CreateLocation() (string, error) {
 func (a *AppspaceFilesModel) DeleteLocation(loc string) error {
 	// safety checks on that location please.
 
-	if !strings.HasPrefix(loc, "as") || strings.Contains(loc, "..") {
+	err := validator.LocationKey(loc)
+	if err != nil {
 		err := errors.New("invalid location key")
 		a.getLogger("DeleteLocation()").AddNote(a.Config.Exec.AppspacesPath).Error(err)
 		return err
@@ -124,6 +122,31 @@ func (a *AppspaceFilesModel) CreateDirs(base string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (a *AppspaceFilesModel) ReplaceData(appspace domain.Appspace, source string) error {
+	// validate appspace location since we're deleting stuff.
+	err := validator.LocationKey(appspace.LocationKey)
+	if err != nil {
+		err := errors.New("invalid location key")
+		a.getLogger("ReplaceData(), validator.LocationKey").Error(err)
+		return err
+	}
+
+	defer a.AppspaceFilesEvents.Send(appspace.AppspaceID)
+
+	dataDir := filepath.Join(a.Config.Exec.AppspacesPath, appspace.LocationKey, "data")
+	err = os.RemoveAll(dataDir)
+	if err != nil {
+		a.getLogger("ReplaceData(), os.RemoveAll").Error(err)
+		return err
+	}
+	err = copy.Copy(source, dataDir)
+	if err != nil {
+		a.getLogger("ReplaceData(), copy.Copy").Error(err)
+		return err
+	}
 	return nil
 }
 

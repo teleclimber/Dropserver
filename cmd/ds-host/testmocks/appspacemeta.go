@@ -5,11 +5,12 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceMetaDB,AppspaceInfoModel,UsersV0
+//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceMetaDB,AppspaceInfoModel,UsersV0,AppspaceDB,AppspaceLogger
 
 type AppspaceMetaDB interface {
 	Create(domain.AppspaceID, int) error
 	GetHandle(domain.AppspaceID) (*sqlx.DB, error)
+	CloseConn(domain.AppspaceID) error
 }
 
 // AppspaceInfoModel caches and dishes AppspaceInfoModels
@@ -25,4 +26,13 @@ type UsersV0 interface {
 	GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error)
 	GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
+}
+
+type AppspaceDB interface {
+	CloseAppspace(appspaceID domain.AppspaceID)
+}
+
+type AppspaceLogger interface {
+	Log(appspaceID domain.AppspaceID, source string, message string)
+	EjectLogger(appspaceID domain.AppspaceID)
 }

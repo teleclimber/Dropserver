@@ -932,6 +932,20 @@ func (mr *MockAppspaceFilesModelMockRecorder) CreateLocation() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLocation", reflect.TypeOf((*MockAppspaceFilesModel)(nil).CreateLocation))
 }
 
+// ReplaceData mocks base method
+func (m *MockAppspaceFilesModel) ReplaceData(arg0 domain.Appspace, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplaceData", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReplaceData indicates an expected call of ReplaceData
+func (mr *MockAppspaceFilesModelMockRecorder) ReplaceData(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceData", reflect.TypeOf((*MockAppspaceFilesModel)(nil).ReplaceData), arg0, arg1)
+}
+
 // MockContactModel is a mock of ContactModel interface
 type MockContactModel struct {
 	ctrl     *gomock.Controller

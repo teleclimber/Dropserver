@@ -59,28 +59,44 @@ func (m *InfoModel) GetSchema(appspaceID domain.AppspaceID) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	schema, err := m.getSchemaWithDB(db)
+	if err != nil {
+		m.getLogger("GetSchemaWithPath()").AppspaceID(appspaceID).Error(err)
+	}
+	return schema, err
+}
 
+//GetAppspaceMetaInfo returns the schema as stored in the appspace meta db at path
+// But this should really return all basic metadata info about the appspace
+// app, version, domain, etc...
+// Or you could return api version (which should also be stored with appspace presumably)
+// .. and then get versioned structs with all info.
+func (m *InfoModel) GetAppspaceMetaInfo(dataPath string) (domain.AppspaceMetaInfo, error) {
+	db, err := getDb(dataPath)
+	defer db.Close()
+	if err != nil {
+		m.getLogger("GetSchemaWithPath(), getDb()").AddNote(dataPath).Error(err)
+		return domain.AppspaceMetaInfo{}, err
+	}
+	schema, err := m.getSchemaWithDB(db)
+	if err != nil {
+		m.getLogger("GetSchemaWithPath()").AddNote(dataPath).Error(err)
+	}
+	return domain.AppspaceMetaInfo{Schema: schema}, err
+}
+func (m *InfoModel) getSchemaWithDB(db *sqlx.DB) (int, error) {
 	var v struct {
 		Value string
 	}
-
-	err = db.Get(&v, `SELECT value FROM info WHERE name = ?`, schemaKey)
+	err := db.Get(&v, `SELECT value FROM info WHERE name = ?`, schemaKey)
 	if err != nil {
 		// if no-rows, then return 0
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
-		m.getLogger("GetSchema()").AppspaceID(appspaceID).Error(err)
 		return 0, err
 	}
-
-	schema, err := strconv.Atoi(v.Value)
-	if err != nil {
-		// log it.
-		return 0, err
-	}
-
-	return schema, nil
+	return strconv.Atoi(v.Value)
 }
 
 func (m *InfoModel) getLogger(note string) *record.DsLogger {

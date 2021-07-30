@@ -77,6 +77,30 @@ func TestDomainName(t *testing.T) {
 	}
 }
 
+func TestLocationKey(t *testing.T) {
+	cases := []struct {
+		loc string
+		err bool
+	}{
+		{"", true},
+		{"as531411051", false},
+		{"/a/abs/path/", true},
+		{"../relative", true},
+		{"tr/../i/ck/", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.loc, func(t *testing.T) {
+			err := LocationKey(c.loc)
+			if !c.err && err != nil {
+				t.Error("should not have gotten error", err)
+			} else if c.err && err == nil {
+				t.Error("should have gotten error")
+			}
+		})
+	}
+}
+
 func TestDBName(t *testing.T) {
 	cases := []struct {
 		db  string
