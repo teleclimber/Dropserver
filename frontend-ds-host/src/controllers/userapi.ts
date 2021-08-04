@@ -20,7 +20,7 @@ export const ReqErrStack = reactive(new ReqErrStack_);
 
 import user from '../models/user';
 
-const ax = axios.create();
+export const ax = axios.create();
 ax.interceptors.response.use(function (response) {
 		return response;
 	}, function (error) {

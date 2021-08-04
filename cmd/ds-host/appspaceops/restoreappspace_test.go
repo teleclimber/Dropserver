@@ -25,7 +25,7 @@ func TestDelete(t *testing.T) {
 	timer := time.NewTimer(15 * time.Minute)
 	cancelTimer := make(chan struct{})
 	r.tokens[tok] = tokenData{
-		filePath:    "",
+		tempZip:     "",
 		tempDir:     dir,
 		timer:       timer,
 		cancelTimer: cancelTimer,
@@ -85,7 +85,7 @@ func TestReplaceData(t *testing.T) {
 	timer := time.NewTimer(15 * time.Minute)
 	cancelTimer := make(chan struct{})
 	r.tokens[tok] = tokenData{
-		filePath:    "",
+		tempZip:     "",
 		tempDir:     tempDir,
 		timer:       timer,
 		cancelTimer: cancelTimer,

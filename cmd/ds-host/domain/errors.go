@@ -3,10 +3,10 @@ package domain
 import "errors"
 
 // ErrNoRowsAffected indicates a no DB rows were affected
-var ErrNoRowsAffected = errors.New("No rows affected")
+var ErrNoRowsAffected = errors.New("no rows affected")
 
 // ErrNoRowsInResultSet indicates that no rows were found in db
-var ErrNoRowsInResultSet = errors.New("No rows in result set")
+var ErrNoRowsInResultSet = errors.New("no rows in result set")
 
 // ErrAppspaceLockedClosed the operation could not beperformed because the
 // appspace is currently closed

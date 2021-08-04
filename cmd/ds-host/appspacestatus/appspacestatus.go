@@ -108,7 +108,7 @@ type AppspaceStatus struct {
 	status    map[domain.AppspaceID]*status
 
 	closedMux sync.Mutex
-	closed    map[domain.AppspaceID]bool
+	closed    map[domain.AppspaceID]bool // the boolean value indicates whther the appspace has been "dirtied" while locked closed.
 }
 
 // Init creates data structures and subscribes to events
@@ -349,6 +349,10 @@ func (s *AppspaceStatus) handleAppVersionEvent(ch <-chan domain.AppID) {
 }
 
 func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, curStatus *status) {
+	if s.markDirtyIfClosed(appspaceID) {
+		return
+	}
+
 	curStatus.lock.Lock()
 	defer curStatus.lock.Unlock()
 	cur := curStatus.data
@@ -418,36 +422,47 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 	}
 }
 
-// In addition to "stopped", I think we may need "ejected"
-// Where ejected means that all files are closed, in particular
-// - appspace meta db
-// - other appspace dbs.
-// For regular appspace data files, we can assume that if there are no ongoing requests
-// ..no sandboxes, no cron jobs, then everything ought to be closed?
-
-// What we realy need is to lock the ejected state
-// meaning it's like tempPaused, but also nothing can open any of its files.
-// so appspace metadb should check with appspaceStatus before opening?
-
 // LockClosed sets the locked flag for the appspace until the return channel is closed.
+// If the lock is already set, the second parameter will be false.
+// (Actually returning a nil channel should be enough?)
 func (s *AppspaceStatus) LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool) {
 	s.closedMux.Lock()
 	defer s.closedMux.Unlock()
-	locked, ok := s.closed[appspaceID]
-	if ok && locked {
+	_, locked := s.closed[appspaceID]
+	if locked {
 		return nil, false
 	}
-	s.closed[appspaceID] = true
+	s.closed[appspaceID] = false // the boolean value is whether the appspace status is "dirty"
 	ch := make(chan struct{})
 	go s.unlockClosed(appspaceID, ch)
 	return ch, true
 }
 
+// markDirtyIfClosed returns true if the appspace is locked closed
+func (s *AppspaceStatus) markDirtyIfClosed(appspaceID domain.AppspaceID) bool {
+	s.closedMux.Lock()
+	defer s.closedMux.Unlock()
+	_, locked := s.closed[appspaceID]
+	if locked {
+		s.closed[appspaceID] = true
+		return true
+	}
+	return false
+}
+
 func (s *AppspaceStatus) unlockClosed(appspaceID domain.AppspaceID, ch chan struct{}) {
 	<-ch
 	s.closedMux.Lock()
-	defer s.closedMux.Unlock()
-	s.closed[appspaceID] = false
+	dirty := s.closed[appspaceID]
+	delete(s.closed, appspaceID)
+	s.closedMux.Unlock()
+
+	if dirty {
+		status := s.getTrackedStatus(appspaceID)
+		if status != nil {
+			s.updateStatus(appspaceID, status)
+		}
+	}
 }
 
 // IsLockedClosed returns true if the appspace is locked
@@ -455,6 +470,6 @@ func (s *AppspaceStatus) unlockClosed(appspaceID domain.AppspaceID, ch chan stru
 func (s *AppspaceStatus) IsLockedClosed(appspaceID domain.AppspaceID) bool {
 	s.closedMux.Lock()
 	defer s.closedMux.Unlock()
-	locked, ok := s.closed[appspaceID]
-	return ok && locked
+	_, locked := s.closed[appspaceID]
+	return locked
 }

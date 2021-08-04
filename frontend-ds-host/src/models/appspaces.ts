@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 
-import {get, post, del} from '../controllers/userapi';
+import {ax, get, post, del} from '../controllers/userapi';
 
 import { AppVersion } from './app_versions';
 
@@ -126,4 +126,43 @@ export type NewAppspaceData = {
 export async function createAppspace(data:NewAppspaceData) :Promise<number> {
 	const resp_data = await post('/appspace', data);
 	return Number(resp_data.appspace_id);
+}
+
+// Appspace Restore routes:
+export type AppspaceRestoreData = {
+	loaded: boolean,
+	token: string,
+	schema: number,
+	//ds_api :number,
+	// other stuff later
+}
+export async function uploadRestoreZip(appspace_id:number, zipFile :File) :Promise<AppspaceRestoreData> {	//return token
+	const formData = new FormData();
+	formData.append("zip", zipFile);
+	const resp = await ax.post('/api/appspace/'+appspace_id+'/restore/upload', formData, {
+		headers: {
+			'Content-Type': 'multipart/form-data'
+		}
+	});
+
+	const ret :AppspaceRestoreData = {
+		loaded: true,
+		schema: Number(resp.data.schema),
+		token:resp.data.token +''
+	}
+	return ret;
+}
+
+export async function selectRestoreBackup(appspace_id:number, backup_file: string) :Promise<AppspaceRestoreData> {
+	const resp = await ax.post('/api/appspace/'+appspace_id+'/restore/', {backup_file});
+	const ret :AppspaceRestoreData = {
+		loaded: true,
+		schema: Number(resp.data.schema),
+		token:resp.data.token +''
+	}
+	return ret;
+}
+
+export async function commitRestore(appspace_id:number, token: string) {
+	await ax.post('/api/appspace/'+appspace_id+'/restore/'+token);
 }

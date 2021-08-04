@@ -15,7 +15,7 @@ const schemaKey = "schema"
 type InfoModel struct {
 	AppspaceMetaDB interface {
 		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
-	}
+	} `checkinject:"required"`
 }
 
 // SetDsAPIVersion sets the ds api version

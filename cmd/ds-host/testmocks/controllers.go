@@ -1,12 +1,13 @@
 package testmocks
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks DeleteApp,BackupAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks DeleteApp,BackupAppspace,RestoreAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
 
 type DeleteApp interface {
 	Delete(appID domain.AppID) error
@@ -17,6 +18,13 @@ type BackupAppspace interface {
 	CreateBackup(appspaceID domain.AppspaceID) (string, error)
 	BackupNoPause(appspaceID domain.AppspaceID) (string, error)
 	RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
+}
+
+type RestoreAppspace interface {
+	Prepare(reader io.Reader) (string, error)
+	PrepareBackup(appspaceID domain.AppspaceID, backupFile string) (string, error)
+	GetMetaInfo(tok string) (domain.AppspaceMetaInfo, error)
+	ReplaceData(tok string, appspaceID domain.AppspaceID) error
 }
 
 // MigrationJobController controls and tracks appspace migration jobs

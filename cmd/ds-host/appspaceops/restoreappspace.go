@@ -2,18 +2,22 @@ package appspaceops
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 	"github.com/teleclimber/DropServer/internal/zipfns"
 )
 
 type tokenData struct {
-	filePath    string
+	tempZip     string
 	tempDir     string
 	timer       *time.Timer
 	cancelTimer chan struct{}
@@ -55,56 +59,99 @@ func (r *RestoreAppspace) Init() {
 	r.tokens = make(map[string]tokenData)
 }
 
-// PrepareFile takes a file (assumed zip) and unzips it
-// into a temporary directory and verifies its contents
-// it returns a token that can be used to commit the restore
-// It should also return a basic struct describing what is known about the appspace
-func (r *RestoreAppspace) PrepareFile(appspaceID domain.AppspaceID, filePath string) (string, error) {
+// Prepare an io.Reader pointing to a zip file
+// to restore to an appspace
+func (r *RestoreAppspace) Prepare(reader io.Reader) (string, error) {
 	dir, err := os.MkdirTemp(os.TempDir(), "ds-temp-*")
 	if err != nil {
-		r.getLogger("PrepareFile, os.MkdirTemp()").Error(err)
+		r.getLogger("Prepare, os.MkdirTemp()").Error(err)
 		return "", err //internal error
 	}
+
+	tok := r.newToken()
+
+	r.tokensMux.Lock()
+	tokData := r.tokens[tok]
+	tokData.tempZip = dir
+	r.tokens[tok] = tokData
+	r.tokensMux.Unlock()
+
+	zipFile := filepath.Join(dir, "restore.zip")
+	f, err := os.Create(zipFile)
+	if err != nil {
+		f.Close()
+		return "", err //internal error
+	}
+	_, err = io.Copy(f, reader)
+	f.Close() // cant' use defer because unzip will need to open file
+	if err != nil {
+		return "", err //internal error
+	}
+
+	err = r.unzipFile(tok, zipFile)
+	if err != nil {
+		return "", err
+	}
+
+	return tok, nil
+}
+
+// PrepareBackup prepares an appspace's existing backup to restore
+func (r *RestoreAppspace) PrepareBackup(appspaceID domain.AppspaceID, backupFile string) (string, error) {
+	tok := r.newToken()
+
+	// need to get apppsace, so we can get location key
+	appspace, err := r.AppspaceModel.GetFromID(appspaceID)
+	if err != nil {
+		r.getLogger("PrepareBackup, get appspace").Error(err)
+		return "", err
+	}
+
+	err = validator.AppspaceBackupFile(backupFile)
+	if err != nil {
+		r.getLogger("PrepareBackup, validator.AppspaceBackupFile").Error(err)
+		return "", err
+	}
+	zipFile := filepath.Join(r.Config.Exec.AppspacesPath, appspace.LocationKey, "backups", backupFile)
+
+	err = r.unzipFile(tok, zipFile)
+	if err != nil {
+		return "", err
+	}
+
+	return tok, nil
+}
+
+// unzipFile takes a file (assumed zip) and unzips it
+// into a temporary directory and verifies its contents
+// it returns a token that can be used to commit the restore
+func (r *RestoreAppspace) unzipFile(tok string, filePath string) error {
+	dir, err := os.MkdirTemp(os.TempDir(), "ds-temp-*")
+	if err != nil {
+		r.getLogger("unzipFile, os.MkdirTemp()").Error(err)
+		return err //internal error
+	}
+
+	r.tokensMux.Lock()
+	tokData, ok := r.tokens[tok]
+	if !ok {
+		r.tokensMux.Unlock()
+		return domain.ErrTokenNotFound
+	}
+	tokData.tempDir = dir
+	r.tokens[tok] = tokData
+	r.tokensMux.Unlock()
 
 	// then unzip
 	err = zipfns.Unzip(filePath, dir)
 	if err != nil {
-		os.RemoveAll(dir)
-		r.getLogger("PrepareFile, zipfns.Unzip()").Error(err)
+		r.getLogger("unzipFile, zipfns.Unzip()").Error(err)
 		// error unzipping. Very possibly a bad input zip
 		// Could be other things, like no space left.
-		return "", err // input error
+		return fmt.Errorf("input error: %w", err)
 	}
 
-	r.tokensMux.Lock()
-	defer r.tokensMux.Unlock()
-	var tok string
-	for {
-		tok = randomToken()
-		_, found := r.tokens[tok]
-		if !found {
-			break
-		}
-	}
-
-	t := time.NewTimer(15 * time.Minute)
-	ct := make(chan struct{})
-	r.tokens[tok] = tokenData{
-		filePath:    filePath,
-		tempDir:     dir,
-		timer:       t,
-		cancelTimer: ct,
-	}
-
-	go func() {
-		select {
-		case <-t.C:
-			r.delete(tok)
-		case <-ct:
-		}
-	}()
-
-	return tok, nil
+	return nil
 }
 
 // Probably need a basic check? That dirs are laid out as expected
@@ -127,7 +174,7 @@ func (r *RestoreAppspace) GetMetaInfo(tok string) (domain.AppspaceMetaInfo, erro
 	if err != nil {
 		// likely a bad DB, or badly named, or something....
 		// report that back to user
-		return domain.AppspaceMetaInfo{}, errors.New("failed to get appspace meta data")
+		return domain.AppspaceMetaInfo{}, fmt.Errorf("input error: failed to get appspace meta data: %w", err)
 	}
 
 	return metaInfo, nil
@@ -196,7 +243,37 @@ func (r *RestoreAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	return nil
 }
 
-func (r *RestoreAppspace) delete(tok string) error {
+func (r *RestoreAppspace) newToken() string {
+	r.tokensMux.Lock()
+	defer r.tokensMux.Unlock()
+	var tok string
+	for {
+		tok = randomToken()
+		_, found := r.tokens[tok]
+		if !found {
+			break
+		}
+	}
+
+	t := time.NewTimer(15 * time.Minute)
+	ct := make(chan struct{})
+	r.tokens[tok] = tokenData{
+		timer:       t,
+		cancelTimer: ct,
+	}
+
+	go func() {
+		select {
+		case <-t.C:
+			r.delete(tok)
+		case <-ct:
+		}
+	}()
+
+	return tok
+}
+
+func (r *RestoreAppspace) delete(tok string) (err error) {
 	r.tokensMux.Lock()
 	defer r.tokensMux.Unlock()
 	tokData, ok := r.tokens[tok]
@@ -208,12 +285,26 @@ func (r *RestoreAppspace) delete(tok string) error {
 	tokData.timer.Stop()
 	tokData.cancelTimer <- struct{}{}
 
-	err := os.RemoveAll(tokData.tempDir)
-	if err != nil {
-		r.getLogger("delete token, os.RemoveAll").Error(err)
-		return err
+	// Remove both and return one error after
+	if tokData.tempZip != "" {
+		errZ := os.RemoveAll(tokData.tempZip)
+		if errZ != nil {
+			r.getLogger("delete token, os.RemoveAll(tempZip)").Error(errZ)
+			err = errZ
+		}
 	}
-	return nil
+	errD := os.RemoveAll(tokData.tempDir)
+	if errD != nil {
+		r.getLogger("delete token, os.RemoveAll(tempDir)").Error(errD)
+		err = errD
+	}
+	return
+}
+
+func (r *RestoreAppspace) DeleteAll() {
+	for tok := range r.tokens {
+		r.delete(tok)
+	}
 }
 
 func (r *RestoreAppspace) getLogger(note string) *record.DsLogger {

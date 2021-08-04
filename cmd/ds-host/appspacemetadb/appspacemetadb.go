@@ -114,7 +114,7 @@ func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*DbConn, error
 func (mdb *AppspaceMetaDB) GetHandle(appspaceID domain.AppspaceID) (*sqlx.DB, error) {
 	conn, err := mdb.getConn(appspaceID)
 	if err != nil {
-		mdb.getLogger("GetHandle(), getConn()").AppspaceID(appspaceID).Error(conn.connError)
+		mdb.getLogger("GetHandle(), getConn()").AppspaceID(appspaceID).Error(err)
 		return nil, err
 	}
 	return conn.GetHandle(), nil

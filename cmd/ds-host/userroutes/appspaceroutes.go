@@ -28,10 +28,11 @@ type AppspaceMeta struct {
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
-	Config               domain.RuntimeConfig `checkinject:"required"`
-	AppspaceUserRoutes   subRoutes            `checkinject:"required"`
-	AppspaceExportRoutes subRoutes            `checkinject:"required"`
-	AppModel             interface {
+	Config                domain.RuntimeConfig `checkinject:"required"`
+	AppspaceUserRoutes    subRoutes            `checkinject:"required"`
+	AppspaceExportRoutes  subRoutes            `checkinject:"required"`
+	AppspaceRestoreRoutes subRoutes            `checkinject:"required"`
+	AppModel              interface {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	} `checkinject:"required"`
@@ -86,6 +87,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Post("/pause", a.changeAppspacePause)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
+		r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
 	})
 
 	return r

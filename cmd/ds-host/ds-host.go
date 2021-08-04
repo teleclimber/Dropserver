@@ -188,7 +188,8 @@ func main() {
 	appModel.PrepareStatements()
 
 	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
-		Config: runtimeConfig}
+		Config:              runtimeConfig,
+		AppspaceFilesEvents: appspaceFilesEvents}
 
 	appspaceModel := &appspacemodel.AppspaceModel{
 		DB:            db,
@@ -255,6 +256,17 @@ func main() {
 		AppspaceDB:     appspaceDB,
 		AppspaceLogger: appspaceLogger,
 	}
+	restoreAppspace := &appspaceops.RestoreAppspace{
+		Config:             runtimeConfig,
+		InfoModel:          appspaceInfoModel,
+		AppspaceModel:      appspaceModel,
+		AppspaceFilesModel: appspaceFilesModel,
+		AppspaceStatus:     nil,
+		AppspaceMetaDB:     appspaceMetaDb,
+		AppspaceDB:         appspaceDB,
+		AppspaceLogger:     appspaceLogger,
+	}
+	restoreAppspace.Init()
 
 	migrationJobCtl := &appspaceops.MigrationJobController{
 		AppspaceModel:     appspaceModel,
@@ -309,6 +321,8 @@ func main() {
 		v0tokenManager.Stop()
 
 		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
+
+		restoreAppspace.DeleteAll()
 
 		// TODO server stop
 
@@ -384,6 +398,7 @@ func main() {
 	}
 
 	backupAppspace.AppspaceStatus = appspaceStatus
+	restoreAppspace.AppspaceStatus = appspaceStatus
 	migrationJobCtl.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
 	deleteAppspace.AppspaceStatus = appspaceStatus
@@ -434,6 +449,9 @@ func main() {
 		AppspaceFilesModel: appspaceFilesModel,
 		BackupAppspace:     backupAppspace,
 	}
+	restoreAppspaceRoutes := &userroutes.AppspaceRestoreRoutes{
+		RestoreAppspace: restoreAppspace,
+	}
 	userAppspaceRoutes := &userroutes.AppspaceRoutes{
 		Config:                 *runtimeConfig,
 		AppspaceUserRoutes:     userAppspaceUserRoutes,
@@ -441,6 +459,7 @@ func main() {
 		AppspaceModel:          appspaceModel,
 		AppspaceUsersModelV0:   appspaceUsersModelV0,
 		AppspaceExportRoutes:   exportAppspaceRoutes,
+		AppspaceRestoreRoutes:  restoreAppspaceRoutes,
 		DropIDModel:            dropIDModel,
 		MigrationMinder:        migrationMinder,
 		AppspaceMetaDB:         appspaceMetaDb,

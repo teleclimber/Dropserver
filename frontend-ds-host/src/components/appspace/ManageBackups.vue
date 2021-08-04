@@ -2,8 +2,9 @@
 	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
 			<h3 class="text-lg leading-6 font-medium text-gray-900">Backups</h3>
-			<div class="flex items-stretch">
-				<button v-if="!backing_up_now" @click.stop.prevent="backupNow()" class="btn btn-blue">
+			<div class="flex items-baseline">
+				<router-link class="btn" :to="{name:'restore-appspace', params:{appspace_id:appspace_id}}">Restore</router-link>
+				<button v-if="!backing_up_now" @click.stop.prevent="backupNow()" class="btn btn-blue ml-4">
 					Backup Now
 				</button>
 				<span v-else>Backing up...</span>

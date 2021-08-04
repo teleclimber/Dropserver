@@ -5,6 +5,7 @@ import User from '../views/User.vue';
 import Appspaces from '../views/Appspaces.vue';
 import ManageAppspace from '../views/ManageAppspace.vue';
 import MigrateAppspace from '../views/MigrateAppspace.vue';
+import RestoreAppspace from '../views/RestoreAppspace.vue';
 import ManageAppspaceUser from '../views/ManageAppspaceUser.vue';
 import NewAppspace from '../views/NewAppspace.vue';
 
@@ -48,6 +49,11 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/appspace/:id/migrate',
 		name: 'migrate-appspace',
 		component: MigrateAppspace
+	},{
+		path: '/appspace/:appspace_id/restore',
+		name: 'restore-appspace',
+		component: RestoreAppspace,
+		props: true
 	},{
 		path: '/appspace/:id/new-user',
 		name: 'appspace-new-user',
