@@ -37,7 +37,10 @@ type MigrationJobController struct {
 	} `checkinject:"required"`
 	BackupAppspace interface { //optional
 		BackupNoPause(appspaceID domain.AppspaceID) (string, error)
-		RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
+	} `checkinject:"optional"`
+	RestoreAppspace interface {
+		PrepareBackup(appspaceID domain.AppspaceID, backupFile string) (string, error)
+		ReplaceData(tok string, appspaceID domain.AppspaceID) error
 	} `checkinject:"optional"`
 	SandboxManager interface { // regular appspace sandboxes
 		StopAppspace(domain.AppspaceID)
@@ -290,8 +293,12 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		errStr := "Error running Migration: " + err.Error()
 
 		// restore data
-		if c.BackupAppspace != nil {
-			err = c.BackupAppspace.RestoreBackup(appspaceID, backupZip)
+		if backupZip != "" && c.RestoreAppspace != nil {
+			tok, err := c.RestoreAppspace.PrepareBackup(appspaceID, backupZip)
+			if err != nil {
+				errStr += " and error restoring appspace: " + err.Error()
+			}
+			err = c.RestoreAppspace.ReplaceData(tok, appspaceID)
 			if err != nil {
 				errStr += " and error restoring appspace: " + err.Error()
 			} else {

@@ -116,20 +116,6 @@ func (mr *MockBackupAppspaceMockRecorder) CreateBackup(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBackup", reflect.TypeOf((*MockBackupAppspace)(nil).CreateBackup), arg0)
 }
 
-// RestoreBackup mocks base method
-func (m *MockBackupAppspace) RestoreBackup(arg0 domain.AppspaceID, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RestoreBackup", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RestoreBackup indicates an expected call of RestoreBackup
-func (mr *MockBackupAppspaceMockRecorder) RestoreBackup(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreBackup", reflect.TypeOf((*MockBackupAppspace)(nil).RestoreBackup), arg0, arg1)
-}
-
 // MockRestoreAppspace is a mock of RestoreAppspace interface
 type MockRestoreAppspace struct {
 	ctrl     *gomock.Controller

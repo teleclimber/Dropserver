@@ -42,7 +42,7 @@ func TestGetZipFilenameDupe(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if fn != filepath.Join(dir, "abc_1.zip") {
+	if fn != "abc_1.zip" {
 		t.Error("unexpected file name: " + fn)
 	}
 }

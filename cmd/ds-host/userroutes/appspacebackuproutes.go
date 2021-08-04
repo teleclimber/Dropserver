@@ -3,7 +3,6 @@ package userroutes
 import (
 	"fmt"
 	"net/http"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -73,7 +72,7 @@ func (e *AppspaceBackupRoutes) createArchive(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	writeJSON(w, BackupFile{Filename: path.Base(backupFile)})
+	writeJSON(w, BackupFile{Filename: backupFile})
 }
 
 func (e *AppspaceBackupRoutes) downloadArchive(w http.ResponseWriter, r *http.Request) {

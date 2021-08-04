@@ -17,7 +17,6 @@ type DeleteApp interface {
 type BackupAppspace interface {
 	CreateBackup(appspaceID domain.AppspaceID) (string, error)
 	BackupNoPause(appspaceID domain.AppspaceID) (string, error)
-	RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error
 }
 
 type RestoreAppspace interface {

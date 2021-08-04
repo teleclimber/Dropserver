@@ -69,20 +69,6 @@ func (e *BackupAppspace) BackupNoPause(appspaceID domain.AppspaceID) (string, er
 	return zipFile, err
 }
 
-func (e *BackupAppspace) RestoreBackup(appspaceID domain.AppspaceID, zipFile string) error {
-	if !e.AppspaceStatus.IsTempPaused(appspaceID) {
-		return errors.New("appspace is not temp paused as expected")
-	}
-
-	e.AppspaceLogger.Log(appspaceID, "ds-host", "restoring backup appspace data")
-
-	err := e.restoreZip(appspaceID, zipFile)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // closeAll closes appspace files that might remain open after an appspace has been paused/stopped.
 func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	// appspace meta
@@ -102,11 +88,11 @@ func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 }
 
 func (e *BackupAppspace) getZipFilename(dir string) (string, error) {
-	zipFile := filepath.Join(dir, time.Now().Format(fileDateFormat))
+	dateStr := time.Now().Format(fileDateFormat)
 	increment := 0
 	incStr := ""
 	for {
-		_, err := os.Stat(zipFile + incStr + ".zip")
+		_, err := os.Stat(filepath.Join(dir, dateStr+incStr+".zip"))
 		if os.IsNotExist(err) {
 			break
 		} else if err != nil {
@@ -116,7 +102,8 @@ func (e *BackupAppspace) getZipFilename(dir string) (string, error) {
 		increment++
 		incStr = fmt.Sprintf("_%d", increment)
 	}
-	return zipFile + incStr + ".zip", nil
+
+	return dateStr + incStr + ".zip", nil
 }
 
 func (e *BackupAppspace) createZip(appspaceID domain.AppspaceID) (string, error) {
@@ -146,58 +133,19 @@ func (e *BackupAppspace) createZip(appspaceID domain.AppspaceID) (string, error)
 
 	locationDir := filepath.Join(e.Config.Exec.AppspacesPath, appspace.LocationKey)
 	dataDir := filepath.Join(locationDir, "data")
-	zipFile, err := e.getZipFilename(filepath.Join(locationDir, "backups"))
+	backupsDir := filepath.Join(locationDir, "backups")
+	zipFile, err := e.getZipFilename(backupsDir)
 	if err != nil {
 		return "", err
 	}
 
-	err = zipfns.Zip(dataDir, zipFile)
+	err = zipfns.Zip(dataDir, filepath.Join(backupsDir, zipFile))
 	if err != nil {
 		e.getLogger("createZip, zipfns.Zip").Error(err)
 		return "", err
 	}
 
 	return zipFile, nil
-}
-
-func (e *BackupAppspace) restoreZip(appspaceID domain.AppspaceID, zipFile string) error {
-	// get closed lock
-	closedCh, ok := e.AppspaceStatus.LockClosed(appspaceID)
-	if !ok {
-		return errors.New("failed to get lock closed")
-	}
-	defer close(closedCh)
-
-	// close all the things
-	err := e.closeAll(appspaceID)
-	if err != nil {
-		return err
-	}
-
-	appspace, err := e.AppspaceModel.GetFromID(appspaceID)
-	if err != nil {
-		e.getLogger("restoreZip, get appspace").Error(err)
-		return err
-	}
-
-	locationDir := filepath.Join(e.Config.Exec.AppspacesPath, appspace.LocationKey)
-	dataDir := filepath.Join(locationDir, "data")
-
-	err = os.RemoveAll(dataDir)
-	if err != nil {
-		e.getLogger("restoreZip, os.RemoveAll").Error(err)
-		return err
-	}
-
-	//
-
-	err = zipfns.Unzip(zipFile, dataDir)
-	if err != nil {
-		e.getLogger("restoreZip, Unzip").Error(err)
-		return err
-	}
-
-	return nil
 }
 
 func (e *BackupAppspace) getLogger(note string) *record.DsLogger {

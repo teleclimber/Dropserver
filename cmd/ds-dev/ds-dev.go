@@ -214,6 +214,7 @@ func main() {
 		AppspaceModel:     devAppspaceModel,
 		AppspaceStatus:    nil, //set below
 		BackupAppspace:    nil, // TODO going to need something like this!
+		RestoreAppspace:   nil,
 		SandboxMaker:      nil, // added below
 		SandboxManager:    devSandboxManager}
 
