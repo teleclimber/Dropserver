@@ -82,7 +82,7 @@ func main() {
 	}
 
 	socketsDir := filepath.Join(tempDir, "sockets")
-	err = os.MkdirAll(appspaceWorkingDir, 0744)
+	err = os.MkdirAll(socketsDir, 0744)
 	if err != nil {
 		panic(err)
 	}
@@ -161,7 +161,7 @@ func main() {
 		AppspaceMetaDb:      appspaceMetaDb,
 		AppspaceFilesEvents: appspaceFilesEvents,
 		sourceDir:           *appspaceDirFlag,
-		destDir:             appspaceWorkingDir,
+		destDir:             filepath.Join(appspaceWorkingDir, "data"),
 	}
 	appspaceFiles.Reset()
 
