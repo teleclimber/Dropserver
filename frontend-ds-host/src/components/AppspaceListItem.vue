@@ -54,7 +54,7 @@ export default defineComponent({
 		if( !props.appspace.loaded ) console.error("appspace not loaded yet.");
 		const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
 
-		const protocol = props.appspace.no_ssl ? 'http' : 'https';
+		const protocol = props.appspace.no_tls ? 'http' : 'https';
 		const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
 
 		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name))

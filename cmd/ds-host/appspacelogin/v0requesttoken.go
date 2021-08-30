@@ -89,7 +89,7 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 	}
 
 	protocol := "https"
-	if r.Config.Server.NoSsl {
+	if r.Config.NoTLS {
 		protocol = "http"
 	}
 

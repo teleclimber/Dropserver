@@ -195,7 +195,7 @@ func (a *Authenticator) setCookie(w http.ResponseWriter, cookieID string, expire
 		MaxAge:   int(time.Until(expires).Seconds()),
 		Domain:   domain,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   !a.Config.Server.NoSsl,
+		Secure:   !a.Config.NoTLS,
 		Path:     "/",
 		HttpOnly: true,
 	})

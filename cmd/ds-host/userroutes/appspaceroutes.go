@@ -18,7 +18,7 @@ type AppspaceMeta struct {
 	AppID      int            `json:"app_id"`
 	AppVersion domain.Version `json:"app_version"`
 	DomainName string         `json:"domain_name"`
-	NoSSL      bool           `json:"no_ssl"`
+	NoTLS      bool           `json:"no_tls"`
 	PortString string         `json:"port_string"`
 	DropID     string         `json:"dropid"`
 	Created    time.Time      `json:"created_dt"`
@@ -380,7 +380,7 @@ func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
 		DomainName: appspace.DomainName,
-		NoSSL:      a.Config.Server.NoSsl,
+		NoTLS:      a.Config.NoTLS, //how is this used? zap?
 		PortString: a.Config.PortString,
 		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,

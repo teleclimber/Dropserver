@@ -33,7 +33,7 @@ export default defineComponent({
 		}
 	},
 	setup(props) {
-		const protocol = props.remote_appspace.no_ssl ? 'http' : 'https';
+		const protocol = props.remote_appspace.no_tls ? 'http' : 'https';
 		const display_link = ref(protocol+'://'+props.remote_appspace.domain_name+props.remote_appspace.port_string)
 
 		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.remote_appspace.domain_name))

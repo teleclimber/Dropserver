@@ -144,7 +144,7 @@ func TestSendToken(t *testing.T) {
 	ref := "ref123"
 
 	config := domain.RuntimeConfig{}
-	config.Server.NoSsl = true
+	config.NoTLS = true
 
 	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
 	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)

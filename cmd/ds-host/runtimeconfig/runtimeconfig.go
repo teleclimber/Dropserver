@@ -11,17 +11,17 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-// main calls Load with input file name (from cli)
-// That gets parsed and put into a struct (type defined in domain)
-// For now you can just return a hard coded set of values
-
+// default config values.
+// Fake paths are set for SSL, forcing user to either override to make non-ssl,
+// or set the correct paths.
 var configDefault = []byte(`{
 	"server": {
-		"port": 3000,
+		"port": 5050,
 		"host": "localhost",
-		"no-ssl": false
+		"ssl-cert": "/path/to/ssl-cert.pem",
+		"ssl-key": "/path/to/ssl-key.pem"
 	},
-	"port-string": ":3000",
+	"port-string": ":5050",
 	"subdomains": {
 		"user-accounts": "dropid",
 		"static-assets": "static"
@@ -146,11 +146,6 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 	if addr := net.ParseIP(host); addr != nil {
 		panic("host can not be an IP")
-	}
-	if !rtc.Server.NoSsl {
-		if rtc.Server.SslCert == "" || rtc.Server.SslKey == "" {
-			panic("please specify SSL cert and key, or set no-ssl to true.")
-		}
 	}
 
 	// Sandbox:

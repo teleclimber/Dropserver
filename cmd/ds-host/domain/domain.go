@@ -32,14 +32,15 @@ type RuntimeConfig struct {
 	Server  struct {
 		Port    int16  `json:"port"`
 		Host    string `json:"host"`
-		NoSsl   bool   `json:"no-ssl"`
 		SslCert string `json:"ssl-cert"`
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
-	// PortString gets concatenated to the end of a domain
-	// to make an address with the right outside port.
-	// Leave empty if port is standard (80 or 443)
-	// Set it to ":3000" if DS is listening on port 3000
+	// NoTLS indicates that this instance should be accessed from the outside without TLS
+	NoTLS bool `json:"no-tls"`
+	// PortString sets the port that will be appended to domains pointing to your instance.
+	// If your instance is exposed to the outside world on a non-standard port,
+	// use this setting to ensure generated links are correct.
+	// Example: ":5050"
 	PortString string `json:"port-string"`
 	TrustCert  string `json:"trust-cert"`
 	Subdomains struct {

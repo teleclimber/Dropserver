@@ -17,7 +17,7 @@ type RemoteAppspaceMeta struct {
 	DomainName  string        `json:"domain_name"`
 	OwnerDropID string        `json:"owner_dropid"`
 	UserDropID  string        `json:"dropid"`
-	NoSSL       bool          `json:"no_ssl"`
+	NoTLS       bool          `json:"no_tls"`
 	PortString  string        `json:"port_string"`
 	Created     time.Time     `json:"created_dt"`
 }
@@ -224,7 +224,7 @@ func (a *RemoteAppspaceRoutes) makeRemoteAppspaceMeta(appspace domain.RemoteApps
 		DomainName:  appspace.DomainName,
 		OwnerDropID: appspace.OwnerDropID,
 		UserDropID:  appspace.UserDropID,
-		NoSSL:       a.Config.Server.NoSsl,
+		NoTLS:       a.Config.NoTLS, //how is this used? Would like to zap if possible.
 		PortString:  a.Config.PortString,
 		Created:     appspace.Created}
 }

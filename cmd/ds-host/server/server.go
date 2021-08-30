@@ -40,7 +40,7 @@ func (s *Server) Start() { //return a server type
 		Handler: s} // for now we're passing s directly, but in future probably need to wrap s in some middlewares and pass that in
 
 	var err error
-	if s.Config.Server.NoSsl {
+	if s.Config.Server.SslCert == "" {
 		err = s.server.ListenAndServe()
 	} else {
 		err = s.server.ListenAndServeTLS(s.Config.Server.SslCert, s.Config.Server.SslKey)

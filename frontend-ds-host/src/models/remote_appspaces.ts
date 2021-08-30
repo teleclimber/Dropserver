@@ -6,7 +6,7 @@ export class RemoteAppspace {
 	domain_name = "";
 	owner_dropid = "";
 	user_dropid = "";
-	no_ssl = false;
+	no_tls = false;
 	port_string = "";
 	created_dt = new Date();
 
@@ -21,7 +21,7 @@ export class RemoteAppspace {
 		this.domain_name = raw.domain_name+'';
 		this.owner_dropid = raw.owner_dropid+'';
 		this.user_dropid = raw.user_dropid+'';
-		this.user_dropid = raw.user_dropid+'';
+		this.no_tls = !!raw.no_tls;
 		this.created_dt = new Date(raw.created_dt);
 
 		this.loaded = true;

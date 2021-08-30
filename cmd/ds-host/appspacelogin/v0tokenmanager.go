@@ -173,7 +173,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 	}
 
 	protocol := "https"
-	if m.Config.Server.NoSsl {
+	if m.Config.NoTLS {
 		protocol = "http"
 	}
 

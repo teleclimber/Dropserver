@@ -13,7 +13,7 @@ func GetConfig(execPath string, appPath string, appspacePath string) *domain.Run
 	rtc := &domain.RuntimeConfig{}
 	rtc.Server.Host = "localhost"
 	rtc.Server.Port = 3003
-	rtc.Server.NoSsl = true
+	rtc.NoTLS = true
 	rtc.PortString = ":3003"
 
 	if execPath == "" {

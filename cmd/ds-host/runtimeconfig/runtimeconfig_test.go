@@ -12,8 +12,8 @@ import (
 func TestLoadDefault(t *testing.T) {
 	rtc := loadDefault()
 
-	if rtc.Server.Port != 3000 {
-		t.Error("port didn't register correctly. Expected 3000")
+	if rtc.Server.Port != 5050 {
+		t.Error("port didn't register correctly. Expected 5050")
 	}
 	if rtc.Log != "" {
 		t.Error("Expected empth log")
@@ -82,6 +82,9 @@ func TestValidateHost(t *testing.T) {
 	// mostly testing fo rproblems with host validation
 	// because it impacts a lot of things.
 }
+
+// this test no longer makes much sense since we've decoubled
+// outside "NoSsl" with ds-host server using SSL or not.
 func TestValidateSsl(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -92,9 +95,6 @@ func TestValidateSsl(t *testing.T) {
 	rtc := getPassingDefault(dir)
 	tv(t, rtc, "default", false)
 
-	rtc.Server.NoSsl = false
-	tv(t, rtc, "no cert or key", true)
-
 	rtc.Server.SslCert = "some.crt"
 	rtc.Server.SslKey = "the.key"
 	tv(t, rtc, "ssl with cert and key", false)
@@ -103,7 +103,7 @@ func getPassingDefault(dir string) *domain.RuntimeConfig {
 	rtc := loadDefault()
 	rtc.DataDir = dir
 	rtc.Sandbox.SocketsDir = "blah"
-	rtc.Server.NoSsl = true
+	rtc.NoTLS = true
 	return rtc
 }
 func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic bool) {
