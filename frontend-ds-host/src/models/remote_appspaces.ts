@@ -1,4 +1,4 @@
-import {get, post} from '../controllers/userapi';
+import {get, post, del} from '../controllers/userapi';
 
 export class RemoteAppspace {
 	loaded = false;
@@ -25,6 +25,9 @@ export class RemoteAppspace {
 		this.created_dt = new Date(raw.created_dt);
 
 		this.loaded = true;
+	}
+	async del() {
+		await del('/remoteappspace/'+this.domain_name)
 	}
 }
 

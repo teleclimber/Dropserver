@@ -34,10 +34,41 @@ func TestCreate(t *testing.T) {
 		t.Error(err)
 	}
 
-	// should we use sentinel errors here?
 	_, err = u.Create(asID, "email", "me@me.com")
 	if err != ErrAuthIDExists {
 		t.Error("Expect ErrAuthIDExists error")
+	}
+}
+
+// add test for update auth
+func TestUpdateAuth(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	u := makeUsersV0(mockCtrl)
+
+	proxyID, err := u.Create(asID, "email", "me@me.com")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = u.Create(asID, "email", "me@me2.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = u.UpdateAuth(asID, proxyID, "dropid", "moi.com/moi")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, _ := u.Get(asID, proxyID)
+	if user.AuthType != "dropid" || user.AuthID != "moi.com/moi" {
+		t.Errorf("did not get the auth data we expected: %v, %v", user.AuthType, user.AuthID)
+	}
+
+	err = u.UpdateAuth(asID, proxyID, "email", "me@me2.com")
+	if err != ErrAuthIDExists {
+		t.Errorf("Expected auth id exists error. %v", err)
 	}
 }
 

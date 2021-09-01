@@ -9,17 +9,27 @@
 					<router-link class="btn" :to="{name:'manage-appspace', params:{id:appspace.id}}">back to appspace</router-link>
 				</div>
 			</div>
-			<div v-if="proxy_id" class="px-4 py-5 sm:px-6 border-b border-gray-200 ">
+			<div v-if="proxy_id && !change_id" class="px-4 py-5 sm:px-6 border-b border-gray-200 ">
 				<div class="flex justify-between">
-					<div>{{user.auth_id}}</div>
-					<div>[add to contacts / see in contacts]</div>
+					<div class="text-lg font-bold">{{user.auth_id}}</div>
+					<div><button class="btn" @click.stop.prevent="change_id = true">Change ID</button></div>
 				</div>
 				<div>
-					<p>[Change Auth?]</p>
-					<p>Show display name and avatar inherited from auth data (drop id or contact)</p>
+					<p>[see in contacts / add to contacts]</p>
 				</div>
 			</div>
-			<div v-else class="py-5 border-b border-gray-200">
+			<div v-else class="border-b border-gray-200">
+				<div v-if="proxy_id" class="px-4 py-5 sm:px-6 bg-yellow-100">
+					<div class="flex justify-between">
+						<h4 class="font-bold text-gray-900">Change the authentication id</h4>
+						<button @click.stop.prevent="change_id = false">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+							</svg>
+						</button>
+					</div>
+					<p>You can change the way a user signs in to this appspace.</p>
+				</div>
 				<DataDef field="Add Using:">
 					<select v-model="add_using" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 						<option value="contact">Pick From Contacts</option>
@@ -101,12 +111,14 @@ export default defineComponent({
 
 		const proxy_id :Ref<string|undefined> = ref("");
 
-		const add_using = ref("contact");
+		const add_using = ref("contact");	// TODO as these values are set by user, we should check they are legit (can'thave dupe dropids as appspace users)
 		const contact_id = ref(0);
 		const drop_id = ref("");
 		const email = ref("");
 
 		const display_name = ref("");
+
+		const change_id = ref(false);
 
 		onMounted( async () => {
 			const appspace_id = Number(route.params.id);
@@ -120,6 +132,11 @@ export default defineComponent({
 
 			await user.fetch(appspace_id, proxy_id.value);
 			// fill in variables
+			add_using.value = user.auth_type;
+			if( user.auth_type === 'contact' ) contact_id.value = Number(user.auth_id);
+			if( user.auth_type === 'email' ) email.value = user.auth_id;
+			if( user.auth_type === 'dropid' ) drop_id.value = user.auth_id;
+			
 			display_name.value = user.display_name;
 			// permissions...
 		});
@@ -146,30 +163,37 @@ export default defineComponent({
 				alert("please enter a display name");
 				return;
 			}
+
+			let auth_type = "";
+			let auth_id = "";
+			if( !proxy_id.value || change_id.value ) {
+				if( add_using.value === 'contact' ) {
+					// handle taht
+				}
+				else if( add_using.value === 'email' ) {
+					auth_type = 'email';
+					// validate email
+					auth_id = email.value;
+				}
+				else if( add_using.value === 'dropid' ) {
+					auth_type = 'dropid';
+					//validate dropid
+					auth_id = drop_id.value;
+				}
+				else throw new Error("what is this add using? "+add_using.value);
+			}
+
 			if( proxy_id.value ) {
-				// update
+				// update 
 				await updateUserMeta(appspace.id, proxy_id.value, {
+					auth_type,
+					auth_id,
 					display_name: display_name.value,
 					permissions: [],
 					avatar: avatar_state
 				}, avatar);
 			}
 			else {
-				let auth_type = "";
-				let auth_id = "";
-				if( add_using.value === 'contact' ) {
-					// handle taht
-				}
-				else if( add_using.value === 'email' ) {
-					auth_type = 'email';
-					auth_id = email.value;
-				}
-				else if( add_using.value === 'dropid' ) {
-					auth_type = 'dropid';
-					auth_id = drop_id.value;
-				}
-				else throw new Error("what is this add using? "+add_using.value);
-				
 				await saveNewUser(appspace.id, {
 					auth_type,
 					auth_id,
@@ -181,11 +205,10 @@ export default defineComponent({
 			router.push({name: 'manage-appspace', params:{id: appspace.id}});
 		}
 
-		
-
 		return {
 			appspace,
 			proxy_id,
+			change_id,
 			user,
 			add_using,
 			contact_id,

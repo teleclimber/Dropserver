@@ -75,7 +75,29 @@ func (u *UsersV0) Create(appspaceID domain.AppspaceID, authType string, authID s
 	return proxyID, nil
 }
 
-// You probably will have an update auth function, but I'm not sure exactly what form that will take.
+func (u *UsersV0) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
+	if authType != "email" && authType != "dropid" { // We could maybe have a type for auth types if we use this a bunch.
+		panic("invalid auth type " + authType)
+	}
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+
+	p := sqlxprepper.NewPrepper(db)
+	stmt := p.Prep(`UPDATE users SET
+		auth_type = ?, auth_id = ?
+		WHERE proxy_id = ?`)
+	_, err = stmt.Stmt.Exec(authType, authID, proxyID)
+	if err != nil && err.Error() == "UNIQUE constraint failed: users.auth_type, users.auth_id" {
+		return ErrAuthIDExists
+	}
+	if err != nil {
+		u.getLogger("UpdateAuth").AddNote("Stmt.Exec").AppspaceID(appspaceID).Error(err)
+		return err
+	}
+	return nil
+}
 
 // UpdateMeta updates the appspace-facing data for the user
 func (u *UsersV0) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {

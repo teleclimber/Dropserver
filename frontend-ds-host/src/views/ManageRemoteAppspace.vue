@@ -11,7 +11,7 @@
 			<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
 				<p class="">Remote Appspace provided by [owner dropid].</p>
 				<p>{{remote_appspace.domain_name}}</p>
-				<a :href="enter_link">{{enter_link}}</a>
+				<a :href="enter_link" class="text-blue-700 text-lg underline hover:text-blue-500">{{display_link}}</a>
 
 				<!-- What are we going to do here?
 					- change user drop id?
@@ -22,6 +22,8 @@
 				-->
 			</div>
 		</div>
+
+		<DeleteRemoteAppspace :appspace="remote_appspace"></DeleteRemoteAppspace>
 	</ViewWrap>
 </template>
 
@@ -34,12 +36,14 @@ import {setTitle} from '../controllers/nav';
 import {RemoteAppspace} from '../models/remote_appspaces';
 
 import ViewWrap from '../components/ViewWrap.vue';
+import DeleteRemoteAppspace from '../components/appspace/DeleteRemoteAppspace.vue';
 
 
 export default defineComponent({
 	name: 'ManageRemoteAppspace',
 	components: {
-		ViewWrap
+		ViewWrap,
+		DeleteRemoteAppspace
 	},
 	props: {
 		domain: {
@@ -49,20 +53,22 @@ export default defineComponent({
 	},
 	setup(props) {
 		const route = useRoute();
-		
+		const display_link = ref("https:// ... loading ...");
+		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.domain));
 		const remote_appspace = reactive(new RemoteAppspace);
-		remote_appspace.fetch(props.domain);
+		remote_appspace.fetch(props.domain).then( () => {
+			const protocol = remote_appspace.no_tls ? 'http' : 'https';
+			display_link.value = protocol+'://'+remote_appspace.domain_name+remote_appspace.port_string;
+		});
 		setTitle(props.domain);	// should really come from remote_appspace after it's loaded
-
-		const enter_link = ref("http://some.link");
-
+	
 		onUnmounted( async () => {
 			setTitle("");
 		});
 
 		return {
 			remote_appspace,
-			enter_link,
+			enter_link, display_link
 		}
 	}
 });

@@ -25,7 +25,7 @@
 			</div>
 		</div>
 		<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
-			<a :href="enter_link">{{display_link}}</a>
+			<a :href="enter_link" class="text-blue-700 text-lg underline hover:text-blue-500">{{display_link}}</a>
 		</div>
 		<div class="px-4 py-5 sm:px-6 flex justify-end border-t border-gray-200">
 			<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn btn-blue">Manage</router-link>

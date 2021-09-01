@@ -13,7 +13,9 @@
 				</div>
 				<div class="px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
 					<dt class="text-sm font-medium text-gray-500">Appsace Address:</dt>
-					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.domain_name}}</dd>
+					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">
+						<a :href="enter_link" class="text-blue-700 underline hover:text-blue-500">{{display_link}}</a>
+					</dd>
 
 					<dt class="text-sm font-medium text-gray-500">Owner DropID:</dt>
 					<dd class="mt-1 text-gray-900 sm:mt-0 sm:col-span-2">{{appspace.dropid}}</dd>
@@ -111,6 +113,9 @@ export default defineComponent({
 
 		const status = reactive(new AppspaceStatus);
 		
+		const display_link = ref("https://...loading...");
+		const enter_link = ref("");
+
 		const app = reactive(new App); 
 		const show_all_versions = ref(false);
 		function showAllVersions(show:boolean) {
@@ -123,6 +128,11 @@ export default defineComponent({
 		onMounted( async () => {
 			const appspace_id = Number(route.params.id);
 			await appspace.fetch(appspace_id);
+
+			const protocol = appspace.no_tls ? 'http' : 'https';
+			display_link.value = protocol+'://'+appspace.domain_name+appspace.port_string;
+			enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(appspace.domain_name);
+
 			app_version.value = AppVersionCollector.get(appspace.app_id, appspace.app_version);
 
 			setTitle(appspace.domain_name);
@@ -145,6 +155,7 @@ export default defineComponent({
 
 		return {
 			appspace,
+			enter_link, display_link,
 			app_version,
 			status,
 			show_all_versions,

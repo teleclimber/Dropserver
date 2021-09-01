@@ -75,11 +75,6 @@ export enum AvatarState {
 	Delete = "delete",
 	Replace = "replace"
 }
-export type AppspaceUserMeta = {
-	display_name: string,
-	avatar: AvatarState,
-	permissions: string[]
-}
 export type PostAppspaceUser = {
 	auth_type: string,
 	auth_id: string,
@@ -93,12 +88,12 @@ export async function saveNewUser(appspace_id:number, data :PostAppspaceUser, av
 	const resp_data = await post('/appspace/'+appspace_id+'/user', getFormData(data, avatarData));
 }
 
-export async function updateUserMeta(appspace_id:number, proxy_id:string, data:AppspaceUserMeta, avatarData:Blob|null) {
+export async function updateUserMeta(appspace_id:number, proxy_id:string, data:PostAppspaceUser, avatarData:Blob|null) {
 	const resp_data = await patch('/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
 }
 
 
-function getFormData(data:PostAppspaceUser|AppspaceUserMeta, avatarData:Blob|null) :FormData {
+function getFormData(data:PostAppspaceUser, avatarData:Blob|null) :FormData {
 	const formData = new FormData();
 	if( avatarData !== null ) formData.append('avatar', avatarData);
 

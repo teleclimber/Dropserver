@@ -127,6 +127,7 @@ func (m *V0TokenManager) purgeTokens() {
 func (m *V0TokenManager) GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error) {
 	user, err := m.AppspaceUsersModelV0.GetByDropID(appspaceID, dropID)
 	if err != nil {
+		// this can happen if an appspace is imported without the new owner among its users.
 		m.getLogger("GetForOwner").Debug("appspace user dropid not found " + dropID)
 		return "", err
 	}

@@ -9,7 +9,7 @@
 			</div>
 		</div>
 		<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
-			<a :href="enter_link">{{display_link}}</a>
+			<a :href="enter_link" class="text-blue-700 text-lg underline hover:text-blue-500">{{display_link}}</a>
 		</div>
 		<div class="px-4 py-5 sm:px-6 flex justify-end border-t border-gray-200">
 			<router-link :to="{name: 'manage-remote-appspace', params:{domain:remote_appspace.domain_name}}" class="btn btn-blue">Manage</router-link>
@@ -34,9 +34,9 @@ export default defineComponent({
 	},
 	setup(props) {
 		const protocol = props.remote_appspace.no_tls ? 'http' : 'https';
-		const display_link = ref(protocol+'://'+props.remote_appspace.domain_name+props.remote_appspace.port_string)
+		const display_link = ref(protocol+'://'+props.remote_appspace.domain_name+props.remote_appspace.port_string);
 
-		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.remote_appspace.domain_name))
+		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.remote_appspace.domain_name));
 
 		return {
 			display_link,

@@ -23,12 +23,6 @@ type PostAppspaceUser struct {
 	Permissions []string `json:"permissions"`
 }
 
-type PatchAppspaceUserMeta struct {
-	DisplayName string   `json:"display_name"`
-	Avatar      string   `json:"avatar"` // either "preserve", "replace", "delete"
-	Permissions []string `json:"permissions"`
-}
-
 // All this needs to be versioned?
 
 // AppspaceUserRoutes handles routes for getting and mainpulating
@@ -38,6 +32,7 @@ type AppspaceUserRoutes struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
+		UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
@@ -232,11 +227,25 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	reqData := PatchAppspaceUserMeta{}
+	reqData := PostAppspaceUser{}
 	err = json.Unmarshal(metadata, &reqData)
 	if err != nil {
 		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// handle potential auth changes...
+	if reqData.AuthID != "" {
+		authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
+		if err != nil {
+			http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
+			return
+		}
+		err = a.AppspaceUsersModelV0.UpdateAuth(appspace.AppspaceID, user.ProxyID, reqData.AuthType, authID)
+		if err != nil {
+			returnError(w, err)
+			return
+		}
 	}
 
 	displayName := validator.NormalizeDisplayName(reqData.DisplayName)
