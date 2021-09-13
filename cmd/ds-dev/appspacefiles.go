@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/otiai10/copy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -30,7 +31,7 @@ func (a *DevAppspaceFiles) Reset() {
 
 	if a.sourceDir != "" {
 		// Copy appspace files
-		err := copy.Copy(a.sourceDir, a.destDir)
+		err := copy.Copy(a.sourceDir, filepath.Join(a.destDir, "data"))
 		if err != nil {
 			panic(err)
 		}

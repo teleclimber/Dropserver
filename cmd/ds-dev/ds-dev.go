@@ -67,6 +67,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	appspaceSourceDir := *appspaceDirFlag
+	if appspaceSourceDir != "" && !filepath.IsAbs(*appspaceDirFlag) {
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		appspaceSourceDir = filepath.Join(wd, *appspaceDirFlag)
+	}
+
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		panic(err)
@@ -160,8 +169,8 @@ func main() {
 	appspaceFiles := &DevAppspaceFiles{
 		AppspaceMetaDb:      appspaceMetaDb,
 		AppspaceFilesEvents: appspaceFilesEvents,
-		sourceDir:           *appspaceDirFlag,
-		destDir:             filepath.Join(appspaceWorkingDir, "data"),
+		sourceDir:           appspaceSourceDir,
+		destDir:             appspaceWorkingDir,
 	}
 	appspaceFiles.Reset()
 

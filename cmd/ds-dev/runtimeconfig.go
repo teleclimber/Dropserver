@@ -26,6 +26,14 @@ func GetConfig(execPath string, appPath string, appspacePath string) *domain.Run
 
 	setExecValues(rtc, execPath)
 
+	if !filepath.IsAbs(appPath) {
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		appPath = filepath.Join(wd, appPath)
+	}
+
 	rtc.Exec.AppsPath = appPath
 	rtc.Exec.AppspacesPath = appspacePath
 
