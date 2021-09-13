@@ -1,4 +1,4 @@
-import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
+import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
 import {match} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
 import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
 

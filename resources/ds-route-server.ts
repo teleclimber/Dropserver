@@ -1,6 +1,6 @@
-import * as path from "https://deno.land/std@0.97.0/path/mod.ts";
-import { Server } from "https://deno.land/std@0.97.0/http/server.ts";
-import type {ServerRequest} from "https://deno.land/std@0.97.0/http/server.ts";
+import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
+import { Server } from "https://deno.land/std@0.106.0/http/server.ts";
+import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
 
 import AppRouter from './app-router.ts';
 import type {Context} from './app-router.ts';

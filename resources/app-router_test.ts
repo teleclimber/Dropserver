@@ -1,4 +1,4 @@
-import { assertEquals, assert } from "https://deno.land/std@0.97.0/testing/asserts.ts";
+import { assertEquals, assert } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 import AppRouter, {AuthAllow, Context, normalizeMethod} from './app-router.ts';
 
 

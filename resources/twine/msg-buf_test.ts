@@ -1,6 +1,6 @@
 import Twine, {MessageBuffer, ReceivedMessageI, Message} from "./twine.ts";
-import * as path from "https://deno.land/std@0.97.0/path/mod.ts";
-import { assertEquals } from "https://deno.land/std@0.97.0/testing/asserts.ts";
+import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 
 Deno.test("buf use buf", async () => {
 	const mb = new MessageBuffer();

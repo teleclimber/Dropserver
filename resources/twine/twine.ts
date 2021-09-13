@@ -1,4 +1,4 @@
-import {iter} from "https://deno.land/std@0.97.0/io/util.ts"
+import {iter} from "https://deno.land/std@0.106.0/io/util.ts"
 /////////////////////////////////////////////////
 // First pass at Twine.ts:
 
