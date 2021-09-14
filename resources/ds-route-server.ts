@@ -105,20 +105,23 @@ export class DsRouteServer {
 			throw new Error("route returned without match function");
 		}
 
-		const req_url = headers.get("X-Dropserver-Request-URL");
-		if( req_url === null ) {
-			throw new Error("request missing request url")
+		const req_url_str = headers.get("X-Dropserver-Request-URL");
+		if( !req_url_str ) {
+			this.replyError(request, "no request url found in headers");
+			return;
 		}
-		const route_match = route.match(req_url);
+		const req_url = new URL(req_url_str, "https://appspace/");
+		const route_match = route.match(req_url.pathname);
 		if( !route_match ) {
 			this.replyError(request, "route failed to match in sandbox");
-			return
+			return;
 		}
 
 		const proxy_id = headers.get("X-Dropserver-User-ProxyID");
 
 		const ctx :Context = {
 			req: request,
+			url: req_url,	// request.url is readonly, so we can't set it, so we pass url in context. We could wrap request in Proxy and intercept get url
 			params: route_match.params,
 			proxy_id: proxy_id
 		};

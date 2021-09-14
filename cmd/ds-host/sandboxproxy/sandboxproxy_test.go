@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,6 +16,35 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
+
+func TestGetURL(t *testing.T) {
+	cases := []struct {
+		in  string
+		out string
+	}{
+		{"http://example.com", ""},
+		{"http://example.com/", "/"},
+		{"https://example.com/abc/def", "/abc/def"},
+		{"https://example.com/abc/def/", "/abc/def/"},
+		{"https://example.com/abc/def?ghi=klm", "/abc/def?ghi=klm"},
+		{"https://example.com/abc/def?ghi=klm#nop", "/abc/def?ghi=klm#nop"},
+		{"https://example.com/abc/déf?ghî=klm#nøp", "/abc/déf?ghî=klm#nøp"}, // note accented letters
+		{"https://example.com/abc:def/ghi", "/abc:def/ghi"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			u, err := url.Parse(c.in)
+			if err != nil {
+				t.Error(err)
+			}
+			s := getURLString(*u)
+			if s != c.out {
+				t.Errorf("expected %v, got %v", c.out, s)
+			}
+		})
+	}
+}
 
 // can we test more situations?
 // what are inputs that would vary, and what are the outputs?

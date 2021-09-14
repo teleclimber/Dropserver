@@ -3,6 +3,8 @@ package sandboxproxy
 import (
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -44,13 +46,13 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 
 	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 
-	header := cloneHeader(oReq.Header)
-	header["X-Dropserver-Request-URL"] = []string{oReq.URL.Path}
-	header["X-Dropserver-Route-ID"] = []string{routeConfig.ID}
+	header := oReq.Header.Clone()
+	header.Set("X-Dropserver-Request-URL", getURLString(*oReq.URL))
+	header.Set("X-Dropserver-Route-ID", routeConfig.ID)
 
 	proxyID, ok := domain.CtxAppspaceUserProxyID(ctx)
 	if ok {
-		header["X-Dropserver-User-ProxyID"] = []string{string(proxyID)}
+		header.Set("X-Dropserver-User-ProxyID", string(proxyID))
 	}
 
 	cReq, err := http.NewRequest(oReq.Method, "http://unix/", oReq.Body)
@@ -70,8 +72,8 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 		return
 	}
 
-	// futz around with headers
-	copyHeader(oRes.Header(), cRes.Header)
+	cRes.Header = oRes.Header().Clone()
+	// Here we need to delete a bunch of headers, like CSP, CORS, etc...
 
 	oRes.WriteHeader(cRes.StatusCode)
 
@@ -88,21 +90,33 @@ func (s *SandboxProxy) getLogger(note string) *record.DsLogger {
 	return r
 }
 
-// From https://golang.org/src/net/http/httputil/reverseproxy.go
-// ..later we can pick and choose the headers and values we forward to the app
-func cloneHeader(h http.Header) http.Header {
-	h2 := make(http.Header, len(h))
-	for k, vv := range h {
-		vv2 := make([]string, len(vv))
-		copy(vv2, vv)
-		h2[k] = vv2
+func getURLString(u url.URL) string {
+	// copied in part from url.URL.String() implementation in golang std lib
+	// We assume no scheme/user/host
+	// We do not encode url.
+
+	var buf strings.Builder
+	path := u.Path
+
+	// RFC 3986 §4.2
+	// A path segment that contains a colon character (e.g., "this:that")
+	// cannot be used as the first segment of a relative-path reference, as
+	// it would be mistaken for a scheme name. Such a segment must be
+	// preceded by a dot-segment (e.g., "./this:that") to make a relative-
+	// path reference.
+	// (We should not run into this here, but leaving anyways)
+	if i := strings.IndexByte(path, ':'); i > -1 && strings.IndexByte(path[:i], '/') == -1 {
+		buf.WriteString("./")
 	}
-	return h2
-}
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
+	buf.WriteString(path)
+
+	if u.RawQuery != "" {
+		buf.WriteByte('?')
+		buf.WriteString(u.RawQuery)
 	}
+	if u.Fragment != "" {
+		buf.WriteByte('#')
+		buf.WriteString(u.Fragment)
+	}
+	return buf.String()
 }

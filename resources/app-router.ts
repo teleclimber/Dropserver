@@ -10,6 +10,7 @@ import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/inde
 export interface Context<P extends object = object> {
 	req: ServerRequest
 	params: P
+	url: URL
 	proxy_id: string | null
 }
 
