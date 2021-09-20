@@ -10,6 +10,8 @@ import (
 )
 
 const schemaKey = "schema"
+const vapidPubKey = "vapid-pub-key"
+const vapidPrivKey = "vapid-priv-key"
 
 // InfoModel interacts with the info table of appspace meata db
 type InfoModel struct {
@@ -97,6 +99,71 @@ func (m *InfoModel) getSchemaWithDB(db *sqlx.DB) (int, error) {
 		return 0, err
 	}
 	return strconv.Atoi(v.Value)
+}
+
+// We should probably store VAPID keys in INFO,
+// But it should probably be versioned
+// Returns empty string and nil error if no value
+func (m *InfoModel) GetVapidPubKey(appspaceID domain.AppspaceID) (string, error) {
+	val, err := m.getStringValue(appspaceID, vapidPubKey)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return val, nil
+}
+
+func (m *InfoModel) GetVapidPrivKey(appspaceID domain.AppspaceID) (string, error) {
+	val, err := m.getStringValue(appspaceID, vapidPrivKey)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return val, nil
+}
+
+//
+func (m *InfoModel) SetVapidKeys(appspaceID domain.AppspaceID, pubKey, privKey string) error {
+	err := m.DeleteVapidKeys(appspaceID)
+	if err != nil {
+		return err
+	}
+	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO info (name, value) VALUES (?, ?), (?, ?)`, vapidPrivKey, privKey, vapidPubKey, pubKey)
+	if err != nil {
+		m.getLogger("SetVapidKeys(), Exec Insert").AppspaceID(appspaceID).Error(err)
+		return err
+	}
+	return err
+}
+
+func (m *InfoModel) DeleteVapidKeys(appspaceID domain.AppspaceID) error {
+	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`DELETE FROM info WHERE name = ? OR name = ?`, vapidPubKey, vapidPrivKey)
+	if err != nil {
+		m.getLogger("DeleteVapidKeys(), Exec Delete").AppspaceID(appspaceID).Error(err)
+	}
+	return err
+}
+
+func (m *InfoModel) getStringValue(appspaceID domain.AppspaceID, key string) (string, error) {
+	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return "", err
+	}
+	var v struct {
+		Value string
+	}
+	err = db.Get(&v, `SELECT value FROM info WHERE name = ?`, key)
+	if err != nil {
+		return "", err
+	}
+	return v.Value, err
 }
 
 func (m *InfoModel) getLogger(note string) *record.DsLogger {

@@ -61,6 +61,18 @@ func (h *v0handle) migrateUpToV0() {
 	// Also would need a block flag at the contact level, which blocks contact from all appspaces.
 	// The per-appspace block would be in the appspace meta data itself, so that non-contacts can be blocked.
 
+	// web push table
+	// hash is the result of a function we will write DS-side?
+	// Or do we want a different way f identifying subs?
+	// Proxy ID can not be null but can be empty string if no proxy id associated with sub.
+	h.exec(`CREATE TABLE "push_subscriptions" (
+		hash TEXT NOT NULL,
+		json_sub TEXT NOT NULL,
+		proxy_id TEXT NOT NULL
+	)`)
+	h.exec(`CREATE UNIQUE INDEX sub_hash ON push_subscriptions (hash)`)
+	h.exec(`CREATE INDEX sub_proxy_id ON push_subscriptions (proxy_id)`)
+
 	// routes is not currently used! May come back as appspace routes, but for now it stays empty
 	// h.exec(`CREATE TABLE routes (
 	// 	"methods" INT,

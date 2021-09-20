@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/DropServer/internal/twine"
@@ -515,6 +516,16 @@ type AppspaceUser struct {
 	Permissions []string           `json:"permissions"`
 	Created     time.Time          `json:"created_dt"`
 	LastSeen    nulltypes.NullTime `json:"last_seen"`
+}
+
+// PushSubscriptionV0 holds the webPush subscription data
+// and associated ProxyID, if there is one.
+// A hash of the JSON is also attached and is used to identify the subscription
+type PushSubscriptionV0 struct {
+	Hash         string
+	Subscription webpush.Subscription
+	HasProxyID   bool
+	ProxyID      ProxyID
 }
 
 // V0RouteModel serves route data queries at version 0
