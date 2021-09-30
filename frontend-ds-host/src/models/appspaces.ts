@@ -131,6 +131,7 @@ export async function createAppspace(data:NewAppspaceData) :Promise<number> {
 // Appspace Restore routes:
 export type AppspaceRestoreData = {
 	loaded: boolean,
+	err: {missing_files:string[], zip_files:string[]} | null,
 	token: string,
 	schema: number,
 	//ds_api :number,
@@ -147,6 +148,7 @@ export async function uploadRestoreZip(appspace_id:number, zipFile :File) :Promi
 
 	const ret :AppspaceRestoreData = {
 		loaded: true,
+		err: resp.data.err || null,
 		schema: Number(resp.data.schema),
 		token:resp.data.token +''
 	}
@@ -157,6 +159,7 @@ export async function selectRestoreBackup(appspace_id:number, backup_file: strin
 	const resp = await ax.post('/api/appspace/'+appspace_id+'/restore/', {backup_file});
 	const ret :AppspaceRestoreData = {
 		loaded: true,
+		err: resp.data.err || null,
 		schema: Number(resp.data.schema),
 		token:resp.data.token +''
 	}

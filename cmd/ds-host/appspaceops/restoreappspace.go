@@ -33,6 +33,7 @@ type RestoreAppspace struct {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	AppspaceFilesModel interface {
+		CheckDataFiles(dataDir string) error
 		ReplaceData(appspace domain.Appspace, source string) error
 	} `checkinject:"required"`
 	AppspaceStatus interface {
@@ -154,10 +155,17 @@ func (r *RestoreAppspace) unzipFile(tok string, filePath string) error {
 	return nil
 }
 
-// Probably need a basic check? That dirs are laid out as expected
-// maybe check for existence of symlinks or whatever
-// check on size (and report)
-//
+// CheckAppspaceDataValid does basic checking of uploaded data
+func (r *RestoreAppspace) CheckAppspaceDataValid(tok string) error {
+	r.tokensMux.Lock()
+	defer r.tokensMux.Unlock()
+	tokData, ok := r.tokens[tok]
+	if !ok {
+		return domain.ErrTokenNotFound
+	}
+	err := r.AppspaceFilesModel.CheckDataFiles(tokData.tempDir)
+	return err
+}
 
 // GetMetaInfo gets the info stored in appspace data
 // Any error can be assumed to be the result of bad input

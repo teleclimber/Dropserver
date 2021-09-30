@@ -34,6 +34,24 @@
 			<div v-else-if="step === 'processing' && !restore_data.loaded" class="px-4 py-3 sm:px-6 italic">
 				Please wait...
 			</div>
+			<div v-else-if="step === 'processing' && restore_data.err">
+				<MessageSad head="Error Processing Zip File" class="mx-0 sm:mx-4 my-6 sm:rounded-xl shadow">
+					<template v-if="restore_data.err.missing_files.length">
+						<p>Some necessary appspace data files or folders 
+							are missing from the top level of the zip:</p>
+						<ul class="list-disc">
+							<li v-for="f in restore_data.err.missing_files" :key="'missing-'+f" class="ml-6">{{f}}</li>
+						</ul>
+						<p class="mt-2">Here are the files we found in the top level of the zip file:</p>
+						<ul class="list-disc">
+							<li v-for="f in restore_data.err.zip_files" :key="'zip-'+f" class="ml-6">{{f}}</li>
+						</ul>
+					</template>
+				</MessageSad>
+				<div class="mt-4 px-4 py-5 sm:px-6 border-t border-gray-200 flex justify-between items-baseline">
+					<a href="#" @click="backToStart" class="btn">go back</a>
+				</div>
+			</div>
 			<div v-else-if="step === 'processing'">
 				<div class="border-b border-gray-200">
 					<h4 class="px-4 py-5 sm:px-6">Data to Restore:</h4>
@@ -42,11 +60,10 @@
 					</DataDef>
 				</div>
 				<div class="px-4 py-5 sm:px-6 flex justify-between items-baseline">
-					<a href="#" @click="cancel" class="btn">cancel</a>
+					<a href="#" @click="backToStart" class="btn">go back</a>
 					<button @click="commit()" class="btn btn-blue">Restore Now</button>
 				</div>
 			</div>
-
 		</div>
 	</ViewWrap>
 </template>
@@ -63,12 +80,14 @@ import {setTitle} from '../controllers/nav';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
+import MessageSad from '../components/ui/MessageSad.vue';
 
 export default defineComponent({
 	name: 'RestoreAppspace',
 	components: {
 		ViewWrap,
-		DataDef
+		DataDef,
+		MessageSad,
 	},
 	props: {
 		appspace_id: {
@@ -84,6 +103,7 @@ export default defineComponent({
 
 		const restore_data :Ref<AppspaceRestoreData> = ref({
 			loaded: false,
+			err: null,
 			token:"",
 			schema: 0
 		});
@@ -122,6 +142,7 @@ export default defineComponent({
 				if( files.length === 0 ) return;
 				step.value = "processing";
 				restore_data.value = await uploadRestoreZip(appspace.id, files[0]);
+				console.log("restore_data.err", restore_data.value.err);
 			}
 			else {
 				// send that filename
@@ -130,7 +151,7 @@ export default defineComponent({
 			}
 		}
 
-		async  function commit() {
+		async function commit() {
 			if( !restore_data.value.loaded ) return;
 			step.value = "restoring";
 			await commitRestore(appspace.id, restore_data.value.token);
@@ -138,13 +159,22 @@ export default defineComponent({
 			router.push({name: 'manage-appspace', params:{id:appspace.id}});
 		}
 
+		function backToStart() {
+			step.value = "start";
+			restore_data.value = {
+				loaded: false,
+				err: null,
+				token:"",
+				schema: 0
+			};
+		}
 		function cancel() {
 			router.push({name: 'manage-appspace', params:{id:appspace.id}});
 		}
 
 		return {
 			form_elem, upload_input_elem, fileSelected,
-			step, toProcessingStep, commit, cancel,
+			step, toProcessingStep, commit, backToStart, cancel,
 			restore_data,
 			appspace,
 			appspaceBackups,

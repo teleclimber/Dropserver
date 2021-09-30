@@ -125,6 +125,76 @@ func (a *AppspaceFilesModel) CreateDirs(base string) error {
 	return nil
 }
 
+var expectedFiles = []string{
+	"appspace-meta.db",
+	"avatars",
+	"dbs",
+	"files",
+	"logs"}
+
+// badZip implements domain.BadRestoreZip interface
+type badZip struct {
+	missingFiles []string
+	zipFiles     []string
+}
+
+func (b *badZip) Error() string {
+	errStr := "Files or directories missing from appspace data: "
+	for _, m := range b.missingFiles {
+		errStr += m + " "
+	}
+	errStr += "Files found: "
+	for _, f := range b.zipFiles {
+		errStr += f + " "
+	}
+	return errStr
+}
+func (b *badZip) MissingFiles() []string {
+	return b.missingFiles
+}
+func (b *badZip) ZipFiles() []string {
+	return b.zipFiles
+}
+
+//CheckDataFiles verifies that the directories and files that
+// we expect to see in an appspace data dir are present.
+func (a *AppspaceFilesModel) CheckDataFiles(dataDir string) error {
+	files, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		return err
+	}
+
+	dataFiles := make([]string, 0)
+	for _, file := range files {
+		fName := file.Name()
+		if fName != "." && fName != ".." {
+			dataFiles = append(dataFiles, fName)
+		}
+	}
+
+	missingFiles := make([]string, 0)
+	for _, ef := range expectedFiles {
+		found := false
+		for _, df := range dataFiles {
+			if ef == df {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missingFiles = append(missingFiles, ef)
+		}
+	}
+
+	if len(missingFiles) > 0 {
+		return &badZip{
+			missingFiles: missingFiles,
+			zipFiles:     dataFiles}
+	}
+
+	return nil
+}
+
 func (a *AppspaceFilesModel) ReplaceData(appspace domain.Appspace, source string) error {
 	// validate appspace location since we're deleting stuff.
 	err := validator.LocationKey(appspace.LocationKey)

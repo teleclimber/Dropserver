@@ -22,6 +22,7 @@ type BackupAppspace interface {
 type RestoreAppspace interface {
 	Prepare(reader io.Reader) (string, error)
 	PrepareBackup(appspaceID domain.AppspaceID, backupFile string) (string, error)
+	CheckAppspaceDataValid(tok string) error
 	GetMetaInfo(tok string) (domain.AppspaceMetaInfo, error)
 	ReplaceData(tok string, appspaceID domain.AppspaceID) error
 }

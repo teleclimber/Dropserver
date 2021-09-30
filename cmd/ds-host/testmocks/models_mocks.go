@@ -917,6 +917,20 @@ func (m *MockAppspaceFilesModel) EXPECT() *MockAppspaceFilesModelMockRecorder {
 	return m.recorder
 }
 
+// CheckDataFiles mocks base method
+func (m *MockAppspaceFilesModel) CheckDataFiles(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckDataFiles", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckDataFiles indicates an expected call of CheckDataFiles
+func (mr *MockAppspaceFilesModelMockRecorder) CheckDataFiles(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckDataFiles", reflect.TypeOf((*MockAppspaceFilesModel)(nil).CheckDataFiles), arg0)
+}
+
 // CreateLocation mocks base method
 func (m *MockAppspaceFilesModel) CreateLocation() (string, error) {
 	m.ctrl.T.Helper()

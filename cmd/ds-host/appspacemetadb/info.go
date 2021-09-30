@@ -73,11 +73,11 @@ func (m *InfoModel) GetSchema(appspaceID domain.AppspaceID) (int, error) {
 // .. and then get versioned structs with all info.
 func (m *InfoModel) GetAppspaceMetaInfo(dataPath string) (domain.AppspaceMetaInfo, error) {
 	db, err := getDb(dataPath)
-	defer db.Close()
 	if err != nil {
 		m.getLogger("GetSchemaWithPath(), getDb()").AddNote(dataPath).Error(err)
 		return domain.AppspaceMetaInfo{}, err
 	}
+	defer db.Close()
 	schema, err := m.getSchemaWithDB(db)
 	if err != nil {
 		m.getLogger("GetSchemaWithPath()").AddNote(dataPath).Error(err)

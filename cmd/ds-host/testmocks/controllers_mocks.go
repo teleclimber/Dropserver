@@ -139,6 +139,20 @@ func (m *MockRestoreAppspace) EXPECT() *MockRestoreAppspaceMockRecorder {
 	return m.recorder
 }
 
+// CheckAppspaceDataValid mocks base method
+func (m *MockRestoreAppspace) CheckAppspaceDataValid(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAppspaceDataValid", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckAppspaceDataValid indicates an expected call of CheckAppspaceDataValid
+func (mr *MockRestoreAppspaceMockRecorder) CheckAppspaceDataValid(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAppspaceDataValid", reflect.TypeOf((*MockRestoreAppspace)(nil).CheckAppspaceDataValid), arg0)
+}
+
 // GetMetaInfo mocks base method
 func (m *MockRestoreAppspace) GetMetaInfo(arg0 string) (domain.AppspaceMetaInfo, error) {
 	m.ctrl.T.Helper()

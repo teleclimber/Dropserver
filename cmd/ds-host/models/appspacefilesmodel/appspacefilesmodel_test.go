@@ -75,6 +75,48 @@ func TestDeleteBadLocations(t *testing.T) {
 	}
 }
 
+func TestCheckDataFiles(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	m := AppspaceFilesModel{}
+
+	//empty dir
+	err = m.CheckDataFiles(dir)
+	if err == nil {
+		t.Error("expected error")
+	}
+
+	os.Mkdir(filepath.Join(dir, "rando"), 0777)
+	err = m.CheckDataFiles(dir)
+	if err == nil {
+		t.Error("expected error")
+	} else {
+		badZipErr, ok := err.(domain.BadRestoreZip)
+		if !ok {
+			t.Fatalf("expected bad zip error, got %v", err)
+		}
+		if len(badZipErr.MissingFiles()) != 5 {
+			t.Errorf("expected 5 missing files")
+		}
+		if len(badZipErr.ZipFiles()) != 1 || badZipErr.ZipFiles()[0] != "rando" {
+			t.Error("expected one zip file, rando")
+		}
+	}
+
+	for _, ef := range expectedFiles {
+		os.Mkdir(filepath.Join(dir, ef), 0777)
+	}
+
+	err = m.CheckDataFiles(dir)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestReplaceData(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

@@ -90,6 +90,7 @@ type RemoteAppspaceModel interface {
 // AppspaceFilesModel manipulates data directories for appspaces
 type AppspaceFilesModel interface {
 	CreateLocation() (string, error)
+	CheckDataFiles(dataDir string) error
 	ReplaceData(domain.Appspace, string) error
 	//DeleteLocation(string) error
 }

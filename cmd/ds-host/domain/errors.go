@@ -21,3 +21,11 @@ var ErrAppVersionInUse = errors.New("app version in use")
 // process or to data. This error indicates that the token may have expired
 // or it never existed
 var ErrTokenNotFound = errors.New("token not found")
+
+// BadRestoreZip provides enough data to produce user-friendly errors
+// when an appspace data archive is unusable
+type BadRestoreZip interface {
+	Error() string
+	MissingFiles() []string
+	ZipFiles() []string
+}
