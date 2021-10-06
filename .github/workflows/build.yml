@@ -45,7 +45,7 @@ jobs:
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-host ./cmd/ds-host
 
     - name: Build ds-dev
-      run: go build -o dist/bin/ds-dev ./cmd/ds-dev
+      run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
     - name: Release
       uses: softprops/action-gh-release@v1

@@ -25,6 +25,9 @@ import (
 	"github.com/teleclimber/DropServer/internal/checkinject"
 )
 
+// cmd_version holds the version string (current git tag, etc...) and is set at build time
+var cmd_version = "unspecified"
+
 // Some lifecycle sequences:
 // For migrations:
 // - stop everything, wait until status relflects all stopped and closed
@@ -59,6 +62,7 @@ const appID = domain.AppID(11)
 const appspaceID = domain.AppspaceID(15)
 
 func main() {
+	fmt.Println("ds-dev version: " + cmd_version)
 
 	flag.Parse()
 

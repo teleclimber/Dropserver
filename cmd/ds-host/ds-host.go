@@ -48,6 +48,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/stdinput"
 )
 
+// cmd_version holds the version string (current git tag, etc...) and is set at build time
 var cmd_version = "unspecified"
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
