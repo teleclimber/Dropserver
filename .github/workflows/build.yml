@@ -43,7 +43,7 @@ jobs:
       run: go test -timeout=60s -race ./...
 
     - name: Build ds-host
-      run: go build -o dist/bin/ds-host ./cmd/ds-host
+      run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-host ./cmd/ds-host
 
     - name: Build ds-dev
       run: go build -o dist/bin/ds-dev ./cmd/ds-dev

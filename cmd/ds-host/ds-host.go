@@ -48,6 +48,8 @@ import (
 	"github.com/teleclimber/DropServer/internal/stdinput"
 )
 
+var cmd_version = "unspecified"
+
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 var configFlag = flag.String("config", "", "use this JSON confgiuration file")
@@ -63,6 +65,8 @@ var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown for
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 func main() {
+	fmt.Println("ds-host version: " + cmd_version)
+
 	//startServer := true	// currnetly actually not used.
 
 	flag.Parse()
