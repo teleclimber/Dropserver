@@ -274,12 +274,14 @@ func TestSubscribe(t *testing.T) {
 
 func TestIncrement(t *testing.T) {
 	appspaceRoutes := &AppspaceRouter{}
-	appspaceRoutes.liveCounter = make(map[domain.AppspaceID]int)
 	appspaceRoutes.subscribers = make(map[domain.AppspaceID][]chan<- int)
 
 	appspaceID := domain.AppspaceID(7)
 
+	appspaceRoutes.liveCounterMux.Lock()
+	appspaceRoutes.liveCounter = make(map[domain.AppspaceID]int)
 	appspaceRoutes.liveCounter[appspaceID] = 2
+	appspaceRoutes.liveCounterMux.Unlock()
 
 	subChan := make(chan int)
 	count := appspaceRoutes.SubscribeLiveCount(appspaceID, subChan)
