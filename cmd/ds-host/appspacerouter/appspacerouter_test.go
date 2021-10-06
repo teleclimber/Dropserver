@@ -279,8 +279,7 @@ func TestIncrement(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(7)
 
-	appspaceRoutes.incrementLiveCount(appspaceID)
-	appspaceRoutes.incrementLiveCount(appspaceID)
+	appspaceRoutes.liveCounter[appspaceID] = 2
 
 	subChan := make(chan int)
 	count := appspaceRoutes.SubscribeLiveCount(appspaceID, subChan)
