@@ -2,8 +2,9 @@ name: Build Dropserver
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
@@ -35,8 +36,8 @@ jobs:
       if: always()
       run: npm uninstall -g yarn
 
-    # We don't test on build because for the time being some of our tests fail intermittently.
-    # Add tests here when we have that under control.
+    - name: Go Tests
+      run: go test -timeout=60s -race ./...
 
     - name: Build ds-host
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-host ./cmd/ds-host
@@ -44,14 +45,3 @@ jobs:
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
-    - name: Release notes
-      run: git log $(git rev-list --tags --max-count=1 --skip=1)..HEAD --oneline > dist/CHANGELOG.txt
-
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      with:
-        body_path: dist/CHANGELOG.txt
-        prerelease: false
-        files: |
-          dist/bin/ds-host
-          dist/bin/ds-dev
