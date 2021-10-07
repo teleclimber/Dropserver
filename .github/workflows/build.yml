@@ -47,10 +47,14 @@ jobs:
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
+    - name: Release notes
+      run: git log $(git describe --tags --abbrev=0)..HEAD --oneline > dist/CHANGELOG.txt
+
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
+        body_path: dist/CHANGELOG.txt
         prerelease: true
         files: |
           dist/bin/ds-host
