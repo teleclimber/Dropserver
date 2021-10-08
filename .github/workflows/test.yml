@@ -7,34 +7,67 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build_common:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-node@v2
-    - uses: denoland/setup-deno@v1
-      with:
-        deno-version: v1.x
-
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.16
-
     - name: Install Yarn
       run: npm install -g yarn
 
     - name: Frontend for ds-host
       run: yarn install && yarn run build 
       working-directory: frontend-ds-host
+    
+    - name: Upload frontend for ds-host
+      uses: actions/upload-artifact@v2
+      with:
+        name: frontend-ds-host
+        path: frontend-ds-host/dist/
 
     - name: Frontend for ds-dev
       run: yarn install && yarn run build 
       working-directory: frontend-ds-dev
 
+    - name: Upload frontend for ds-dev
+      uses: actions/upload-artifact@v2
+      with:
+        name: frontend-ds-dev
+        path: frontend-ds-dev/dist/
+
     - name: Uninstall Yarn
       if: always()
       run: npm uninstall -g yarn
+
+  test:
+    needs: build_common
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        os: ['ubuntu-latest', 'macos-latest']
+    runs-on: 'ubuntu-latest'
+    steps:
+    - uses: actions/checkout@v2
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+
+    - name: Download frontend-ds-host
+      uses: actions/download-artifact@v2
+      with:
+        name: frontend-ds-host
+        path: frontend-ds-host/dist/
+
+    - name: Download frontend-ds-dev
+      uses: actions/download-artifact@v2
+      with:
+        name: frontend-ds-dev
+        path: frontend-ds-dev/dist/
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
 
     - name: Go Tests
       run: go test -timeout=60s -race ./...
