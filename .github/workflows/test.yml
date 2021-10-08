@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_common:
-    uses: teleclimber/DropServer/.github/workflows/build_common.yml
+    uses: teleclimber/DropServer/.github/workflows/build_common.yml@master
 
   test:
     needs: build_common
