@@ -8,36 +8,7 @@ on:
 
 jobs:
   build_common:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-    - name: Install Yarn
-      run: npm install -g yarn
-
-    - name: Frontend for ds-host
-      run: yarn install && yarn run build 
-      working-directory: frontend-ds-host
-    
-    - name: Upload frontend for ds-host
-      uses: actions/upload-artifact@v2
-      with:
-        name: frontend-ds-host
-        path: frontend-ds-host/dist/
-
-    - name: Frontend for ds-dev
-      run: yarn install && yarn run build 
-      working-directory: frontend-ds-dev
-
-    - name: Upload frontend for ds-dev
-      uses: actions/upload-artifact@v2
-      with:
-        name: frontend-ds-dev
-        path: frontend-ds-dev/dist/
-
-    - name: Uninstall Yarn
-      if: always()
-      run: npm uninstall -g yarn
+    uses: teleclimber/DropServer/.github/workflows/build_common.yml
 
   test:
     needs: build_common
