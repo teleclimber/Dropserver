@@ -6,11 +6,16 @@ on:
       - "v*.*.*"
 
 jobs:
+  build_common:
+    uses: teleclimber/DropServer/.github/workflows/build_common.yml@master
+
   build:
+    needs: build_common
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
+      with:
+        fetch-depth: 0
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.x
@@ -20,20 +25,17 @@ jobs:
       with:
         go-version: 1.16
 
-    - name: Install Yarn
-      run: npm install -g yarn
+    - name: Download frontend-ds-host
+      uses: actions/download-artifact@v2
+      with:
+        name: frontend-ds-host
+        path: frontend-ds-host/dist/
 
-    - name: Frontend for ds-host
-      run: yarn install && yarn run build 
-      working-directory: frontend-ds-host
-
-    - name: Frontend for ds-dev
-      run: yarn install && yarn run build 
-      working-directory: frontend-ds-dev
-
-    - name: Uninstall Yarn
-      if: always()
-      run: npm uninstall -g yarn
+    - name: Download frontend-ds-dev
+      uses: actions/download-artifact@v2
+      with:
+        name: frontend-ds-dev
+        path: frontend-ds-dev/dist/
 
     # We don't test on build because for the time being some of our tests fail intermittently.
     # Add tests here when we have that under control.
@@ -53,5 +55,6 @@ jobs:
         body_path: dist/CHANGELOG.txt
         prerelease: false
         files: |
+          dist/CHANGELOG.txt
           dist/bin/ds-host
           dist/bin/ds-dev
