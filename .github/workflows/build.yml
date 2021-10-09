@@ -37,7 +37,7 @@ jobs:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
 
-    # We don't test on build because for the time being some of our tests fail intermittently.
+    # We don't test on build because for the time being some of our tests are flaky
     # Add tests here when we have that under control.
 
     - name: Build ds-host
@@ -45,6 +45,14 @@ jobs:
 
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
+
+    - name: Archive ds-host
+      run: tar -czf ds-host-amd64-linux.tar.gz ds-host
+      working-directory: dist/bin
+
+    - name: Archive ds-dev
+      run: tar -czf ds-dev-amd64-linux.tar.gz ds-dev
+      working-directory: dist/bin
 
     - name: Release notes
       run: git log $(git rev-list --tags --max-count=1 --skip=1)..HEAD --oneline > dist/CHANGELOG.txt
@@ -56,5 +64,5 @@ jobs:
         prerelease: false
         files: |
           dist/CHANGELOG.txt
-          dist/bin/ds-host
-          dist/bin/ds-dev
+          dist/bin/ds-host-amd64-linux.tar.gz
+          dist/bin/ds-dev-amd64-linux.tar.gz
