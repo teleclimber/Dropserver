@@ -51,3 +51,14 @@ jobs:
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
+    - name: Upload ds-host
+      uses: actions/upload-artifact@v2
+      with:
+        name: ds-host
+        path: dist/bin/ds-host
+
+    - name: Upload ds-dev
+      uses: actions/upload-artifact@v2
+      with:
+        name: ds-dev
+        path: dist/bin/ds-dev
