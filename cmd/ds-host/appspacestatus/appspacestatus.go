@@ -414,10 +414,14 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 	if count == 0 {
 		return
 	}
+	unsubscribed := false
 	for count = range ch {
-		if count == 0 {
-			s.AppspaceRouter.UnsubscribeLiveCount(appspaceID, ch)
-			close(ch)
+		if count == 0 && !unsubscribed {
+			unsubscribed = true
+			go func() {
+				s.AppspaceRouter.UnsubscribeLiveCount(appspaceID, ch)
+				close(ch)
+			}()
 		}
 	}
 }

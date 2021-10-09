@@ -296,10 +296,17 @@ func TestIncrement(t *testing.T) {
 		appspaceRoutes.decrementLiveCount(appspaceID)
 	}()
 
+	done := make(chan struct{})
+	unsubscribed := false
 	for count = range subChan {
-		if count == 0 {
-			appspaceRoutes.UnsubscribeLiveCount(appspaceID, subChan)
-			close(subChan)
+		if count == 0 && !unsubscribed {
+			unsubscribed = true // don't double-unsubscribe, but mostly don't close chan twice.
+			go func() {         // don't unsubscribe in chan listener loop, deadlocks can occur.
+				appspaceRoutes.UnsubscribeLiveCount(appspaceID, subChan)
+				close(subChan)
+				done <- struct{}{}
+			}()
 		}
 	}
+	<-done
 }
