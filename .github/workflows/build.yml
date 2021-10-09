@@ -55,7 +55,7 @@ jobs:
       working-directory: dist/bin
 
     - name: Release notes
-      run: git log $(git rev-list --tags --max-count=1 --skip=1)..HEAD --oneline > dist/CHANGELOG.txt
+      run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > dist/CHANGELOG.txt
 
     - name: Release
       uses: softprops/action-gh-release@v1
