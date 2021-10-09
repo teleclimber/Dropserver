@@ -277,9 +277,7 @@ func (a *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 		return
 	}
 	for _, ch := range subscribers {
-		go func(c chan<- int) {
-			c <- count
-		}(ch)
+		ch <- count
 	}
 }
 

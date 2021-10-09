@@ -291,6 +291,8 @@ func TestIncrement(t *testing.T) {
 
 	go func() {
 		appspaceRoutes.decrementLiveCount(appspaceID)
+	}()
+	go func() {
 		appspaceRoutes.decrementLiveCount(appspaceID)
 	}()
 
