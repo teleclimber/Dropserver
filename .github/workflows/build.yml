@@ -89,9 +89,6 @@ jobs:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
 
-    # We don't test on build because for the time being some of our tests are flaky
-    # Add tests here when we have that under control.
-
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
@@ -109,24 +106,21 @@ jobs:
     needs: [build_linux, build_mac]
     runs-on: ubuntu-latest
     steps:
-    - name: Download ds-host archive
-      uses: actions/download-artifact@v2
+    - uses: actions/checkout@v2
       with:
-        name: ds-host-amd64-linux.tar.gz
-        path: /
-    - name: Download ds-dev linux archive
-      uses: actions/download-artifact@v2
-      with:
-        name: ds-dev-amd64-linux.tar.gz
-        path: /
-    - name: Download ds-dev mac archive
-      uses: actions/download-artifact@v2
-      with:
-        name: ds-dev-amd64-darwin.tar.gz
-        path: /
-
+        fetch-depth: 0
     - name: Release notes
       run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > CHANGELOG.txt
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: ds-host-amd64-linux.tar.gz
+    - uses: actions/download-artifact@v2
+      with:
+        name: ds-dev-amd64-linux.tar.gz
+    - uses: actions/download-artifact@v2
+      with:
+        name: ds-dev-amd64-darwin.tar.gz
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
