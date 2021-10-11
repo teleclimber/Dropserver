@@ -1,3 +1,6 @@
+# We don't test on build because for the time being some of our tests are flaky
+# Add tests when we have that under control.
+
 name: Build Dropserver
 
 on:
@@ -9,7 +12,7 @@ jobs:
   build_common:
     uses: teleclimber/DropServer/.github/workflows/build_common.yml@master
 
-  build:
+  build_linux:
     needs: build_common
     runs-on: ubuntu-latest
     steps:
@@ -25,11 +28,60 @@ jobs:
       with:
         go-version: 1.16
 
+    # ds-host
     - name: Download frontend-ds-host
       uses: actions/download-artifact@v2
       with:
         name: frontend-ds-host
         path: frontend-ds-host/dist/
+
+    - name: Build ds-host
+      run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-host ./cmd/ds-host
+
+    - name: Archive ds-host
+      run: tar -czf ds-host-amd64-linux.tar.gz ds-host
+      working-directory: dist/bin
+
+    - name: Upload ds-host archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: ds-host-amd64-linux.tar.gz
+        path: dist/bin/ds-host-amd64-linux.tar.gz
+
+    # ds-dev:
+    - name: Download frontend-ds-dev
+      uses: actions/download-artifact@v2
+      with:
+        name: frontend-ds-dev
+        path: frontend-ds-dev/dist/
+    - name: Build ds-dev
+      run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
+
+    - name: Archive ds-dev
+      run: tar -czf ds-dev-amd64-linux.tar.gz ds-dev
+      working-directory: dist/bin
+
+    - name: Upload ds-dev archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: ds-dev-amd64-linux.tar.gz
+        path: dist/bin/ds-dev-amd64-linux.tar.gz
+
+  build_mac:
+    needs: build_common
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
 
     - name: Download frontend-ds-dev
       uses: actions/download-artifact@v2
@@ -40,29 +92,49 @@ jobs:
     # We don't test on build because for the time being some of our tests are flaky
     # Add tests here when we have that under control.
 
-    - name: Build ds-host
-      run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-host ./cmd/ds-host
-
     - name: Build ds-dev
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
-    - name: Archive ds-host
-      run: tar -czf ds-host-amd64-linux.tar.gz ds-host
+    - name: Archive ds-dev
+      run: tar -czf ds-dev-amd64-darwin.tar.gz ds-dev
       working-directory: dist/bin
 
-    - name: Archive ds-dev
-      run: tar -czf ds-dev-amd64-linux.tar.gz ds-dev
-      working-directory: dist/bin
+    - name: Upload ds-dev archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: ds-dev-amd64-darwin.tar.gz
+        path: dist/bin/ds-dev-amd64-darwin.tar.gz
+
+  release:
+    needs: [build_linux, build_mac]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download ds-host archive
+      uses: actions/download-artifact@v2
+      with:
+        name: ds-host-amd64-linux.tar.gz
+        path: /
+    - name: Download ds-dev linux archive
+      uses: actions/download-artifact@v2
+      with:
+        name: ds-dev-amd64-linux.tar.gz
+        path: /
+    - name: Download ds-dev mac archive
+      uses: actions/download-artifact@v2
+      with:
+        name: ds-dev-amd64-darwin.tar.gz
+        path: /
 
     - name: Release notes
-      run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > dist/CHANGELOG.txt
+      run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > CHANGELOG.txt
 
-    - name: Release
+    - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         body_path: dist/CHANGELOG.txt
         prerelease: false
         files: |
-          dist/CHANGELOG.txt
-          dist/bin/ds-host-amd64-linux.tar.gz
-          dist/bin/ds-dev-amd64-linux.tar.gz
+          CHANGELOG.txt
+          ds-host-amd64-linux.tar.gz
+          ds-dev-amd64-linux.tar.gz
+          ds-dev-amd64-darwin.tar.gz
