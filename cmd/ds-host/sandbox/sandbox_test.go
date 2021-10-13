@@ -456,7 +456,7 @@ func getSandboxCodePath() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return filepath.Join(dir, "../../../resources/")
+	return filepath.Join(dir, "../../../denosandboxcode/")
 }
 
 // test logger

@@ -91,5 +91,5 @@ func getSandboxCodePath() string {
 		log.Fatal(err)
 	}
 
-	return filepath.Join(dir, "../../../resources/")
+	return filepath.Join(dir, "../../../denosandboxcode/")
 }

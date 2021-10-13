@@ -39,16 +39,6 @@ func TestMergeLocal(t *testing.T) {
 	}
 }
 
-func TestSetExecValues(t *testing.T) {
-	rtc := loadDefault()
-
-	setExecValues(rtc, "/abc/def/bin/")
-
-	if rtc.Exec.UserRoutesDomain != "dropid.localhost" {
-		t.Error("user routes domain not as expected", rtc.Exec)
-	}
-}
-
 func TestValidateHost(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {

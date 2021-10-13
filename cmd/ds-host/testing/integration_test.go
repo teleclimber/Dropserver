@@ -139,7 +139,7 @@ func getJSRuntimePath() string {
 		log.Fatal(err)
 	}
 
-	jsRuntime := path.Join(dir, "../../../resources/")
+	jsRuntime := path.Join(dir, "../../../denosandboxcode/")
 
 	return jsRuntime
 }

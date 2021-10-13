@@ -61,8 +61,6 @@ var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as
 
 var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
-var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
-
 var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown format to this location")
 
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
@@ -74,7 +72,7 @@ func main() {
 
 	flag.Parse()
 
-	runtimeConfig := runtimeconfig.Load(*configFlag, *execPathFlag)
+	runtimeConfig := runtimeconfig.Load(*configFlag)
 
 	record.InitDsLogger()
 	err := record.SetLogOutput(runtimeConfig.Log)

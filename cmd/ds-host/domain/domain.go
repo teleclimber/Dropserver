@@ -59,14 +59,10 @@ type RuntimeConfig struct {
 	// Exec contains values determined at runtime
 	// These are not settable via json.
 	Exec struct {
-		GoTemplatesDir      string
-		WebpackTemplatesDir string
-		StaticAssetsDir     string
-		UserRoutesDomain    string
-		SandboxCodePath     string
-		MigratorScriptPath  string
-		AppsPath            string
-		AppspacesPath       string
+		UserRoutesDomain string
+		SandboxCodePath  string
+		AppsPath         string
+		AppspacesPath    string
 	}
 }
 

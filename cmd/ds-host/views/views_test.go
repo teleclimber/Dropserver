@@ -127,7 +127,5 @@ func TestSignupData(t *testing.T) {
 func getV() *Views {
 	v := &Views{
 		Config: &domain.RuntimeConfig{}}
-	// v.Config.Exec.GoTemplatesDir = "../../../resources/go-templates"
-	// v.Config.Exec.WebpackTemplatesDir = "../../../frontend/dist/resources"
 	return v
 }

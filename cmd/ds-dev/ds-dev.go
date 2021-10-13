@@ -55,8 +55,6 @@ var avatarsFS embed.FS
 var appDirFlag = flag.String("app", "", "specify root directory of app code")
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
 
-var execPathFlag = flag.String("exec-path", "", "specify where the exec path is so resources can be loaded")
-
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 const ownerID = domain.UserID(7)
@@ -90,7 +88,7 @@ func main() {
 
 	fmt.Println("Temp dir: " + tempDir)
 
-	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, tempDir)
+	runtimeConfig := GetConfig(*appDirFlag, tempDir)
 
 	// in ds-host app meta is in the folder above actual app code
 	// In ds-dev, since we read app files directly, have to stash app meta elsewhere.

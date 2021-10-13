@@ -32,7 +32,7 @@ var configDefault = []byte(`{
 }`)
 
 // Load opens the json passed and merges it with defaults
-func Load(configFile string, execPath string) *domain.RuntimeConfig {
+func Load(configFile string) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
 
@@ -49,24 +49,7 @@ func Load(configFile string, execPath string) *domain.RuntimeConfig {
 
 	validateConfig(rtc)
 
-	if execPath == "" {
-		ex, err := os.Executable()
-		if err != nil {
-			panic(err)
-		}
-		execPath = filepath.Dir(ex)
-	}
-
-	setExecValues(rtc, execPath)
-
-	return rtc
-}
-
-func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 	// set up runtime paths
-	rtc.Exec.GoTemplatesDir = filepath.Join(binDir, "../resources/go-templates")
-	rtc.Exec.WebpackTemplatesDir = filepath.Join(binDir, "../resources/webpack-html")
-	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static")
 	rtc.Exec.SandboxCodePath = filepath.Join(rtc.DataDir, "sandbox-code")
 
 	// set up user data paths:
@@ -78,12 +61,7 @@ func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
 		rtc.Exec.UserRoutesDomain = rtc.Subdomains.UserAccounts + "." + rtc.Server.Host
 	}
 
-	// do we need to make room for more possibilities wrt domains?
-	// - serve everything from host directly
-	// - serve only static assets from CDN (not feasible due to dynamic renaming necessary in built frontend files)
-	// - serve everything from CDN except API calls
-	// - pass everything through CDN plain and simple.
-
+	return rtc
 }
 
 func loadDefault() *domain.RuntimeConfig {
