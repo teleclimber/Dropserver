@@ -22,9 +22,9 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	"github.com/teleclimber/DropServer/denosandboxcode"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 	"github.com/teleclimber/DropServer/internal/embedutils"
-	denosandboxcode "github.com/teleclimber/DropServer/resources"
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
