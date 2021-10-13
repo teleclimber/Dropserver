@@ -45,7 +45,9 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/checkinject"
+	"github.com/teleclimber/DropServer/internal/embedutils"
 	"github.com/teleclimber/DropServer/internal/stdinput"
+	denosandboxcode "github.com/teleclimber/DropServer/resources"
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
@@ -82,6 +84,20 @@ func main() {
 
 	if runtimeConfig.Prometheus.Enable {
 		record.ExposePromMetrics(*runtimeConfig)
+	}
+
+	// copy sandbox code path to disk:
+	err = os.RemoveAll(runtimeConfig.Exec.SandboxCodePath)
+	if err != nil {
+		panic(err)
+	}
+	err = os.MkdirAll(runtimeConfig.Exec.SandboxCodePath, 0744)
+	if err != nil {
+		panic(err)
+	}
+	err = embedutils.DirToDisk(denosandboxcode.SandboxCode, ".", runtimeConfig.Exec.SandboxCodePath)
+	if err != nil {
+		panic(err)
 	}
 
 	location2path := &Location2Path{

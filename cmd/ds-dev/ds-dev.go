@@ -23,6 +23,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/checkinject"
+	"github.com/teleclimber/DropServer/internal/embedutils"
+	denosandboxcode "github.com/teleclimber/DropServer/resources"
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
@@ -88,22 +90,26 @@ func main() {
 
 	fmt.Println("Temp dir: " + tempDir)
 
-	appspaceWorkingDir := filepath.Join(tempDir, "appspace")
-	err = os.MkdirAll(appspaceWorkingDir, 0744)
-	if err != nil {
-		panic(err)
-	}
-
-	socketsDir := filepath.Join(tempDir, "sockets")
-	err = os.MkdirAll(socketsDir, 0744)
-	if err != nil {
-		panic(err)
-	}
+	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, tempDir)
 
 	// in ds-host app meta is in the folder above actual app code
 	// In ds-dev, since we read app files directly, have to stash app meta elsewhere.
 	appMetaDir := filepath.Join(tempDir, "app-meta")
-	err = os.MkdirAll(appMetaDir, 0744)
+
+	// make all the dirs
+	dirs := []string{
+		runtimeConfig.Exec.AppspacesPath,
+		runtimeConfig.Exec.SandboxCodePath,
+		runtimeConfig.Sandbox.SocketsDir,
+		appMetaDir}
+	for _, d := range dirs {
+		err = os.MkdirAll(d, 0744)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = embedutils.DirToDisk(denosandboxcode.SandboxCode, ".", runtimeConfig.Exec.SandboxCodePath)
 	if err != nil {
 		panic(err)
 	}
@@ -116,9 +122,6 @@ func main() {
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
-
-	runtimeConfig := GetConfig(*execPathFlag, *appDirFlag, appspaceWorkingDir)
-	runtimeConfig.Sandbox.SocketsDir = socketsDir
 
 	location2path := &Location2Path{
 		AppMetaDir: appMetaDir,
@@ -174,7 +177,7 @@ func main() {
 		AppspaceMetaDb:      appspaceMetaDb,
 		AppspaceFilesEvents: appspaceFilesEvents,
 		sourceDir:           appspaceSourceDir,
-		destDir:             appspaceWorkingDir,
+		destDir:             runtimeConfig.Exec.AppspacesPath,
 	}
 	appspaceFiles.Reset()
 

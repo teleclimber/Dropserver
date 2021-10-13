@@ -8,7 +8,7 @@ import (
 )
 
 // GetConfig returns a runtime config set up for ds-dev
-func GetConfig(execPath string, appPath string, appspacePath string) *domain.RuntimeConfig {
+func GetConfig(execPath string, appPath string, tempDir string) *domain.RuntimeConfig {
 
 	rtc := &domain.RuntimeConfig{}
 	rtc.Server.Host = "localhost"
@@ -24,7 +24,9 @@ func GetConfig(execPath string, appPath string, appspacePath string) *domain.Run
 		execPath = filepath.Dir(ex)
 	}
 
-	setExecValues(rtc, execPath)
+	rtc.Exec.GoTemplatesDir = filepath.Join(execPath, "../resources/go-templates")
+	rtc.Exec.WebpackTemplatesDir = filepath.Join(execPath, "../resources/webpack-html")
+	rtc.Exec.StaticAssetsDir = filepath.Join(execPath, "../static/ds-dev/")
 
 	if !filepath.IsAbs(appPath) {
 		wd, err := os.Getwd()
@@ -33,21 +35,11 @@ func GetConfig(execPath string, appPath string, appspacePath string) *domain.Run
 		}
 		appPath = filepath.Join(wd, appPath)
 	}
-
 	rtc.Exec.AppsPath = appPath
-	rtc.Exec.AppspacesPath = appspacePath
+
+	rtc.Exec.SandboxCodePath = filepath.Join(tempDir, "sandbox-code")
+	rtc.Exec.AppspacesPath = filepath.Join(tempDir, "appspace")
+	rtc.Sandbox.SocketsDir = filepath.Join(tempDir, "sockets")
 
 	return rtc
-}
-
-func setExecValues(rtc *domain.RuntimeConfig, binDir string) {
-	rtc.Exec.GoTemplatesDir = filepath.Join(binDir, "../resources/go-templates")
-	rtc.Exec.WebpackTemplatesDir = filepath.Join(binDir, "../resources/webpack-html")
-	rtc.Exec.StaticAssetsDir = filepath.Join(binDir, "../static/ds-dev/")
-	rtc.Exec.SandboxCodePath = filepath.Join(binDir, "../resources/")
-	// UserRoutesAddress has to be a bit different from what it is on ds-host
-	//rtc.Exec.UserRoutesDomain = fmt.Sprintf("%v:%v/dropserver-dev", rtc.Server.Host, "")
-	//^^^^ this is going to be a problem. Maybe serve user routes on a different port?
-
-	// Sockets?
 }
