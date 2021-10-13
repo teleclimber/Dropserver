@@ -125,7 +125,7 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        body_path: dist/CHANGELOG.txt
+        body_path: CHANGELOG.txt
         prerelease: false
         files: |
           CHANGELOG.txt
