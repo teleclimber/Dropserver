@@ -1,32 +1,5 @@
 {
-	"go.gopath": "/Users/ollie/go/",
-	"go.inferGopath": false,
-	"go.liveErrors": {
-		"enabled": false,
-		"delay": 500
-	},
-	"go.buildOnSave": "workspace",
-	"go.installDependenciesWhenBuilding": false,
-
     "go.testFlags": ["-race"],
-    "go.testTimeout": "8s",
-    "go.coverMode": "atomic",
 
-    "go.useLanguageServer": true,
-
-    "deno.enable": false,
-    "deno.unstable": true,
-
-    "jest.rootPath": "frontend/",
-    
-    "workbench.colorCustomizations": {
-        "activityBar.background": "#4e2d20",
-        "activityBar.activeBackground": "#4e2d20",
-        "activityBar.activeBorder": "#2e7141",
-        "activityBar.foreground": "#e7e7e7",
-        "activityBar.inactiveForeground": "#e7e7e799",
-        "activityBarBadge.background": "#2e7141",
-        "activityBarBadge.foreground": "#e7e7e7"
-    },
-    "peacock.color": "#2a1811",
+    "jest.rootPath": "frontend-ds-host/",
 }

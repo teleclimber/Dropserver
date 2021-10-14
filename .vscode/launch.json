@@ -8,11 +8,11 @@
 			"type": "node",
 			"name": "vscode-jest-tests-xxxx",	// remove -xxx and add also rename the one for ds-dev. Jest expectes a launch config named as such.
 			"request": "launch",
-			"program": "${workspaceFolder}/frontend/node_modules/jest/bin/jest",
+			"program": "${workspaceFolder}/frontend-ds-host/node_modules/jest/bin/jest",
 			"args": [
 				"--runInBand"
 			],
-			"cwd": "${workspaceFolder}/frontend/",
+			"cwd": "${workspaceFolder}/frontend-ds-host/",
 			"console": "integratedTerminal",
 			"internalConsoleOptions": "neverOpen",
 			"disableOptimisticBPs": true
@@ -33,8 +33,8 @@
 			"name": "Deno test twine",
 			"request": "launch",
 			"runtimeExecutable": "deno",
-			"cwd": "${workspaceFolder}/resources/",
-			"runtimeArgs": ["test", "--inspect-brk", "--allow-net", "--unstable", "twine/twine_test.ts"],
+			"cwd": "${workspaceFolder}/denosandboxcode/",
+			"runtimeArgs": ["test", "-A", "--unstable", "twine/twine_test.ts"],
 			"port": 9229
 		},{
 			"name": "Launch test package",
@@ -42,15 +42,14 @@
 			"request": "launch",
 			"mode": "test",
 			"program": "${fileDirname}}"
-		},
-		{
+		},{
 			"name": "ds-host remote",
 			"type": "go",
 			"request": "attach",
 			"mode": "remote",
-			"host": "192.168.1.53",
+			"host": "192.168.1.53",	//replace with correct IP
 			"port": 2345,
-			"remotePath": "/home/developer/dropserver-code",
+			"remotePath": "/path/to/dropserver/code",	// replace with path to ds code on remote machine
 		},{
 			"name": "ds-dev local launch",
 			"type": "go",
@@ -58,32 +57,23 @@
 			"mode": "debug",
 			"program": "${workspaceFolder}/cmd/ds-dev",
 			"args": [
-				"-exec-path=/Users/ollie/Documents/Code/DropServer/dist/bin/",
-
-				//"-app=/Users/ollie/Documents/Projects/PersonalServerApps/apps/NewDeno/0.3.0",
-				//"-appspace=/Users/ollie/Documents/Projects/PersonalServerApps/appspaces/NewDeno/",
-				
-				"-app=/Users/ollie/Documents/Code/Leftovers/app/",
-				
+				"-app=${input:path-to-app}",
+				"-appspace=${input:path-to-appspace}",
 			]
-
-
 		},
-		// {
-		// 	"name": "ds-dev local attach",// can't seem to get this to work
-		// 	"type": "go",
-		// 	"request": "attach",
-		// 	"mode": "local",
-		// 	"host": "127.0.0.1",
-		// 	"port": 2345,
-		// 	"processId": 22060
-		// 	//"program": "${workspaceFolder}/cmd/ds-host",
-		// 	//"remotePath": "/home/developer/dropserver-code",
-		// 	//"env": {},
-		// 	//"args": ["-config=/home/developer/ds-config.json"]
-		// 	// "showLog": true,
-		// 	// "trace": "log",
-		// 	// "logOutput": "rpc"
-		// },
+	],
+	"inputs": [
+		{
+			"type": "promptString",
+			"id": "path-to-app",
+			"description": "Path to app:",
+			"default": ""
+		},
+		{
+			"type": "promptString",
+			"id": "path-to-appspace",
+			"description": "Path to appspace:",
+			"default": ""
+		}
 	]
 }
