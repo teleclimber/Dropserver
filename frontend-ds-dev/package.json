@@ -10,6 +10,7 @@
   "dependencies": {
     "core-js": "^3.6.5",
     "tailwindcss": "^1.7.6",
+    "twine-web": "^0.1.1",
     "vue": "^3.0.0-0"
   },
   "devDependencies": {

@@ -1,8 +1,7 @@
 import {reactive} from 'vue';
 
 import twineClient from './twine-client';
-
-import {ReceivedMessageI, SentMessageI} from '../twine-ws/twine-common';
+import {ReceivedMessageI} from 'twine-web';
 
 const appspaceControlService = 12;
 

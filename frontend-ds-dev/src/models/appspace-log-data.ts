@@ -1,6 +1,6 @@
 import {reactive} from 'vue';
 import twineClient from './twine-client';
-import {ReceivedMessageI} from '../twine-ws/twine-common';
+import {ReceivedMessageI} from 'twine-web';
 
 const route_commands = {
 	log_event: 11,

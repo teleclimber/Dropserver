@@ -1,8 +1,7 @@
 import {computed, reactive} from 'vue';
 
 import twineClient from './twine-client';
-
-import {ReceivedMessageI} from '../twine-ws/twine-common';
+import {ReceivedMessageI} from 'twine-web';
 
 // remote service?
 const appRoutesService = 16;

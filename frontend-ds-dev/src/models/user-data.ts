@@ -7,8 +7,7 @@
 import {computed, reactive} from 'vue';
 
 import twineClient from './twine-client';
-
-import {ReceivedMessageI} from '../twine-ws/twine-common';
+import {ReceivedMessageI} from 'twine-web';
 
 const userService = 17;
 

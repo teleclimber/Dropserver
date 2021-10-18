@@ -1,5 +1,4 @@
-import TwineWebsocketClient from '../twine-ws/index';
-import {ReceivedMessageI} from '../twine-ws/twine-common';
+import TwineWebsocketClient, {ReceivedMessageI} from 'twine-web';
 
 interface LocalService {
 	handleMessage(m : ReceivedMessageI) :void
