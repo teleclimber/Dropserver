@@ -1,6 +1,5 @@
-import TwineWebsocketClient from '@/vendor/twine-ws';
 import twineClient from '../twine-services/twine_client';
-import {ReceivedMessageI, SentMessageI} from '../vendor/twine-ws/twine-common';
+import {SentMessageI} from 'twine-web';
 
 import {get, post} from '../controllers/userapi';
 

@@ -1,6 +1,5 @@
 import twineClient from './twine_client';
-import {ReceivedMessageI, SentMessageI} from '../vendor/twine-ws/twine-common';
-import {reactive} from 'vue';
+import {SentMessageI} from 'twine-web';
 
 // type AppspaceStatusEvent struct {
 //     AppspaceID       AppspaceID `json:"appspace_id"`
