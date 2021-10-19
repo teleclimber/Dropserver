@@ -2,7 +2,7 @@ import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import Metadata from './ds-metadata.ts';
 import AppRouter from './app-router.ts';
 import type {RouteExport} from './app-router.ts';
-import type {ReceivedMessageI} from "./twine/twine.ts";
+import type {ReceivedMessageI} from "./twine.ts";
 
 const get_app_routes_cmd = 11;
 

@@ -29,14 +29,6 @@
 			"internalConsoleOptions": "neverOpen",
 			"disableOptimisticBPs": true
 		},{
-			"type": "node",
-			"name": "Deno test twine",
-			"request": "launch",
-			"runtimeExecutable": "deno",
-			"cwd": "${workspaceFolder}/denosandboxcode/",
-			"runtimeArgs": ["test", "-A", "--unstable", "twine/twine_test.ts"],
-			"port": 9229
-		},{
 			"name": "Launch test package",
 			"type": "go",
 			"request": "launch",

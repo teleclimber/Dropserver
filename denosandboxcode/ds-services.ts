@@ -5,11 +5,11 @@
 // Well it kind of has. Example: cron.
 // - receive message saying run function x at file y
 
-import Twine from "./twine/twine.ts";
+import Twine from "./twine.ts";
 import Metadata from "./ds-metadata.ts";
 import DsRouteServer from "./ds-route-server.ts";
 
-import type {ReceivedMessageI} from './twine/twine.ts';
+import type {ReceivedMessageI} from './twine.ts';
 
 const sandboxService = 11;
 const executeService = 12;

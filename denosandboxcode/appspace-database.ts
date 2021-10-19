@@ -1,5 +1,4 @@
 import DsServices from "./ds-services.ts";
-import type Twine from "./twine/twine.ts";
 
 // remote service ID
 const service = 15;

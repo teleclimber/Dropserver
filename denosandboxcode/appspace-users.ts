@@ -1,5 +1,5 @@
 import DsServices from "./ds-services.ts";
-import type Twine from "./twine/twine.ts";
+import type Twine from "./twine.ts";
 
 const service = 16;
 

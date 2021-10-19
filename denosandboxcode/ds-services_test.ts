@@ -1,5 +1,5 @@
 import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
-import Twine from "./twine/twine.ts";
+import Twine from "./twine.ts";
 import Metadata from "./ds-metadata.ts";
 
 Deno.test({
