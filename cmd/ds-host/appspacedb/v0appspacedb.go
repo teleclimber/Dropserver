@@ -8,8 +8,8 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/twine"
 	"github.com/teleclimber/DropServer/internal/validator"
+	"github.com/teleclimber/twine-go/twine"
 )
 
 type results struct { // this is vX api-specific stuff

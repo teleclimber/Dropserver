@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/twine-go/twine"
 )
 
 // TODO: how does this handle changes in DS API versions?

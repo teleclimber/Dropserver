@@ -9,7 +9,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
-	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/twine-go/twine/mock_twine"
 )
 
 func TestRunningJobStatus(t *testing.T) {
@@ -80,10 +80,10 @@ func TestRunJob(t *testing.T) {
 	infoModel.EXPECT().GetSchema(appspaceID).Return(1, nil)
 	infoModel.EXPECT().SetSchema(appspaceID, 2).Return(nil)
 
-	replyMessage := twine.NewMockReceivedReplyI(mockCtrl)
+	replyMessage := mock_twine.NewMockReceivedReplyI(mockCtrl)
 	replyMessage.EXPECT().OK().Return(true)
 
-	sentMessage := twine.NewMockSentMessageI(mockCtrl)
+	sentMessage := mock_twine.NewMockSentMessageI(mockCtrl)
 	sentMessage.EXPECT().WaitReply().Return(replyMessage, nil)
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
-	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/twine-go/twine"
 )
 
 // don't import anything

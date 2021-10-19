@@ -14,8 +14,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
-	"github.com/teleclimber/DropServer/internal/twine"
 	"github.com/teleclimber/DropServer/internal/validator"
+	"github.com/teleclimber/twine-go/twine"
 )
 
 var errNotFound = errors.New("not found")

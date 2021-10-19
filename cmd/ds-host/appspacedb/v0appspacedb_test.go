@@ -12,7 +12,7 @@ import (
 	matchers "github.com/Storytel/gomock-matchers"
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/twine-go/twine/mock_twine"
 )
 
 func TestMakeArgs(t *testing.T) {
@@ -250,7 +250,7 @@ func TestTwineCreateDBHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	message := twine.NewMockReceivedMessageI(mockCtrl)
+	message := mock_twine.NewMockReceivedMessageI(mockCtrl)
 	message.EXPECT().CommandID().Return(v0createDBCommand)
 	message.EXPECT().Payload().Return(payload)
 	message.EXPECT().SendOK()
@@ -272,7 +272,7 @@ func TestTwineCreateDBHandler(t *testing.T) {
 
 	payloadMatcher := matchers.Record(gomock.Any())
 
-	message = twine.NewMockReceivedMessageI(mockCtrl)
+	message = mock_twine.NewMockReceivedMessageI(mockCtrl)
 	message.EXPECT().CommandID().Return(v0queryDBCommand)
 	message.EXPECT().Payload().Return(payload)
 	message.EXPECT().Reply(0, payloadMatcher)
@@ -316,7 +316,7 @@ func TestTwineQueryHandler(t *testing.T) {
 
 	payloadMatcher := matchers.Record(gomock.Any())
 
-	message := twine.NewMockReceivedMessageI(mockCtrl)
+	message := mock_twine.NewMockReceivedMessageI(mockCtrl)
 	message.EXPECT().CommandID().Return(v0queryDBCommand)
 	message.EXPECT().Payload().Return(payload)
 	message.EXPECT().Reply(0, payloadMatcher)

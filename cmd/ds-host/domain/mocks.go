@@ -6,7 +6,7 @@ package domain
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	twine "github.com/teleclimber/DropServer/internal/twine"
+	twine "github.com/teleclimber/twine-go/twine"
 	http "net/http"
 	reflect "reflect"
 	time "time"

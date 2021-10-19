@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/twine"
+	"github.com/teleclimber/twine-go/twine"
 )
 
 const routeHitEventCmd = 11
