@@ -7933,9 +7933,9 @@ tweetnacl@^0.14.3, tweetnacl@~0.14.0:
   integrity sha1-WuaBd/GS1EViadEIr6k/+HQ/T2Q=
 
 twine-web@^0.1.1:
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/twine-web/-/twine-web-0.1.1.tgz#3e056b6014a0df034286382d26c6b7992b6d4b50"
-  integrity sha512-kfeem62vbADpgwjEYeIWf3BJhEhOA/HICO6/OAiStlJke4oVrT8W2NYFpxgAhm4vPXdIuBJkPdYuNFd0TQuJkQ==
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/twine-web/-/twine-web-0.1.2.tgz#75305cdff3c1e55ad1dd9733c9b7edcc13dae74c"
+  integrity sha512-E8tPNN075qViK8YUbGNYXkffvvY6yKhB7CfjptcZ5DN7GYFqpT4iJjnnelk5ePu85Mty7YC8cqusbcv7zFktkQ==
 
 type-fest@^0.6.0:
   version "0.6.0"

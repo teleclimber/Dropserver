@@ -57,6 +57,7 @@ class AppRoutesData {
 				this.error = new TextDecoder('utf-8').decode(m.payload);
 				this.routes = [];
 				this.dirty = false;
+				m.sendOK();
 				break;
 			case routesDirty:
 				this.dirty = true;

@@ -20,7 +20,7 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/prometheus/client_golang v1.10.0
 	github.com/soongo/path-to-regexp v1.6.3
-	github.com/teleclimber/twine-go v0.1.0
+	github.com/teleclimber/twine-go v0.1.1
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007
 	google.golang.org/appengine v1.6.6 // indirect

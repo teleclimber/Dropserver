@@ -55,6 +55,7 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
 		m.SendError(err.Error())
+		return
 	}
 
 	// TODO first need to verify the appsace is owned by the authenticated user
@@ -62,9 +63,11 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 	appspace, err := s.AppspaceModel.GetFromID(incoming.AppspaceID)
 	if err != nil {
 		m.SendError(err.Error())
+		return
 	}
 	if appspace.OwnerID != s.authUser {
 		m.SendError("forbidden")
+		return
 	}
 
 	// First subscribe
@@ -80,6 +83,7 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 	jobs, err := s.MigrationJobModel.GetRunning() // this should really come from job model
 	if err != nil {
 		m.SendError(err.Error())
+		return
 	}
 	for _, j := range jobs {
 		if j.AppspaceID == incoming.AppspaceID {
@@ -106,6 +110,7 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 
 }
 
+// see appspacestatustwine which uses a same pattern wrt Twine
 func (s *MigrationJobService) sendMigrationJob(m twine.ReceivedMessageI, migrationJob domain.MigrationJob) {
 	bytes, err := json.Marshal(migrationJob)
 	if err != nil {

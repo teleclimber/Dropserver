@@ -94,6 +94,11 @@ class UserData {
 		const u = JSON.parse(new TextDecoder().decode(reply.payload))
 		this.users.push(userFromRaw(u));
 
+		// This is a reply with a payload, therefore we have to send Ok or error
+		// so that the message is cleared from the registry.
+		// except this is not working right now because of a bug in the protocol:
+		// https://github.com/teleclimber/twine-protocol/issues/2
+		// reply.sendOK();
 	}
 
 	async editUser(proxy_id:string, display_name: string, avatar:string, permissions: string[]) {

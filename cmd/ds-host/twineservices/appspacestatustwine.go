@@ -54,6 +54,7 @@ func (s *AppspaceStatusService) handleSubscribeMessage(m twine.ReceivedMessageI)
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
 		m.SendError(err.Error())
+		return
 	}
 
 	// TODO first need to verify the appsace is owned by the authenticated user
@@ -61,9 +62,11 @@ func (s *AppspaceStatusService) handleSubscribeMessage(m twine.ReceivedMessageI)
 	appspace, err := s.AppspaceModel.GetFromID(incoming.AppspaceID)
 	if err != nil {
 		m.SendError(err.Error())
+		return
 	}
 	if appspace.OwnerID != s.authUser {
 		m.SendError("forbidden")
+		return
 	}
 
 	// First subscribe
@@ -99,11 +102,14 @@ func (s *AppspaceStatusService) handleSubscribeMessage(m twine.ReceivedMessageI)
 
 const statusEventCmd = 11
 
+// TODO maybe sendAppspaceStatusEvent should return an error so that we can unsubscribe and stop the process if there is a problem
 func (s *AppspaceStatusService) sendAppspaceStatusEvent(m twine.ReceivedMessageI, statusEvent domain.AppspaceStatusEvent) {
 	bytes, err := json.Marshal(statusEvent)
 	if err != nil {
 		s.getLogger("sendAppspaceStatusEvent json Marshal Error").Error(err)
 		m.SendError("Failed to unmarhsal JSON")
+		// Do we really send an error on parent message?
+		// Maybe return error and let caller deal with it (and unsubscribe)
 		return
 	}
 
