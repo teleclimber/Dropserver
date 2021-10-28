@@ -68,7 +68,7 @@ export async function checkHandle(handle:string, domain:string) :Promise<boolean
 	if( handle !== '' ) q += '&handle='+encodeURIComponent(handle)
 	try {
 		await get('/dropid?'+q);
-	} catch(error) {
+	} catch(error:any) {
 		if( error.response.status == 404 ) return true;
 		return false;
 	}
