@@ -104,7 +104,7 @@ func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Req
 func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.Request) {
 	t, err := twine.NewWebsocketServer(res, req)
 	if err != nil {
-		fmt.Println("twine.NewWebsocketServer(res, req) " + err.Error())
+		fmt.Println("twine.NewWebsocketServer(res, req) " + err.Error() + " origin: " + req.Header.Get("origin"))
 		//http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
