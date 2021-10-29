@@ -9,7 +9,7 @@ require (
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-chi/chi v4.0.0+incompatible
-	github.com/go-chi/chi/v5 v5.0.3
+	github.com/go-chi/chi/v5 v5.0.5
 	github.com/go-chi/docgen v1.2.0
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang/mock v1.6.0

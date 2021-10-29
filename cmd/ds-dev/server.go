@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -45,7 +46,10 @@ func (s *Server) Start() { //return a server type
 		r.Handle("/avatar/baked-in/*", http.StripPrefix("/dropserver-dev/avatar/baked-in/", http.FileServer(http.FS(avatarsSubFS))))
 		r.Handle("/avatar/appspace/*", http.StripPrefix("/dropserver-dev/avatar/appspace/", http.FileServer(http.Dir(filepath.Join(s.Config.Exec.AppspacesPath, "data", "avatars")))))
 
-		r.Get("/", s.serveAppIndex)
+		// For app index, ensure there is a trailing slash with RedirectNoSlashes
+		// The frontend makes use of relative paths for subsequent requests,
+		// so a missing trailing slash breaks many things.
+		r.With(RedirectNoSlashes).Get("/", s.serveAppIndex)
 		r.Handle("/*", http.StripPrefix("/dropserver-dev/", http.FileServer(http.FS(frontendFS))))
 	})
 	r.Handle("/*", s.AppspaceRouter)
@@ -81,4 +85,26 @@ func (s *Server) getAvatarList(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(respData)
+}
+
+// RedirectNoSlashes redirects to the path with a trailing slash included
+// if the request did not include a trailing slash.
+// Hacked from RedirectSlashes which does the opposite:
+// https://github.com/go-chi/chi/blob/c9e87efe9691a63d6a89de8bbd16b04fe4d6640e/middleware/strip.go#L40
+func RedirectNoSlashes(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if len(path) > 1 && path[len(path)-1] != '/' {
+			if r.URL.RawQuery != "" {
+				path = fmt.Sprintf("%s?%s", path+"/", r.URL.RawQuery)
+			} else {
+				path = path + "/"
+			}
+			redirectURL := fmt.Sprintf("//%s%s", r.Host, path)
+			http.Redirect(w, r, redirectURL, http.StatusPermanentRedirect)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
 }
