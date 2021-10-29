@@ -75,6 +75,8 @@ func (w *DevAppWatcher) filesChanged() {
 }
 
 func (w *DevAppWatcher) watch(appPath string) {
+	fmt.Println("Watching: " + appPath)
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -88,7 +90,11 @@ func (w *DevAppWatcher) watch(appPath string) {
 				if !ok {
 					return
 				}
-				if event.Op&fsnotify.Create == fsnotify.Create {
+				if event.Name == "" || event.Name == "." {
+					// For some reason sometimes fsnotify sometimes has empty or "." event names
+					// Usually when seen when rebuilding a frontend's dist dir (massive deletions and writes.)
+					// Just ignore (no-op) and pretend it never happened.
+				} else if event.Op&fsnotify.Create == fsnotify.Create {
 					fileInfo, err := os.Stat(event.Name)
 					if err != nil {
 						panic(err) //deal with this if we hit it
@@ -97,12 +103,12 @@ func (w *DevAppWatcher) watch(appPath string) {
 						w.watchDir(event.Name)
 					}
 					w.filesChanged()
-				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				} else if event.Op&fsnotify.Write == fsnotify.Write {
 					w.filesChanged()
-				}
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					// remove watchers?
+				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+					// fsnotify removes watches automatically on Mac and Linux, apparently.
+					// https://github.com/fsnotify/fsnotify/issues/238
+					// On Windows it does not yet, apparently? Consequences?
 					w.filesChanged()
 				}
 			case err, ok := <-watcher.Errors:
@@ -127,7 +133,6 @@ func (w *DevAppWatcher) watchDir(dir string) error {
 			return err
 		}
 		if info.IsDir() && !w.ignorePath(path) {
-			fmt.Println("adding: " + path)
 			err := w.watcher.Add(path)
 			if err != nil {
 				return err
