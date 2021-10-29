@@ -28,7 +28,7 @@
 					<span></span>
 					<template v-if="r.v0_route_config">
 						<span v-if="r.v0_route_config.auth.allow == 'public'" class="pl-2 py-1 border-b border-gray-600">
-							<span class="text-white text-xs px-2 bg-orange-500 rounded-full">PUBLIC</span>
+							<span class="text-white text-xs px-2 bg-yellow-500 rounded-full">PUBLIC</span>
 						</span>
 						<span v-else-if="r.authorized && r.v0_route_config.auth.permission" class="pl-2 py-1 border-b border-gray-600">
 							<span class="text-white text-xs px-2 bg-green-600">{{ r.v0_route_config.auth.permission }}</span>
@@ -36,7 +36,7 @@
 						<span v-else-if="r.authorized" class="pl-2 py-1 border-b text-green-500 border-gray-600">
 							authorized
 						</span>
-						<span v-else class="pl-2 py-1 border-b text-orange-500 border-gray-600 italic">
+						<span v-else class="pl-2 py-1 border-b text-red-500 border-gray-600 italic">
 							unauthorized
 						</span>
 						<span class="border-b border-gray-600"></span>
@@ -50,8 +50,8 @@
 							<span class="border-b border-gray-600 font-mono pl-2 py-1">{{r.v0_route_config.options.path}}</span>
 						</template>
 						<template v-else-if="r.v0_route_config.type === 'function'">
-							<span class="border-b border-gray-600 px-1 py-1 text-sm italic text-right bg-orange-100">Call function:</span>
-							<div class=" py-1 border-b border-gray-600 bg-orange-100">
+							<span class="border-b border-gray-600 px-1 py-1 text-sm italic text-right bg-yellow-100">Call function:</span>
+							<div class=" py-1 border-b border-gray-600 bg-yellow-100">
 								<span class="italic font-mono pl-2 text-yellow-800">{{r.v0_route_config.options.name}}()</span>
 							</div>
 						</template>

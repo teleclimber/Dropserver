@@ -6,7 +6,7 @@
 			<div class="my-4 px-2" v-for="job in migrationData.jobs" :key="job.job_id">
 				<h5>Job #{{job.job_id}} {{job.started ? "Started: " + job.started.toLocaleString() : "not started"}}</h5>
 				<p class="bg-red-200 my-2 p-2" v-if="job.err">{{job.err}}</p>
-				<div class="bg-orange-400" v-if="job.started && !job.finished">Running...</div>
+				<div class="bg-yellow-400" v-if="job.started && !job.finished">Running...</div>
 				<div class="bg-green-200 text-green-700 text-lg font-bold my-2 p-2" v-if="job.finished && !job.err">
 					<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />

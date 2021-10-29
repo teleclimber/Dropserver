@@ -1,5 +1,5 @@
 <template>
-	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-orange-300">public</span>
+	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-yellow-300">public</span>
 	<span v-else-if="route.auth.allow === 'authorized'"  class="border-b border-gray-400 text-sm bold pl-2 bg-teal-200">
 		Auth: 
 		<span v-if="route.auth.permission" class="text-white text-xs px-2 bg-teal-600">{{route.auth.permission}}</span>
@@ -18,8 +18,8 @@
 		<span class="border-b border-gray-400 font-mono pl-2 ">{{route.options.path}}</span>
 	</template>
 	<template v-else-if="route.type === 'function'">
-		<span class="border-b border-gray-400 px-1 text-sm italic text-right bg-orange-100">Call function:</span>
-		<div class="border-b border-gray-400 bg-orange-100">
+		<span class="border-b border-gray-400 px-1 text-sm italic text-right bg-yellow-100">Call function:</span>
+		<div class="border-b border-gray-400 bg-yellow-100">
 			<span class="font-mono pl-2">{{route.options.name}}</span>
 		</div>
 	</template>
