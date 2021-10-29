@@ -18,6 +18,10 @@ const setAutoLoad = 12
 
 
 
+export type RoutePath = {
+	path: string,
+	end: boolean
+}
 export type RouteAuth = {
 	allow: string,	// actually an enum
 	permission?: string
@@ -33,7 +37,7 @@ export type RouteOptions = {
 }
 export type RouteConfig = {
 	method: string,
-	path: string,
+	path: RoutePath,
 	auth: RouteAuth,
 	type: string,	// "function " or "static"
 	options: RouteOptions

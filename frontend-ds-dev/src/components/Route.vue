@@ -39,7 +39,8 @@ export default defineComponent({
 	name: 'AppspaceRoute',
 	props: {
 		route: {
-			type: Object as PropType<RouteConfig>
+			type: Object as PropType<RouteConfig>,
+			required: true
 		}
 	}
 
