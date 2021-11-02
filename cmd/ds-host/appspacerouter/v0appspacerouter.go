@@ -248,48 +248,58 @@ func (arV0 *V0) handleRoute(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// serveFile serves a file based on route config and the path of the request
+// Possible scenarios:
+// - config points to file -> serve that file
+// - config points to dir:
+//   - join request wildcard path (if config request is wildcard)
+//   - if this points to file, serve file
+//   - if dir, look for index.html? or ...?
 func (arV0 *V0) serveFile(w http.ResponseWriter, r *http.Request) {
-	// - left trim request path
-	p, err := arV0.getFilePath(r)
+	p, err := arV0.getConfigPath(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// check if p is a directory? If so handle as either dir listing or index.html?
 	fileinfo, err := os.Stat(p)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
+	// If the config points to a file, then always just serve that.
+	if !fileinfo.IsDir() {
+		serveFile(w, r, p)
+		return
+	}
+
+	// Otherwise append request wildcard path and stat again
+	p, err = arV0.joinBaseToRequest(p, r)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	fileinfo, err = os.Stat(p)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	//....
 	if fileinfo.IsDir() {
 		// either append index.html to p or send dir listing
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	f, err := os.Open(p)
-	if err != nil {
-		if os.IsNotExist(err) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		http.Error(w, "file open error", http.StatusInternalServerError)
-		return
-	}
-
-	http.ServeContent(w, r, p, fileinfo.ModTime(), f)
+	serveFile(w, r, p)
 }
 
-// Need: request path, route handler path,  appspace location key, app version location key,
-// It seems there are two parts to this:
-// - left-trim request path to route handler path, so all that's left is the extra
-// - then tack on the
-func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
+// getConfigPath returns the actual path that the route config options intends to serve
+// From route config + appspace/app locations, determine the path of the desired file on local system
+func (arV0 *V0) getConfigPath(r *http.Request) (string, error) {
 	ctx := r.Context()
 	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
-	// from route config + appspace/app locations, determine the path of the desired file on local system
 	root := ""
 	p := routeConfig.Options.Path
 	if strings.HasPrefix(p, "@appspace/") {
@@ -319,25 +329,31 @@ func (arV0 *V0) getFilePath(r *http.Request) (string, error) {
 	}
 
 	// p is from app so untrusted. Check it doesn't breach the appspace or app root:
-	serveRoot := filepath.Join(root, filepath.FromSlash(p))
-	if !strings.HasPrefix(serveRoot, root) {
+	configPath := filepath.Join(root, filepath.FromSlash(p))
+	if !strings.HasPrefix(configPath, root) {
 		arV0.getLogger("getFilePath").Log("route config path out of bounds: " + root)
 		return "", errors.New("route config path out of bounds")
 	}
 
+	return configPath, nil
+}
+
+func (arV0 *V0) joinBaseToRequest(basePath string, r *http.Request) (string, error) {
+	ctx := r.Context()
+	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 	// Now determine the path of the file requested from the url
 	urlTail := filepath.FromSlash(r.URL.Path)
 	// have to remove the prefix from urltail.
 	urlPrefix := routeConfig.Path.Path
 	urlTail = strings.TrimPrefix(urlTail, urlPrefix) // doing this with strings like that is super error-prone!
 
-	p = filepath.Join(serveRoot, urlTail)
+	joinedPath := filepath.Join(basePath, urlTail)
 
-	if !strings.HasPrefix(p, serveRoot) {
+	if !strings.HasPrefix(joinedPath, basePath) {
 		return "", errors.New("path out of bounds")
 	}
 
-	return p, nil
+	return joinedPath, nil
 }
 
 func (arV0 *V0) getLogger(note string) *record.DsLogger {
@@ -346,6 +362,25 @@ func (arV0 *V0) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
+}
+
+func serveFile(w http.ResponseWriter, r *http.Request, p string) {
+	f, err := os.Open(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		http.Error(w, "file open error", http.StatusInternalServerError)
+		return
+	}
+
+	fileinfo, err := f.Stat()
+	if err != nil {
+		http.Error(w, "file stat error", http.StatusInternalServerError)
+	}
+
+	http.ServeContent(w, r, p, fileinfo.ModTime(), f)
 }
 
 // See https://upgear.io/blog/golang-tip-wrapping-http-response-writer-for-middleware/

@@ -456,19 +456,18 @@ type AppspaceRouteConfig struct {
 
 // V0AppRoute is route config for appspace as stored with app
 type V0AppRoute struct {
-	ID     string         `json:"id"`
-	Method string         `json:"method"`
-	Path   V0AppRoutePath `json:"path"`
-	// Type is either "function" or "static" for now
-	Type    string            `json:"type"`
+	ID      string            `json:"id"`
+	Method  string            `json:"method"`
+	Path    V0AppRoutePath    `json:"path"` // Path is the request path to match
 	Auth    AppspaceRouteAuth `json:"auth"`
-	Options V0AppRouteOptions `json:"options"`
+	Type    string            `json:"type"`    // Type of handler: "function" or "static" for now
+	Options V0AppRouteOptions `json:"options"` // Options for the route handler
 }
 
-// V0AppRoutePath
+// V0AppRoutePath is the request path twe are seeking to match
 type V0AppRoutePath struct {
 	Path string `json:"path"`
-	End  bool   `json:"end"`
+	End  bool   `json:"end"` // End of false makes the path a wildcard /path/**
 }
 
 // V0AppRouteOptions is a JSON friendly struct

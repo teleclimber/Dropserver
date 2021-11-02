@@ -293,60 +293,109 @@ func TestLoginToken(t *testing.T) {
 	}
 }
 
-func TestGetFilePath(t *testing.T) {
+func TestGetConfigPath(t *testing.T) {
 	appVersion := domain.AppVersion{
 		LocationKey: "app-version-123",
 	}
-
-	routeConfig := domain.V0AppRoute{
-		Path: domain.V0AppRoutePath{Path: "/some-files", End: true},
-		Type: "static",
-		Options: domain.V0AppRouteOptions{
-			Path: "@app/static-files/",
-		}}
-
 	v0 := &V0{
 		Location2Path: &l2p{appFiles: "/data-dir/apps-path"},
 	}
 
-	req, _ := http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
-	ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
-
-	p, err := v0.getFilePath(req.WithContext(ctx))
-	if err != nil {
-		t.Error(err)
-	}
-	expected := "/data-dir/apps-path/app-version-123/app/static-files/css/style.css"
-	if p != expected {
-		t.Error("expected " + expected)
-	}
-
-	// now try illegal path:
-	req, _ = http.NewRequest(http.MethodGet, "/some-files/../../gotcha.txt", nil)
-	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
-	p, err = v0.getFilePath(req.WithContext(ctx))
-	if err == nil {
-		t.Error("expected error, got " + p)
+	cases := []struct {
+		configP string
+		expP    string
+		err     bool
+	}{
+		{
+			"@app/static-files/",
+			"/data-dir/apps-path/app-version-123/app/static-files",
+			false},
+		{
+			"@app/../",
+			"",
+			true},
+		{
+			"@nonsense/static-files/",
+			"",
+			true},
+		// Could add cases to ensure @appspace and others work correctly.
 	}
 
-	// now try a specific file for route path
-	routeConfig.Path.Path = "/some-files/css/style.css"
-	routeConfig.Options.Path = "@app/static-files/style.css"
-	req, _ = http.NewRequest(http.MethodGet, "/some-files/css/style.css", nil)
-	ctx = domain.CtxWithAppVersionData(req.Context(), appVersion)
-	ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
-	p, err = v0.getFilePath(req.WithContext(ctx))
-	if err != nil {
-		t.Error(err)
-	}
-	expected = "/data-dir/apps-path/app-version-123/app/static-files/style.css"
-	if p != expected {
-		t.Error("expected " + expected)
+	for _, c := range cases {
+		t.Run(c.configP+" -> "+c.expP, func(t *testing.T) {
+			routeConfig := domain.V0AppRoute{
+				Options: domain.V0AppRouteOptions{
+					Path: c.configP,
+				}}
+
+			req, _ := http.NewRequest(http.MethodGet, "/", nil)
+			ctx := domain.CtxWithAppVersionData(req.Context(), appVersion)
+			ctx = domain.CtxWithV0RouteConfig(ctx, routeConfig)
+
+			p, err := v0.getConfigPath(req.WithContext(ctx))
+			if err == nil && c.err {
+				t.Error("Expected error, got nil")
+			}
+			if err != nil && !c.err {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if p != c.expP {
+				t.Errorf("expected %v, got %v", c.expP, p)
+			}
+		})
 	}
 }
 
+func TestJoinBaseToRequest(t *testing.T) {
+	v0 := &V0{}
+
+	basePath := "/base/path/"
+	cases := []struct {
+		routeP domain.V0AppRoutePath
+		reqP   string
+		expP   string
+		err    bool
+	}{
+		{
+			domain.V0AppRoutePath{Path: "/static/", End: false},
+			"/static/style/app.css",
+			"/base/path/style/app.css",
+			false},
+		{
+			domain.V0AppRoutePath{Path: "/../../", End: false}, // An attempt to use config to break out of /base/path/
+			"/not-secrets.txt",
+			"/base/path/not-secrets.txt",
+			false},
+		{
+			domain.V0AppRoutePath{Path: "/static/", End: false}, // using request path to break out of /base/path
+			"/static/../../secrets.txt",
+			"",
+			true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.reqP, func(t *testing.T) {
+			routeConfig := domain.V0AppRoute{
+				Path: c.routeP}
+
+			req, _ := http.NewRequest(http.MethodGet, c.reqP, nil)
+			ctx := domain.CtxWithV0RouteConfig(req.Context(), routeConfig)
+
+			p, err := v0.joinBaseToRequest(basePath, req.WithContext(ctx))
+			if err == nil && c.err {
+				t.Error("Expected error, got nil")
+			}
+			if err != nil && !c.err {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if p != c.expP {
+				t.Errorf("expected %v, got %v", c.expP, p)
+			}
+		})
+	}
+}
+
+// TODO: improve serveFile tests by setting up an env (files, routes, ...) and using cases to try serving different files
 func TestServeFile(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
