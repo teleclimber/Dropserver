@@ -4,7 +4,7 @@ Dropserver is an application platform for your personal web services.
 
 See [Dropserver.org](https://Dropserver.org) for details on the project.
 
-## The Code
+# The Code
 
 Dropserver is written mainly in Go, but uses [Deno](https://deno.land) as the the sandbox for app code. Deno is not packaged with the DS executables, instead it must be installed separately.
 
@@ -22,7 +22,7 @@ High level directories of Dropserver repo:
 - `/internal` additional Go code that is not specific to Dropserver
 - `/scripts` local build scripts for `ds-host` and `ds-dev`
 
-### Notes on Go Code Organization
+## Notes on Go Code Organization
 
 Although it goes against Go's recommendations I favor lots of small packages.
 
@@ -39,11 +39,11 @@ Specifically, Dropserver is currently made up of two executables that share a lo
 
 The result of this scheme is that `ds-dev` (which is a cut-down and tweaked version of `ds-host`) exists with a minimal codebase strictly focused on the parts that are not common with `ds-host`.
 
-### Building
+## Building
 
 If you want to know how to build locally, please have a look at the Github actions that build the release. This will give you a pretty good idea of the steps you need to take.
 
-### Tips For VSCode Users
+## Tips For VSCode Users
 
 I develop in [Visual Studio Code](https://code.visualstudio.com/) therefore some config files in this repo are dependent on VSCode and a few extensions.
 
@@ -55,8 +55,128 @@ Having said that, here are some extensions that are helpful when working on this
 - [Deno](https://marketplace.visualstudio.com/items?itemName=denoland.vscode-deno)
 - [Vetur](https://marketplace.visualstudio.com/items?itemName=octref.vetur) for Vue Single File Components
 
+# Installing and Running
 
-## Status of the Project
+*Note: Dropserver is very unproven and decidedly **insecure**.*
+
+Obtain the latest release from the [Releases](https://github.com/teleclimber/Dropserver/releases) page and unzip.
+
+You should have [Deno](https//deno.land) installed and available from wherever you'll be running `ds-host` or `ds-dev`.
+
+## ds-dev
+
+To run `ds-dev` specify an app directory and optionally an appspace directory:
+
+```
+$ ds-dev -app=/home/dev/Leftovers/app/ -appspace=/home/dev/leftovers-appspace/
+```
+
+If you don't specify an appspace it will create a blank one for you in a temporary directory, as if the appspace had just been created.
+
+You can access the UI at http://localhost:3003/dropserver-dev/
+
+*Note: `ds-dev` is a little tricky to use right now, sorry. Some tips:*
+
+- Load http://localhost:3003/dropserver-dev/ once after launching `ds-dev` and **do not reload it**.
+- Click "Refresh Routes". It will take a moment then it will display the routes at the bottom of the page.
+- You can access the appspace at http://localhost:3003/ in a separate tab
+- Add a user and click in the space to the left of the avatar to make them the active user. Now when you reload the appspace you will be logged in as that user and can access private routes.
+
+## ds-host
+
+Running `ds-host` takes a bit more work:
+
+1. You'll need a domain (or subdomain) and point it and its subdomains (wildcard) to your server's IP
+2. Create a TLS cert for that domain and all its subdomains (wildcard). You can do this with [Letsencrypt](https://www.digitalocean.com/community/tutorials/how-to-create-let-s-encrypt-wildcard-certificates-with-certbot)
+3. Create an empty data directory, let's say it is `/home/dev/ds-data`
+4. Create and empty directory for sockets, say `/home/dev/ds-sockets`
+5. Create a JSON config file at `/home/dev/ds-config.json` (see below)
+6. Run `ds-host -config=/home/dev/ds-config.json -migrate` to create the DB and the admin user
+7. Run `ds-host -config=/home/dev/ds-config.json`
+
+### ds-config.json
+
+If you are running `ds-host` behind a reverse proxy with SSL termination (recommended) your config might look something like this:
+
+```
+{
+	"data-dir": "/home/dev/ds-data",
+	"server": {
+		"port": 5050,
+		"host": "example.com",
+		"ssl-cert": "",
+		"ssl-key": ""
+	},
+	"port-string":"",
+	"subdomains":{
+		"user-accounts": "dropid",
+		"static-assets": "static"
+	},
+	"sandbox":{
+		"sockets-dir": "/home/dev/ds-sockets"
+	}
+}
+```
+
+Note that with the chosen subdomains, you log in at https://dropid.example.com.
+
+If you are experimenting on a local network, you might try a configuration like this one:
+
+```
+{
+	"data-dir": "/home/dev/ds-data",
+	"server": {
+		"port": 5050,
+		"host": "example.com",
+		"ssl-cert": "/home/dev/ssl/example_com.crt",
+		"ssl-key": "/home/dev/ssl/example_com.key"
+	},
+	"port-string":":5050",
+	"trust-cert": "/home/dev/ssl/rootSSL.pem",
+	"subdomains":{
+		"user-accounts": "dropid",
+		"static-assets": "static"
+	},
+	"sandbox":{
+		"sockets-dir": "/home/dev/ds-sockets"
+	}
+}
+```
+
+Notes:
+- site will be reachable at https://dropid.example.com:5050 (Set your local DNS server accordingly)
+- there would be no reverse proxy in this scenario, and `ds-host` does the SSL termination
+- `port-string` is used when generating links in case your installation is reachable on a port other than :80 or :443. In this case it's `:5050`.
+- `trust-cert` lets you specify the root SSL cert of your root CA
+
+You can also skip the whole SSL thing for local experimentation like this:
+
+```
+{
+	"data-dir": "/home/dev/ds-data",
+	"server": {
+		"port": 5050,
+		"host": "mydomain.com",
+		"ssl-cert": "",
+		"ssl-key": ""
+	},
+	"no-tls": true,
+	"port-string":":5050",
+	"subdomains":{
+		"user-accounts": "dropid",
+		"static-assets": "static"
+	},
+	"sandbox":{
+		"sockets-dir": "/home/dev/ds-sockets"
+	}
+}
+```
+
+## Leftovers App
+
+Clone and build the [Leftovers app](https://github.com/teleclimber/Leftovers) to have something to play with once you have Dropserver running.
+
+# Status of the Project
 
 At this point a good chunk of the project is functional. You can upload app code, create appspaces, migrate, add users, and use the appspace with other users.
 
@@ -67,13 +187,13 @@ However:
 - Lots of missing or half-baked functionality.
 - APIs that the apps use are going to change a lot
 
-Code quality is variable. Some parts are OK, lots are pretty shoddy. Sorry.
+Code quality is variable. Some parts are OK, some are pretty shoddy. Sorry.
 
 There is decent code coverage of the Go code (for a project that is nowhere near 1.0). Some of the Go tests are flaky, but I am working on fixing those.
 
 There is little to no test coverage for frontend code, and `denosandboxcode` coverage is sparse.
 
-## Contributing
+# Contributing
 
 Contributions are welcome. However given the early stage of this project please start by opening an issue with your proposed contribution.
 
