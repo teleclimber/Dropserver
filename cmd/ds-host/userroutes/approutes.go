@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -289,13 +290,18 @@ func (a *ApplicationRoutes) extractFiles(r *http.Request) (*map[string][]byte, e
 			return nil, err
 		}
 
-		if part.FileName() == "" {
+		_, params, err := mime.ParseMediaType(part.Header["Content-Disposition"][0])
+		if err != nil {
+			return nil, err
+		}
+		filename := params["filename"]
+		if filename == "" {
 			continue
 		}
 
 		buf := &bytes.Buffer{}
 		buf.ReadFrom(part) //maybe limit bytes to read to avert file bomb.
-		fileData[part.FileName()] = buf.Bytes()
+		fileData[filename] = buf.Bytes()
 	}
 
 	return &fileData, nil
