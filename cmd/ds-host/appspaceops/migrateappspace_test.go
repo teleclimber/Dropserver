@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
+	"github.com/teleclimber/DropServer/internal/leaktest"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/twine-go/twine/mock_twine"
 )
@@ -139,6 +140,8 @@ func TestStartNextNoJobs(t *testing.T) {
 }
 
 func TestStartNextOneJob(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -172,20 +175,13 @@ func TestStartNextOneJob(t *testing.T) {
 
 	c.startNext()
 
-	rj := c.runningJobs[j.JobID]
-
-	sub := make(chan runningJobStatus)
-	rj.subscribeStatus(sub)
-
-	var s runningJobStatus
-	for s = range sub {
+	for s := range c.fanIn {
 		if s.status == domain.MigrationFinished {
-			break
+			if !s.errString.Valid {
+				t.Error("expected an error because we returned and error in get appspace")
+			}
+			close(c.fanIn)
 		}
-	}
-
-	if !s.errString.Valid {
-		t.Error("expected an error because we returned and error in get appspace")
 	}
 }
 
