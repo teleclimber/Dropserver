@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
+	"github.com/teleclimber/DropServer/internal/leaktest"
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
@@ -47,6 +48,8 @@ func TestLoadStatus(t *testing.T) {
 }
 
 func TestReady(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	appspaceID := domain.AppspaceID(7)
 
 	cases := []struct {
@@ -87,6 +90,8 @@ func TestReady(t *testing.T) {
 }
 
 func TestPauseEvent(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -114,7 +119,7 @@ func TestPauseEvent(t *testing.T) {
 		AppspaceID: appspaceID,
 		Paused:     true}
 
-	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
+	time.Sleep(time.Millisecond * 20) // have to give the code in the goroutine a chance to change the status
 
 	status := s.getStatus(appspaceID)
 	status.lock.Lock()
@@ -125,6 +130,8 @@ func TestPauseEvent(t *testing.T) {
 }
 
 func TestTempPause(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -141,6 +148,7 @@ func TestTempPause(t *testing.T) {
 
 	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
 	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any())
+	appspaceRouter.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any())
 	s := AppspaceStatus{
 		AppspaceRouter:       appspaceRouter,
 		AppspaceStatusEvents: appspaceStatusEvents,
@@ -163,7 +171,7 @@ func TestTempPause(t *testing.T) {
 
 	close(doneCh)
 
-	time.Sleep(100 * time.Millisecond) // have to sleep because closing the chan does not take effect synchronously here.
+	time.Sleep(10 * time.Millisecond) // have to sleep because closing the chan does not take effect synchronously here.
 	// can maybe change this if/when we have WaitReady
 
 	if !s.Ready(appspaceID) {
@@ -175,6 +183,8 @@ func TestTempPause(t *testing.T) {
 }
 
 func TestMultiTempPause(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -191,6 +201,7 @@ func TestMultiTempPause(t *testing.T) {
 
 	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
 	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any()).Times(2)
+	appspaceRouter.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any()).Times(2)
 	s := AppspaceStatus{
 		AppspaceRouter:       appspaceRouter,
 		AppspaceStatusEvents: appspaceStatusEvents,
@@ -204,12 +215,12 @@ func TestMultiTempPause(t *testing.T) {
 
 	go func() {
 		doneCh2 := s.WaitTempPaused(appspaceID, "test2")
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		if s.Ready(appspaceID) {
 			t.Error("should not be ready")
 		}
 		close(doneCh2)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		close(allDone)
 	}()
 
@@ -217,7 +228,7 @@ func TestMultiTempPause(t *testing.T) {
 		t.Error("should not be ready")
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	close(doneCh1)
 	<-allDone
@@ -274,7 +285,7 @@ func TestMigrationEvent(t *testing.T) {
 		AppspaceID: appspaceID,
 		Finished:   nulltypes.NewTime(time.Now(), false)} // send null Finished time, indicating ongoing migration
 
-	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
+	time.Sleep(time.Millisecond * 20) // have to give the code in the goroutine a chance to change the status
 
 	// the status hasn't changed yet.
 
@@ -283,11 +294,13 @@ func TestMigrationEvent(t *testing.T) {
 		Finished:   nulltypes.NewTime(time.Now(), true), // send a valid Finished time to indicate migration is complete
 	}
 
-	time.Sleep(time.Millisecond * 200) // have to give the code in the goroutine a chance to change the status
+	time.Sleep(time.Millisecond * 20) // have to give the code in the goroutine a chance to change the status
 
 }
 
 func TestWaitStopped(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -303,7 +316,10 @@ func TestWaitStopped(t *testing.T) {
 				ch <- 0
 			}()
 		}).Return(2)
-	appspaceRouter.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any())
+	appspaceRouter.EXPECT().UnsubscribeLiveCount(appspaceID, gomock.Any()).Do(
+		func(asID domain.AppspaceID, ch chan<- int) {
+			close(ch)
+		})
 
 	s := AppspaceStatus{
 		AppspaceRouter: appspaceRouter}
@@ -312,6 +328,8 @@ func TestWaitStopped(t *testing.T) {
 }
 
 func TestLockClosed(t *testing.T) {
+	leaktest.GoroutineLeakCheck(t)
+
 	s := AppspaceStatus{
 		closed: make(map[domain.AppspaceID]bool),
 	}
@@ -337,7 +355,7 @@ func TestLockClosed(t *testing.T) {
 	// need to sleep for closed channel to take effect.
 	// We may find we need a WaitUnlockedClosed or something?
 	// Or have state take closed into account, and use WaitClosed
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	if s.IsLockedClosed(appspaceID) {
 		t.Error("should not be locked closed")
 	}

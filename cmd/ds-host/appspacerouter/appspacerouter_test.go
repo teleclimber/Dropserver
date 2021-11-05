@@ -303,7 +303,6 @@ func TestIncrement(t *testing.T) {
 			unsubscribed = true // don't double-unsubscribe, but mostly don't close chan twice.
 			go func() {         // don't unsubscribe in chan listener loop, deadlocks can occur.
 				appspaceRoutes.UnsubscribeLiveCount(appspaceID, subChan)
-				close(subChan)
 				done <- struct{}{}
 			}()
 		}

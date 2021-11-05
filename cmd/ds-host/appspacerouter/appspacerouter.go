@@ -133,7 +133,7 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 
 		app, err := a.AppModel.GetFromID(appspace.AppID)
 		if err != nil { // do we differentiate between empty result vs other errors? -> No, if any kind of DB error occurs, the DB or model will log it.
-			a.getLogger(appspace).AddNote("AppModel.GetFromID").Error(err)
+			a.getLogger(appspace.AppspaceID).AddNote("AppModel.GetFromID").Error(err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -141,7 +141,7 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 
 		appVersion, err := a.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
 		if err != nil {
-			a.getLogger(appspace).AddNote("AppModel.GetVersion").Error(err)
+			a.getLogger(appspace.AppspaceID).AddNote("AppModel.GetVersion").Error(err)
 			http.Error(w, "App Version not found", http.StatusInternalServerError)
 			return
 		}
@@ -263,8 +263,10 @@ func (a *AppspaceRouter) UnsubscribeLiveCount(appspaceID domain.AppspaceID, ch c
 	}
 	for i, c := range subscribers {
 		if c == ch {
+			close(ch)
 			subscribers[i] = subscribers[len(subscribers)-1]
 			a.subscribers[appspaceID] = subscribers[:len(subscribers)-1]
+			return
 		}
 	}
 }
@@ -286,6 +288,6 @@ func (a *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 //  -> no, make generic not specific to some other package's needs.
 // Consider that future features might be ability to view live requests in owner frontend, etc...
 
-func (a *AppspaceRouter) getLogger(appspace domain.Appspace) *record.DsLogger {
-	return record.NewDsLogger().AppID(appspace.AppID).AppVersion(appspace.AppVersion).AppspaceID(appspace.AppspaceID).AddNote("AppspaceRouter")
+func (a *AppspaceRouter) getLogger(appspaceID domain.AppspaceID) *record.DsLogger {
+	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("AppspaceRouter")
 }

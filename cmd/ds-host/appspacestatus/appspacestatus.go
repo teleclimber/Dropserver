@@ -412,6 +412,7 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 	ch := make(chan int)
 	count := s.AppspaceRouter.SubscribeLiveCount(appspaceID, ch)
 	if count == 0 {
+		s.AppspaceRouter.UnsubscribeLiveCount(appspaceID, ch)
 		return
 	}
 	unsubscribed := false
@@ -420,7 +421,6 @@ func (s *AppspaceStatus) WaitStopped(appspaceID domain.AppspaceID) {
 			unsubscribed = true
 			go func() {
 				s.AppspaceRouter.UnsubscribeLiveCount(appspaceID, ch)
-				close(ch)
 			}()
 		}
 	}
