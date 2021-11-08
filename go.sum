@@ -321,6 +321,10 @@ github.com/teleclimber/twine-go v0.1.0 h1:UBW7e/a+3+zNq/LjBoI2axjCrn5nzd83XSFqKE
 github.com/teleclimber/twine-go v0.1.0/go.mod h1:e74Rk0+ofOy8LTbOJPMyGBT4h51trhRxQPFg2T1a7QA=
 github.com/teleclimber/twine-go v0.1.1 h1:655AiVF7835zWEcMMqR8c62D5KliEnbDkzCTdLfPY2I=
 github.com/teleclimber/twine-go v0.1.1/go.mod h1:e74Rk0+ofOy8LTbOJPMyGBT4h51trhRxQPFg2T1a7QA=
+github.com/teleclimber/twine-go v0.1.2-0.20211108195800-26d9d1926c69 h1:flD3CVaWMcQ5yCfZbm1nIICprKVst4pLnI0QwlU3A1o=
+github.com/teleclimber/twine-go v0.1.2-0.20211108195800-26d9d1926c69/go.mod h1:e74Rk0+ofOy8LTbOJPMyGBT4h51trhRxQPFg2T1a7QA=
+github.com/teleclimber/twine-go v0.1.2 h1:IoXAytPcrmNqKp0u3QVcrS6n2ECiz1OFbEiCaGsw62o=
+github.com/teleclimber/twine-go v0.1.2/go.mod h1:e74Rk0+ofOy8LTbOJPMyGBT4h51trhRxQPFg2T1a7QA=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
