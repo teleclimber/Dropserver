@@ -3,9 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/pprof"
+	"runtime"
 	"syscall"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
@@ -53,8 +56,6 @@ import (
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
 var cmd_version = "unspecified"
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-
 var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
 var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
@@ -68,9 +69,17 @@ var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data t
 func main() {
 	fmt.Println("ds-host version: " + cmd_version)
 
-	//startServer := true	// currnetly actually not used.
-
 	flag.Parse()
+
+	// serve pprof routes if DEBUG is on
+	if os.Getenv("DEBUG") != "" {
+		runtime.SetBlockProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
+		go func() {
+			fmt.Println("Starting server for pprof")
+			log.Println(http.ListenAndServe("localhost:6060", nil)) // makes pprof routes available
+		}()
+	}
 
 	runtimeConfig := runtimeconfig.Load(*configFlag)
 
@@ -118,8 +127,6 @@ func main() {
 		DBManager:    dbManager}
 
 	if *migrateFlag {
-		//startServer = false
-
 		err := migrator.Migrate("")
 		if err != nil {
 			fmt.Println("Error Migrating", err.Error())
@@ -173,7 +180,6 @@ func main() {
 	}
 
 	if *addAdminFlag || len(admins) == 0 {
-		//startServer = false
 		err := cliHandlers.AddAdmin()
 		if err != nil {
 			fmt.Println(err)
@@ -333,7 +339,6 @@ func main() {
 	go func() {
 		sig := <-sigs
 		record.Log(fmt.Sprintf("Caught signal %v, quitting.", sig))
-		pprof.StopCPUProfile()
 
 		sandboxManager.StopAll()
 		record.Debug("All sandbox stopped")
@@ -359,22 +364,6 @@ func main() {
 	sandboxManager.Init()
 
 	record.Debug("Main after sandbox manager start")
-
-	// maybe we can start profiler here?
-	if *cpuprofile != "" {
-		fmt.Println("Starting CPU Profile")
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		err = pprof.StartCPUProfile(f)
-		if err != nil {
-			fmt.Println("failed to start cpu profiler", err)
-			os.Exit(1)
-		}
-		//defer pprof.StopCPUProfile()
-	}
 
 	// controllers:
 	domainController := &domaincontroller.DomainController{
