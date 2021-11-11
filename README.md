@@ -57,13 +57,15 @@ Having said that, here are some extensions that are helpful when working on this
 
 # Installing and Running
 
-*Note: Dropserver is very unproven and decidedly **insecure**.*
+## *Warning: Dropserver is very new **full of security holes** right now!*
 
 Obtain the latest release from the [Releases](https://github.com/teleclimber/Dropserver/releases) page and unzip.
 
 You should have [Deno](https//deno.land) installed and available from wherever you'll be running `ds-host` or `ds-dev`.
 
 ## ds-dev
+
+`ds-dev` is used when developing an app locally. It watches your app files and restarts the sandbox as needed.
 
 To run `ds-dev` specify an app directory and optionally an appspace directory:
 
@@ -78,11 +80,13 @@ You can access the UI at http://localhost:3003/dropserver-dev/
 *Note: `ds-dev` is a little tricky to use right now, sorry. Some tips:*
 
 - Load http://localhost:3003/dropserver-dev/ once after launching `ds-dev` and **do not reload it**.
-- Click "Refresh Routes". It will take a moment then it will display the routes at the bottom of the page.
+- Click "Refresh Routes". It will take a moment then it will display the app's routes at the bottom of the page.
 - You can access the appspace at http://localhost:3003/ in a separate tab
 - Add a user and click in the space to the left of the avatar to make them the active user. Now when you reload the appspace you will be logged in as that user and can access private routes.
 
 ## ds-host
+
+`ds-host` is the full Dropserver and is intended to serve your appspaces in use.
 
 Running `ds-host` takes a bit more work:
 

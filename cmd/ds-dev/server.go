@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 
@@ -56,9 +55,10 @@ func (s *Server) Start() { //return a server type
 
 	cfg := s.Config.Server
 	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
+	fmt.Println("Server started. Visit http://localhost" + addr + "/dropserver-dev/")
 	err := http.ListenAndServe(addr, r)
 	if err != nil {
-		os.Exit(1)
+		panic(err)
 	}
 }
 

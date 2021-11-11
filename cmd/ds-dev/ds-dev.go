@@ -365,11 +365,6 @@ func main() {
 		depGraph.CheckMissing()
 	}
 
-	fmt.Println("starting server")
-
-	// start things up
-	//migrationJobCtl.Start()
-
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
 
