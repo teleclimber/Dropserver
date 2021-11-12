@@ -16,8 +16,10 @@ const appspaceControlService = 12 // incmoing? For appspace control (pause, migr
 const baseDataService = 13
 const migrationJobService = 14
 const appspaceLogService = 15
-const appRoutesService = 16   // keeps a live list of app routes
-const userControlService = 17 //incoming / outgoing
+const appRoutesService = 16      // keeps a live list of app routes
+const userControlService = 17    //incoming / outgoing
+const appspaceStatusService = 18 // in/out? or just out? I think just out.
+const sandboxControlService = 19 // in/out, inspect, kill sandbox
 
 type twineService interface {
 	Start(*twine.Twine)
@@ -46,16 +48,12 @@ type DropserverDevServer struct {
 	} `checkinject:"required"`
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
-		SetInspect(bool)
 	} `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
 	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
-	} `checkinject:"required"`
-	DevSandboxMaker interface {
-		SetInspect(bool)
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(domain.AppspaceID, string) chan struct{}
@@ -64,16 +62,14 @@ type DropserverDevServer struct {
 		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
 		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
 	} `checkinject:"required"`
-	AppspaceStatusEvents interface {
-		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
-		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
-	} `checkinject:"required"`
 
 	// Dev Services:
-	AppMetaService   twineService `checkinject:"required"`
-	AppRoutesService twineService `checkinject:"required"`
-	UserService      twineService `checkinject:"required"`
-	RouteHitService  twineService `checkinject:"required"`
+	SandboxControlService twineService `checkinject:"required"`
+	AppspaceStatusService twineService `checkinject:"required"`
+	AppMetaService        twineService `checkinject:"required"`
+	AppRoutesService      twineService `checkinject:"required"`
+	UserService           twineService `checkinject:"required"`
+	RouteHitService       twineService `checkinject:"required"`
 
 	// Services:
 	MigrationJobService domain.TwineService `checkinject:"required"`
@@ -83,19 +79,12 @@ type DropserverDevServer struct {
 }
 
 func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Request) {
-	appspaceSchema, err := s.AppspaceInfoModel.GetSchema(appspaceID)
-	if err != nil {
-		fmt.Println("failed to get appspace schema: " + err.Error())
-	}
-
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 
 	baseData := BaseData{
 		AppPath:      s.appPath, // these don't change
-		AppspacePath: s.appspacePath,
-
-		AppspaceSchema: appspaceSchema} // this is appspace-related, and should be sent via a different command? Like appspace status event?
+		AppspacePath: s.appspacePath}
 
 	json.NewEncoder(res).Encode(baseData)
 
@@ -114,15 +103,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		fmt.Println("failed to start Twine")
 	}
 
-	// then subscribe to various events and push them down as new t.Send
-	appspaceStatusChan := make(chan domain.AppspaceStatusEvent)
-	s.AppspaceStatusEvents.Subscribe(appspaceID, appspaceStatusChan)
-	go func() {
-		for statusEvent := range appspaceStatusChan {
-			go s.sendAppspaceStatusEvent(t, statusEvent)
-		}
-	}()
-
+	go s.SandboxControlService.Start(t)
+	go s.AppspaceStatusService.Start(t)
 	go s.AppMetaService.Start(t)
 	go s.AppRoutesService.Start(t)
 	go s.UserService.Start(t)
@@ -142,6 +124,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go func() {
 		for m := range t.MessageChan {
 			switch m.ServiceID() {
+			case sandboxControlService:
+				go s.SandboxControlService.HandleMessage(m)
 			case appspaceControlService:
 				go s.handleAppspaceCtrlMessage(m)
 			case userControlService:
@@ -154,7 +138,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 				fmt.Println("Service not found ")
 				m.SendError("Service not found")
 			}
-
 		}
 	}()
 
@@ -166,10 +149,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		for err := range t.ErrorChan {
 			fmt.Println("twine error chan err " + err.Error())
 		}
-		// when ErrorChan closes, means Twine connection is down, so unsubscribe
-		s.AppspaceStatusEvents.Unsubscribe(appspaceID, appspaceStatusChan)
-		close(appspaceStatusChan)
 
+		// when ErrorChan closes, means Twine connection is down, so unsubscribe
 		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
 		close(appspaceLogEventChan)
 
@@ -212,21 +193,6 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		} else {
 			m.SendOK()
 		}
-
-	case setInspect: // this should really be inspect for everything.
-		inspect := true
-		p := m.Payload()
-		if p[0] == 0x00 {
-			inspect = false
-		}
-		s.DevSandboxMaker.SetInspect(inspect)
-		s.DevSandboxManager.StopAppspace(appspaceID)
-		s.DevSandboxManager.SetInspect(inspect)
-		m.SendOK()
-	case stopSandbox:
-		// force-kill for unruly scripts?
-		s.DevSandboxManager.StopAppspace(appspaceID)
-		m.SendOK()
 	case importAndMigrate:
 		m.RefSendBlock(11, []byte("Stopping..."))
 		tempPauseCh := s.AppspaceStatus.WaitTempPaused(appspaceID, "import & migrate")
@@ -298,21 +264,6 @@ func (s *DropserverDevServer) migrate(migrateTo int) error {
 		return errNoMigrationNeeded
 	}
 	return nil
-}
-
-// base data service:
-const statusEventCmd = 11
-
-func (s *DropserverDevServer) sendAppspaceStatusEvent(twine *twine.Twine, statusEvent domain.AppspaceStatusEvent) {
-	bytes, err := json.Marshal(statusEvent)
-	if err != nil {
-		fmt.Println("sendAppspaceStatusEvent json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(baseDataService, statusEventCmd, bytes)
-	if err != nil {
-		fmt.Println("sendAppspaceStatusEvent SendBlock Error: " + err.Error())
-	}
 }
 
 const sandboxLogEventCmd = 11

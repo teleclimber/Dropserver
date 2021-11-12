@@ -36,7 +36,6 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 	t.WaitClose()
 
 	s.AppVersionEvents.Unsubscribe(appVersionEvent)
-	close(appVersionEvent)
 }
 
 const appDataCmd = 12
@@ -51,7 +50,7 @@ func (s *AppMetaService) sendAppData(twine *twine.Twine) {
 		fmt.Println("sendAppData json Marshal Error: " + err.Error())
 	}
 
-	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes)
+	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes) // this should be its own service number
 	if err != nil {
 		fmt.Println("sendAppData SendBlock Error: " + err.Error())
 	}

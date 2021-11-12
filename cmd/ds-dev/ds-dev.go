@@ -112,9 +112,11 @@ func main() {
 		panic(err)
 	}
 
+	// dev-only events:
+	appVersionEvents := &AppVersionEvents{}
+	inspectSandboxEvents := &InspectSandboxEvents{}
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
-	appVersionEvents := &AppVersionEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
 	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
@@ -304,14 +306,20 @@ func main() {
 
 	migrateJobController.Start()
 
-	appspaceStatus.Ready(appspaceID) // this puts the appspace in status map, so it gets tracked, and therefore forwards events. Not a great paradigm.
-
 	// Ds-dev frontend twine services:
+	appsaceStatusService := &AppspaceStatusService{
+		AppspaceStatus:       appspaceStatus,
+		AppspaceStatusEvents: appspaceStatusEvents,
+	}
+	sandboxControlService := &SandboxControlService{
+		DevSandboxMaker:      devSandboxMaker,
+		DevSandboxManager:    devSandboxManager,
+		InspectSandboxEvents: inspectSandboxEvents,
+	}
 	appMetaService := &AppMetaService{
 		AppVersionEvents: appVersionEvents,
 		AppFilesModel:    devAppFilesModel,
 	}
-
 	userService := &UserService{
 		DevAuthenticator:     devAuth,
 		AppspaceUsersModelV0: appspaceUsersModelV0,
@@ -339,13 +347,13 @@ func main() {
 		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
-		DevSandboxMaker:        devSandboxMaker,
 		AppspaceStatus:         appspaceStatus,
+		AppspaceStatusService:  appsaceStatusService,
+		SandboxControlService:  sandboxControlService,
 		AppMetaService:         appMetaService,
 		AppRoutesService:       appRoutesService,
 		UserService:            userService,
 		RouteHitService:        routeHitService,
-		AppspaceStatusEvents:   appspaceStatusEvents,
 		AppspaceLogEvents:      appspaceLogEvents,
 		MigrationJobService:    migrationJobTwine}
 	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)

@@ -66,7 +66,6 @@ func (r *AppRoutesService) Start(t *twine.Twine) {
 	fmt.Println("closing app route service")
 
 	r.AppVersionEvents.Unsubscribe(appChangeCh)
-	close(appChangeCh)
 }
 
 func (r *AppRoutesService) appChanged() {

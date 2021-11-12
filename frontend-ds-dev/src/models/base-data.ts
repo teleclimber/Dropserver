@@ -14,16 +14,6 @@ const appspaceControlService = 12;
 // - appspace status updates schemas and status
 // - Need a system to watch app files and update
 
-type AppspaceStatus = {
-	appspace_id: Number
-	paused: boolean
-	temp_paused: boolean
-	temp_pause_reason: string
-	appspace_schema: Number
-	app_version_schema: Number
-	problem: boolean
-}
-
 type AppspaceUserPermission = {
 	key:         string,
 	name:        string,
@@ -49,16 +39,9 @@ class BaseData {
 
 	name = "";
 	version = "0.0.0";
-	schema = 0;
 	api = 0;
 	migrations :number[] = [];
 	user_permissions: AppspaceUserPermission[] = [];
-
-	paused = false;
-	temp_paused = false;
-	temp_pause_reason = '';
-	appspace_schema = 0;
-	problem = false;
 
 	_start() {
 		this.fetchInitialData();
@@ -83,9 +66,6 @@ class BaseData {
 
 	handleMessage(m:ReceivedMessageI) {
 		switch (m.command) {
-			case 11:
-				this.handleAppspaceStatusMessage(m);
-				break;
 			case 12:
 				this.handleAppDataMessage(m);
 				break;
@@ -93,21 +73,6 @@ class BaseData {
 				m.sendError("command not recognized: "+m.command);
 		}
 		
-	}
-
-	handleAppspaceStatusMessage(m:ReceivedMessageI) {
-		try {
-			const new_status = <AppspaceStatus>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			Object.assign(this, new_status);
-			console.log("temp pause, reason: ", this.temp_paused, this.temp_pause_reason);
-		}
-		catch(e) {
-			m.sendError("error processing appspace status "+e);
-			console.error(e);
-			return;
-		}
-	
-		m.sendOK();
 	}
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
@@ -125,29 +90,30 @@ class BaseData {
 		m.sendOK();
 	}
 
-	// TODO: this very badly needs testing!
 	get possible_migrations() {
-		const ret :number[] = [];
-		const cur_schema = this.appspace_schema;
-		const app_migrations = [0, ...this.migrations];
-		let cur_i = app_migrations.indexOf(cur_schema);
-		if( cur_i === -1 ) return ret;
+		return [];
+		// TODO: this should be figured out server-side and sent down as needed.
+		// const ret :number[] = [];
+		// const cur_schema = this.appspace_schema;
+		// const app_migrations = [0, ...this.migrations];
+		// let cur_i = app_migrations.indexOf(cur_schema);
+		// if( cur_i === -1 ) return ret;
 
-		let i = 0;
-		while(true) {
-			++i;
-			if(app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
-			else break;
-		}
+		// let i = 0;
+		// while(true) {
+		// 	++i;
+		// 	if(app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
+		// 	else break;
+		// }
 
-		i = 0;
-		while(cur_i + i > 0) {
-			--i;
-			if(app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
-			else break;
-		}
+		// i = 0;
+		// while(cur_i + i > 0) {
+		// 	--i;
+		// 	if(app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
+		// 	else break;
+		// }
 
-		return ret;
+		// return ret;
 	}
 }
 
@@ -159,8 +125,6 @@ const appspaceCmds = {
 	pause: 11,
 	unpause: 12,
 	migrate: 13,
-	setMigrationInspect: 14,
-	stopSandbox: 15,
 	importAndMigrate: 16,
 }
 
@@ -185,24 +149,6 @@ export async function  runMigration(to_schema:number) {
 	view.setUint16(0, to_schema);
 	
 	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.migrate, new Uint8Array(buf));
-	if( reply.error ) {
-		throw reply.error;
-	}
-}
-
-export async function setInspect(inspect:boolean) {
-	let buf = new ArrayBuffer(1);
-	let view = new DataView(buf);
-	view.setUint8(0, inspect ? 1 : 0);
-	
-	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.setMigrationInspect, new Uint8Array(buf));
-	if( reply.error ) {
-		throw reply.error;
-	}
-}
-
-export async function stopSandbox() {
-	const reply = await twineClient.twine.sendBlock(appspaceControlService, appspaceCmds.stopSandbox, undefined);
 	if( reply.error ) {
 		throw reply.error;
 	}

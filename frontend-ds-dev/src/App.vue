@@ -6,14 +6,14 @@
 			<h4 class="bg-gray-800 px-2 text-white inline-block">App:</h4>
 			<h1 class="text-2xl px-2">{{baseData.name}} <span class="bg-gray-400 px-2 rounded-md">{{baseData.version}}</span></h1>
 			<div class="px-2">
-				Schema: <span>{{baseData.schema}}</span>
+				Schema: <span>{{appspaceStatus.app_version_schema}}</span>
 			</div>
 		</div>
 		<div class="border-l-4 border-gray-800">
 			<h4 class="bg-gray-800 px-2 text-white inline-block">Appspace:</h4>
 			<h1 class="text-2xl px-2">[baseData.appspace_name]</h1>
 			<div class="px-2">
-				Schema: <span>{{baseData.appspace_schema}}</span>
+				Schema: <span>{{appspaceStatus.appspace_schema}}</span>
 			</div>
 		</div>
 	</div>
@@ -35,6 +35,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import baseData from './models/base-data';
+import appspaceStatus from './models/appspace-status';
 
 import AppspaceControl from './components/AppspaceControl.vue';
 import UserControl from './components/UserControl.vue';
@@ -56,6 +57,7 @@ export default defineComponent({
 	setup(props, context) {
 		return {
 			baseData,
+			appspaceStatus,
 		};
 	}
 });
