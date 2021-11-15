@@ -48,3 +48,10 @@ func (a *DevAuthenticator) Unset(w http.ResponseWriter, r *http.Request) {
 	// This implies user clicked on "logout" in appspace.
 	// This should be reflected in ds-dev frontend
 }
+
+func (a *DevAuthenticator) GetProxyID() (domain.ProxyID, bool) {
+	if !a.auth.Authenticated {
+		return domain.ProxyID(""), false
+	}
+	return a.auth.ProxyID, true
+}

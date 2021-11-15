@@ -12,10 +12,6 @@ import (
 
 // TODO: how does this handle changes in DS API versions?
 
-// What do we need ?
-// app files events and app files so we can load user permissions (later)
-//
-
 // UserService is a twine service that sets the desired user params
 // and keeps the frontend up to date with app's declared permissions
 type UserService struct {
@@ -36,24 +32,39 @@ type UserService struct {
 		Unsubscribe(chan<- domain.AppspaceID)
 	} `checkinject:"required"`
 
+	usersChangedEvents PureEvent
+	userSelectedEvents PureEvent // This one might need to move to dev auth object
+
 	dummyDropidNum int
 }
 
 // Start creates listeners and then shuts everything down when twine exits
 func (u *UserService) Start(t *twine.Twine) {
 	asFilesCh := make(chan domain.AppspaceID)
+	u.AppspaceFilesEvents.Subscribe(asFilesCh)
 	go func() {
 		for range asFilesCh {
 			u.sendUsers(t)
-			// presumably appspace files contain owner info, so it gets reset in that way somehow
-			// ..just have to send it back down
-			// Also for selected user, we can maybe get away with doing nothing? They either still exist or not.
 		}
 	}()
-	u.AppspaceFilesEvents.Subscribe(asFilesCh)
+
+	usersChangedCh := u.usersChangedEvents.Subscribe()
+	go func() {
+		for range usersChangedCh {
+			u.sendUsers(t)
+		}
+	}()
+
+	userSelectedCh := u.userSelectedEvents.Subscribe()
+	go func() {
+		for range userSelectedCh {
+			u.sendSelectedUser(t)
+		}
+	}()
 
 	// send initial users down
 	u.sendUsers(t)
+	u.sendSelectedUser(t)
 
 	// TODO [later] subscripe to app files changes and resend user permissions when changed
 
@@ -65,12 +76,14 @@ func (u *UserService) Start(t *twine.Twine) {
 	u.AppspaceFilesEvents.Unsubscribe(asFilesCh)
 	close(asFilesCh)
 
-	u.dummyDropidNum = 0
+	u.usersChangedEvents.Unsubscribe(usersChangedCh)
+	u.userSelectedEvents.Unsubscribe(userSelectedCh)
 }
 
 // outgoing commnds:
 const (
 	loadAllUsersCmd = 11
+	setCurrentUser  = 12
 )
 
 func (u *UserService) sendUsers(twine *twine.Twine) {
@@ -89,6 +102,17 @@ func (u *UserService) sendUsers(twine *twine.Twine) {
 		fmt.Println("sendUsers SendBlock Error: " + err.Error())
 	}
 }
+func (u *UserService) sendSelectedUser(twine *twine.Twine) {
+	proxyStr := ""
+	proxyID, ok := u.DevAuthenticator.GetProxyID()
+	if ok {
+		proxyStr = string(proxyID)
+	}
+	_, err := twine.SendBlock(userControlService, setCurrentUser, []byte(proxyStr))
+	if err != nil {
+		fmt.Println("sendSelectedUser SendBlock Error: " + err.Error())
+	}
+}
 
 type IncomingUser struct {
 	ProxyID     domain.ProxyID `json:"proxy_id"`
@@ -96,21 +120,6 @@ type IncomingUser struct {
 	Avatar      string         `json:"avatar"`
 	Permissions []string       `json:"permissions"`
 }
-
-// THis whole interaction must be rethought:
-// - we now have a db of users, which ds-dev users should be able to CRUD against.
-// - they can select which user they want to "be"
-// - They may need to be able to set which user is the owner.
-// Note that the users can not be changed by app code, so ds-dev is in full control here.
-// ..no need for events, etc... just send all the users on load then CRUD on it.
-// Kind of a bummer that the appspace doesn't know who the owner is?
-// -> it's clear the appspace will have to include a dump of various data including who the owner is
-
-// Commands:
-// - CreateUser (displa name, permissions) ..implies generating proxy id
-// - UpdateUser (proxy , display name, permissions)
-// - DeleteUser (proxy)
-// - SelectUser (proxy) .. sets that in DevAuth
 
 // incoming commands
 const (
@@ -168,23 +177,12 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	// send the full user as a reply? would make sense.
-	user, err := u.AppspaceUsersModelV0.Get(appspaceID, proxyID)
+	err = m.SendOK()
 	if err != nil {
-		m.SendError(err.Error())
 		panic(err)
 	}
 
-	payload, err := json.Marshal(user)
-	if err != nil {
-		m.SendError(err.Error())
-		panic(err)
-	}
-
-	err = m.Reply(11, payload)
-	if err != nil {
-		panic(err)
-	}
+	u.usersChangedEvents.Send()
 }
 
 func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
@@ -230,23 +228,12 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	// send the full user as a reply? would make sense.
-	user, err = u.AppspaceUsersModelV0.Get(appspaceID, incomingUser.ProxyID)
+	err = m.SendOK()
 	if err != nil {
-		m.SendError(err.Error())
 		panic(err)
 	}
 
-	payload, err := json.Marshal(user)
-	if err != nil {
-		m.SendError(err.Error())
-		panic(err)
-	}
-
-	err = m.Reply(11, payload)
-	if err != nil {
-		panic(err)
-	}
+	u.usersChangedEvents.Send()
 }
 
 func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
@@ -270,9 +257,16 @@ func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
-	} else {
-		m.SendOK()
 	}
+
+	// check if this user is current selected user and change that if needed?
+
+	err = m.SendOK()
+	if err != nil {
+		panic(err)
+	}
+
+	u.usersChangedEvents.Send()
 }
 
 func (u *UserService) handleUserSelectUserMessage(m twine.ReceivedMessageI) {
@@ -289,5 +283,10 @@ func (u *UserService) handleUserSelectUserMessage(m twine.ReceivedMessageI) {
 		})
 	}
 
-	m.SendOK()
+	err := m.SendOK()
+	if err != nil {
+		panic(err)
+	}
+
+	u.userSelectedEvents.Send()
 }

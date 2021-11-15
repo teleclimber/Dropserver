@@ -1,9 +1,3 @@
-// reflect appspace users from ds-dev
-// show display name, proxy id and permissions
-// create new user, change users
-// set/reflect status of is owner, which is from the appspace contact db table
-// 
-
 import {computed, reactive} from 'vue';
 
 import twineClient from './twine-client';
@@ -13,7 +7,7 @@ const userService = 17;
 
 // local commands:
 const loadAllUsers = 11;
-const loadOwner = 12;
+const setCurrentUser = 12;
 
 // remote commands
 const userCreateCmd      = 11
@@ -31,7 +25,6 @@ export type User = {
 class UserData {
 	users : User[] = [];
 	user_proxy_id  : string = "";
-	owner_proxy_id : string = "";
 
 	_start() {
 		twineClient.registerService(userService, this);
@@ -42,38 +35,33 @@ class UserData {
 			case loadAllUsers:
 				this.handleLoadAllUsers(m);
 				break;
-			// case loadOwner:
-			// 	this.handleLoadOwner(m);
-			// 	break;
-
-			// later accept incoming stuff like app user permissions, and appspace users
+			case setCurrentUser:
+				this.handleSetCurrentUser(m);
+				break;
+			// later accept incoming stuff like app user permissions
 			default:
 				m.sendError("command not recognized: "+m.command);
 		}
 	}
 	handleLoadAllUsers(m:ReceivedMessageI) {
-		const users = JSON.parse(new TextDecoder().decode(m.payload));
+		const payload = new TextDecoder().decode(m.payload);
+		console.log( "users payload", payload);
+		const users = JSON.parse(payload);
 		console.log(users)	// apparently users is an array []? didn't know you could do that in json.
 		this.users = users.map(userFromRaw);
+		m.sendOK();
+	}
+	handleSetCurrentUser(m:ReceivedMessageI) {
+		this.user_proxy_id = new TextDecoder().decode(m.payload);
 		m.sendOK();
 	}
 
 	getUser(proxy_id:string) : User|undefined {
 		return this.users.find((u:User) => u.proxy_id === proxy_id);
 	}
-
 	isUser(proxy_id:string) :boolean {
 		return proxy_id === this.user_proxy_id;
 	}
-	// async setUser(user: User) {
-	// 	const userJson = JSON.stringify(user);
-	// 	const payload = new TextEncoder().encode(userJson);
-
-	// 	const reply = await twineClient.twine.sendBlock(userService, 11, payload);
-	// 	if( reply.error ) {
-	// 		throw reply.error;
-	// 	}
-	// }
 
 	async addUser(display_name: string, avatar:string, permissions: string[]) {
 		const user :User = {
@@ -90,15 +78,6 @@ class UserData {
 			console.error(reply.error);
 			return;
 		}
-
-		const u = JSON.parse(new TextDecoder().decode(reply.payload))
-		this.users.push(userFromRaw(u));
-
-		// This is a reply with a payload, therefore we have to send Ok or error
-		// so that the message is cleared from the registry.
-		// except this is not working right now because of a bug in the protocol:
-		// https://github.com/teleclimber/twine-protocol/issues/2
-		// reply.sendOK();
 	}
 
 	async editUser(proxy_id:string, display_name: string, avatar:string, permissions: string[]) {
@@ -116,13 +95,6 @@ class UserData {
 			console.error(reply.error);
 			return;
 		}
-
-		const u = JSON.parse(new TextDecoder().decode(reply.payload))
-
-		const i = this.users.findIndex((u:User) => u.proxy_id === proxy_id);
-		if( i == -1 ) throw new Error("couldn't find user to update");
-
-		this.users[i] = userFromRaw(u);
 	}
 	async deleteUser(proxy_id:string) {
 		const payload = new TextEncoder().encode(proxy_id);
@@ -131,13 +103,6 @@ class UserData {
 		if( !reply.ok ) {
 			console.error(reply.error);
 		}
-
-		const i = this.users.findIndex((u:User) => u.proxy_id === proxy_id);
-		if( i == -1 ) throw new Error("couldn't find user to update");
-		this.users.splice(i, 1);
-
-		if( this.owner_proxy_id === proxy_id ) this.owner_proxy_id = "";
-		if( this.user_proxy_id === proxy_id ) this.user_proxy_id = "";
 	}
 
 	async setUser(proxy_id :string) {
@@ -147,7 +112,6 @@ class UserData {
 		if( !reply.ok ) {
 			console.error(reply.error);
 		}
-		this.user_proxy_id = proxy_id;
 	}
 }
 

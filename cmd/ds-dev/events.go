@@ -6,6 +6,48 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+// PureEvent pushes data-free events to subscriber channels
+type PureEvent struct {
+	subLock     sync.Mutex
+	subscribers []chan<- struct{}
+}
+
+// Send triggers a send to all subscribers
+func (e *PureEvent) Send() {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	for _, ch := range e.subscribers {
+		ch <- struct{}{}
+	}
+}
+
+// Subscribe to an event
+func (e *PureEvent) Subscribe() chan struct{} {
+	ch := make(chan struct{})
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.removeSubscriber(ch)
+	e.subscribers = append(e.subscribers, ch)
+	return ch
+}
+
+// Unsubscribe to an event
+func (e *PureEvent) Unsubscribe(ch chan struct{}) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.removeSubscriber(ch)
+}
+
+func (e *PureEvent) removeSubscriber(ch chan struct{}) {
+	for i, c := range e.subscribers {
+		if c == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+			close(ch)
+		}
+	}
+}
+
 // AppVersionEvents notifies that a change was made to an app version
 type AppVersionEvents struct {
 	subLock     sync.Mutex
