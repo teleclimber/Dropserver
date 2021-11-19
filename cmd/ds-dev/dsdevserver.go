@@ -46,6 +46,10 @@ type DropserverDevServer struct {
 	AppspaceInfoModel interface {
 		GetSchema(domain.AppspaceID) (int, error)
 	} `checkinject:"required"`
+	AppspaceLogger interface {
+		EjectLogger(domain.AppspaceID)
+		OpenLogger(domain.AppspaceID) error
+	} `checkinject:"required"`
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 	} `checkinject:"required"`
@@ -58,10 +62,6 @@ type DropserverDevServer struct {
 	AppspaceStatus interface {
 		WaitTempPaused(domain.AppspaceID, string) chan struct{}
 	} `checkinject:"required"`
-	AppspaceLogEvents interface {
-		Subscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
-		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceLogEvent)
-	} `checkinject:"required"`
 
 	// Dev Services:
 	SandboxControlService twineService `checkinject:"required"`
@@ -73,6 +73,7 @@ type DropserverDevServer struct {
 
 	// Services:
 	MigrationJobService domain.TwineService `checkinject:"required"`
+	AppspaceLogService  domain.TwineService `checkinject:"required"`
 
 	appPath      string
 	appspacePath string
@@ -111,14 +112,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go s.RouteHitService.Start(t)
 
 	go s.MigrationJobService.Start(ownerID, t)
-
-	appspaceLogEventChan := make(chan domain.AppspaceLogEvent)
-	s.AppspaceLogEvents.Subscribe(appspaceID, appspaceLogEventChan)
-	go func() {
-		for logEvent := range appspaceLogEventChan {
-			go s.sendAppspaceLogEvent(t, logEvent)
-		}
-	}()
+	go s.AppspaceLogService.Start(ownerID, t)
 
 	// need to receive messages too
 	go func() {
@@ -132,6 +126,8 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 				go s.UserService.HandleMessage(m)
 			case migrationJobService:
 				go s.MigrationJobService.HandleMessage(m)
+			case appspaceLogService:
+				go s.AppspaceLogService.HandleMessage(m)
 			case appRoutesService:
 				go s.AppRoutesService.HandleMessage(m)
 			default:
@@ -149,11 +145,6 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 		for err := range t.ErrorChan {
 			fmt.Println("twine error chan err " + err.Error())
 		}
-
-		// when ErrorChan closes, means Twine connection is down, so unsubscribe
-		s.AppspaceLogEvents.Unsubscribe(appspaceID, appspaceLogEventChan)
-		close(appspaceLogEventChan)
-
 		fmt.Println("unsubscribed")
 	}()
 }
@@ -206,6 +197,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		}
 
 		s.AppspaceDB.CloseAppspace(appspaceID)
+		s.AppspaceLogger.EjectLogger(appspaceID)
 
 		m.RefSendBlock(11, []byte("Copying Files..."))
 		s.AppspaceFiles.Reset()
@@ -232,6 +224,12 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		}
 
 		m.SendOK()
+
+		// Reopen log after the work is complete so tahtthe frontend can get current log view.
+		err = s.AppspaceLogger.OpenLogger(appspaceID)
+		if err != nil {
+			fmt.Println(err)
+		}
 	default:
 		m.SendError("service not found")
 	}
@@ -264,20 +262,6 @@ func (s *DropserverDevServer) migrate(migrateTo int) error {
 		return errNoMigrationNeeded
 	}
 	return nil
-}
-
-const sandboxLogEventCmd = 11
-
-func (s *DropserverDevServer) sendAppspaceLogEvent(twine *twine.Twine, statusEvent domain.AppspaceLogEvent) {
-	bytes, err := json.Marshal(statusEvent)
-	if err != nil {
-		fmt.Println("sendAppspaceLogEvent json Marshal Error: " + err.Error())
-	}
-
-	_, err = twine.SendBlock(appspaceLogService, sandboxLogEventCmd, bytes)
-	if err != nil {
-		fmt.Println("sendAppspaceLogEvent SendBlock Error: " + err.Error())
-	}
 }
 
 // SetPaths sets the paths of the ppa nd appspace so it can be reported on the frontend

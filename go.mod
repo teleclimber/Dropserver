@@ -13,6 +13,7 @@ require (
 	github.com/go-chi/docgen v1.2.0
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang/mock v1.6.0
+	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.1
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/mattn/go-sqlite3 v1.14.0

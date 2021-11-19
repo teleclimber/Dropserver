@@ -118,7 +118,7 @@ func main() {
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
-	appspaceLogEvents := &events.AppspaceLogEvents{}
+	//appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
@@ -210,9 +210,9 @@ func main() {
 		Paused:      false}
 
 	appspaceLogger := &appspacelogger.AppspaceLogger{
-		AppspaceLogEvents: appspaceLogEvents,
-		AppspaceModel:     devAppspaceModel,
-		Config:            runtimeConfig}
+		AppspaceModel: devAppspaceModel,
+		//AppspaceStatus: see below
+		Config: runtimeConfig}
 	appspaceLogger.Init()
 
 	devSandboxManager := &DevSandboxManager{
@@ -249,6 +249,7 @@ func main() {
 	appspaceStatus.Init()
 	migrateJobController.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
+	appspaceLogger.AppspaceStatus = appspaceStatus
 
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: devSandboxManager}
@@ -335,6 +336,10 @@ func main() {
 		MigrationJobModel:  devMigrationJobModel,
 		MigrationJobEvents: migrationJobEvents,
 	}
+	appspaceLogTwine := &twineservices.AppspaceLogService{
+		AppspaceModel:  devAppspaceModel,
+		AppspaceLogger: appspaceLogger,
+	}
 
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
@@ -344,6 +349,7 @@ func main() {
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceDB:             appspaceDB,
 		AppspaceInfoModel:      appspaceInfoModel,
+		AppspaceLogger:         appspaceLogger,
 		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrateJobController,
@@ -354,7 +360,7 @@ func main() {
 		AppRoutesService:       appRoutesService,
 		UserService:            userService,
 		RouteHitService:        routeHitService,
-		AppspaceLogEvents:      appspaceLogEvents,
+		AppspaceLogService:     appspaceLogTwine,
 		MigrationJobService:    migrationJobTwine}
 	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
 
@@ -371,6 +377,12 @@ func main() {
 			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
 		}
 		depGraph.CheckMissing()
+	}
+
+	// Open the log so that the frontend can receive existing log data:
+	err = appspaceLogger.OpenLogger(appspaceID)
+	if err != nil {
+		fmt.Println(err)
 	}
 
 	server.Start()

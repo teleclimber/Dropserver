@@ -149,7 +149,6 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspacePausedEvent := &events.AppspacePausedEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
-	appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 
 	// models
@@ -227,9 +226,9 @@ func main() {
 	remoteAppspaceModel.PrepareStatements()
 
 	appspaceLogger := &appspacelogger.AppspaceLogger{
-		AppspaceModel:     appspaceModel,
-		AppspaceLogEvents: appspaceLogEvents,
-		Config:            runtimeConfig}
+		AppspaceModel: appspaceModel,
+		//AppspaceStatus: see below,
+		Config: runtimeConfig}
 	appspaceLogger.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
@@ -396,6 +395,12 @@ func main() {
 		//AppspaceRouter: see below
 	}
 	appspaceStatus.Init()
+	backupAppspace.AppspaceStatus = appspaceStatus
+	restoreAppspace.AppspaceStatus = appspaceStatus
+	migrationJobCtl.AppspaceStatus = appspaceStatus
+	appspaceMetaDb.AppspaceStatus = appspaceStatus
+	appspaceLogger.AppspaceStatus = appspaceStatus
+	deleteAppspace.AppspaceStatus = appspaceStatus
 
 	migrationMinder := &appspacestatus.MigrationMinder{
 		AppModel:      appModel,
@@ -405,12 +410,6 @@ func main() {
 	appspaceAvatars := &appspaceops.Avatars{
 		Config: runtimeConfig,
 	}
-
-	backupAppspace.AppspaceStatus = appspaceStatus
-	restoreAppspace.AppspaceStatus = appspaceStatus
-	migrationJobCtl.AppspaceStatus = appspaceStatus
-	appspaceMetaDb.AppspaceStatus = appspaceStatus
-	deleteAppspace.AppspaceStatus = appspaceStatus
 
 	// Create proxy
 	sandboxProxy := &sandboxproxy.SandboxProxy{
