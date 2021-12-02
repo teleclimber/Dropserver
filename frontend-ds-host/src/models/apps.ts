@@ -1,5 +1,10 @@
 import {reactive} from 'vue';
-import {get, post, del} from '../controllers/userapi';
+import axios from 'axios';
+import {ax, get, post, del} from '../controllers/userapi';
+import type {AxiosResponse, AxiosError} from 'axios';
+
+import twineClient from '../twine-services/twine_client';
+import {SentMessageI} from 'twine-web';
 
 import {AppVersion} from './app_versions';
 
@@ -74,27 +79,33 @@ export type SelectedFile = {
 // NewAppVersionResp is returned by the server when it reads the contents of a new app code
 // (whether it's a new version or an all new app).
 // It returns any errors / problems found in the files, and the app version data if passable.
-export type UploadVersionResp = {
+export type AppGetMeta = {
 	key: string, // key is used to commit the uploaded files to their "destination" (new app, new app version)
 	prev_version: string,
 	next_version: string,
-	errors?: string[],	// maybe array of strings?
-	version_metadata?: AppVersion
+	errors: string[],	// maybe array of strings?
+	version_metadata?: VersionMetadata
+}
+type VersionMetadata = {
+	name :string,
+	version :string,
+	api_version :number,
+	schema :number,
+	migrations :number[],
+	// user permissions
 }
 
 // upload new application sends the files to backend for temporary storage.
-export async function uploadNewApplication(selected_files: SelectedFile[]): Promise<UploadVersionResp> {
+export async function uploadNewApplication(selected_files: SelectedFile[]): Promise<string> {
 	const form_data = new FormData();
 	selected_files.forEach((sf)=> {
 		form_data.append( 'app_dir', sf.file, sf.rel_path );
 	});
 
 	const resp_data = await post('/application', form_data);
-	const resp = <UploadVersionResp>resp_data;
+	const resp = <UploadResp>resp_data;
 
-	if( Array.isArray(resp.errors) && resp.errors.length === 0 ) resp.errors = undefined;
-
-	return resp;
+	return resp.app_get_key;
 }
 
 export async function commitNewApplication(key:string): Promise<App> {
@@ -104,25 +115,20 @@ export async function commitNewApplication(key:string): Promise<App> {
 	return app;
 }
 
-export async function uploadNewAppVersion(app_id:number, selected_files: SelectedFile[]): Promise<UploadVersionResp> {
+export type UploadResp = {
+	app_get_key: string
+}
+
+export async function uploadNewAppVersion(app_id:number, selected_files: SelectedFile[]): Promise<string> {
 	const form_data = new FormData();
 	selected_files.forEach((sf)=> {
 		form_data.append( 'app_dir', sf.file, sf.rel_path );
 	});
 
 	const resp_data = await post('/application/'+app_id+'/version', form_data);
-	const resp = <UploadVersionResp>resp_data;
+	const resp = <UploadResp>resp_data;
 
-	if( Array.isArray(resp.errors) && resp.errors.length === 0 ) resp.errors = undefined;
-
-	return resp;
-}
-
-export async function commitNewAppVersion(app_id:number, key:string): Promise<App> {
-	const resp_data = await post('/application/'+app_id+'/version?key='+key, undefined);
-	const app = new App;
-	app.setFromRaw(resp_data);
-	return app;
+	return resp.app_get_key;
 }
 
 export async function deleteAppVersion(app_id: number, version:string) {
@@ -133,3 +139,112 @@ export async function deleteApp(app_id: number) {
 	await del('/application/'+app_id);
 }
 
+
+// type InProcessResp struct {
+//     LastEvent domain.AppGetEvent `json:"last_event"`
+//     Meta      domain.AppGetMeta  `json:"meta"`
+// }
+// type AppGetEvent struct {
+//     Key   AppGetKey `json:"key"`
+//     Done  bool      `json:"done"`
+//     Error bool      `json:"error"`
+//     Step  string    `json:"step"`
+// }
+type AppGetEvent = {
+	key: string,
+	done: boolean,
+	error: boolean,
+	step: string
+}
+type InProcessResp = {
+	last_event: AppGetEvent,
+	meta: AppGetMeta
+}
+type CommitResp = {
+	app_id: number,
+	version: string
+}
+export class AppGetter {
+	key = "";
+	not_found = false;
+	last_event: AppGetEvent | undefined;
+	meta :AppGetMeta | undefined;
+
+	private subMessage :SentMessageI|undefined;
+
+	async updateKey(key :string) {
+		this.key = key;
+
+		await this.loadInProcess();
+
+		if( this.done ) return;
+
+		const payload = new TextEncoder().encode(key);
+
+		await twineClient.ready();
+		this.subMessage = await twineClient.twine.send(13, 11, payload);
+
+		for await (const m of this.subMessage.incomingMessages()) {
+			switch (m.command) {
+				case 11:	//event
+					this.last_event = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+					m.sendOK();
+					if(this.last_event.done && this.meta === undefined ) {
+						this.loadInProcess();
+						this.unsubscribeKey();
+					}
+					break;
+			
+				default:
+					m.sendError("What is this command?");
+					throw new Error("what is this command? "+m.command);
+			}
+		}
+	}
+	async loadInProcess() {
+		let resp :AxiosResponse|undefined;
+		try {
+			resp = await ax.get('/api/application/in-process/'+this.key);
+		}
+		catch(error: any | AxiosError) {
+			if( axios.isAxiosError(error) && error.response && error.response.status == 404 ) {
+				this.not_found = true;
+				return;
+			}
+			throw error;
+		}
+		if( resp?.data === undefined ) return;
+		const data = <InProcessResp>resp.data;
+		this.last_event = data.last_event;
+		if( this.last_event.done ) this.meta = data.meta;
+	}
+	async unsubscribeKey() {
+		if( !this.subMessage ) return;
+		const m = this.subMessage;
+		this.subMessage = undefined;
+		await m.refSendBlock(13, undefined);
+	}
+
+	get done() :boolean {
+		if( this.meta ) return true;
+		else return !!this.last_event?.done;
+	}
+	get canCommit() :boolean {
+		return !!this.meta && this.meta.errors.length === 0;
+	}
+
+	async commit() :Promise<CommitResp> {
+		const resp_data = <CommitResp>await post('/application/in-process/'+this.key, undefined);
+
+		return resp_data;
+	}
+	async cancel() {
+		if( this.not_found ) return;
+		try {
+			await del('/application/in-process/'+this.key);
+		}
+		catch(e) {
+			// no-op. Whatever the error, don't hold up the frontend UI because of it.
+		}
+	}
+}

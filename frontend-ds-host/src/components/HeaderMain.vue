@@ -56,7 +56,10 @@ export default defineComponent({
 				case "apps": return "Apps";
 				case "manage-app": return "Manage App";
 				case "new-app": return "New Application";	// upload or get from URL
+				case "new-app-in-process": return "New Application";
+
 				case "new-app-version": return "Upload New Version";	// New versions are only for manually uploaded apps
+				case "new-app-version-in-process": return "Upload New Version";
 				
 				case "appspaces": return "Appspaces";
 				case "new-appspace": return "New Appspace";

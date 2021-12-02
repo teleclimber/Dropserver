@@ -309,6 +309,14 @@ func main() {
 		MigrationJobModel:  migrationJobModel,
 	}
 
+	appGetter := &appops.AppGetter{
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+		SandboxMaker:  sandboxMaker,
+		V0AppRoutes:   v0AppRoutes,
+	}
+	appGetter.Init()
+
 	// auth
 	authenticator := &authenticator.Authenticator{
 		CookieModel: cookieModel,
@@ -348,6 +356,8 @@ func main() {
 
 		restoreAppspace.DeleteAll()
 
+		appGetter.Stop()
+
 		// TODO server stop
 
 		record.StopPromMetrics()
@@ -369,14 +379,6 @@ func main() {
 		Config:        runtimeConfig,
 		AppspaceModel: appspaceModel,
 	}
-
-	appGetter := &appops.AppGetter{
-		AppFilesModel: appFilesModel,
-		AppModel:      appModel,
-		SandboxMaker:  sandboxMaker,
-		V0AppRoutes:   v0AppRoutes,
-	}
-	appGetter.Init()
 
 	deleteApp := &appops.DeleteApp{
 		AppFilesModel: appFilesModel,
@@ -513,6 +515,9 @@ func main() {
 		MigrationJobModel:  migrationJobModel,
 		MigrationJobEvents: migrationJobEvents,
 	}
+	appGetterTwine := &twineservices.AppGetterService{
+		AppGetter: appGetter,
+	}
 
 	userRoutes := &userroutes.UserRoutes{
 		Config:               runtimeConfig,
@@ -529,6 +534,7 @@ func main() {
 		MigrationJobRoutes:   migrationJobRoutes,
 		AppspaceStatusTwine:  appspaceStatusTwine,
 		MigrationJobTwine:    migrationJobTwine,
+		AppGetterTwine:       appGetterTwine,
 		UserModel:            userModel,
 		Views:                views}
 	userRoutes.Init()

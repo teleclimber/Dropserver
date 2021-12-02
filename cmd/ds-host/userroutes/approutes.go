@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // GetAppsResp is
@@ -49,7 +50,8 @@ type ApplicationRoutes struct {
 	AppGetter interface {
 		FromRaw(userID domain.UserID, fileData *map[string][]byte, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
-		GetMetaData(domain.AppGetKey) (domain.AppGetMeta, error)
+		GetLastEvent(key domain.AppGetKey) (domain.AppGetEvent, bool)
+		GetResults(domain.AppGetKey) (domain.AppGetMeta, bool)
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
 		Delete(domain.AppGetKey)
 	} `checkinject:"required"`
@@ -70,7 +72,14 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Use(mustBeAuthenticated)
 
 	r.Get("/", a.getApplications)
-	r.Post("/", a.postNewApplication)
+	r.Post("/", a.postNewApplication) // could this be same route for new app and new version? Just include app id in metadata.
+
+	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
+		r.Use(a.appGetKeyCtx)
+		r.Get("/", a.getInProcess)
+		r.Post("/", a.commitInProcess)
+		r.Delete("/", a.cancelInProcess)
+	})
 
 	r.Route("/{application}", func(r chi.Router) {
 		r.Use(a.applicationCtx)
@@ -206,46 +215,18 @@ type NewAppResp struct {
 // if there are no files but there is a key, then create a new app with files found at key.
 func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
-
-	query := r.URL.Query()
-	keys, ok := query["key"]
-	if ok && len(keys) == 1 {
-		appID, _, ok := a.commitKey(w, userID, keys[0])
-		if !ok { // something went wrong. response sent.
-			return
-		}
-		app, err := a.AppModel.GetFromID(appID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		r = r.WithContext(domain.CtxWithAppData(r.Context(), *app))
-		a.getApplication(w, r)
-	} else {
-		a.handleFilesUpload(r, w, userID)
-	}
+	a.handleFilesUpload(r, w, userID)
 }
 
 func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, _ := domain.CtxAuthUserID(ctx)
 	app, _ := domain.CtxAppData(ctx)
+	a.handleFilesUpload(r, w, userID, app.AppID)
+}
 
-	query := r.URL.Query()
-	keys, ok := query["key"]
-	if ok && len(keys) == 1 {
-		appID, version, ok := a.commitKey(w, userID, keys[0])
-		if !ok { // something went wrong. response sent.
-			return
-		}
-		appVersion, err := a.AppModel.GetVersion(appID, version)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		r = r.WithContext(domain.CtxWithAppVersionData(ctx, *appVersion))
-		a.getVersion(w, r)
-	} else {
-		a.handleFilesUpload(r, w, userID, app.AppID)
-	}
+type FilesUploadResp struct {
+	Key domain.AppGetKey `json:"app_get_key"`
 }
 
 func (a *ApplicationRoutes) handleFilesUpload(r *http.Request, w http.ResponseWriter, userID domain.UserID, appIDs ...domain.AppID) {
@@ -262,13 +243,7 @@ func (a *ApplicationRoutes) handleFilesUpload(r *http.Request, w http.ResponseWr
 		return
 	}
 
-	fileMeta, err := a.AppGetter.GetMetaData(appGetKey)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	writeJSON(w, fileMeta)
+	writeJSON(w, FilesUploadResp{Key: appGetKey})
 }
 
 func (a *ApplicationRoutes) extractFiles(r *http.Request) (*map[string][]byte, error) {
@@ -307,23 +282,59 @@ func (a *ApplicationRoutes) extractFiles(r *http.Request) (*map[string][]byte, e
 	return &fileData, nil
 }
 
-func (a *ApplicationRoutes) commitKey(w http.ResponseWriter, userID domain.UserID, key string) (domain.AppID, domain.Version, bool) {
-	// TODO basic validation on key
-	keyUser, ok := a.AppGetter.GetUser(domain.AppGetKey(key))
+type InProcessResp struct {
+	LastEvent domain.AppGetEvent `json:"last_event"`
+	Meta      domain.AppGetMeta  `json:"meta"`
+}
+
+// getInProcess returns current status of uploaded or acquired app files
+// for both new apps and new versions.
+func (a *ApplicationRoutes) getInProcess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+
+	lastEvent, ok := a.AppGetter.GetLastEvent(appGetKey)
 	if !ok {
-		w.WriteHeader(http.StatusGone)
-		return domain.AppID(0), domain.Version(""), false
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
-	if keyUser != userID {
-		w.WriteHeader(http.StatusForbidden)
-		return domain.AppID(0), domain.Version(""), false
+	meta := domain.AppGetMeta{}
+	if lastEvent.Done {
+		meta, ok = a.AppGetter.GetResults(appGetKey)
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 	}
-	appID, appVersion, err := a.AppGetter.Commit(domain.AppGetKey(key))
+
+	writeJSON(w, InProcessResp{LastEvent: lastEvent, Meta: meta})
+}
+
+type AppCommitResp struct {
+	AppID   domain.AppID   `json:"app_id"`
+	Version domain.Version `json:"version"`
+}
+
+// commitInProcess commits the in-process app files.
+func (a *ApplicationRoutes) commitInProcess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+
+	appID, version, err := a.AppGetter.Commit(appGetKey)
 	if err != nil {
+		// error could be not found?
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return domain.AppID(0), domain.Version(""), false
+		return
 	}
-	return appID, appVersion, true
+
+	writeJSON(w, AppCommitResp{AppID: appID, Version: version})
+}
+
+func (a *ApplicationRoutes) cancelInProcess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+
+	a.AppGetter.Delete(appGetKey)
 }
 
 func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
@@ -411,6 +422,36 @@ func (a *ApplicationRoutes) appVersionCtx(next http.Handler) http.Handler {
 		}
 
 		r = r.WithContext(domain.CtxWithAppVersionData(ctx, *version))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *ApplicationRoutes) appGetKeyCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := domain.CtxAuthUserID(r.Context())
+
+		key := chi.URLParam(r, "app-get-key")
+
+		err := validator.AppGetKey(key)
+		if err != nil {
+			returnError(w, err)
+			return
+		}
+
+		appGetKey := domain.AppGetKey(key)
+
+		keyUserID, ok := a.AppGetter.GetUser(appGetKey)
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if userID != keyUserID {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppGetKey(r.Context(), appGetKey))
 
 		next.ServeHTTP(w, r)
 	})

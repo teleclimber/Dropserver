@@ -63,6 +63,7 @@ type UserRoutes struct {
 	AdminRoutes          subRoutes           `checkinject:"required"`
 	AppspaceStatusTwine  domain.TwineService `checkinject:"required"`
 	MigrationJobTwine    domain.TwineService `checkinject:"required"`
+	AppGetterTwine       domain.TwineService `checkinject:"required"`
 	UserModel            interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdatePassword(userID domain.UserID, password string) error
@@ -279,6 +280,7 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 
 const appspaceStatusService = 11
 const migrationJobService = 12
+const appGetterService = 13
 
 // startTwineService connects a new twine instance to the twine services
 func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
@@ -304,6 +306,7 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 
 	go u.AppspaceStatusTwine.Start(authUserID, t)
 	go u.MigrationJobTwine.Start(authUserID, t)
+	go u.AppGetterTwine.Start(authUserID, t)
 
 	go func() {
 		for m := range t.MessageChan {
@@ -312,6 +315,8 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 				go u.AppspaceStatusTwine.HandleMessage(m)
 			case migrationJobService:
 				go u.MigrationJobTwine.HandleMessage(m)
+			case appGetterService:
+				go u.AppGetterTwine.HandleMessage(m)
 			default:
 				u.getLogger("Twine incoming message").Error(fmt.Errorf("service not found: %v", m.ServiceID()))
 				m.SendError("Service not found")

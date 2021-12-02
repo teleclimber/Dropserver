@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -13,11 +14,20 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
-type AppGetData struct {
+type appGetData struct {
+	key         domain.AppGetKey
 	locationKey string
 	userID      domain.UserID
 	hasAppID    bool
 	appID       domain.AppID
+	sandbox     domain.SandboxI
+}
+
+type subscriber struct {
+	hasKey bool
+	key    domain.AppGetKey
+	ch     chan domain.AppGetEvent
+	// hasUserID, hasAppID
 }
 
 // AppGetter handles incoming application files
@@ -40,17 +50,40 @@ type AppGetter struct {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	} `checkinject:"required"`
 	V0AppRoutes interface {
-		ValidateStoredRoutes(routes []domain.V0AppRoute) error
+		ValidateRoutes(routes []domain.V0AppRoute) error
 	} `checkinject:"required"`
 
-	keys map[domain.AppGetKey]AppGetData
+	keysMux sync.Mutex
+	keys    map[domain.AppGetKey]appGetData
+	results map[domain.AppGetKey]domain.AppGetMeta
+
+	eventsMux   sync.Mutex
+	lastEvent   map[domain.AppGetKey]domain.AppGetEvent // stash the last event so we can
+	subscribers []subscriber
 }
 
 // Init creates the map [and starts the timers]
 func (g *AppGetter) Init() {
-	g.keys = make(map[domain.AppGetKey]AppGetData)
+	g.keys = make(map[domain.AppGetKey]appGetData)
+	g.results = make(map[domain.AppGetKey]domain.AppGetMeta)
+	g.lastEvent = make(map[domain.AppGetKey]domain.AppGetEvent)
 
-	// initiate a timer to periodically clear keys and assocaited files after 10 minutes or so.
+	// TODO have a way to get currenttly processing (or awaiting commit) new apps (by user)
+	// and new versions (by app id)
+	// this may prevent duplicate app gets.
+}
+
+func (g *AppGetter) Stop() {
+	g.keysMux.Lock()
+	keys := make([]domain.AppGetKey, 0)
+	for key := range g.keys {
+		keys = append(keys, key)
+	}
+	g.keysMux.Unlock()
+
+	for _, key := range keys {
+		g.Delete(key)
+	}
 }
 
 // FromRaw takes raw file data as app files
@@ -63,40 +96,88 @@ func (g *AppGetter) FromRaw(userID domain.UserID, fileData *map[string][]byte, a
 		return domain.AppGetKey(""), err
 	}
 
-	data := AppGetData{
+	data := appGetData{
 		userID:      userID,
 		locationKey: locationKey,
 	}
-
 	if len(appIDs) == 1 {
 		data.hasAppID = true
 		data.appID = appIDs[0]
 	}
+	data = g.set(data)
 
-	key := g.set(data)
+	g.sendEvent(data, domain.AppGetEvent{Step: "Starting process"})
 
-	return key, nil
+	go g.processApp(data)
+
+	return data.key, nil
+}
+
+// Reprocess performs the app processing steps again,
+// replacing the results upon completion.
+// Currently only intended for use by ds-dev.
+func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error) {
+
+	data := appGetData{
+		userID:      userID, // not clear whether we'll need userID or appID in here for ds-dev.
+		hasAppID:    true,
+		appID:       appID,
+		locationKey: locationKey}
+	data = g.set(data)
+
+	g.sendEvent(data, domain.AppGetEvent{Step: "Starting reprocess"})
+
+	go g.processApp(data)
+
+	return data.key, nil
 }
 
 // GetUser returns the user associated with the key
+// Used to authorize a request for data on that key
 func (g *AppGetter) GetUser(key domain.AppGetKey) (domain.UserID, bool) {
-	// we'll need a lock?
-	data, ok := g.keys[key]
+	data, ok := g.get(key)
 	return data.userID, ok
 }
 
-// GetMetaData returns metadata, and errors related to , of the files
+func (g *AppGetter) processApp(keyData appGetData) {
+	meta, err := g.validateMetaData(keyData)
+	if err != nil {
+		// some error occurred, possibly external to
+		meta.Errors = append(meta.Errors, "internal error while validating metadata, see log")
+		g.setResults(keyData.key, meta)
+		g.getLogger("processApp").Error(err)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+	if len(meta.Errors) != 0 {
+		// errors in processing app meta data, probably app fault.
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+
+	err = g.getAppRoutes(keyData)
+	if err != nil {
+		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+
+	g.setResults(keyData.key, meta)
+	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
+}
+
+// validateMetaData tries to read the metadata for the app
+// It returns the output and errors that it encounters.
 // read everything make sure it makes sense on its own
 // if there is an app id compare with existing versions.
 // version should be unique, schemas should increment
 // TODO After an initial read to determine DS API version, branch to version-specific
-func (g *AppGetter) GetMetaData(key domain.AppGetKey) (domain.AppGetMeta, error) { // will need to figure out what to return.
-	keyData, ok := g.keys[key]
-	if !ok {
-		return domain.AppGetMeta{}, errors.New("Key does not exist")
-	}
+func (g *AppGetter) validateMetaData(keyData appGetData) (domain.AppGetMeta, error) {
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating metadata"})
 
-	ret := domain.AppGetMeta{Key: key, Errors: make([]string, 0)}
+	ret := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0)}
 
 	filesMetadata, err := g.AppFilesModel.ReadMeta(keyData.locationKey)
 	if err != nil {
@@ -122,39 +203,64 @@ func (g *AppGetter) GetMetaData(key domain.AppGetKey) (domain.AppGetMeta, error)
 		}
 	}
 
-	// also start a sandbox and read the router data.
-	routerData, err := g.GetRouterData(keyData.locationKey)
+	return ret, nil
+}
+
+func (g *AppGetter) getAppRoutes(keyData appGetData) error {
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting app routes"})
+
+	routerData, err := g.getRouterData(keyData)
 	if err != nil {
-		return ret, err
+		return err
 	}
 
-	err = g.V0AppRoutes.ValidateStoredRoutes(routerData)
+	err = g.V0AppRoutes.ValidateRoutes(routerData)
 	if err != nil {
-		return ret, err
+		return err
 	}
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Writing app routes"})
 
 	routerJson, err := json.Marshal(routerData)
 	if err != nil {
 		g.getLogger("GetMetaData() json.Marshal").Error(err)
-		return ret, err
+		return err
 	}
 
 	err = g.AppFilesModel.WriteRoutes(keyData.locationKey, routerJson)
 	if err != nil {
-		return ret, err
+		return err
 	}
-
-	return ret, nil
+	return nil
 }
 
+// getRouterData fires up a sandbox and retrieves the app version's router data.
+// It is exported so it can be used directly by ds-dev
+// I wonder if we could make it so app getter can be used by ds-dev as-is?
+// Because it essentially has to restart the "processApp" steps entirely on each app change.
 // TODO Heads up this is a versioned API!
-func (g *AppGetter) GetRouterData(loc string) ([]domain.V0AppRoute, error) {
-	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: loc})
+func (g *AppGetter) getRouterData(data appGetData) ([]domain.V0AppRoute, error) {
+	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: data.locationKey})
 	if err != nil {
 		return nil, err
 	}
-
 	defer s.Graceful()
+
+	ok := g.setSandbox(data.key, s)
+	if !ok {
+		err = errors.New("unable to set sandbox to app get data")
+		g.getLogger("getRouterData, g.setSandbox").Error(err)
+		return nil, err
+	}
+
+	// Set a timeout so that this sandbox doesn't run forever in case of infinite loop or whatever.
+	go func(sb domain.SandboxI) {
+		time.Sleep(time.Minute) // one minute. Is that enough on heavily used system?
+		if sb.Status() != domain.SandboxDead {
+			g.getLogger("getRouterData").Log("sandbox not dead, killing. Location key: " + data.locationKey)
+			sb.Kill()
+		}
+	}(s)
 
 	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
 	if err != nil {
@@ -170,8 +276,6 @@ func (g *AppGetter) GetRouterData(loc string) ([]domain.V0AppRoute, error) {
 	}
 
 	// Should also verify that the response is command 11?
-
-	fmt.Println("json payload", string(reply.Payload()))
 
 	var routes []domain.V0AppRoute
 
@@ -296,10 +400,12 @@ func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
 
 // Commit creates either a new app and version, or just a new version
 func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, error) {
-	keyData, ok := g.keys[key]
+	keyData, ok := g.get(key) // g.setCommitting
 	if !ok {
-		return domain.AppID(0), domain.Version(""), errors.New("Key does not exist")
+		return domain.AppID(0), domain.Version(""), errors.New("key does not exist")
 	}
+	// Here there is a slight chance Delete will be called while this function is running.
+	// We could set a "committing" flag on that keyData to prevent this from happening.
 
 	appID := keyData.appID
 
@@ -321,15 +427,56 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		return appID, domain.Version(""), err
 	}
 
+	g.deleteKeyData(key)
+
 	return appID, version.Version, nil
 }
 
 // Delete removed the files and the key
-func (g *AppGetter) Delete(domain.AppGetKey) {
+func (g *AppGetter) Delete(key domain.AppGetKey) {
+	appGetData, ok := g.get(key)
+	if !ok {
+		return
+	}
 
+	if appGetData.sandbox != nil && appGetData.sandbox.Status() != domain.SandboxDead {
+		appGetData.sandbox.Kill()
+	}
+
+	err := g.AppFilesModel.Delete(appGetData.locationKey)
+	if err != nil {
+		// should be logged by afm. just return.
+		return
+	}
+
+	g.del(key)
 }
 
-func (g *AppGetter) set(d AppGetData) (key domain.AppGetKey) {
+func (g *AppGetter) deleteKeyData(key domain.AppGetKey) {
+	appGetData, ok := g.del(key)
+	if !ok {
+		return
+	}
+
+	// Send one last event in case there are any subscribers
+	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Step: "Deleting processing data"})
+	// unsubscribe the channels listenning for updates to the key
+	g.unsubscribeKey(appGetData.key)
+	// delete the last_event
+	g.eventsMux.Lock()
+	delete(g.lastEvent, key)
+	g.eventsMux.Unlock()
+
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	delete(g.results, key)
+}
+
+// keys functions:
+func (g *AppGetter) set(d appGetData) appGetData {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	var key domain.AppGetKey
 	for {
 		key = randomKey()
 		if _, ok := g.keys[key]; !ok {
@@ -337,11 +484,113 @@ func (g *AppGetter) set(d AppGetData) (key domain.AppGetKey) {
 		}
 	}
 
-	// set date time on d here
-
+	d.key = key
 	g.keys[key] = d
 
-	return
+	return d
+}
+func (g *AppGetter) setSandbox(key domain.AppGetKey, sb domain.SandboxI) bool {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	if !ok {
+		return false
+	}
+	data.sandbox = sb
+	g.keys[key] = data
+	return true
+}
+func (g *AppGetter) get(key domain.AppGetKey) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	return data, ok
+}
+
+// del the key and return the key data
+func (g *AppGetter) del(key domain.AppGetKey) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	delete(g.keys, key)
+	return data, ok
+}
+
+// results functions:
+func (g *AppGetter) setResults(key domain.AppGetKey, meta domain.AppGetMeta) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	g.results[key] = meta
+}
+func (g *AppGetter) GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	m, ok := g.results[key]
+	return m, ok
+}
+
+// event related functions:
+
+// GetLastEvent returns the last event for the key
+func (g *AppGetter) GetLastEvent(key domain.AppGetKey) (domain.AppGetEvent, bool) {
+	g.eventsMux.Lock()
+	defer g.eventsMux.Unlock()
+	e, ok := g.lastEvent[key]
+	return e, ok
+}
+
+// SubscribeKey returns the last event and a channel if the process is ongoing
+func (g *AppGetter) SubscribeKey(key domain.AppGetKey) (domain.AppGetEvent, <-chan domain.AppGetEvent) {
+	g.eventsMux.Lock()
+	defer g.eventsMux.Unlock()
+	lastEvent, ok := g.lastEvent[key]
+	if !ok || lastEvent.Done {
+		return lastEvent, nil
+	}
+	ch := make(chan domain.AppGetEvent)
+	g.subscribers = append(g.subscribers, subscriber{hasKey: true, key: key, ch: ch})
+	return lastEvent, ch
+}
+func (g *AppGetter) sendEvent(getData appGetData, ev domain.AppGetEvent) {
+	ev.Key = getData.key
+	g.eventsMux.Lock()
+	defer g.eventsMux.Unlock()
+
+	g.lastEvent[ev.Key] = ev
+
+	for _, s := range g.subscribers {
+		if s.hasKey && ev.Key == s.key {
+			s.ch <- ev
+		}
+		// else if hasUserID; else if hasAppID ..
+	}
+}
+func (g *AppGetter) unsubscribeKey(key domain.AppGetKey) { // TODO please at least test this.
+	g.eventsMux.Lock()
+	defer g.eventsMux.Unlock()
+	k := 0
+	for _, s := range g.subscribers {
+		if s.hasKey && s.key == key {
+			close(s.ch)
+		} else {
+			g.subscribers[k] = s
+			k++
+		}
+	}
+	g.subscribers = g.subscribers[:k]
+}
+func (g *AppGetter) Unsubscribe(ch <-chan domain.AppGetEvent) {
+	g.eventsMux.Lock()
+	defer g.eventsMux.Unlock()
+	for i, s := range g.subscribers {
+		if s.ch == ch {
+			g.subscribers[i] = g.subscribers[len(g.subscribers)-1]
+			g.subscribers = g.subscribers[:len(g.subscribers)-1]
+			close(s.ch)
+			return
+		}
+	}
+	g.getLogger("Unsubscribe").Log("Failed to find subscriber channel.")
 }
 
 func (g *AppGetter) getLogger(note string) *record.DsLogger {

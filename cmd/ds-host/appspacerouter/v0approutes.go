@@ -108,7 +108,8 @@ func (r *V0AppRoutes) compile(storedRoutes []domain.V0AppRoute) ([]compiledRoute
 	return compiled, nil
 }
 
-func (r *V0AppRoutes) ValidateStoredRoutes(routes []domain.V0AppRoute) error {
+// ValidateRoutes validates routes passed to it
+func (r *V0AppRoutes) ValidateRoutes(routes []domain.V0AppRoute) error {
 	if len(routes) == 0 {
 		return errors.New("there should be at least one route")
 	}

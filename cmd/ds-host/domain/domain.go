@@ -321,6 +321,14 @@ type AppGetMeta struct {
 	VersionMetadata AppFilesMetadata `json:"version_metadata,omitempty"`
 }
 
+// AppGetEvent contains updates to an app getter process
+type AppGetEvent struct {
+	Key   AppGetKey `json:"key"`
+	Done  bool      `json:"done"`
+	Error bool      `json:"error"`
+	Step  string    `json:"step"`
+}
+
 // Appspace represents the data structure for App spaces.
 type Appspace struct {
 	OwnerID     UserID     `db:"owner_id"`

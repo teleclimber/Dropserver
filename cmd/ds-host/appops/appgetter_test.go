@@ -13,9 +13,9 @@ func TestSetKey(t *testing.T) {
 	g := &AppGetter{}
 	g.Init()
 
-	key := g.set(AppGetData{locationKey: "abc"})
+	d := g.set(appGetData{locationKey: "abc"})
 
-	data, ok := g.keys[key]
+	data, ok := g.keys[d.key]
 	if !ok {
 		t.Error("key not set")
 	}

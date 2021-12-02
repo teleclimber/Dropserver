@@ -9,12 +9,12 @@ type ctxKey string
 // Authenticated User ID
 const sessionIDCtxKey = ctxKey("session ID")
 
-// CtxWithAuthUserID sets the authenticated user id on the context
+// CtxWithSessionID sets the authenticated user id on the context
 func CtxWithSessionID(ctx context.Context, sessionId string) context.Context {
 	return context.WithValue(ctx, sessionIDCtxKey, sessionId)
 }
 
-// CtxAuthUserID gets the authenticated user id from the context
+// CtxSessionID gets the authenticated user id from the context
 // Second value is false if no auth user id
 func CtxSessionID(ctx context.Context) (string, bool) {
 	t, ok := ctx.Value(sessionIDCtxKey).(string)
@@ -65,6 +65,20 @@ func CtxWithAppVersionData(ctx context.Context, appVersion AppVersion) context.C
 // to the request
 func CtxAppVersionData(ctx context.Context) (AppVersion, bool) {
 	t, ok := ctx.Value(appVersionDataCtxKey).(AppVersion)
+	return t, ok
+}
+
+// App processing commit key
+const appgetKeyCtxKey = ctxKey("application get key")
+
+// CtxWithAppGetKey sets the app get key on context
+func CtxWithAppGetKey(ctx context.Context, commitKey AppGetKey) context.Context {
+	return context.WithValue(ctx, appgetKeyCtxKey, commitKey)
+}
+
+// CtxAppGetKey gets the app processing commit key from context
+func CtxAppGetKey(ctx context.Context) (AppGetKey, bool) {
+	t, ok := ctx.Value(appgetKeyCtxKey).(AppGetKey)
 	return t, ok
 }
 

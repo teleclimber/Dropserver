@@ -26,6 +26,10 @@ func DomainName(domainName string) error {
 	return goVal.Var(domainName, "required,fqdn")
 }
 
+func AppGetKey(key string) error {
+	return goVal.Var(key, "min=8,max=10,alphanum")
+}
+
 func LocationKey(loc string) error {
 	return goVal.Var(loc, "min=8,max=16,alphanum") //as531411051
 }
