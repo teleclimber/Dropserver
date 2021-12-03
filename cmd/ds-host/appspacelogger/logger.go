@@ -66,6 +66,10 @@ func (l *Logger) writeEntry(entry string) error {
 	l.logMux.Lock()
 	defer l.logMux.Unlock()
 
+	if l.fd == nil {
+		return errors.New("unable to write to log: log file is not open")
+	}
+
 	_, err := l.fd.WriteString(entry + "\n")
 	if err != nil {
 		return err

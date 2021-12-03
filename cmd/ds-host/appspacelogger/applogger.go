@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
@@ -32,13 +33,13 @@ func (l *AppLogger) Log(locationKey string, source string, message string) {
 }
 
 // Get a reference to logger for app at locationKey
-func (l *AppLogger) Get(locationKey string) *Logger {
+func (l *AppLogger) Get(locationKey string) domain.LoggerI {
 	return l.getLogger(locationKey, false)
 }
 
 // Open the log file and return the logger at locationKey
 // I wonder if this one is actually necessary?
-func (l *AppLogger) Open(locationKey string) *Logger {
+func (l *AppLogger) Open(locationKey string) domain.LoggerI {
 	return l.getLogger(locationKey, true)
 }
 

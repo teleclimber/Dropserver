@@ -225,6 +225,10 @@ func main() {
 	}
 	remoteAppspaceModel.PrepareStatements()
 
+	appLogger := &appspacelogger.AppLogger{
+		Location2Path: location2path}
+	appLogger.Init()
+
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel: appspaceModel,
 		//AppspaceStatus: see below,
@@ -262,6 +266,7 @@ func main() {
 	migrationJobModel.StartupFinishStartedJobs("Job found unfinished at startup")
 
 	sandboxMaker := &sandbox.SandboxMaker{
+		AppLogger:      appLogger,
 		AppspaceLogger: appspaceLogger,
 		Location2Path:  location2path,
 		Config:         runtimeConfig,
@@ -312,6 +317,7 @@ func main() {
 	appGetter := &appops.AppGetter{
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
+		AppLogger:     appLogger,
 		SandboxMaker:  sandboxMaker,
 		V0AppRoutes:   v0AppRoutes,
 	}

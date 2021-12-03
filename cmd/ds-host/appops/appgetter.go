@@ -46,6 +46,9 @@ type AppGetter struct {
 		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
+	AppLogger interface {
+		Log(locationKey string, source string, message string)
+	} `checkinject:"required"`
 	SandboxMaker interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	} `checkinject:"required"`
@@ -96,6 +99,8 @@ func (g *AppGetter) FromRaw(userID domain.UserID, fileData *map[string][]byte, a
 		return domain.AppGetKey(""), err
 	}
 
+	g.AppLogger.Log(locationKey, "ds-host", "Reading new app version metadata")
+
 	data := appGetData{
 		userID:      userID,
 		locationKey: locationKey,
@@ -124,6 +129,8 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 		appID:       appID,
 		locationKey: locationKey}
 	data = g.set(data)
+
+	g.AppLogger.Log(locationKey, "ds-host", "Reprocessing app version metadata")
 
 	g.sendEvent(data, domain.AppGetEvent{Step: "Starting reprocess"})
 
@@ -156,6 +163,8 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		return
 	}
 
+	g.AppLogger.Log(keyData.locationKey, "ds-host", "App metadata validated, reading routes")
+
 	err = g.getAppRoutes(keyData)
 	if err != nil {
 		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
@@ -163,6 +172,8 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
 		return
 	}
+
+	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
 
 	g.setResults(keyData.key, meta)
 	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
@@ -219,6 +230,7 @@ func (g *AppGetter) getAppRoutes(keyData appGetData) error {
 		return err
 	}
 
+	g.AppLogger.Log(keyData.locationKey, "ds-host", "Writing app routes to disk")
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Writing app routes"})
 
 	routerJson, err := json.Marshal(routerData)

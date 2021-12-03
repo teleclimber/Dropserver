@@ -57,8 +57,6 @@ func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, e
 		Config:        m.Config,
 		Logger:        m.AppLogger.Get(appVersion.LocationKey)}
 
-	// Need to add a logger of some sort.
-
 	err := s.Start()
 	if err != nil {
 		m.getLogger("ForApp, sandbox.Start()").Error(err)
