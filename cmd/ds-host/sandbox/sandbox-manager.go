@@ -18,7 +18,7 @@ import (
 // Manager manages sandboxes
 type Manager struct {
 	AppspaceLogger interface {
-		Log(domain.AppspaceID, string, string)
+		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
 	nextID    int
 	poolMux   sync.Mutex
@@ -76,15 +76,15 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 	// .. or trust that it only gets called with poolMux locked by caller.
 
 	newSandbox := &Sandbox{
-		id:             sandboxID,
-		appVersion:     appVersion,
-		appspace:       appspace,
-		AppspaceLogger: sM.AppspaceLogger,
-		services:       sM.Services.Get(appspace, appVersion.APIVersion),
-		status:         domain.SandboxStarting,
-		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Location2Path:  sM.Location2Path,
-		Config:         sM.Config}
+		id:            sandboxID,
+		appVersion:    appVersion,
+		appspace:      appspace,
+		Logger:        sM.AppspaceLogger.Get(appspace.AppspaceID),
+		services:      sM.Services.Get(appspace, appVersion.APIVersion),
+		status:        domain.SandboxStarting,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path: sM.Location2Path,
+		Config:        sM.Config}
 
 	sM.sandboxes[appspace.AppspaceID] = newSandbox
 

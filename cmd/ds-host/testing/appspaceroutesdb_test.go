@@ -57,10 +57,14 @@ func TestSandboxExecFn(t *testing.T) {
 	services := testmocks.NewMockVXServices(mockCtrl)
 	services.EXPECT().Get(&appspace, domain.APIVersion(0))
 
+	appspaceLogger := testmocks.NewMockAppspaceLogger(mockCtrl)
+	appspaceLogger.EXPECT().Get(appspace.AppspaceID).Return(nil)
+
 	sM := sandbox.Manager{
-		Services:      services,
-		Location2Path: l2p,
-		Config:        cfg}
+		AppspaceLogger: appspaceLogger,
+		Services:       services,
+		Location2Path:  l2p,
+		Config:         cfg}
 
 	sM.Init()
 

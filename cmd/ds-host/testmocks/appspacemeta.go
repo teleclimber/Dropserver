@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceMetaDB,AppspaceInfoModel,UsersV0,AppspaceDB,AppspaceLogger
+//go:generate mockgen -destination=appspacemeta_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceMetaDB,AppspaceInfoModel,UsersV0,AppspaceDB
 
 type AppspaceMetaDB interface {
 	Create(domain.AppspaceID, int) error
@@ -30,9 +30,4 @@ type UsersV0 interface {
 
 type AppspaceDB interface {
 	CloseAppspace(appspaceID domain.AppspaceID)
-}
-
-type AppspaceLogger interface {
-	Log(appspaceID domain.AppspaceID, source string, message string)
-	EjectLogger(appspaceID domain.AppspaceID)
 }

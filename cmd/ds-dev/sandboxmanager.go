@@ -12,7 +12,7 @@ var sandboxID = 0
 // DevSandboxManager manages a single sandbox that can be resatrted to recompile app code
 type DevSandboxManager struct {
 	AppspaceLogger interface {
-		Log(domain.AppspaceID, string, string)
+		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
@@ -37,7 +37,7 @@ func (sM *DevSandboxManager) Init() {
 		panic(err)
 	}
 	appVersionEvent := make(chan domain.AppID)
-	sM.AppVersionEvents.Subscribe(appVersionEvent)
+	sM.AppVersionEvents.Subscribe(appVersionEvent) // this should probably come from app watcher
 	go func() {
 		for range appVersionEvent {
 			go sM.StopAppspace(appspaceID)
@@ -67,7 +67,7 @@ func (sM *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appsp
 func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
 	newSandbox := sandbox.NewSandbox(sandboxID, appVersion, appspace, sM.Services.Get(appspace, 0), sM.Config)
 	newSandbox.Location2Path = sM.Location2Path
-	newSandbox.AppspaceLogger = sM.AppspaceLogger
+	newSandbox.Logger = sM.AppspaceLogger.Get(appspaceID)
 	newSandbox.SetInspect(sM.inspect)
 	sM.sb = newSandbox
 
@@ -110,11 +110,14 @@ func (sM *DevSandboxManager) SetInspect(inspect bool) {
 // DevSandboxMaker holds data necessary to create a new migration sandbox
 type DevSandboxMaker struct {
 	AppspaceLogger interface {
-		Log(domain.AppspaceID, string, string)
-	}
+		Get(domain.AppspaceID) domain.LoggerI
+	} `checkinject:"required"`
+	AppLogger interface {
+		Get(string) domain.LoggerI
+	} `checkinject:"required"`
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	}
+	} `checkinject:"required"`
 	Location2Path interface {
 		AppMeta(string) string
 		AppFiles(string) string
@@ -135,7 +138,7 @@ func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI
 	s := sandbox.NewSandbox(sandboxID, appVersion, nil, nil, m.Config)
 	sandboxID++
 	s.Location2Path = m.Location2Path
-	s.AppspaceLogger = m.AppspaceLogger
+	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.SetInspect(m.inspect)
 
 	err := s.Start()
@@ -153,7 +156,7 @@ func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *
 	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
 	sandboxID++
 	s.Location2Path = m.Location2Path
-	s.AppspaceLogger = m.AppspaceLogger
+	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.SetInspect(m.inspect)
 
 	err := s.Start()

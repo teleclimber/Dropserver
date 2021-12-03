@@ -32,7 +32,10 @@ import (
 // use in migrations and and other maintenancne tasks
 type SandboxMaker struct {
 	AppspaceLogger interface {
-		Log(domain.AppspaceID, string, string)
+		Get(domain.AppspaceID) domain.LoggerI
+	} `checkinject:"required"`
+	AppLogger interface {
+		Get(string) domain.LoggerI
 	} `checkinject:"required"`
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
@@ -51,7 +54,9 @@ func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, e
 		status:        domain.SandboxStarting,
 		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Location2Path: m.Location2Path,
-		Config:        m.Config}
+		Config:        m.Config,
+		Logger:        m.AppLogger.Get(appVersion.LocationKey)}
+
 	// Need to add a logger of some sort.
 
 	err := s.Start()
@@ -66,15 +71,15 @@ func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, e
 
 func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
 	s := &Sandbox{
-		id:             0,
-		appVersion:     appVersion,
-		appspace:       appspace,
-		services:       m.Services.Get(appspace, appVersion.APIVersion),
-		status:         domain.SandboxStarting,
-		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Location2Path:  m.Location2Path,
-		Config:         m.Config,
-		AppspaceLogger: m.AppspaceLogger}
+		id:            0,
+		appVersion:    appVersion,
+		appspace:      appspace,
+		services:      m.Services.Get(appspace, appVersion.APIVersion),
+		status:        domain.SandboxStarting,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Location2Path: m.Location2Path,
+		Config:        m.Config,
+		Logger:        m.AppspaceLogger.Get(appspace.AppspaceID)}
 
 	err := s.Start()
 	if err != nil {
@@ -115,11 +120,11 @@ const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id             int // getter only (const), unexported
-	appVersion     *domain.AppVersion
-	appspace       *domain.Appspace
-	AppspaceLogger interface {
-		Log(domain.AppspaceID, string, string)
+	id         int // getter only (const), unexported
+	appVersion *domain.AppVersion
+	appspace   *domain.Appspace
+	Logger     interface { // this should be a more generic logger
+		Log(string, string)
 	}
 	status          domain.SandboxStatus // getter/setter, so make it unexported.
 	socketsDir      string
@@ -171,7 +176,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	if s.inspect {
 		logString += " with --inspect-brk"
 	}
-	s.appspaceLog(logString)
+	s.log(logString)
 
 	socketsDir, err := ioutil.TempDir(s.Config.Sandbox.SocketsDir, "sock")
 	if err != nil {
@@ -308,7 +313,7 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	s.cleanup()
 
-	s.appspaceLog("Sandbox terminated")
+	s.log("Sandbox terminated")
 
 	// now kill the reverse channel? Otherwise we risk killing it shile it could still provide valuable data?
 }
@@ -320,8 +325,8 @@ func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
 		n, err := rc.Read(buf)
 		if n > 0 {
 			logString := string(buf[0:n])
-			if s.AppspaceLogger != nil && s.appspace != nil {
-				go s.AppspaceLogger.Log(s.appspace.AppspaceID, logSource, logString)
+			if s.Logger != nil {
+				go s.Logger.Log(logSource, logString)
 			}
 		}
 		if err != nil {
@@ -672,11 +677,11 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	<-statusMet
 }
 
-func (s *Sandbox) appspaceLog(logString string) {
+func (s *Sandbox) log(logString string) {
 	// Maybe make that either app or appspace
 	// or somehow make it a generic log and handle the app/appspace -specific stuff otuside.
-	if s.AppspaceLogger != nil && s.appspace != nil {
-		go s.AppspaceLogger.Log(s.appspace.AppspaceID, "sandbox-"+strconv.Itoa(s.id), logString)
+	if s.Logger != nil {
+		go s.Logger.Log("sandbox-"+strconv.Itoa(s.id), logString)
 	}
 }
 

@@ -232,14 +232,14 @@ func TestStart(t *testing.T) {
 		}}
 
 	s := &Sandbox{
-		id:             7,
-		appspace:       appspace,
-		appVersion:     appVersion,
-		status:         domain.SandboxStarting,
-		Location2Path:  &l2p{app: dir, appFiles: dir},
-		Config:         cfg,
-		AppspaceLogger: log,
-		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		id:            7,
+		appspace:      appspace,
+		appVersion:    appVersion,
+		status:        domain.SandboxStarting,
+		Location2Path: &l2p{app: dir, appFiles: dir},
+		Config:        cfg,
+		Logger:        log,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -353,14 +353,14 @@ func TestExecFn(t *testing.T) {
 		}}
 
 	s := &Sandbox{
-		id:             7,
-		appspace:       appspace,
-		appVersion:     appVersion,
-		status:         domain.SandboxStarting,
-		Location2Path:  l2p,
-		Config:         cfg,
-		AppspaceLogger: log,
-		statusSub:      make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		id:            7,
+		appspace:      appspace,
+		appVersion:    appVersion,
+		status:        domain.SandboxStarting,
+		Location2Path: l2p,
+		Config:        cfg,
+		Logger:        log,
+		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -464,7 +464,7 @@ type testLogger2 struct {
 	log func(source string, message string)
 }
 
-func (l *testLogger2) Log(_ domain.AppspaceID, source string, message string) {
+func (l *testLogger2) Log(source string, message string) {
 	l.log(source, message)
 }
 

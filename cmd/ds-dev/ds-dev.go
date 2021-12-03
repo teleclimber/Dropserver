@@ -337,8 +337,8 @@ func main() {
 		MigrationJobEvents: migrationJobEvents,
 	}
 	appspaceLogTwine := &twineservices.AppspaceLogService{
-		AppspaceModel:  devAppspaceModel,
-		AppspaceLogger: appspaceLogger,
+		AppspaceModel: devAppspaceModel,
+		//AppspaceLogger: appspaceLogger,
 	}
 
 	dsDevHandler := &DropserverDevServer{
@@ -380,9 +380,9 @@ func main() {
 	}
 
 	// Open the log so that the frontend can receive existing log data:
-	err = appspaceLogger.OpenLogger(appspaceID)
-	if err != nil {
-		fmt.Println(err)
+	logger := appspaceLogger.Open(appspaceID)
+	if logger != nil {
+		fmt.Println("unable to open appsapce logger")
 	}
 
 	server.Start()

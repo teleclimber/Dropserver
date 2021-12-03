@@ -47,8 +47,8 @@ type DropserverDevServer struct {
 		GetSchema(domain.AppspaceID) (int, error)
 	} `checkinject:"required"`
 	AppspaceLogger interface {
-		EjectLogger(domain.AppspaceID)
-		OpenLogger(domain.AppspaceID) error
+		Close(domain.AppspaceID)
+		Open(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
@@ -197,7 +197,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		}
 
 		s.AppspaceDB.CloseAppspace(appspaceID)
-		s.AppspaceLogger.EjectLogger(appspaceID)
+		s.AppspaceLogger.Close(appspaceID)
 
 		m.RefSendBlock(11, []byte("Copying Files..."))
 		s.AppspaceFiles.Reset()
@@ -226,9 +226,10 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		m.SendOK()
 
 		// Reopen log after the work is complete so tahtthe frontend can get current log view.
-		err = s.AppspaceLogger.OpenLogger(appspaceID)
-		if err != nil {
-			fmt.Println(err)
+		// Is this really necessary? -> maybe, since we don't have locks on apps, need to explicitly open log?
+		logger := s.AppspaceLogger.Open(appspaceID)
+		if logger == nil {
+			fmt.Println("Unable to open appspace logger")
 		}
 	default:
 		m.SendError("service not found")

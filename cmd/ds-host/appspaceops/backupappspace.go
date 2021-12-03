@@ -36,7 +36,7 @@ type BackupAppspace struct {
 	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
-		EjectLogger(appspaceID domain.AppspaceID)
+		Close(appspaceID domain.AppspaceID)
 	} `checkinject:"required"`
 }
 
@@ -82,7 +82,7 @@ func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 
 	e.AppspaceDB.CloseAppspace(appspaceID)
 
-	e.AppspaceLogger.EjectLogger(appspaceID)
+	e.AppspaceLogger.Close(appspaceID)
 
 	return nil
 }

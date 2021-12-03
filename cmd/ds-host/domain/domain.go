@@ -590,9 +590,19 @@ type AppspaceStatusEvent struct {
 	Problem          bool       `json:"problem"` // string? To hint at the problem?
 }
 
+// LoggerI is interface for appspace and app log
+type LoggerI interface {
+	Log(source, message string)
+	SubscribeStatus() (bool, <-chan bool)
+	UnsubscribeStatus(ch <-chan bool)
+	GetLastBytes(n int64) (LogChunk, error)
+	SubscribeEntries(n int64) (LogChunk, <-chan string, error)
+	UnsubscribeEntries(ch <-chan string)
+}
+
 // AppspaceLogChunk contains a part of an appspace Log as a string
 // and the from and to bytes that this string represents in the log
-type AppspaceLogChunk struct {
+type LogChunk struct {
 	From    int64  `json:"from"`
 	To      int64  `json:"to"`
 	Content string `json:"content"`

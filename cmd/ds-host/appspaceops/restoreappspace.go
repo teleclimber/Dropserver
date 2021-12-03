@@ -49,7 +49,7 @@ type RestoreAppspace struct {
 	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
-		EjectLogger(appspaceID domain.AppspaceID)
+		Close(appspaceID domain.AppspaceID)
 	} `checkinject:"required"`
 
 	tokensMux sync.Mutex
@@ -246,7 +246,7 @@ func (r *RestoreAppspace) closeAll(appspaceID domain.AppspaceID) error {
 
 	r.AppspaceDB.CloseAppspace(appspaceID)
 
-	r.AppspaceLogger.EjectLogger(appspaceID)
+	r.AppspaceLogger.Close(appspaceID)
 
 	return nil
 }

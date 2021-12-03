@@ -59,14 +59,16 @@ func TestIntegration1(t *testing.T) {
 	appspace := &domain.Appspace{DomainName: "as1.ds.dev", AppID: domain.AppID(1), LocationKey: appspaceLoc}
 	appVersion := &domain.AppVersion{LocationKey: appLoc}
 
-	tl := &testLogger{
-		t: t}
+	logger := testmocks.NewMockLoggerI(mockCtrl)
+	logger.EXPECT().Log(gomock.Any(), gomock.Any()).AnyTimes()
+	appspaceLogger := testmocks.NewMockAppspaceLogger(mockCtrl)
+	appspaceLogger.EXPECT().Get(appspace.AppspaceID).Return(logger)
 
 	services := testmocks.NewMockVXServices(mockCtrl)
 	services.EXPECT().Get(appspace, domain.APIVersion(0))
 	sM := sandbox.Manager{
 		Services:       services,
-		AppspaceLogger: tl,
+		AppspaceLogger: appspaceLogger,
 		Location2Path:  l2p,
 		Config:         cfg}
 

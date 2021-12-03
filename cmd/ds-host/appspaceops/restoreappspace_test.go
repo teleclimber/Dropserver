@@ -63,7 +63,7 @@ func TestReplaceData(t *testing.T) {
 	appspaceDB.EXPECT().CloseAppspace(asID)
 
 	appspaceLogger := testmocks.NewMockAppspaceLogger(mockCtrl)
-	appspaceLogger.EXPECT().EjectLogger(asID)
+	appspaceLogger.EXPECT().Close(asID)
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(asID).Return(&appspace, nil)

@@ -17,7 +17,7 @@ type AppspaceLogService struct {
 	AppspaceLogger interface {
 		SubscribeStatus(appspaceID domain.AppspaceID) (bool, <-chan bool)
 		UnsubscribeStatus(appspaceID domain.AppspaceID, ch <-chan bool)
-		SubscribeEntries(appspaceID domain.AppspaceID, n int64) (domain.AppspaceLogChunk, <-chan string, error)
+		SubscribeEntries(appspaceID domain.AppspaceID, n int64) (domain.LogChunk, <-chan string, error)
 		UnsubscribeEntries(appspaceID domain.AppspaceID, ch <-chan string)
 	} `checkinject:"required"`
 
