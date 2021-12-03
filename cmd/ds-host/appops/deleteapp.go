@@ -18,6 +18,9 @@ type DeleteApp struct {
 		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
 		GetForAppVersion(appID domain.AppID, version domain.Version) ([]*domain.Appspace, error)
 	} `checkinject:"required"`
+	AppLogger interface {
+		Forget(string)
+	} `checkinject:"required"`
 }
 
 func (d *DeleteApp) Delete(appID domain.AppID) error {
@@ -34,6 +37,8 @@ func (d *DeleteApp) Delete(appID domain.AppID) error {
 		return err
 	}
 	for _, appVersion := range versions {
+		d.AppLogger.Forget(appVersion.LocationKey)
+
 		err = d.AppFilesModel.Delete(appVersion.LocationKey)
 		if err != nil {
 			return err
@@ -65,6 +70,9 @@ func (d *DeleteApp) DeleteVersion(appID domain.AppID, version domain.Version) er
 	if err != nil {
 		return err
 	}
+
+	d.AppLogger.Forget(appVersion.LocationKey)
+
 	err = d.AppFilesModel.Delete(appVersion.LocationKey)
 	if err != nil {
 		return err

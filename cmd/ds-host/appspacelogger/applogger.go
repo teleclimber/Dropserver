@@ -80,10 +80,9 @@ func (l *AppLogger) getLogger(locationKey string, open bool) (logger *Logger) { 
 
 	logger, ok := l.loggers[locationKey]
 	if !ok {
+		// should really check with AppFileModel that the location key exists.
 		logger = &Logger{
 			logPath: filepath.Join(l.Location2Path.AppMeta(locationKey), "log.txt")}
-		// logger.Init()?
-
 		l.loggers[locationKey] = logger
 	}
 
