@@ -21,10 +21,10 @@
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Review</h3>
 			</div>
-			<MessageSad v-if="appGetter.meta && appGetter.meta.errors.length" class="my-5" head="Error">
+			<MessageSad v-if="appGetter.meta && appGetter.meta.errors.length" class="mx-4 sm:mx-6 my-5 rounded" head="Error">
 				<p v-for="err in appGetter.meta.errors" :key="'meta-errors-'+err">{{err}}</p>
 			</MessageSad>
-			<MessageHappy v-else class="mx-4 my-5 rounded " head="Looks good!">
+			<MessageHappy v-else class="mx-4 sm:mx-6 my-5 rounded " head="Looks good!">
 				App checked and no errors were found.
 			</MessageHappy>
 
@@ -35,6 +35,15 @@
 					<DataDef field="App Schema">{{appGetter.meta.version_metadata.schema}}</DataDef>
 					<DataDef field="DropServer API">{{appGetter.meta.version_metadata.api_version}}</DataDef>
 				</dl>
+			</div>
+
+			<div class="my-6">
+				<div class="px-4 py-2 sm:px-6">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">App Log:</h3>
+				</div>
+				<div class="mx-6 border border-gray-200">
+					<LogViewer :live_log="live_log"></LogViewer>
+				</div>
 			</div>
 				
 			<div class="px-4 py-5 sm:px-6 flex justify-between">
@@ -47,10 +56,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, onUnmounted } from 'vue';
+import { defineComponent, ref, reactive, onUnmounted, watch } from 'vue';
 import router from '../router';
 
 import { App, AppGetter } from '../models/apps';
+import {LiveLog} from '../models/log';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import SelectFiles from '../components/ui/SelectFiles.vue';
@@ -58,6 +68,7 @@ import DataDef from '../components/ui/DataDef.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
 import MessageHappy from '../components/ui/MessageHappy.vue';
 import MessageProcessing from '../components/ui/MessageProcessing.vue';
+import LogViewer from '../components/ui/LogViewer.vue';
 
 export default defineComponent({
 	name: 'NewAppInProcess',
@@ -67,7 +78,8 @@ export default defineComponent({
 		DataDef,
 		MessageSad,
 		MessageHappy,
-		MessageProcessing
+		MessageProcessing,
+		LogViewer
 	},
 	props: {
 		app_get_key: {
@@ -78,6 +90,11 @@ export default defineComponent({
 	setup(props) {
 		const appGetter = reactive(new AppGetter);
 		appGetter.updateKey(props.app_get_key);
+
+		const live_log = reactive(new LiveLog);
+		watch( () => appGetter.done, () => {
+			if( appGetter.done ) live_log.initInProcessAppLog(props.app_get_key);
+		});
 
 		const committing = ref(false);
 
@@ -101,7 +118,8 @@ export default defineComponent({
 			appGetter,
 			committing,
 			doCommit,
-			startOver
+			startOver,
+			live_log
 		};
 	},
 });

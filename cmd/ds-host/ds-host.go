@@ -390,6 +390,7 @@ func main() {
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
 		AppspaceModel: appspaceModel,
+		AppLogger:     appLogger,
 	}
 
 	appspaceStatus := &appspacestatus.AppspaceStatus{
@@ -453,7 +454,8 @@ func main() {
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppGetter: appGetter,
 		DeleteApp: deleteApp,
-		AppModel:  appModel}
+		AppModel:  appModel,
+		AppLogger: appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUsersModelV0: appspaceUsersModelV0,

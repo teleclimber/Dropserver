@@ -50,6 +50,7 @@ type ApplicationRoutes struct {
 	AppGetter interface {
 		FromRaw(userID domain.UserID, fileData *map[string][]byte, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
+		GetLocationKey(key domain.AppGetKey) (string, bool)
 		GetLastEvent(key domain.AppGetKey) (domain.AppGetEvent, bool)
 		GetResults(domain.AppGetKey) (domain.AppGetMeta, bool)
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
@@ -65,6 +66,9 @@ type ApplicationRoutes struct {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
+	AppLogger interface {
+		Get(locationKey string) domain.LoggerI
+	} `checkinject:"required"`
 }
 
 func (a *ApplicationRoutes) subRouter() http.Handler {
@@ -77,6 +81,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
 		r.Use(a.appGetKeyCtx)
 		r.Get("/", a.getInProcess)
+		r.Get("/log", a.getInProcessLog)
 		r.Post("/", a.commitInProcess)
 		r.Delete("/", a.cancelInProcess)
 	})
@@ -308,6 +313,26 @@ func (a *ApplicationRoutes) getInProcess(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, InProcessResp{LastEvent: lastEvent, Meta: meta})
+}
+
+func (a *ApplicationRoutes) getInProcessLog(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	logger := a.AppLogger.Get(locationKey)
+	if logger == nil {
+		writeJSON(w, domain.LogChunk{})
+	}
+	chunk, err := logger.GetLastBytes(4 * 1024)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	writeJSON(w, chunk)
 }
 
 type AppCommitResp struct {

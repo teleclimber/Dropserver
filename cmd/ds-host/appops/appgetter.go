@@ -146,6 +146,11 @@ func (g *AppGetter) GetUser(key domain.AppGetKey) (domain.UserID, bool) {
 	return data.userID, ok
 }
 
+func (g *AppGetter) GetLocationKey(key domain.AppGetKey) (string, bool) {
+	data, ok := g.get(key)
+	return data.locationKey, ok
+}
+
 func (g *AppGetter) processApp(keyData appGetData) {
 	meta, err := g.validateMetaData(keyData)
 	if err != nil {
