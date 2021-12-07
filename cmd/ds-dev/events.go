@@ -2,8 +2,6 @@ package main
 
 import (
 	"sync"
-
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // PureEvent pushes data-free events to subscriber channels
@@ -48,23 +46,23 @@ func (e *PureEvent) removeSubscriber(ch chan struct{}) {
 	}
 }
 
-// AppVersionEvents notifies that a change was made to an app version
-type AppVersionEvents struct {
+// DevAppVersionEvents notifies that a change was made to an app version
+type DevAppVersionEvents struct {
 	subLock     sync.Mutex
-	subscribers []chan<- domain.AppID
+	subscribers []chan<- string
 }
 
-// Send sends an app is changed
-func (e *AppVersionEvents) Send(appID domain.AppID) {
+// Send state of app"
+func (e *DevAppVersionEvents) Send(state string) {
 	e.subLock.Lock()
 	defer e.subLock.Unlock()
 	for _, ch := range e.subscribers {
-		ch <- appID
+		ch <- state
 	}
 }
 
 // Subscribe to an event for when an app is changed
-func (e *AppVersionEvents) Subscribe(ch chan<- domain.AppID) {
+func (e *DevAppVersionEvents) Subscribe(ch chan<- string) {
 	e.subLock.Lock()
 	defer e.subLock.Unlock()
 	e.removeSubscriber(ch)
@@ -72,13 +70,13 @@ func (e *AppVersionEvents) Subscribe(ch chan<- domain.AppID) {
 }
 
 // Unsubscribe to an event for when an app is changed
-func (e *AppVersionEvents) Unsubscribe(ch chan<- domain.AppID) {
+func (e *DevAppVersionEvents) Unsubscribe(ch chan<- string) {
 	e.subLock.Lock()
 	defer e.subLock.Unlock()
 	e.removeSubscriber(ch)
 }
 
-func (e *AppVersionEvents) removeSubscriber(ch chan<- domain.AppID) {
+func (e *DevAppVersionEvents) removeSubscriber(ch chan<- string) {
 	for i, c := range e.subscribers {
 		if c == ch {
 			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]

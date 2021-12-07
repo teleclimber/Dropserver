@@ -444,12 +444,12 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		return appID, domain.Version(""), err
 	}
 
-	g.deleteKeyData(key)
+	g.DeleteKeyData(key)
 
 	return appID, version.Version, nil
 }
 
-// Delete removed the files and the key
+// Delete removes the files and the key
 func (g *AppGetter) Delete(key domain.AppGetKey) {
 	appGetData, ok := g.get(key)
 	if !ok {
@@ -466,10 +466,12 @@ func (g *AppGetter) Delete(key domain.AppGetKey) {
 		return
 	}
 
-	g.del(key)
+	g.DeleteKeyData(key)
 }
 
-func (g *AppGetter) deleteKeyData(key domain.AppGetKey) {
+// DeleteKeyData removes the data related to the key
+// but leaves files in place.
+func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 	appGetData, ok := g.del(key)
 	if !ok {
 		return

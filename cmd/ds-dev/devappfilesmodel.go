@@ -10,6 +10,10 @@ type DevAppFilesModel struct {
 	routesData []byte
 }
 
+func (a *DevAppFilesModel) Save(files *map[string][]byte) (string, error) {
+	panic("Save should never be called!")
+}
+
 // WriteRoutes keeps the data in memory instead of writing to disk
 func (a *DevAppFilesModel) WriteRoutes(locationKey string, routesData []byte) error {
 	a.routesData = routesData
@@ -19,4 +23,8 @@ func (a *DevAppFilesModel) WriteRoutes(locationKey string, routesData []byte) er
 // ReadRoutes returns the in-memory data
 func (a *DevAppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return a.routesData, nil
+}
+
+func (a *DevAppFilesModel) Delete(locationKey string) error {
+	panic("Delete should never be called!")
 }

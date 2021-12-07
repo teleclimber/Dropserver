@@ -7,11 +7,11 @@
 
 <template>
 	<div class="border-l-4 border-gray-800  my-8">
-		<h4 class="bg-gray-800 px-2 text-white inline-block">Appspace Log:</h4>
-		<span v-if="!appspaceLogData.log_open" class="ml-2 px-2 rounded-sm inline-block bg-yellow-700 text-white text-sm font-bold">Log Closed</span>
+		<h4 class="bg-gray-800 px-2 text-white inline-block">{{title}} Log:</h4>
+		<span v-if="!live_log.log_open" class="ml-2 px-2 rounded-sm inline-block bg-yellow-700 text-white text-sm font-bold">Log Closed</span>
 		<div class="overflow-y-scroll h-64 bg-gray-100" style="scroll-behavior: smooth" ref="scroll_container">
 			<div class="log-grid">
-				<template  v-for="entry in appspaceLogData.entries" :key="entry.time">
+				<template  v-for="entry in live_log.entries" :key="entry.time">
 					<span class="bg-gray-200 text-gray-800 pl-2 text-sm border-b border-gray-400">
 						{{entry.time.toLocaleString()}}
 					</span>
@@ -25,15 +25,25 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
-import appspaceLogData from '../models/appspace-log-data';
+import { defineComponent, PropType } from 'vue';
+import LiveLog from '../models/appspace-log-data';
 
 export default defineComponent({
 	name: 'AppspaceLog',
 	components: {
 	},
+	props: {
+		title: {
+			type: String,
+			required: true
+		},
+		live_log: {
+			type: Object as PropType<LiveLog>,
+			required: true
+		}
+	},
 	setup(props, context) {
-		return {appspaceLogData};
+
 	},
 	updated() {
 	 	const elem = this.$refs.scroll_container as HTMLElement;

@@ -22,7 +22,9 @@
 
 	<UserControl></UserControl>
 
-	<SandboxLog></SandboxLog>
+	<SandboxLog title="App" :live_log="appLog"></SandboxLog>
+
+	<SandboxLog title="Appspace" :live_log="appspaceLog"></SandboxLog>
 
 	<MigrationJobs></MigrationJobs>
 
@@ -33,9 +35,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, reactive, watch } from 'vue';
 import baseData from './models/base-data';
 import appspaceStatus from './models/appspace-status';
+import LiveLog from './models/appspace-log-data';
 
 import AppspaceControl from './components/AppspaceControl.vue';
 import UserControl from './components/UserControl.vue';
@@ -55,9 +58,16 @@ export default defineComponent({
 		AppRoutes,
 	},
 	setup(props, context) {
+		const appLog = <LiveLog>reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
+		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
+		
+		const appspaceLog = <LiveLog>reactive(new LiveLog);
+		appspaceLog.subscribeAppspaceLog(15);	// 15 is designated hard-coded appspace id in ds-dev.
 		return {
 			baseData,
 			appspaceStatus,
+			appLog,
+			appspaceLog,
 		};
 	}
 });

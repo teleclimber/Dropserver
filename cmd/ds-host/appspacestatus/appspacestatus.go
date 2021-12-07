@@ -94,7 +94,7 @@ type AppspaceStatus struct {
 	//AppVersionEvent for when an app version can change its schema/whatever live
 	// This is only relevant in ds-dev and can be left nil in prod.
 	AppVersionEvents interface {
-		Subscribe(chan<- domain.AppID)
+		Subscribe(chan<- string)
 	} `checkinject:"optional"`
 
 	AppspaceStatusEvents interface {
@@ -129,7 +129,7 @@ func (s *AppspaceStatus) Init() {
 	s.MigrationJobEvents.Subscribe(migrationJobsCh)
 
 	if s.AppVersionEvents != nil {
-		appVersionCh := make(chan domain.AppID)
+		appVersionCh := make(chan string)
 		go s.handleAppVersionEvent(appVersionCh)
 		s.AppVersionEvents.Subscribe(appVersionCh)
 	}
@@ -337,14 +337,18 @@ func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationJob)
 	}
 }
 
-// Since this is used in ds-dev only, we'll cheat a bit
-func (s *AppspaceStatus) handleAppVersionEvent(ch <-chan domain.AppID) {
-	for range ch {
-		s.statusMux.Lock()
-		for appspaceID, status := range s.status {
-			s.updateStatus(appspaceID, status) // reload everything
+// handleAppVersionEvent is used by ds-dev only for now.
+func (s *AppspaceStatus) handleAppVersionEvent(ch <-chan string) {
+	for state := range ch {
+		// reload state if ready
+		// Also consider having a "app unavailable" state.
+		if state == "ready" {
+			s.statusMux.Lock()
+			for appspaceID, status := range s.status {
+				s.updateStatus(appspaceID, status) // reload everything
+			}
+			s.statusMux.Unlock()
 		}
-		s.statusMux.Unlock()
 	}
 }
 

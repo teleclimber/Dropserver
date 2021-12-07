@@ -87,13 +87,6 @@ class AppRoutesData {
 		m.sendOK();
 	}
 
-	async reloadRoutes() {
-		const reply = await twineClient.twine.sendBlock(appRoutesService, loadRoutes, undefined);
-		if( reply.error ) {
-			throw reply.error;
-		}
-	}
-
 }
 
 const appRoutesData = reactive(new AppRoutesData());

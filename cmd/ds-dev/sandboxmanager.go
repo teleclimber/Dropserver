@@ -18,7 +18,7 @@ type DevSandboxManager struct {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
 	AppVersionEvents interface {
-		Subscribe(chan<- domain.AppID)
+		Subscribe(chan<- string)
 	} `checkinject:"required"`
 	Location2Path interface {
 		AppMeta(string) string
@@ -36,11 +36,13 @@ func (sM *DevSandboxManager) Init() {
 	if err != nil {
 		panic(err)
 	}
-	appVersionEvent := make(chan domain.AppID)
+	appVersionEvent := make(chan string)
 	sM.AppVersionEvents.Subscribe(appVersionEvent) // this should probably come from app watcher
 	go func() {
-		for range appVersionEvent {
-			go sM.StopAppspace(appspaceID)
+		for e := range appVersionEvent {
+			if e == "loading" {
+				go sM.StopAppspace(appspaceID)
+			}
 		}
 	}()
 }
@@ -138,7 +140,7 @@ func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI
 	s := sandbox.NewSandbox(sandboxID, appVersion, nil, nil, m.Config)
 	sandboxID++
 	s.Location2Path = m.Location2Path
-	s.Logger = m.AppspaceLogger.Get(appspaceID)
+	s.Logger = m.AppLogger.Get("")
 	s.SetInspect(m.inspect)
 
 	err := s.Start()

@@ -13,8 +13,8 @@ type AppMetaService struct {
 		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
 	} `checkinject:"required"`
 	AppVersionEvents interface {
-		Subscribe(chan<- domain.AppID)
-		Unsubscribe(chan<- domain.AppID)
+		Subscribe(chan<- string)
+		Unsubscribe(chan<- string)
 	} `checkinject:"required"`
 }
 
@@ -23,14 +23,13 @@ func (s *AppMetaService) HandleMessage(m twine.ReceivedMessageI) {
 }
 
 func (s *AppMetaService) Start(t *twine.Twine) {
-	appVersionEvent := make(chan domain.AppID)
+	appVersionEvent := make(chan string)
 	s.AppVersionEvents.Subscribe(appVersionEvent)
 	go func() {
 		for range appVersionEvent {
 			go s.sendAppData(t)
 		}
 	}()
-	// push initial app data:
 	s.sendAppData(t)
 
 	t.WaitClose()

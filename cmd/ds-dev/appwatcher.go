@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -19,22 +20,32 @@ var ignorePaths = []string{
 
 // DevAppWatcher reloads the app files as needed and sends events
 type DevAppWatcher struct {
-	AppFilesModel interface {
-		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
+	AppGetter interface {
+		Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error)
+		SubscribeKey(key domain.AppGetKey) (domain.AppGetEvent, <-chan domain.AppGetEvent)
+		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
+		DeleteKeyData(key domain.AppGetKey)
 	} `checkinject:"required"`
 	DevAppModel      *DevAppModel      `checkinject:"required"`
 	DevAppspaceModel *DevAppspaceModel `checkinject:"required"`
 	AppVersionEvents interface {
-		Send(domain.AppID)
+		Send(string)
 	} `checkinject:"required"`
 
 	watcher     *fsnotify.Watcher
 	ignorePaths []string
+
+	runMux  sync.Mutex
+	running bool
+
+	dirtyMux sync.Mutex
+	dirty    bool
+	timer    *time.Timer
 }
 
 // Start loads the appfiles and launches file watching
 func (w *DevAppWatcher) Start(appPath string) {
-	w.load()
+	go w.reprocessAppFiles()
 
 	w.ignorePaths = make([]string, len(ignorePaths))
 	for i, p := range ignorePaths {
@@ -43,35 +54,76 @@ func (w *DevAppWatcher) Start(appPath string) {
 
 	go w.watch(appPath)
 }
-func (w *DevAppWatcher) load() {
-	appFilesMeta, err := w.AppFilesModel.ReadMeta("")
+func (w *DevAppWatcher) reprocessAppFiles() { // This should probably be handled by app getter?
+	ok := w.setRunning()
+	if !ok {
+		w.resetTimer()
+		return // can't run now, already running.
+	}
+
+	w.setClean()
+
+	w.AppVersionEvents.Send("loading")
+
+	appGetKey, err := w.AppGetter.Reprocess(ownerID, appID, "")
 	if err != nil {
 		panic(err)
+	}
+
+	lastEvent, appGetCh := w.AppGetter.SubscribeKey(appGetKey)
+	if lastEvent.Done || appGetCh == nil {
+		w.reloadMetadata(appGetKey)
+		return
+	}
+
+	// subscribe and wait
+	reloading := false
+	for e := range appGetCh {
+		if !reloading && e.Done {
+			reloading = true
+			go w.reloadMetadata(appGetKey)
+		}
+	}
+}
+
+func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
+	defer w.unsetRunning()
+
+	results, ok := w.AppGetter.GetResults(appGetKey)
+	if !ok {
+		// not sure what to do there...
+		panic("no results from appGetter")
+	}
+
+	w.AppGetter.DeleteKeyData(appGetKey)
+
+	if len(results.Errors) > 0 {
+		w.AppVersionEvents.Send("error")
+		return
 	}
 
 	w.DevAppModel.App = domain.App{
 		OwnerID: ownerID,
 		AppID:   appID,
 		Created: time.Now(),
-		Name:    appFilesMeta.AppName}
+		Name:    results.VersionMetadata.AppName}
 
 	w.DevAppModel.Ver = domain.AppVersion{
 		AppID:       appID,
-		AppName:     appFilesMeta.AppName,
-		Version:     appFilesMeta.AppVersion,
-		Schema:      appFilesMeta.SchemaVersion,
+		AppName:     results.VersionMetadata.AppName,
+		Version:     results.VersionMetadata.AppVersion,
+		Schema:      results.VersionMetadata.SchemaVersion,
 		Created:     time.Now(),
 		LocationKey: ""}
 
 	// Need to update appspace so that the app version is reflected
-	w.DevAppspaceModel.Appspace.AppVersion = appFilesMeta.AppVersion
+	w.DevAppspaceModel.Appspace.AppVersion = results.VersionMetadata.AppVersion
 
-	w.AppVersionEvents.Send(appID)
+	w.AppVersionEvents.Send("ready")
 }
 
 func (w *DevAppWatcher) filesChanged() {
-	// TODO really need to throttle this function call!
-	w.load()
+	w.setDirty()
 }
 
 func (w *DevAppWatcher) watch(appPath string) {
@@ -155,4 +207,51 @@ func (w *DevAppWatcher) ignorePath(p string) bool {
 		}
 	}
 	return false
+}
+
+func (w *DevAppWatcher) setDirty() {
+	w.dirtyMux.Lock()
+	w.dirty = true
+	if w.timer == nil {
+		w.timer = time.AfterFunc(100*time.Millisecond, w.reprocessAppFiles)
+	} else {
+		w.timer.Reset(100 * time.Millisecond)
+	}
+	w.dirtyMux.Unlock()
+}
+
+func (w *DevAppWatcher) resetTimer() {
+	w.dirtyMux.Lock()
+	if w.timer == nil {
+		w.timer = time.AfterFunc(100*time.Millisecond, w.reprocessAppFiles)
+	} else {
+		w.timer.Reset(100 * time.Millisecond)
+	}
+	w.dirtyMux.Unlock()
+}
+
+func (w *DevAppWatcher) setClean() {
+	w.dirtyMux.Lock()
+	w.dirty = false
+	w.timer = nil
+	w.dirtyMux.Unlock()
+}
+
+func (w *DevAppWatcher) setRunning() bool {
+	w.runMux.Lock()
+	defer w.runMux.Unlock()
+	if w.running {
+		return false
+	}
+	w.running = true
+	return true
+}
+
+func (w *DevAppWatcher) unsetRunning() {
+	w.runMux.Lock()
+	defer w.runMux.Unlock()
+	if !w.running {
+		panic("unsetting running while not running. Seems wrong.")
+	}
+	w.running = false
 }

@@ -75,6 +75,33 @@ func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*d
 	return nil, sql.ErrNoRows
 }
 
+func (m *DevAppModel) Create(_ domain.UserID, _ string) (*domain.App, error) {
+	panic("Did not expect to use Create")
+}
+
+func (m *DevAppModel) CreateVersion(_ domain.AppID, _ domain.Version, _ int, _ domain.APIVersion, _ string) (*domain.AppVersion, error) {
+	panic("Did not expect to use CreateVersion")
+}
+
+// GetVersionsForAppis a dummy to satisfy the appGetter interface.
+// There are never multiple version of an app in ds-dev.
+func (m *DevAppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, error) {
+	return make([]*domain.AppVersion, 0), nil
+}
+
+// DevSingleAppModel returns the sam app and app version regardless of what is requested
+// This is primarily to enable logs for app
+type DevSingleAppModel struct{}
+
+func (m *DevSingleAppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
+	return &domain.App{
+		OwnerID: ownerID,
+	}, nil
+}
+func (m *DevSingleAppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
+	return &domain.AppVersion{}, nil
+}
+
 // DevAppspaceModel can return an appspace struct as needed
 type DevAppspaceModel struct {
 	AsPausedEvent interface {

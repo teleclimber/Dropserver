@@ -3,22 +3,27 @@ package twineservices
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/twine-go/twine"
 )
 
-// MigrationJobService offers subscription to appspace status by appspace id
+// MigrationJobService offers subscription to app or appspace logs
 type AppspaceLogService struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
+	AppModel interface {
+		GetFromID(appID domain.AppID) (*domain.App, error)
+		GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error)
+	} `checkinject:"required"`
 	AppspaceLogger interface {
-		SubscribeStatus(appspaceID domain.AppspaceID) (bool, <-chan bool)
-		UnsubscribeStatus(appspaceID domain.AppspaceID, ch <-chan bool)
-		SubscribeEntries(appspaceID domain.AppspaceID, n int64) (domain.LogChunk, <-chan string, error)
-		UnsubscribeEntries(appspaceID domain.AppspaceID, ch <-chan string)
+		Get(appspaceID domain.AppspaceID) domain.LoggerI
+	} `checkinject:"required"`
+	AppLogger interface {
+		Get(string) domain.LoggerI
 	} `checkinject:"required"`
 
 	authUser domain.UserID
@@ -30,127 +35,75 @@ func (s *AppspaceLogService) Start(authUser domain.UserID, t *twine.Twine) {
 }
 
 // incoming commands:
-const logStatusSubscribeCmd = 11
-const tailSubscribeCmd = 12
+const subscribeAppspaceLogCmd = 11
+const subscribeAppLogCmd = 12
+
+// outgoing commands, ref to 11:
+const statusSubCmd = 11
+const chunkSubCmd = 12
+const entrysubCmd = 13
+
+// incoming sub commands to 11
+const unsubscribeLogCmd = 13
 
 //HandleMessage handles incoming twine message
 func (s *AppspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
-	case logStatusSubscribeCmd:
-		s.handleSubscribeStatus(m)
-	case tailSubscribeCmd:
-		s.handleTailSubscribe(m)
+	case subscribeAppspaceLogCmd:
+		s.handleSubscribeAppspace(m)
+	case subscribeAppLogCmd:
+		s.handleSubscribeApp(m)
 	default:
 		m.SendError("command not recognized")
 	}
 }
 
+// After status and entries. Proposed:
 // Top incoming for service:
-// - 11> subscribe log status
+// - 11> subscribe log
 //   - <11 status
-//   - 13> unsbuscribe
-// - 12> get chunk and subscribe to entries
-//   - <11 chunk
-//   - <12 entry
+//   - <12 chunk
+//   - <13 entry
+//   - 12> [get chunk from/to]
+//     [reply under this message to keep separate from initial chunk]
 //   - 13> unsubscribe
 
-func (s *AppspaceLogService) handleSubscribeStatus(m twine.ReceivedMessageI) {
+// To improve consistency move entries below chunk.
+// Guarantees that an entry received is relative to the initial chunk sent.
+// - 11> subscribe log
+//   - <11 status
+//   - <12 chunk
+//      - <13 entry
+//   - 12> [get chunk from/to]
+//     [reply under this message to keep separate from initial chunk]
+//   - 13> unsubscribe
+
+func (s *AppspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	appspace, err := s.getMessageAppspace(m)
 	if err != nil {
 		return
 	}
 
-	logOpen, statusCh := s.AppspaceLogger.SubscribeStatus(appspace.AppspaceID)
-	go func() {
-		for status := range statusCh {
-			s.sendStatus(m, status)
-		}
-	}()
-	s.sendStatus(m, logOpen)
+	logger := s.AppspaceLogger.Get(appspace.AppspaceID)
 
-	go func() {
-		rxChan := m.GetRefRequestsChan()
-		for rxM := range rxChan {
-			switch rxM.CommandID() {
-			case 13:
-				s.AppspaceLogger.UnsubscribeStatus(appspace.AppspaceID, statusCh)
-				rxM.SendOK()
-				m.SendOK()
-			default:
-				m.SendError("command not recognized")
-			}
-		}
-	}()
+	ls := logService{
+		m:      m,
+		logger: logger}
+	ls.start()
 }
 
-func (s *AppspaceLogService) sendStatus(m twine.ReceivedMessageI, status bool) {
-	p := []byte("\x00")
-	if status {
-		p = []byte("\xff")
-	}
-	sent, err := m.RefSend(11, p)
-	if err != nil {
-		// log it?
-		return
-	}
-	go sent.WaitReply() // we don't want this to block. This is where I'd use twine SendForget
-}
-
-func (s *AppspaceLogService) handleTailSubscribe(m twine.ReceivedMessageI) {
-	appspace, err := s.getMessageAppspace(m)
+func (s *AppspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
+	appVersion, err := s.getMessageApp(m)
 	if err != nil {
 		return
 	}
 
-	chunk, entriesCh, err := s.AppspaceLogger.SubscribeEntries(appspace.AppspaceID, 4*1024)
-	if err != nil {
-		m.SendError("got error on SubscribeEntries")
-		return
-	}
+	logger := s.AppLogger.Get(appVersion.LocationKey)
 
-	go func() {
-		for entry := range entriesCh {
-			sent, err := m.RefSend(12, []byte(entry))
-			if err != nil {
-				s.getLogger("handleTailSubscribe m.RefSend Error").Error(err)
-			}
-			go func(snt twine.SentMessageI) {
-				r, err := snt.WaitReply()
-				if err != nil {
-					s.getLogger("handleTailSubscribe snt.WaitReply Error").Error(err)
-				}
-				err = r.Error()
-				if err != nil {
-					s.getLogger("handleTailSubscribe r.Error Error").Error(err)
-				}
-			}(sent)
-		}
-	}()
-	go func() {
-		rxChan := m.GetRefRequestsChan()
-		for rxM := range rxChan {
-			switch rxM.CommandID() {
-			case 13:
-				s.AppspaceLogger.UnsubscribeEntries(appspace.AppspaceID, entriesCh)
-				rxM.SendOK()
-				m.SendOK()
-			default:
-				m.SendError("command not recognized")
-			}
-		}
-	}()
-
-	bytes, err := json.Marshal(chunk)
-	if err != nil {
-		s.getLogger("handleTailSubscribe json Marshal Error").Error(err)
-		m.SendError("Failed to marhsal JSON")
-		return
-	}
-	_, err = m.RefSendBlock(11, bytes)
-	if err != nil {
-		s.getLogger("handleTailSubscribe RefSendBlock Error").Error(err)
-		m.SendError("internal error")
-	}
+	ls := logService{
+		m:      m,
+		logger: logger}
+	ls.start()
 }
 
 func (s *AppspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
@@ -173,8 +126,159 @@ func (s *AppspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domai
 	return *appspace, nil
 }
 
-func (s *AppspaceLogService) getLogger(note string) *record.DsLogger {
-	l := record.NewDsLogger().AddNote("AppspaceLogService")
+type IncomingSubscribeApp struct {
+	AppID   domain.AppID   `json:"app_id"`
+	Version domain.Version `json:"version"`
+}
+
+func (s *AppspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.AppVersion, error) {
+	var incoming IncomingSubscribeApp
+	err := json.Unmarshal(m.Payload(), &incoming)
+	if err != nil {
+		m.SendError(err.Error())
+		return domain.AppVersion{}, err
+	}
+
+	app, err := s.AppModel.GetFromID(incoming.AppID)
+	if err != nil {
+		m.SendError(err.Error())
+		return domain.AppVersion{}, err
+	}
+	if app.OwnerID != s.authUser {
+		m.SendError("forbidden")
+		return domain.AppVersion{}, errors.New("forbidder")
+	}
+
+	appVersion, err := s.AppModel.GetVersion(incoming.AppID, incoming.Version)
+	if err != nil {
+		m.SendError(err.Error())
+		return domain.AppVersion{}, err
+	}
+
+	return *appVersion, nil
+}
+
+type logService struct {
+	m      twine.ReceivedMessageI
+	logger domain.LoggerI
+
+	entriesMux sync.Mutex
+	entriesCh  <-chan string
+}
+
+func (s *logService) start() {
+	logOpen, statusCh := s.logger.SubscribeStatus()
+	go func() {
+		for status := range statusCh { //goroutine stuck here after tab close
+			// HERE if status is open, then resend initial chunk.
+			if status {
+				s.sendInitialChunk()
+			}
+			s.sendStatus(status)
+		}
+	}()
+	s.sendStatus(logOpen)
+
+	s.sendInitialChunk()
+
+	go func() {
+		rxChan := s.m.GetRefRequestsChan()
+		for rxM := range rxChan { //goroutine stuck here after tab close
+			switch rxM.CommandID() {
+			case unsubscribeLogCmd:
+				s.logger.UnsubscribeStatus(statusCh)
+				s.handleUnsubscribe(rxM)
+
+			default:
+				rxM.SendError("command not recognized")
+			}
+		}
+	}()
+
+	// TODO need to find a way to shut this down cleanly after twine or message closes or something.
+	// go func() {
+	// 	s.m.
+	// }
+}
+func (s *logService) handleUnsubscribe(rxM twine.ReceivedMessageI) {
+	s.entriesMux.Lock()
+	defer s.entriesMux.Unlock()
+	if s.entriesCh != nil {
+		s.logger.UnsubscribeEntries(s.entriesCh)
+	}
+
+	rxM.SendOK()
+	s.m.SendOK()
+}
+
+func (s *logService) sendStatus(status bool) {
+	p := []byte("\x00")
+	if status {
+		p = []byte("\xff")
+	}
+	sent, err := s.m.RefSend(statusSubCmd, p)
+	if err != nil {
+		// log it?
+		return
+	}
+	go sent.WaitReply() // we don't want this to block. This is where I'd use twine SendForget
+}
+
+func (s *logService) sendInitialChunk() {
+	// unsubscribe if there is a entries chan
+	s.entriesMux.Lock()
+	defer s.entriesMux.Unlock()
+
+	if s.entriesCh != nil {
+		s.logger.UnsubscribeEntries(s.entriesCh)
+		s.entriesCh = nil
+	}
+
+	chunk, entriesCh, err := s.logger.SubscribeEntries(4 * 1024)
+	if err != nil {
+		s.m.SendError("got error on SubscribeEntries")
+		return
+	}
+	s.entriesCh = entriesCh
+
+	bytes, err := json.Marshal(chunk)
+	if err != nil {
+		s.getLogger("sendInitialChunk json Marshal Error").Error(err)
+		s.m.SendError("Failed to marhsal JSON")
+		return
+	}
+	_, err = s.m.RefSendBlock(chunkSubCmd, bytes)
+	if err != nil {
+		s.getLogger("sendInitialChunk RefSendBlock Error").Error(err)
+		s.m.SendError("internal error")
+	}
+
+	go func() {
+		for entry := range entriesCh { //goroutine stuck here after tab close
+			s.sendEntry(entry)
+		}
+	}()
+}
+
+func (s *logService) sendEntry(entry string) {
+	sent, err := s.m.RefSend(entrysubCmd, []byte(entry))
+	if err != nil {
+		s.getLogger("sendEntry m.RefSend Error").Error(err)
+	}
+	go func(snt twine.SentMessageI) {
+		r, err := snt.WaitReply()
+		if err != nil {
+			s.getLogger("sendEntry snt.WaitReply Error").Error(err)
+		}
+		err = r.Error()
+		if err != nil {
+			s.getLogger("sendEntry r.Error Error").Error(err)
+		}
+	}(sent)
+}
+
+func (s *logService) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("logService")
 	if note != "" {
 		l.AddNote(note)
 	}

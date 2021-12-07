@@ -43,7 +43,7 @@
 		</button>
 
 		<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 mr-4 rounded" :class="{'bg-red-500': ui_inspect_sandbox}" @click.stop.prevent="toggleInspect">
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{'text-red-800':!ui_inspect_sandbox, 'text-white': ui_inspect_sandbox}" viewBox="0 0 20 20" fill="currentColor">
+			<svg xmlns="http://www.w3.org/2000/svg" class="inline h-5 w-5" :class="{'text-red-800':!ui_inspect_sandbox, 'text-white': ui_inspect_sandbox}" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
 			</svg>
 			Inspect
@@ -75,12 +75,6 @@
 			{{importAndMigrate.cur_state}}
 		</button>
 
-		<button class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 rounded" type="submit" @click.stop.prevent="appRoutesData.reloadRoutes">
-			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-				<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
-			</svg>
-			Routes
-		</button>
 	</div>
 </template>
 
@@ -89,7 +83,6 @@ import { defineComponent, reactive, ref, computed, watch, watchEffect } from 'vu
 import baseData, { pauseAppspace, runMigration, ImportAndMigrate } from '../models/base-data';
 import appspaceStatus from '../models/appspace-status';
 import sandboxControl from '../models/sandbox-control';
-import appRoutesData from '../models/app-routes';
 
 export default defineComponent({
 	name: 'AppspaceControl',
@@ -143,7 +136,6 @@ export default defineComponent({
 			togglePause, toggleInspect, runMigrationClicked,
 			stopSandbox,
 			importAndMigrate,
-			appRoutesData
 		};
 	}
 });

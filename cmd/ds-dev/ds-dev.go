@@ -113,7 +113,7 @@ func main() {
 	}
 
 	// dev-only events:
-	appVersionEvents := &AppVersionEvents{}
+	appVersionEvents := &DevAppVersionEvents{}
 	inspectSandboxEvents := &InspectSandboxEvents{}
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
@@ -137,6 +137,7 @@ func main() {
 	}
 
 	devAppModel := &DevAppModel{}
+	devSingleAppModel := &DevSingleAppModel{}
 
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
@@ -149,19 +150,27 @@ func main() {
 		Config:        runtimeConfig,
 	}
 
+	appLogger := &appspacelogger.AppLogger{
+		Location2Path: location2path,
+	}
+	appLogger.Init()
+
 	appGetter := &appops.AppGetter{
-		V0AppRoutes: v0AppRoutes,
+		AppFilesModel: devAppFilesModel,
+		AppModel:      devAppModel,
+		V0AppRoutes:   v0AppRoutes,
+		AppLogger:     appLogger,
 		//SandboxMaker: ,	// added below
 	}
+	appGetter.Init()
 
 	appRoutesService := &AppRoutesService{
 		AppFilesModel:    devAppFilesModel,
-		AppGetter:        appGetter,
 		AppVersionEvents: appVersionEvents,
 	}
 
 	devAppWatcher := &DevAppWatcher{
-		AppFilesModel:    devAppFilesModel,
+		AppGetter:        appGetter,
 		DevAppModel:      devAppModel,
 		DevAppspaceModel: devAppspaceModel,
 		AppVersionEvents: appVersionEvents,
@@ -296,6 +305,7 @@ func main() {
 
 	devSandboxMaker := &DevSandboxMaker{
 		AppspaceLogger: appspaceLogger,
+		AppLogger:      appLogger,
 		Services:       services,
 		Location2Path:  location2path,
 		Config:         runtimeConfig}
@@ -337,8 +347,10 @@ func main() {
 		MigrationJobEvents: migrationJobEvents,
 	}
 	appspaceLogTwine := &twineservices.AppspaceLogService{
-		AppspaceModel: devAppspaceModel,
-		//AppspaceLogger: appspaceLogger,
+		AppspaceModel:  devAppspaceModel,
+		AppModel:       devSingleAppModel,
+		AppspaceLogger: appspaceLogger,
+		AppLogger:      appLogger,
 	}
 
 	dsDevHandler := &DropserverDevServer{
