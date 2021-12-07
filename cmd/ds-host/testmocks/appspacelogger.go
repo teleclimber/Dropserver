@@ -2,7 +2,7 @@ package testmocks
 
 import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
 
-//go:generate mockgen -destination=appspacelogger_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks LoggerI,AppspaceLogger
+//go:generate mockgen -destination=appspacelogger_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks LoggerI,AppLogger,AppspaceLogger
 
 type LoggerI interface {
 	Log(source, message string)
@@ -13,7 +13,13 @@ type LoggerI interface {
 	UnsubscribeEntries(ch <-chan string)
 }
 
-// Add AppLogger
+type AppLogger interface {
+	Log(locationKey string, source, message string)
+	Get(locationKey string) domain.LoggerI
+	Open(locationKey string) domain.LoggerI
+	Close(locationKey string)
+	Forget(locationKey string)
+}
 
 type AppspaceLogger interface {
 	Log(appspaceID domain.AppspaceID, source, message string)
