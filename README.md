@@ -57,7 +57,7 @@ Having said that, here are some extensions that are helpful when working on this
 
 # Installing and Running
 
-## *Warning: Dropserver is very new **full of security holes** right now!*
+## *Warning: Dropserver is very new and **probably has security holes** right now!*
 
 Obtain the latest release from the [Releases](https://github.com/teleclimber/Dropserver/releases) page and unzip.
 
@@ -77,10 +77,9 @@ If you don't specify an appspace it will create a blank one for you in a tempora
 
 You can access the UI at http://localhost:3003/dropserver-dev/
 
-*Note: `ds-dev` is a little tricky to use right now, sorry. Some tips:*
+*Note: `ds-dev` is not obvious to use right now, sorry. Some tips:*
 
-- Load http://localhost:3003/dropserver-dev/ once after launching `ds-dev` and **do not reload it**.
-- Click "Refresh Routes". It will take a moment then it will display the app's routes at the bottom of the page.
+- Load http://localhost:3003/dropserver-dev/ after launching `ds-dev`.
 - You can access the appspace at http://localhost:3003/ in a separate tab
 - Add a user and click in the space to the left of the avatar to make them the active user. Now when you reload the appspace you will be logged in as that user and can access private routes.
 
