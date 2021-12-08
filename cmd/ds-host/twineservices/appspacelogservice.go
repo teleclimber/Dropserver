@@ -231,7 +231,8 @@ func (s *logService) sendStatus(status bool) {
 	}
 	sent, err := s.m.RefSend(statusSubCmd, p)
 	if err != nil {
-		// log it?
+		s.getLogger("sendStatus RefSendBlock Error").Error(err)
+		s.m.SendError("internal error")
 		return
 	}
 	go sent.WaitReply() // we don't want this to block. This is where I'd use twine SendForget
@@ -249,7 +250,7 @@ func (s *logService) sendInitialChunk() {
 
 	chunk, entriesCh, err := s.logger.SubscribeEntries(4 * 1024)
 	if err != nil {
-		s.m.SendError("got error on SubscribeEntries")
+		// maybe log is closed, but if we send error, this closes the message, so quiet.
 		return
 	}
 	s.entriesCh = entriesCh
@@ -262,7 +263,7 @@ func (s *logService) sendInitialChunk() {
 	}
 	_, err = s.m.RefSendBlock(chunkSubCmd, bytes)
 	if err != nil {
-		s.getLogger("sendInitialChunk RefSendBlock Error").Error(err)
+		s.getLogger("sendInitialChunk RefSendBlock Error").Error(err) // Error here: msg ID not found
 		s.m.SendError("internal error")
 	}
 
@@ -287,6 +288,7 @@ func (s *logService) sendEntry(entry string) {
 	sent, err := s.m.RefSend(entrysubCmd, []byte(entry))
 	if err != nil {
 		s.getLogger("sendEntry m.RefSend Error").Error(err)
+		return
 	}
 	go func(snt twine.SentMessageI) {
 		r, err := snt.WaitReply()

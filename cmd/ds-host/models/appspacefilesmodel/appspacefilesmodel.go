@@ -91,6 +91,8 @@ func (a *AppspaceFilesModel) DeleteLocation(loc string) error {
 	return nil
 }
 
+// CreateDirs creates an appspace directory structure
+// and also creates the files necessary for a new appspace
 func (a *AppspaceFilesModel) CreateDirs(base string) error {
 	err := os.MkdirAll(filepath.Join(base, "backups"), 0766)
 	if err != nil {
@@ -109,6 +111,15 @@ func (a *AppspaceFilesModel) CreateDirs(base string) error {
 		a.getLogger("CreateDirs(), os.Mkdirall for logs").Error(err)
 		return err
 	}
+
+	// let's also create an empty log file to prevent log errors:
+	logFile := filepath.Join(base, "data", "logs", "log.txt")
+	file, err := os.Create(logFile)
+	if err != nil {
+		a.getLogger("CreateDirs(), os.Create(logFile)").Error(err)
+		return err
+	}
+	file.Close()
 
 	err = os.MkdirAll(filepath.Join(base, "data", "dbs"), 0766)
 	if err != nil {

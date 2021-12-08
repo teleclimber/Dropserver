@@ -70,9 +70,11 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 	if routeEvent.Credentials.ProxyID != "" {
 		user, err := s.AppspaceUsersModelV0.Get(appspaceID, routeEvent.Credentials.ProxyID)
 		if err != nil {
-			panic(err)
+			// very possible the user is no loger in DB if appspace data was changed externally (re-imported for ex)
+			fmt.Println("sendRouteEvent s.AppspaceUsersModelV0.Get() Error: " + err.Error())
+		} else {
+			send.User = &user
 		}
-		send.User = &user
 	}
 
 	bytes, err := json.Marshal(send)

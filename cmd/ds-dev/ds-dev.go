@@ -391,12 +391,6 @@ func main() {
 		depGraph.CheckMissing()
 	}
 
-	// Open the log so that the frontend can receive existing log data:
-	logger := appspaceLogger.Open(appspaceID)
-	if logger != nil {
-		fmt.Println("unable to open appsapce logger")
-	}
-
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
 

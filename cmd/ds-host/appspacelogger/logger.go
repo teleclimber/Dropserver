@@ -102,6 +102,10 @@ func (l *Logger) SubscribeEntries(n int64) (domain.LogChunk, <-chan string, erro
 	l.logMux.Lock()
 	defer l.logMux.Unlock()
 
+	if l.fd == nil {
+		return domain.LogChunk{}, nil, errors.New("Log is closed")
+	}
+
 	chunk, err := getChunk(l.fd, -n, 0)
 	if err != nil {
 		l.getHostLogger("SubscribeEntries getChunk()").Error(err)
