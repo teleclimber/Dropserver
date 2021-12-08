@@ -73,7 +73,7 @@ type DropserverDevServer struct {
 
 	// Services:
 	MigrationJobService domain.TwineService2 `checkinject:"required"`
-	AppspaceLogService  domain.TwineService  `checkinject:"required"`
+	AppspaceLogService  domain.TwineService2 `checkinject:"required"`
 
 	appPath      string
 	appspacePath string
@@ -112,7 +112,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go s.RouteHitService.Start(t)
 
 	migrationJobTwine := s.MigrationJobService.Start(ownerID, t)
-	go s.AppspaceLogService.Start(ownerID, t)
+	appspaceLogTwine := s.AppspaceLogService.Start(ownerID, t)
 
 	// need to receive messages too
 	go func() {
@@ -127,7 +127,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 			case migrationJobService:
 				go migrationJobTwine.HandleMessage(m)
 			case appspaceLogService:
-				go s.AppspaceLogService.HandleMessage(m)
+				go appspaceLogTwine.HandleMessage(m)
 			case appRoutesService:
 				go s.AppRoutesService.HandleMessage(m)
 			default:

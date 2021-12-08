@@ -25,13 +25,22 @@ type AppspaceLogService struct {
 	AppLogger interface {
 		Get(string) domain.LoggerI
 	} `checkinject:"required"`
-
-	authUser domain.UserID
 }
 
 // Start creates listeners and then shuts everything down when twine exits
-func (s *AppspaceLogService) Start(authUser domain.UserID, t *twine.Twine) {
-	s.authUser = authUser
+func (s *AppspaceLogService) Start(authUser domain.UserID, t *twine.Twine) domain.TwineServiceI {
+	asl := &appspaceLogService{
+		AppspaceLogService: s,
+		twine:              t,
+		authUser:           authUser}
+	return asl
+}
+
+type appspaceLogService struct {
+	*AppspaceLogService
+
+	twine    *twine.Twine
+	authUser domain.UserID
 }
 
 // incoming commands:
@@ -47,7 +56,7 @@ const entrysubCmd = 13
 const unsubscribeLogCmd = 13
 
 //HandleMessage handles incoming twine message
-func (s *AppspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
+func (s *appspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case subscribeAppspaceLogCmd:
 		s.handleSubscribeAppspace(m)
@@ -78,7 +87,7 @@ func (s *AppspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
 //     [reply under this message to keep separate from initial chunk]
 //   - 13> unsubscribe
 
-func (s *AppspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
+func (s *appspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	appspace, err := s.getMessageAppspace(m)
 	if err != nil {
 		return
@@ -87,12 +96,13 @@ func (s *AppspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	logger := s.AppspaceLogger.Get(appspace.AppspaceID)
 
 	ls := logService{
+		twine:  s.twine,
 		m:      m,
 		logger: logger}
 	ls.start()
 }
 
-func (s *AppspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
+func (s *appspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
 	appVersion, err := s.getMessageApp(m)
 	if err != nil {
 		return
@@ -101,12 +111,13 @@ func (s *AppspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
 	logger := s.AppLogger.Get(appVersion.LocationKey)
 
 	ls := logService{
+		twine:  s.twine,
 		m:      m,
 		logger: logger}
 	ls.start()
 }
 
-func (s *AppspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
+func (s *appspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
 	var incoming IncomingSubscribeAppspace // reused from MigrationService
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
@@ -131,7 +142,7 @@ type IncomingSubscribeApp struct {
 	Version domain.Version `json:"version"`
 }
 
-func (s *AppspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.AppVersion, error) {
+func (s *appspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.AppVersion, error) {
 	var incoming IncomingSubscribeApp
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
@@ -159,6 +170,7 @@ func (s *AppspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.App
 }
 
 type logService struct {
+	twine  *twine.Twine
 	m      twine.ReceivedMessageI
 	logger domain.LoggerI
 
@@ -195,16 +207,17 @@ func (s *logService) start() {
 		}
 	}()
 
-	// TODO need to find a way to shut this down cleanly after twine or message closes or something.
-	// go func() {
-	// 	s.m.
-	// }
+	go func() {
+		s.twine.WaitClose()
+		s.logger.UnsubscribeStatus(statusCh)
+	}()
 }
 func (s *logService) handleUnsubscribe(rxM twine.ReceivedMessageI) {
 	s.entriesMux.Lock()
 	defer s.entriesMux.Unlock()
 	if s.entriesCh != nil {
 		s.logger.UnsubscribeEntries(s.entriesCh)
+		s.entriesCh = nil
 	}
 
 	rxM.SendOK()
@@ -256,6 +269,16 @@ func (s *logService) sendInitialChunk() {
 	go func() {
 		for entry := range entriesCh { //goroutine stuck here after tab close
 			s.sendEntry(entry)
+		}
+	}()
+
+	go func() {
+		s.twine.WaitClose()
+		s.entriesMux.Lock()
+		defer s.entriesMux.Unlock()
+		if s.entriesCh != nil {
+			s.logger.UnsubscribeEntries(s.entriesCh)
+			s.entriesCh = nil
 		}
 	}()
 }
