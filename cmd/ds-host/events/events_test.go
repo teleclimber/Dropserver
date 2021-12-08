@@ -103,11 +103,10 @@ func TestMultiSubscribeAsStatus(t *testing.T) {
 func TestMigrationJobAppspace(t *testing.T) {
 	appspaceID1 := domain.AppspaceID(7)
 	appspaceID2 := domain.AppspaceID(11)
-	c := make(chan domain.MigrationJob)
 
 	e := &MigrationJobEvents{}
 
-	e.SubscribeAppspace(appspaceID1, c)
+	c := e.SubscribeAppspace(appspaceID1)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -126,7 +125,6 @@ func TestMigrationJobAppspace(t *testing.T) {
 	wg.Wait()
 
 	e.Unsubscribe(c)
-	close(c)
 
 	if len(e.appspaceSubscribers[appspaceID1]) != 0 {
 		t.Error("unsubscribe did not work")

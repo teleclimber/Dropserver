@@ -72,8 +72,8 @@ type DropserverDevServer struct {
 	RouteHitService       twineService `checkinject:"required"`
 
 	// Services:
-	MigrationJobService domain.TwineService `checkinject:"required"`
-	AppspaceLogService  domain.TwineService `checkinject:"required"`
+	MigrationJobService domain.TwineService2 `checkinject:"required"`
+	AppspaceLogService  domain.TwineService  `checkinject:"required"`
 
 	appPath      string
 	appspacePath string
@@ -111,7 +111,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 	go s.UserService.Start(t)
 	go s.RouteHitService.Start(t)
 
-	go s.MigrationJobService.Start(ownerID, t)
+	migrationJobTwine := s.MigrationJobService.Start(ownerID, t)
 	go s.AppspaceLogService.Start(ownerID, t)
 
 	// need to receive messages too
@@ -125,7 +125,7 @@ func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.R
 			case userControlService:
 				go s.UserService.HandleMessage(m)
 			case migrationJobService:
-				go s.MigrationJobService.HandleMessage(m)
+				go migrationJobTwine.HandleMessage(m)
 			case appspaceLogService:
 				go s.AppspaceLogService.HandleMessage(m)
 			case appRoutesService:

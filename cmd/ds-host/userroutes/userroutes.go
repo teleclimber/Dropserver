@@ -51,19 +51,19 @@ type UserRoutes struct {
 	Views interface {
 		GetStaticFS() fs.FS
 	} `checkinject:"required"`
-	AuthRoutes           routeGroup          `checkinject:"required"`
-	AppspaceLoginRoutes  routeGroup          `checkinject:"required"`
-	ApplicationRoutes    subRoutes           `checkinject:"required"`
-	AppspaceRoutes       subRoutes           `checkinject:"required"`
-	RemoteAppspaceRoutes subRoutes           `checkinject:"required"`
-	ContactRoutes        subRoutes           `checkinject:"required"`
-	DomainRoutes         subRoutes           `checkinject:"required"`
-	DropIDRoutes         subRoutes           `checkinject:"required"`
-	MigrationJobRoutes   subRoutes           `checkinject:"required"`
-	AdminRoutes          subRoutes           `checkinject:"required"`
-	AppspaceStatusTwine  domain.TwineService `checkinject:"required"`
-	MigrationJobTwine    domain.TwineService `checkinject:"required"`
-	AppGetterTwine       domain.TwineService `checkinject:"required"`
+	AuthRoutes           routeGroup           `checkinject:"required"`
+	AppspaceLoginRoutes  routeGroup           `checkinject:"required"`
+	ApplicationRoutes    subRoutes            `checkinject:"required"`
+	AppspaceRoutes       subRoutes            `checkinject:"required"`
+	RemoteAppspaceRoutes subRoutes            `checkinject:"required"`
+	ContactRoutes        subRoutes            `checkinject:"required"`
+	DomainRoutes         subRoutes            `checkinject:"required"`
+	DropIDRoutes         subRoutes            `checkinject:"required"`
+	MigrationJobRoutes   subRoutes            `checkinject:"required"`
+	AdminRoutes          subRoutes            `checkinject:"required"`
+	AppspaceStatusTwine  domain.TwineService  `checkinject:"required"`
+	MigrationJobTwine    domain.TwineService2 `checkinject:"required"`
+	AppGetterTwine       domain.TwineService  `checkinject:"required"`
 	UserModel            interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdatePassword(userID domain.UserID, password string) error
@@ -305,7 +305,7 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go u.AppspaceStatusTwine.Start(authUserID, t)
-	go u.MigrationJobTwine.Start(authUserID, t)
+	migrationJobTwine := u.MigrationJobTwine.Start(authUserID, t)
 	go u.AppGetterTwine.Start(authUserID, t)
 
 	go func() {
@@ -314,7 +314,7 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 			case appspaceStatusService:
 				go u.AppspaceStatusTwine.HandleMessage(m)
 			case migrationJobService:
-				go u.MigrationJobTwine.HandleMessage(m)
+				go migrationJobTwine.HandleMessage(m)
 			case appGetterService:
 				go u.AppGetterTwine.HandleMessage(m)
 			default:

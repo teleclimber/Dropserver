@@ -17,18 +17,26 @@ type MigrationJobService struct {
 		GetRunning() ([]domain.MigrationJob, error)
 	} `checkinject:"required"`
 	MigrationJobEvents interface {
-		SubscribeAppspace(domain.AppspaceID, chan<- domain.MigrationJob)
-		Unsubscribe(chan<- domain.MigrationJob)
+		SubscribeAppspace(domain.AppspaceID) <-chan domain.MigrationJob
+		Unsubscribe(<-chan domain.MigrationJob)
 	} `checkinject:"required"`
-
-	authUser domain.UserID
 }
 
 // Start creates listeners and then shuts everything down when twine exits
-func (s *MigrationJobService) Start(authUser domain.UserID, t *twine.Twine) {
-	// does nothing.
-	// I think all messages are supposed to auto-close on twine close, so there should be no residual activity
-	s.authUser = authUser
+func (s *MigrationJobService) Start(authUser domain.UserID, t *twine.Twine) domain.TwineServiceI {
+	mjs := migrationJobService{
+		MigrationJobService: s,
+		authUser:            authUser,
+		twine:               t,
+	}
+	return &mjs
+}
+
+type migrationJobService struct {
+	*MigrationJobService
+
+	authUser domain.UserID
+	twine    *twine.Twine
 }
 
 const subscribeMigration = 11
@@ -36,10 +44,10 @@ const subscribeAppspaceMigration = 12
 const unsubscribeMigration = 13
 
 //HandleMessage handles incoming twine message
-func (s *MigrationJobService) HandleMessage(m twine.ReceivedMessageI) {
+func (s *migrationJobService) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case subscribeAppspaceMigration:
-		s.handleSubscribeAppspace(m)
+		go s.handleSubscribeAppspace(m)
 	default:
 		m.SendError("command not recognized")
 	}
@@ -50,7 +58,7 @@ type IncomingSubscribeAppspace struct {
 	AppspaceID domain.AppspaceID `json:"appspace_id"`
 }
 
-func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
+func (s *migrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	var incoming IncomingSubscribeAppspace
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
@@ -58,8 +66,6 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 		return
 	}
 
-	// TODO first need to verify the appsace is owned by the authenticated user
-	// do we just need to load it from appspace model?
 	appspace, err := s.AppspaceModel.GetFromID(incoming.AppspaceID)
 	if err != nil {
 		m.SendError(err.Error())
@@ -71,8 +77,7 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 	}
 
 	// First subscribe
-	migrationJobChan := make(chan domain.MigrationJob)
-	s.MigrationJobEvents.SubscribeAppspace(incoming.AppspaceID, migrationJobChan)
+	migrationJobChan := s.MigrationJobEvents.SubscribeAppspace(incoming.AppspaceID)
 	go func() {
 		for statusEvent := range migrationJobChan {
 			go s.sendMigrationJob(m, statusEvent)
@@ -99,7 +104,6 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 			switch rxM.CommandID() {
 			case unsubscribeMigration:
 				s.MigrationJobEvents.Unsubscribe(migrationJobChan)
-				close(migrationJobChan)
 				rxM.SendOK()
 				m.SendOK()
 			default:
@@ -108,10 +112,13 @@ func (s *MigrationJobService) handleSubscribeAppspace(m twine.ReceivedMessageI) 
 		}
 	}()
 
+	s.twine.WaitClose()
+
+	s.MigrationJobEvents.Unsubscribe(migrationJobChan)
 }
 
 // see appspacestatustwine which uses a same pattern wrt Twine
-func (s *MigrationJobService) sendMigrationJob(m twine.ReceivedMessageI, migrationJob domain.MigrationJob) {
+func (s *migrationJobService) sendMigrationJob(m twine.ReceivedMessageI, migrationJob domain.MigrationJob) {
 	bytes, err := json.Marshal(migrationJob)
 	if err != nil {
 		s.getLogger("sendMigrationJob json Marshal Error").Error(err)

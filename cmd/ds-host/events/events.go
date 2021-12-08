@@ -1,6 +1,7 @@
 package events
 
 import (
+	"sync"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -43,16 +44,17 @@ func (e *AppspacePausedEvents) removeSubscriber(ch chan<- domain.AppspacePausedE
 /////////////////////////////////////////
 // migration job events
 
-// TODO: might need to make this per-appspace so frontend can track migrations as they happen?
-
 //MigrationJobEvents forwards events related to migration jobs
 type MigrationJobEvents struct {
-	subscribers         []chan<- domain.MigrationJob
-	appspaceSubscribers map[domain.AppspaceID][]chan<- domain.MigrationJob
+	subsMux             sync.Mutex
+	subscribers         []chan domain.MigrationJob
+	appspaceSubscribers map[domain.AppspaceID][]chan domain.MigrationJob
 }
 
 // Send sends an appspace status event
 func (e *MigrationJobEvents) Send(event domain.MigrationJob) {
+	e.subsMux.Lock()
+	defer e.subsMux.Unlock()
 	for _, ch := range e.subscribers {
 		ch <- event
 	}
@@ -68,30 +70,40 @@ func (e *MigrationJobEvents) Send(event domain.MigrationJob) {
 }
 
 // Subscribe to an event to know when the status of a migration has changed
-func (e *MigrationJobEvents) Subscribe(ch chan<- domain.MigrationJob) {
-	e.removeSubscriber(ch)
+func (e *MigrationJobEvents) Subscribe() <-chan domain.MigrationJob {
+	e.subsMux.Lock()
+	defer e.subsMux.Unlock()
+	ch := make(chan domain.MigrationJob)
 	e.subscribers = append(e.subscribers, ch)
+	return ch
 }
 
 // SubscribeAppspace to an event to know when the status of a migration for an appspace has changed
-func (e *MigrationJobEvents) SubscribeAppspace(appspaceID domain.AppspaceID, ch chan<- domain.MigrationJob) {
-	e.removeSubscriber(ch)
+func (e *MigrationJobEvents) SubscribeAppspace(appspaceID domain.AppspaceID) <-chan domain.MigrationJob {
+	e.subsMux.Lock()
+	defer e.subsMux.Unlock()
+	ch := make(chan domain.MigrationJob)
 	if e.appspaceSubscribers == nil {
-		e.appspaceSubscribers = make(map[domain.AppspaceID][]chan<- domain.MigrationJob)
+		e.appspaceSubscribers = make(map[domain.AppspaceID][]chan domain.MigrationJob)
 	}
 	e.appspaceSubscribers[appspaceID] = append(e.appspaceSubscribers[appspaceID], ch)
+	return ch
 }
 
 // Unsubscribe to the event
-func (e *MigrationJobEvents) Unsubscribe(ch chan<- domain.MigrationJob) {
+func (e *MigrationJobEvents) Unsubscribe(ch <-chan domain.MigrationJob) {
+	e.subsMux.Lock()
+	defer e.subsMux.Unlock()
 	e.removeSubscriber(ch)
 }
 
-func (e *MigrationJobEvents) removeSubscriber(ch chan<- domain.MigrationJob) {
+func (e *MigrationJobEvents) removeSubscriber(ch <-chan domain.MigrationJob) {
 	for i, c := range e.subscribers {
 		if c == ch {
 			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
 			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+			close(c)
+			return
 		}
 	}
 	if e.appspaceSubscribers == nil {
@@ -102,6 +114,8 @@ func (e *MigrationJobEvents) removeSubscriber(ch chan<- domain.MigrationJob) {
 			if c == ch {
 				e.appspaceSubscribers[appspaceID][i] = e.appspaceSubscribers[appspaceID][len(subs)-1]
 				e.appspaceSubscribers[appspaceID] = e.appspaceSubscribers[appspaceID][:len(subs)-1]
+				close(c)
+				return
 			}
 		}
 	}

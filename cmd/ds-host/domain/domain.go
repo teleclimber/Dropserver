@@ -565,6 +565,16 @@ type TwineService interface {
 	HandleMessage(twine.ReceivedMessageI)
 }
 
+// TwineService2 returns a TwineServiceI on start
+type TwineService2 interface {
+	Start(UserID, *twine.Twine) TwineServiceI
+}
+
+// TwineServiceI handles incoming messages for a twine connection
+type TwineServiceI interface {
+	HandleMessage(twine.ReceivedMessageI)
+}
+
 // Events...
 
 //AppspacePausedEvent is the payload for appspace paused event

@@ -88,7 +88,7 @@ type AppspaceStatus struct {
 		UnsubscribeLiveCount(domain.AppspaceID, chan<- int)
 	} `checkinject:"required"`
 	MigrationJobEvents interface {
-		Subscribe(chan<- domain.MigrationJob)
+		Subscribe() <-chan domain.MigrationJob
 	} `checkinject:"required"`
 
 	//AppVersionEvent for when an app version can change its schema/whatever live
@@ -124,9 +124,8 @@ func (s *AppspaceStatus) Init() {
 	go s.handleAppspaceFiles(asFilesCh)
 	s.AppspaceFilesEvents.Subscribe(asFilesCh)
 
-	migrationJobsCh := make(chan domain.MigrationJob)
+	migrationJobsCh := s.MigrationJobEvents.Subscribe()
 	go s.handleMigrationJobUpdate(migrationJobsCh)
-	s.MigrationJobEvents.Subscribe(migrationJobsCh)
 
 	if s.AppVersionEvents != nil {
 		appVersionCh := make(chan string)
