@@ -118,12 +118,10 @@ const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id         int // getter only (const), unexported
-	appVersion *domain.AppVersion
-	appspace   *domain.Appspace
-	Logger     interface { // this should be a more generic logger
-		Log(string, string)
-	}
+	id              int
+	appVersion      *domain.AppVersion
+	appspace        *domain.Appspace
+	Logger          interface{ Log(string, string) }
 	status          domain.SandboxStatus // getter/setter, so make it unexported.
 	socketsDir      string
 	cmd             *exec.Cmd
@@ -215,12 +213,19 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	if s.inspect {
 		denoArgs = append(denoArgs, "--inspect-brk")
 	}
+
+	readFiles, readWriteFiles := s.populateFilePerms()
+	if len(readFiles) == 0 || len(readWriteFiles) == 0 {
+		// "--allow-read=" could be interpreted by Deno as allowing all reads!
+		panic("sandbox readFiles or readWriteFiles are empty")
+	}
+
 	runArgs := []string{
 		"--importmap=" + s.getImportPathFile(),
-		"--allow-read",  // TODO app dir and appspace dir, and sockets
-		"--allow-write", // TODO appspace dir, sockets
-		"--allow-net",   // TODO needed to import remote modules until Deno gives me more options
-		filepath.Join(s.Config.Exec.SandboxCodePath, "ds-sandbox-runner.ts"), // TODO This should be versioned according to Dropserver API version
+		"--allow-read=" + strings.Join(append(readFiles, readWriteFiles...), ","),
+		"--allow-write=" + strings.Join(readWriteFiles, ","),
+		"--allow-net", // TODO needed to import remote modules until Deno gives me more options
+		filepath.Join(s.Config.Exec.SandboxCodePath, "ds-sandbox-runner.ts"), // This should be versioned according to Dropserver API version
 		s.socketsDir,
 		s.getAppFilesPath(), // while we have an import-map, these are stil needed to read files without importing
 		appspacePath,
@@ -307,7 +312,6 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	s.SetStatus(domain.SandboxDead)
 	// -> it may have crashed.
-	// TODO ..should probably call regular shutdown procdure to clean everything up.
 
 	s.cleanup()
 
@@ -543,7 +547,7 @@ func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 	sent, err := s.twine.Send(executeService, execFnCommand, payload)
 	if err != nil {
 		s.getLogger("ExecFn(), s.twine.Send()").Error(err)
-		return errors.New("Error sending to sandbox")
+		return errors.New("error sending to sandbox")
 	}
 
 	// maybe receive interim progress messages?
@@ -748,6 +752,30 @@ func (s *Sandbox) writeImportMap() error {
 	return nil
 }
 
+func (s *Sandbox) populateFilePerms() (readFiles, readWriteFiles []string) {
+	// sandbox runner and socket:
+	readWriteFiles = append(readWriteFiles, s.socketsDir)
+	readFiles = append(readFiles, s.Config.Exec.SandboxCodePath)
+
+	// read app files:
+	readFiles = append(readFiles, s.Location2Path.AppFiles(s.appVersion.LocationKey))
+
+	if s.appspace == nil {
+		return
+	}
+
+	// readonly avatars dir:
+	readFiles = append(readFiles, filepath.Join(s.getAppspaceDataPath(), "avatars"))
+
+	// read-write appspace files:
+	readWriteFiles = append(readWriteFiles, filepath.Join(s.getAppspaceFilesPath()))
+
+	// TODO probably need to process / quote / check / escape these strings for problems?
+
+	return
+}
+
+// this should be taken care of by location2path
 func (s *Sandbox) getAppFilesPath() string {
 	return s.Location2Path.AppFiles(s.appVersion.LocationKey)
 }
