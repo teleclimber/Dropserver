@@ -32,7 +32,7 @@
 				</div>
 			</div>
 			<div class="px-4 py-5 sm:px-6 ">
-				<div v-for="domain in domains.domains">
+				<div v-for="domain in domains.domains" :key="'domain-'+domain.domain_name">
 					{{domain.domain_name}}
 				</div>
 			</div>
@@ -48,8 +48,8 @@
 				</div>
 			</div>
 			<div class="px-4 py-5 sm:px-6 ">
-				<DropIDFull v-for="d in dropids.dropids" :key="d.handle+'@@'+d.domain" :dropid="d"></DropIDFull>
-				<MessageSad v-if="dropids.loaded && dropids.length === 0" head="No DropIDs">Create a DropID to interact with other people's DropServers.</MessageSad>
+				<DropIDFull v-for="d in dropids.dropids" :key="d.handle+'@@'+d.domain_name" :dropid="d"></DropIDFull>
+				<MessageSad v-if="dropids.loaded && dropids.dropids.length === 0" head="No DropIDs">Create a DropID to interact with other people's DropServers.</MessageSad>
 			</div>
 		</div>
 	</ViewWrap>

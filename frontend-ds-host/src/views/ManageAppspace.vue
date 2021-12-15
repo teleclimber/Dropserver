@@ -111,7 +111,7 @@ export default defineComponent({
 		const appspace = reactive( new Appspace );
 		const app_version = ref(new AppVersion);
 
-		const status = reactive(new AppspaceStatus);
+		const status = <AppspaceStatus>reactive(new AppspaceStatus);
 		
 		const display_link = ref("https://...loading...");
 		const enter_link = ref("");
