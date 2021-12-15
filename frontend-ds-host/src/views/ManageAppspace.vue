@@ -58,6 +58,18 @@
 
 			<ManageAppspaceUsers :app="app" :appspace="appspace"></ManageAppspaceUsers>
 
+			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Logs</h3>
+					<div class="flex items-baseline">
+						<!-- log ctl.. -->
+					</div>
+				</div>
+				<div class="px-2 ">
+					<LogViewer :live_log="appspaceLog"></LogViewer>
+				</div>
+			</div>
+
 			<ManageBackups :appspace_id="appspace.id"></ManageBackups>
 
 			<DeleteAppspace :appspace="appspace"></DeleteAppspace>
@@ -75,6 +87,7 @@ import { defineComponent, ref, reactive, computed, onMounted, onUnmounted } from
 import { Appspace } from '../models/appspaces';
 import { App } from '../models/apps';
 import { AppVersion, AppVersionCollector } from '../models/app_versions';
+import { LiveLog } from '../models/log';
 import {setTitle} from '../controllers/nav';
 
 import { AppspaceStatus } from '../twine-services/appspace_status';
@@ -86,6 +99,7 @@ import ManageAppspaceUsers from '../components/ManageAppspaceUsers.vue';
 import ManageBackups from '../components/appspace/ManageBackups.vue';
 import DeleteAppspace from '../components/appspace/DeleteAppspace.vue';
 import DataDef from '../components/ui/DataDef.vue';
+import LogViewer from '../components/ui/LogViewer.vue';
 
 // Manage appspace is going to grow to include all kinds of things:
 // - Chagne Domain -> dedicated UI page
@@ -104,7 +118,8 @@ export default defineComponent({
 		ManageAppspaceUsers,
 		ManageBackups,
 		DeleteAppspace,
-		DataDef
+		DataDef,
+		LogViewer
 	},
 	setup() {
 		const route = useRoute();
@@ -115,6 +130,8 @@ export default defineComponent({
 		
 		const display_link = ref("https://...loading...");
 		const enter_link = ref("");
+
+		const appspaceLog = <LiveLog>reactive(new LiveLog);
 
 		const app = reactive(new App); 
 		const show_all_versions = ref(false);
@@ -127,6 +144,8 @@ export default defineComponent({
 
 		onMounted( async () => {
 			const appspace_id = Number(route.params.id);
+			appspaceLog.initAppspaceLog(appspace_id);
+
 			await appspace.fetch(appspace_id);
 
 			const protocol = appspace.no_tls ? 'http' : 'https';
@@ -163,6 +182,7 @@ export default defineComponent({
 			app,
 			pause,
 			pausing,
+			appspaceLog
 		};
 	}
 });

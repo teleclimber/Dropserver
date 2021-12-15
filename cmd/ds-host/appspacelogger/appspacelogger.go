@@ -43,7 +43,6 @@ func (l *AppspaceLogger) Get(appspaceID domain.AppspaceID) domain.LoggerI {
 }
 
 // Open the log file and return the logger at locationKey
-// I wonder if this one is actually necessary?
 func (l *AppspaceLogger) Open(appspaceID domain.AppspaceID) domain.LoggerI {
 	return l.getLogger(appspaceID, true)
 }

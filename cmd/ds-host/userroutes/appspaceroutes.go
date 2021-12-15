@@ -50,6 +50,9 @@ type AppspaceRoutes struct {
 	DeleteAppspace interface {
 		Delete(domain.Appspace) error
 	} `checkinject:"required"`
+	AppspaceLogger interface {
+		Open(appspaceID domain.AppspaceID) domain.LoggerI
+	} `checkinject:"required"`
 	AppspaceUsersModelV0 interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 	} `checkinject:"required"`
@@ -84,6 +87,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Use(a.appspaceCtx)
 		r.Get("/", a.getAppspace)
 		r.Delete("/", a.deleteAppspace)
+		r.Get("/log", a.getLog)
 		r.Post("/pause", a.changeAppspacePause)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
@@ -372,6 +376,20 @@ func (a *AppspaceRoutes) deleteAppspace(w http.ResponseWriter, r *http.Request) 
 		returnError(w, err)
 		return
 	}
+}
+
+func (a *AppspaceRoutes) getLog(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	logger := a.AppspaceLogger.Open(appspace.AppspaceID)
+	if logger == nil {
+		writeJSON(w, domain.LogChunk{})
+	}
+	chunk, err := logger.GetLastBytes(4 * 1024)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	writeJSON(w, chunk)
 }
 
 func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {

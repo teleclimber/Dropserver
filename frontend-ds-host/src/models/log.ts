@@ -39,4 +39,20 @@ export class LiveLog {
 		this.loaded = true;
 	}
 
+	async initAppspaceLog(appspaceID :number) {
+		let resp :AxiosResponse|undefined;
+		try {
+			resp = await ax.get('/api/appspace/'+appspaceID+'/log');
+		}
+		catch(error: any | AxiosError) {
+			throw error;
+		}
+		if( resp?.data === undefined ) return;
+
+		const log_chunk = <LogChunk>resp.data;
+		this.from = log_chunk.from;
+		this.to = log_chunk.to;
+		this.content = log_chunk.content;
+		this.loaded = true;
+	}
 }

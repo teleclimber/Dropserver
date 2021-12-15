@@ -485,6 +485,7 @@ func main() {
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
 		DeleteAppspace:         deleteAppspace,
+		AppspaceLogger:         appspaceLogger,
 		AppModel:               appModel}
 
 	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{
