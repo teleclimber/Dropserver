@@ -1,12 +1,6 @@
-// Consider the possibility that host will push data to a service
-// that is not instantiated yet?
-// How would that work? Can it even work?
-
-// Well it kind of has. Example: cron.
-// - receive message saying run function x at file y
-
 import Twine from "./twine.ts";
-import Metadata from "./ds-metadata.ts";
+import MigrationService from './ds-migrate-service.ts';
+import DsAppService from './ds-app-service.ts';
 import DsRouteServer from "./ds-route-server.ts";
 
 import type {ReceivedMessageI} from './twine.ts';
@@ -16,13 +10,25 @@ const executeService = 12;
 const migrateService = 13;
 const appService = 14;
 
-export class DsServices {
+export default class DsServices {
 	private twine:Twine|undefined;
+	private server :DsRouteServer|undefined;
+	private migrationService :MigrationService|undefined;
+	private appService :DsAppService|undefined;
 	constructor() {}
 
-	async initTwine() {
+	setServer(server:DsRouteServer) {
+		this.server = server;
+	}
+	setMigrationService(migrationService:MigrationService) {
+		this.migrationService = migrationService;
+	}
+	setAppService(appService:DsAppService) {
+		this.appService = appService;
+	}
+	async initTwine(sockPath:string) {
 		if(this.twine !== undefined) throw new Error("Twine already initiated");
-		this.twine = new Twine(Metadata.rev_sock_path, false);
+		this.twine = new Twine(sockPath, false);
 		await this.twine.startClient();
 
 		// then need to listen for incoming messages
@@ -40,12 +46,13 @@ export class DsServices {
 					exec_mod.handleMessage(message);
 					break;
 				case appService:
-					const app_service_mod = await import("./ds-app-service.ts");
-					app_service_mod.handleMessage(message);
+					console.log("got appService Message");
+					if( this.appService === undefined) message.sendError("appService not present");
+					else this.appService.handleMessage(message);
 					break;
 				case migrateService:
-					const migrate_mod = await import('./ds-migrate-service.ts');
-					migrate_mod.handleMessage(message);
+					if( this.migrationService === undefined ) message.sendError("migrationService not present");
+					else this.migrationService.handleMessage(message);
 					break
 			
 				default:
@@ -63,21 +70,15 @@ export class DsServices {
 			case 13:	// graceful shutdown
 				try {
 					// All we need to do is stop the route server, and the script will exit. I think.
-					await DsRouteServer.stopServer();
+					if( this.server !== undefined ) await this.server.stopServer();
 				}
 				catch(e) {
 					m.sendError(e);
 				}
 				m.sendOK();
+				break;
 			default:
 				m.sendError("What is this command? "+m.command);
 		}
 	}
 }
-
-const sym = Symbol.for("DropServer DsServices class singleton");
-const w = <{[sym]?:DsServices}>window;
-if(w[sym] === undefined) w[sym] = new DsServices;
-
-export default w[sym] as DsServices;
-

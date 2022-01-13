@@ -32,7 +32,7 @@
 				<dl class="border border-gray-200 rounded divide-y divide-gray-200">
 					<DataDef field="App Name">{{appGetter.meta.version_metadata.name}}</DataDef>
 					<DataDef field="Version">{{appGetter.meta.version_metadata.version}}</DataDef>
-					<DataDef field="App Schema">{{appGetter.meta.version_metadata.schema}}</DataDef>
+					<DataDef field="App Schema">{{appGetter.meta.schema}}</DataDef>
 					<DataDef field="DropServer API">{{appGetter.meta.version_metadata.api_version}}</DataDef>
 				</dl>
 			</div>
@@ -181,7 +181,7 @@ export default defineComponent({
 				const resp = appGetter.meta;
 				const uv = {
 					version: m.version,
-					schema:m.schema,
+					schema:resp.schema,
 					api_version: m.api_version,
 					is_uploaded: true,
 					created_dt: new Date

@@ -1,6 +1,6 @@
 import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import Twine from "./twine.ts";
-import Metadata from "./ds-metadata.ts";
+import DsServices from './ds-services.ts';
 
 Deno.test({
 	name: "execute default function",
@@ -16,18 +16,11 @@ Deno.test({
 
 		const twine_sock = path.join(dir, "rev.sock");
 
-		const orig_rev_sock_path = Metadata.rev_sock_path;
-		Metadata.rev_sock_path = twine_sock;
-
 		const twine_server = new Twine(twine_sock, true);
 		const server_p = twine_server.startServer();
 
-		const services_module = await import("./ds-services.ts");	// import after stubbing
-		const DsServices = services_module.default;
-
-		//@ts-ignore
-		DsServices.twine = undefined;	// have to reset because it errors if you try to init twine twice.
-		DsServices.initTwine();
+		const dsServices = new DsServices();
+		dsServices.initTwine(twine_sock);
 
 		await server_p;
 
@@ -40,7 +33,5 @@ Deno.test({
 		}
 
 		await twine_server.graceful();
-
-		Metadata.rev_sock_path = orig_rev_sock_path;
 	}
 });

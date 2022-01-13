@@ -8,8 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -111,24 +109,6 @@ func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, 
 		return nil, err
 	}
 
-	// Other metadata:
-	// in application.json: app name, author, ...
-	// overall: num files, total size of all files
-	// migrations: migration levels available, or at least the latest one
-
-	// Migration level:
-	mInts, err := a.getMigrationDirs(locationKey)
-	if err != nil {
-		return nil, err
-	}
-	meta.Migrations = mInts
-
-	if len(mInts) == 0 {
-		meta.SchemaVersion = 0
-	} else {
-		meta.SchemaVersion = mInts[len(mInts)-1]
-	}
-
 	return meta, nil
 }
 
@@ -151,6 +131,28 @@ func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	}
 	return routesData, nil
 }
+
+func (a *AppFilesModel) WriteMigrations(locationKey string, routesData []byte) error {
+	migrationsFile := filepath.Join(a.Location2Path.AppMeta(locationKey), "migrations.json")
+	err := ioutil.WriteFile(migrationsFile, routesData, 0666) // TODO: correct permissions?
+	if err != nil {
+		a.getLogger(fmt.Sprintf("WriteMigrations(), location key: %v", locationKey)).Error(err)
+		return err
+	}
+	return nil
+}
+
+func (a *AppFilesModel) ReadMigrations(locationKey string) ([]byte, error) {
+	migrationsFile := filepath.Join(a.Location2Path.AppMeta(locationKey), "migrations.json")
+	migrationsData, err := ioutil.ReadFile(migrationsFile)
+	if err != nil {
+		a.getLogger(fmt.Sprintf("ReadMigrations(), location key: %v", locationKey)).Error(err)
+		return nil, err
+	}
+	return migrationsData, nil
+}
+
+// should we have the equivalent for reading and writing migrations?
 
 // Delete removes the files from the system
 func (a *AppFilesModel) Delete(locationKey string) error {
@@ -183,44 +185,6 @@ func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, error) {
 	}
 
 	return &meta, nil
-}
-
-func (a *AppFilesModel) getMigrationDirs(locationKey string) (ret []int, err error) {
-	mPath := filepath.Join(a.Location2Path.AppFiles(locationKey), "migrations")
-
-	mDir, err := os.Open(mPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return
-		}
-		return
-	}
-
-	list, err := mDir.Readdir(-1)
-	if err != nil {
-		return
-	}
-
-	for _, f := range list {
-		if !f.IsDir() {
-			continue
-		}
-
-		dirInt, err := strconv.Atoi(filepath.Base(f.Name()))
-		if err != nil {
-			continue
-		}
-
-		if dirInt == 0 { // first legit number is 1 (the 0 state is "not yet installed")
-			continue
-		}
-
-		ret = append(ret, dirInt)
-	}
-
-	sort.Ints(ret)
-
-	return
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {

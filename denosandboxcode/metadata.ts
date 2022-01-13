@@ -1,9 +1,9 @@
 import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 
-export class MetadataClass {
+export class Metadata {
 	sock_path:string;
 	app_path:string;
-	appspace_path:string; // need avatars too
+	appspace_path:string;
 	avatars_path:string;
 	rev_sock_path:string;
 
@@ -21,12 +21,5 @@ function arg2string(i:number) :string{
 	if( !s ) s = "";
 	return s;
 }
-
-
-
-const sym = Symbol.for("DropServer Metadata class singleton");
-const w = <{[sym]?:MetadataClass}>window;
-if(w[sym] === undefined) w[sym] = new MetadataClass;
-const Metadata = <MetadataClass>w[sym];
 
 export default Metadata;

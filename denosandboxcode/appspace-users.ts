@@ -1,25 +1,22 @@
-import DsServices from "./ds-services.ts";
-import type Twine from "./twine.ts";
+import DsServices from './ds-services.ts';
 
 const service = 16;
 
 const getUserCmd     = 12;
 const getAllUsersCmd = 13;
 
-type User = {
-	proxy_id: string,
+export type User = {
+	proxyId: string,
 	permissions: string[],
-	display_name: string
+	displayName: string
 }
 
-class Users {
-	private twine: Twine;
-	constructor() {
-		this.twine = DsServices.getTwine();
-	}
+export default class Users {
+	constructor(private services:DsServices) {}
 
-	async getUser(proxy_id: string) :Promise<User> {
-		const reply = await this.twine.sendBlock(service, getUserCmd, new TextEncoder().encode(proxy_id));
+	async get(proxyId: string) :Promise<User> {
+		const twine = this.services.getTwine();
+		const reply = await twine.sendBlock(service, getUserCmd, new TextEncoder().encode(proxyId));
 		if(reply.error) {
 			console.error("Failed to get user: "+reply.error);
 			throw new Error(reply.error);
@@ -32,8 +29,9 @@ class Users {
 		return user;
 	}
 
-	async getAllUsers() :Promise<User[]> {
-		const reply = await this.twine.sendBlock(service, getAllUsersCmd, undefined);
+	async getAll() :Promise<User[]> {
+		const twine = this.services.getTwine();
+		const reply = await twine.sendBlock(service, getAllUsersCmd, undefined);
 		if(reply.error) {
 			console.error("Failed to get users: "+reply.error);
 			throw new Error(reply.error);
@@ -46,10 +44,3 @@ class Users {
 		return users;
 	}
 }
-
-
-const sym = Symbol.for("DropServer Users class singleton");
-const w = <{[sym]?:Users}>window;
-if(w[sym] === undefined) w[sym] = new Users;
-
-export default w[sym] as Users;

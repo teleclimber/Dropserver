@@ -29,9 +29,9 @@ type twineService interface {
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	DevAppModel   *DevAppModel `checkinject:"required"`
-	AppFilesModel interface {
-		ReadMeta(locationKey string) (*domain.AppFilesMetadata, error)
+	DevAppModel *DevAppModel `checkinject:"required"`
+	AppGetter   interface {
+		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
 	AppspaceFiles interface {
 		Reset()
@@ -202,22 +202,10 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		m.RefSendBlock(11, []byte("Copying Files..."))
 		s.AppspaceFiles.Reset()
 
-		// run migration to latest
-		//  First get highest migration level
-		appFilesMeta, err := s.AppFilesModel.ReadMeta("")
-		if err != nil {
-			panic(err)
-		}
-		schema := 0
-		if len(appFilesMeta.Migrations) > 0 {
-			ms := appFilesMeta.Migrations
-			schema = ms[len(ms)-1]
-		}
-
 		close(tempPauseCh) // close here so migration system can obtain a pause
 
 		m.RefSendBlock(11, []byte("Migrating..."))
-		err = s.migrate(schema)
+		err = s.migrate(s.DevAppModel.Ver.Schema) // migrate the appspace to the app's schema.
 		if err != nil && err != errNoMigrationNeeded {
 			m.SendError("error migrating: " + err.Error())
 			return

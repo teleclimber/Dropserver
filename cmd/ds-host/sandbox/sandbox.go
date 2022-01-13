@@ -113,7 +113,6 @@ const sandboxService = 11
 
 // remote exec fn service
 const executeService = 12
-
 const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
@@ -225,7 +224,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		"--allow-read=" + strings.Join(append(readFiles, readWriteFiles...), ","),
 		"--allow-write=" + strings.Join(readWriteFiles, ","),
 		"--allow-net", // TODO needed to import remote modules until Deno gives me more options
-		filepath.Join(s.Config.Exec.SandboxCodePath, "ds-sandbox-runner.ts"), // This should be versioned according to Dropserver API version
+		filepath.Join(s.Config.Exec.SandboxCodePath, "index.ts"),
 		s.socketsDir,
 		s.getAppFilesPath(), // while we have an import-map, these are stil needed to read files without importing
 		appspacePath,
@@ -701,10 +700,14 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 		Imports: map[string]string{
 			"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
-			"@app/":        appPath,
-			"@dropserver/": dropserverPath,
 			appPath:        appPath,
 			dropserverPath: dropserverPath,
+
+			// // TODO DELETE EXTERMELY TEMPORARY
+			// "https://deno.land/x/dropserver_lib_support/":         "/Users/ollie/Documents/Code/dropserver_lib_support/",
+			// "/Users/ollie/Documents/Code/dropserver_lib_support/": "/Users/ollie/Documents/Code/dropserver_lib_support/",
+			// "https://deno.land/x/dropserver_app/":                 "/Users/ollie/Documents/Code/dropserver_app/",
+			// "/Users/ollie/Documents/Code/dropserver_app/":         "/Users/ollie/Documents/Code/dropserver_app/",
 		}}
 
 	if s.appspace != nil {
@@ -713,12 +716,15 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 			Imports: map[string]string{
 				"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 				"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
-				"@app/":        appPath,
-				"@appspace/":   appspacePath,
-				"@dropserver/": dropserverPath,
 				appPath:        appPath,
 				appspacePath:   appspacePath,
 				dropserverPath: dropserverPath,
+
+				// TODO DELETE EXTERMELY TEMPORARY
+				// "https://deno.land/x/dropserver_lib_support/":         "/Users/ollie/Documents/Code/dropserver_lib_support/",
+				// "/Users/ollie/Documents/Code/dropserver_lib_support/": "/Users/ollie/Documents/Code/dropserver_lib_support/",
+				// "https://deno.land/x/dropserver_app/":                 "/Users/ollie/Documents/Code/dropserver_app/",
+				// "/Users/ollie/Documents/Code/dropserver_app/":         "/Users/ollie/Documents/Code/dropserver_app/",
 			}}
 	}
 

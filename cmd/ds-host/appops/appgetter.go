@@ -37,8 +37,9 @@ type subscriber struct {
 type AppGetter struct {
 	AppFilesModel interface {
 		Save(*map[string][]byte) (string, error)
-		ReadMeta(string) (*domain.AppFilesMetadata, error)
+		ReadMeta(string) (*domain.AppFilesMetadata, error) // this is going away or changing significantly
 		WriteRoutes(string, []byte) error
+		WriteMigrations(string, []byte) error
 		Delete(string) error
 	} `checkinject:"required"`
 	AppModel interface {
@@ -152,10 +153,12 @@ func (g *AppGetter) GetLocationKey(key domain.AppGetKey) (string, bool) {
 }
 
 func (g *AppGetter) processApp(keyData appGetData) {
-	meta, err := g.validateMetaData(keyData)
+	meta := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0)}
+
+	err := g.readFilesMetadata(keyData, &meta)
 	if err != nil {
 		// some error occurred, possibly external to
-		meta.Errors = append(meta.Errors, "internal error while validating metadata, see log")
+		meta.Errors = append(meta.Errors, "internal error while reading file metadata, see log")
 		g.setResults(keyData.key, meta)
 		g.getLogger("processApp").Error(err)
 		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
@@ -168,11 +171,29 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		return
 	}
 
-	g.AppLogger.Log(keyData.locationKey, "ds-host", "App metadata validated, reading routes")
-
-	err = g.getAppRoutes(keyData)
+	err = g.getDataFromSandbox(keyData, &meta)
 	if err != nil {
 		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+	if len(meta.Errors) != 0 {
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating data"})
+
+	err = g.validateAppVersion(keyData, &meta)
+	if err != nil {
+		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+	if len(meta.Errors) != 0 {
 		g.setResults(keyData.key, meta)
 		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
 		return
@@ -184,53 +205,73 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 }
 
-// validateMetaData tries to read the metadata for the app
-// It returns the output and errors that it encounters.
-// read everything make sure it makes sense on its own
-// if there is an app id compare with existing versions.
-// version should be unique, schemas should increment
-// TODO After an initial read to determine DS API version, branch to version-specific
-func (g *AppGetter) validateMetaData(keyData appGetData) (domain.AppGetMeta, error) {
-	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating metadata"})
-
-	ret := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0)}
+func (g *AppGetter) readFilesMetadata(keyData appGetData, meta *domain.AppGetMeta) error {
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading metadata from app files"})
 
 	filesMetadata, err := g.AppFilesModel.ReadMeta(keyData.locationKey)
 	if err != nil {
 		if err == domain.ErrAppConfigNotFound {
-			ret.Errors = append(ret.Errors, "Application config file not found")
-			return ret, nil
+			meta.Errors = append(meta.Errors, "Application config file not found")
+			return nil
 		}
-		return ret, err
+		return err
 	}
-
-	ret.VersionMetadata = *filesMetadata
-
-	errs, err := g.validateVersion(filesMetadata)
-	if err != nil {
-		return ret, err
-	}
-	ret.Errors = append(ret.Errors, errs...)
-
-	if keyData.hasAppID {
-		err := g.validateVersionSequence(keyData.appID, filesMetadata, &ret)
-		if err != nil {
-			return ret, err
-		}
-	}
-
-	return ret, nil
+	meta.VersionMetadata = *filesMetadata
+	return nil
 }
 
-func (g *AppGetter) getAppRoutes(keyData appGetData) error {
-	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting app routes"})
+// This will become a readAppMeta to get routes and migrations and all other data.
+func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMeta) error {
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Starting sandbox to get app data"})
 
-	routerData, err := g.getRouterData(keyData)
+	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: keyData.locationKey})
+	if err != nil {
+		return err
+	}
+	defer s.Graceful()
+
+	ok := g.setSandbox(keyData.key, s)
+	if !ok {
+		err = errors.New("unable to set sandbox to app get data")
+		g.getLogger("getDataFromSandbox, g.setSandbox").Error(err)
+		return err
+	}
+
+	// Set a timeout so that this sandbox doesn't run forever in case of infinite loop or whatever.
+	go func(sb domain.SandboxI) {
+		time.Sleep(time.Minute) // one minute. Is that enough on heavily used system?
+		if sb.Status() != domain.SandboxDead {
+			g.getLogger("getDataFromSandbox").Log("sandbox not dead, killing. Location key: " + keyData.locationKey)
+			sb.Kill()
+		}
+	}(s)
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting migrations"})
+
+	migrations, err := g.getMigrations(keyData, meta, s)
+	if err != nil {
+		return err
+	}
+	if migrations != nil { // if nil, there will be an error in meta.Errors, so app version will not be valid.
+		migrationsJson, err := json.Marshal(migrations)
+		if err != nil {
+			g.getLogger("getDataFromSandbox() json.Marshal").Error(err)
+			return err
+		}
+		err = g.AppFilesModel.WriteMigrations(keyData.locationKey, migrationsJson)
+		if err != nil {
+			return err
+		}
+	}
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting routes"})
+
+	routesData, err := g.getRoutes(keyData, s)
 	if err != nil {
 		return err
 	}
 
-	err = g.V0AppRoutes.ValidateRoutes(routerData)
+	err = g.V0AppRoutes.ValidateRoutes(routesData)
 	if err != nil {
 		return err
 	}
@@ -238,9 +279,9 @@ func (g *AppGetter) getAppRoutes(keyData appGetData) error {
 	g.AppLogger.Log(keyData.locationKey, "ds-host", "Writing app routes to disk")
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Writing app routes"})
 
-	routerJson, err := json.Marshal(routerData)
+	routerJson, err := json.Marshal(routesData)
 	if err != nil {
-		g.getLogger("GetMetaData() json.Marshal").Error(err)
+		g.getLogger("getDataFromSandbox() json.Marshal").Error(err)
 		return err
 	}
 
@@ -251,44 +292,130 @@ func (g *AppGetter) getAppRoutes(keyData appGetData) error {
 	return nil
 }
 
-// getRouterData fires up a sandbox and retrieves the app version's router data.
-// It is exported so it can be used directly by ds-dev
-// I wonder if we could make it so app getter can be used by ds-dev as-is?
-// Because it essentially has to restart the "processApp" steps entirely on each app change.
-// TODO Heads up this is a versioned API!
-func (g *AppGetter) getRouterData(data appGetData) ([]domain.V0AppRoute, error) {
-	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: data.locationKey})
+func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s domain.SandboxI) ([]domain.MigrationStep, error) {
+	sent, err := s.SendMessage(domain.SandboxMigrateService, 12, nil)
 	if err != nil {
-		return nil, err
-	}
-	defer s.Graceful()
-
-	ok := g.setSandbox(data.key, s)
-	if !ok {
-		err = errors.New("unable to set sandbox to app get data")
-		g.getLogger("getRouterData, g.setSandbox").Error(err)
-		return nil, err
-	}
-
-	// Set a timeout so that this sandbox doesn't run forever in case of infinite loop or whatever.
-	go func(sb domain.SandboxI) {
-		time.Sleep(time.Minute) // one minute. Is that enough on heavily used system?
-		if sb.Status() != domain.SandboxDead {
-			g.getLogger("getRouterData").Log("sandbox not dead, killing. Location key: " + data.locationKey)
-			sb.Kill()
-		}
-	}(s)
-
-	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
-	if err != nil {
-		g.getLogger("getRouterData, s.SendMessage").Error(err)
+		g.getLogger("getMigrations, s.SendMessage").Error(err)
 		return nil, err
 	}
 
 	reply, err := sent.WaitReply()
 	if err != nil {
 		// This one probaly means the sandbox crashed or some such
-		g.getLogger("getRouterData, sent.WaitReply").Error(err)
+		g.getLogger("getMigrations, sent.WaitReply").Error(err)
+		return nil, err
+	}
+	err = reply.Error()
+	if err != nil {
+		// that's an error while running the code
+		meta.Errors = append(meta.Errors, err.Error())
+		return nil, nil
+	}
+	reply.SendOK()
+
+	// Should also verify that the response is command 11?
+
+	var migrations []domain.MigrationStep
+	err = json.Unmarshal(reply.Payload(), &migrations)
+	if err != nil {
+		g.getLogger("getMigrations, json.Unmarshal").Error(err)
+		meta.Errors = append(meta.Errors, fmt.Sprintf("failed to parse json migrations data: %v", err))
+		return nil, nil
+	}
+
+	schemas, err := g.ValidateMigrationSteps(migrations)
+	if err != nil {
+		meta.Errors = append(meta.Errors, err.Error())
+	}
+	if len(schemas) > 0 {
+		meta.Schema = schemas[len(schemas)-1]
+	}
+
+	return migrations, nil
+}
+
+func (g *AppGetter) ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error) {
+	if len(migrations) == 0 {
+		return []int{}, nil
+	}
+	// first should validate each individual step:
+	for _, step := range migrations {
+		if step.Direction != "up" && step.Direction != "down" {
+			return nil, fmt.Errorf("invalid step: %v %v: not up or down", step.Direction, step.Schema)
+		}
+		if step.Schema < 1 {
+			return nil, fmt.Errorf("invalid step: %v %v: schema less than 1", step.Direction, step.Schema)
+		}
+	}
+
+	// now sort such that we can check sequence:
+	sort.Slice(migrations, func(i, j int) bool {
+		a := migrations[i]
+		b := migrations[j]
+		if a.Direction == b.Direction {
+			if a.Direction == "up" {
+				return a.Schema < b.Schema
+			} else {
+				return a.Schema > b.Schema
+			}
+		} else {
+			return a.Direction == "up"
+		}
+	})
+
+	// check we end where we started
+	if len(migrations) == 1 {
+		return nil, errors.New("error validating migrations: migrations come in up/down pairs. There can not be only one migration")
+	}
+	startSchema := migrations[0].Schema
+	endSchema := migrations[len(migrations)-1].Schema
+	if startSchema != endSchema {
+		return nil, fmt.Errorf("error validating migrations: first and last step schemas are different: %v, %v", startSchema, endSchema)
+	}
+
+	// now check sequnce:
+	isUp := true
+	expected := migrations[0].Schema
+	ret := make([]int, 0)
+	for _, m := range migrations {
+		if m.Direction == "up" {
+			ret = append(ret, m.Schema)
+		}
+		if isUp && m.Direction == "down" {
+			isUp = false
+			expected = expected - 1
+		} else if !isUp && m.Direction == "up" {
+			// can't switch back. error
+			// but that's an error in the sorting algorithm.
+			err := errors.New("error validating migration sequnce. Likely error in sort")
+			g.getLogger("validateMigrationSteps, json.Unmarshal").Error(err)
+			return nil, err
+		}
+		if m.Schema != expected {
+			return nil, fmt.Errorf("error validating migrations at step %v %v: expected %v", m.Direction, m.Schema, expected)
+		}
+		if isUp {
+			expected = expected + 1
+		} else {
+			expected = expected - 1
+		}
+	}
+
+	return ret, nil
+}
+
+// Note this is a versioned API
+func (g *AppGetter) getRoutes(data appGetData, s domain.SandboxI) ([]domain.V0AppRoute, error) {
+	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
+	if err != nil {
+		g.getLogger("getRoutes, s.SendMessage").Error(err)
+		return nil, err
+	}
+
+	reply, err := sent.WaitReply()
+	if err != nil {
+		// This one probaly means the sandbox crashed or some such
+		g.getLogger("getRoutes, sent.WaitReply").Error(err)
 		return nil, err
 	}
 
@@ -298,71 +425,85 @@ func (g *AppGetter) getRouterData(data appGetData) ([]domain.V0AppRoute, error) 
 
 	err = json.Unmarshal(reply.Payload(), &routes)
 	if err != nil {
-		g.getLogger("getRouterData, json.Unmarshal").Error(err)
+		g.getLogger("getRoutes, json.Unmarshal").Error(err)
 		return nil, err
 	}
 
 	return routes, nil
 }
 
+func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMeta) error {
+	err := g.validateVersion(meta)
+	if err != nil {
+		return err
+	}
+	if keyData.hasAppID {
+		err = g.validateVersionSequence(keyData.appID, meta)
+	}
+	return err
+}
+
 // validate that app version has a name
 // validate that the DS API is usabel in this version of DS
-func (g *AppGetter) validateVersion(filesMetadata *domain.AppFilesMetadata) ([]string, error) {
-	errs := make([]string, 0)
-
-	if filesMetadata.AppName == "" {
-		errs = append(errs, "App name can not be blank")
+// Bit of a misnomer? It validates app name, api version, app version, user permissions.
+// Oh wait validate "version" here means app code version.
+func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
+	fm := meta.VersionMetadata
+	if fm.AppName == "" {
+		meta.Errors = append(meta.Errors, "App name can not be blank")
 	}
 
-	if filesMetadata.APIVersion != 0 {
-		errs = append(errs, "Unsupported API version")
+	if fm.APIVersion != 0 {
+		meta.Errors = append(meta.Errors, "Unsupported API version")
 	}
 
-	_, err := semver.New(string(filesMetadata.AppVersion))
+	_, err := semver.New(string(fm.AppVersion))
 	if err != nil {
-		errs = append(errs, err.Error())
+		meta.Errors = append(meta.Errors, err.Error())
 	}
 
-	for i, p := range filesMetadata.UserPermissions {
+	for i, p := range fm.UserPermissions {
 		if p.Key == "" {
-			errs = append(errs, "Permission key can not be blank")
+			meta.Errors = append(meta.Errors, "Permission key can not be blank")
 		}
-		if i+1 < len(filesMetadata.UserPermissions) {
-			for _, p2 := range filesMetadata.UserPermissions[i+1:] {
+		if i+1 < len(fm.UserPermissions) {
+			for _, p2 := range fm.UserPermissions[i+1:] {
 				if p.Key == p2.Key {
-					errs = append(errs, "Duplicate permission key: "+p.Key)
+					meta.Errors = append(meta.Errors, "Duplicate permission key: "+p.Key)
 				}
 			}
 		}
 	}
 
-	return errs, nil
+	return nil
 }
 
-func (g *AppGetter) validateVersionSequence(appID domain.AppID, filesMetadata *domain.AppFilesMetadata, meta *domain.AppGetMeta) error {
-	ver, _ := semver.New(string(filesMetadata.AppVersion)) // already validated in validateVersion
+// validateVersionSequence ensures the candidate app version fits
+// with existing versions already on system.
+func (g *AppGetter) validateVersionSequence(appID domain.AppID, meta *domain.AppGetMeta) error {
+	ver, _ := semver.New(string(meta.VersionMetadata.AppVersion)) // already validated in validateVersion
+	schema := meta.Schema
 
-	semVersions, errs, err := g.getVersions(appID, *ver)
+	semVersions, appErr, err := g.getVersions(appID, *ver)
 	if err != nil {
 		return err
 	}
-	if len(errs) != 0 {
-		// already an error, we probably can't validate further, bail.
-		meta.Errors = append(meta.Errors, errs...)
+	if appErr != nil {
+		meta.Errors = append(meta.Errors, appErr.Error())
 		return nil
 	}
 
 	verIndex, _ := getVerIndex(semVersions, *ver)
 	if verIndex != 0 {
 		prev := semVersions[verIndex-1]
-		if prev.appVersion.Schema > filesMetadata.SchemaVersion {
+		if prev.appVersion.Schema > schema {
 			meta.Errors = append(meta.Errors, "Previous version has a higher schema")
 		}
 		meta.PrevVersion = prev.appVersion.Version
 	}
 	if verIndex != len(semVersions)-1 {
 		next := semVersions[verIndex+1]
-		if next.appVersion.Schema < filesMetadata.SchemaVersion {
+		if next.appVersion.Schema < schema {
 			meta.Errors = append(meta.Errors, "Next version has a lower schema")
 		}
 		meta.NextVersion = next.appVersion.Version
@@ -376,12 +517,11 @@ type semverAppVersion struct {
 	appVersion *domain.AppVersion
 }
 
-func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, []string, error) {
-	errs := make([]string, 0)
+func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, error, error) {
 
 	appVersions, err := g.AppModel.GetVersionsForApp(appID)
 	if err != nil {
-		return nil, errs, err
+		return nil, nil, err
 	}
 
 	semVersions := make([]semverAppVersion, len(appVersions)+1)
@@ -390,12 +530,11 @@ func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]se
 		sver, err := semver.New(string(appVersion.Version))
 		if err != nil {
 			// couldn't parse semver of existing version.
-			return nil, errs, err
+			return nil, nil, err
 		}
 		cmp := sver.Compare(newVer)
 		if cmp == 0 {
-			errs = append(errs, "This version aleady exists in this app")
-			return nil, errs, nil
+			return nil, errors.New("this version aleady exists in this app"), nil
 		}
 		semVersions[i+1] = semverAppVersion{semver: *sver, appVersion: appVersion}
 	}
@@ -403,7 +542,7 @@ func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]se
 	sort.Slice(semVersions, func(i, j int) bool {
 		return semVersions[i].semver.Compare(semVersions[j].semver) == -1
 	})
-	return semVersions, errs, nil
+	return semVersions, nil, nil
 }
 
 func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
@@ -419,27 +558,30 @@ func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
 func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, error) {
 	keyData, ok := g.get(key) // g.setCommitting
 	if !ok {
-		return domain.AppID(0), domain.Version(""), errors.New("key does not exist")
+		err := errors.New("key does not exist")
+		g.getLogger("Commit, g.get(key)").Error(err)
+		return domain.AppID(0), domain.Version(""), err
 	}
 	// Here there is a slight chance Delete will be called while this function is running.
 	// We could set a "committing" flag on that keyData to prevent this from happening.
+	meta, ok := g.GetResults(key)
+	if !ok {
+		err := errors.New("results does not exist")
+		g.getLogger("Commt, g.getResults").Error(err)
+		return domain.AppID(0), domain.Version(""), err
+	}
 
 	appID := keyData.appID
 
-	filesMetadata, err := g.AppFilesModel.ReadMeta(keyData.locationKey)
-	if err != nil {
-		return appID, domain.Version(""), err
-	}
-
 	if !keyData.hasAppID {
-		app, err := g.AppModel.Create(keyData.userID, filesMetadata.AppName)
+		app, err := g.AppModel.Create(keyData.userID, meta.VersionMetadata.AppName)
 		if err != nil {
 			return domain.AppID(0), domain.Version(""), err
 		}
 		appID = app.AppID
 	}
 
-	version, err := g.AppModel.CreateVersion(appID, filesMetadata.AppVersion, filesMetadata.SchemaVersion, filesMetadata.APIVersion, keyData.locationKey)
+	version, err := g.AppModel.CreateVersion(appID, meta.VersionMetadata.AppVersion, meta.Schema, meta.VersionMetadata.APIVersion, keyData.locationKey)
 	if err != nil {
 		return appID, domain.Version(""), err
 	}

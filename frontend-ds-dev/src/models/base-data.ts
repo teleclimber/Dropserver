@@ -20,14 +20,20 @@ type AppspaceUserPermission = {
 	description: string,
 }
 
+type MigrationStep = {
+	direction: "up"|"down"
+	schema: number
+}
+
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
 type AppFilesMetadata = {
 	name: string,
 	version: string,
-	schema: Number,
-	api: Number,
-	migrations: Number[],
+	schema: number,
+	api: number,
+	migrations: MigrationStep[],
+	schemas: number[],
 	user_permissions: AppspaceUserPermission[]
 }
 
@@ -39,31 +45,15 @@ class BaseData {
 
 	name = "";
 	version = "0.0.0";
+	schema = 0;
 	api = 0;
-	migrations :number[] = [];
+	migrations: MigrationStep[] = [];
+    schemas: number[] = [];
 	user_permissions: AppspaceUserPermission[] = [];
 
 	_start() {
-		this.fetchInitialData();
 		twineClient.registerService(13, this);
 	}
-
-	async fetchInitialData() {
-		const res = await fetch('base-data');
-		if( !res.ok ) {
-			throw new Error("fetch error for basic data");
-		}
-
-		try {
-			const data = await res.json();
-			Object.assign(this, data);
-		}
-		catch(error) {
-			console.error(error);
-		}
-		this.loaded = true;
-	}
-
 	handleMessage(m:ReceivedMessageI) {
 		switch (m.command) {
 			case 12:
@@ -78,6 +68,9 @@ class BaseData {
 		try {
 			const new_app_data = <AppFilesMetadata>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			Object.assign(this, new_app_data);
+			if( !this.schemas ) this.schemas = [];
+
+			console.debug(new_app_data);
 		}
 		catch(e) {
 			m.sendError("error processing app version data "+e);
@@ -91,29 +84,9 @@ class BaseData {
 	}
 
 	get possible_migrations() {
-		return [];
-		// TODO: this should be figured out server-side and sent down as needed.
-		// const ret :number[] = [];
-		// const cur_schema = this.appspace_schema;
-		// const app_migrations = [0, ...this.migrations];
-		// let cur_i = app_migrations.indexOf(cur_schema);
-		// if( cur_i === -1 ) return ret;
-
-		// let i = 0;
-		// while(true) {
-		// 	++i;
-		// 	if(app_migrations[cur_i + i] === cur_schema+i ) ret.push(cur_schema+i);
-		// 	else break;
-		// }
-
-		// i = 0;
-		// while(cur_i + i > 0) {
-		// 	--i;
-		// 	if(app_migrations[cur_i + i] === cur_schema+i ) ret.unshift(cur_schema+i);
-		// 	else break;
-		// }
-
-		// return ret;
+		if( this.schemas.length === 0 ) return [];
+		const lowest = this.schemas[0];
+		return [lowest-1, ...this.schemas];
 	}
 }
 

@@ -7,7 +7,8 @@ import "github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 type DevAppFilesModel struct {
 	appfilesmodel.AppFilesModel `checkinject:"required"`
 
-	routesData []byte
+	routesData     []byte
+	migrationsData []byte
 }
 
 func (a *DevAppFilesModel) Save(files *map[string][]byte) (string, error) {
@@ -23,6 +24,16 @@ func (a *DevAppFilesModel) WriteRoutes(locationKey string, routesData []byte) er
 // ReadRoutes returns the in-memory data
 func (a *DevAppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return a.routesData, nil
+}
+
+func (a *DevAppFilesModel) WriteMigrations(locationKey string, migrationsData []byte) error {
+	a.migrationsData = migrationsData
+	return nil
+}
+
+// ReadMigrations returns the in-memory data
+func (a *DevAppFilesModel) ReadMigrations(locationKey string) ([]byte, error) {
+	return a.migrationsData, nil
 }
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {

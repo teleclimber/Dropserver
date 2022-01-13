@@ -1,6 +1,7 @@
 package appops
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -36,12 +37,16 @@ func TestValidateAppMeta(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		errs, err := g.validateVersion(&c.meta)
+		m := domain.AppGetMeta{
+			Errors:          make([]string, 0),
+			VersionMetadata: c.meta,
+		}
+		err := g.validateVersion(&m)
 		if err != nil {
 			t.Error(err)
 		}
-		if len(errs) != c.numErr {
-			t.Log(errs)
+		if len(m.Errors) != c.numErr {
+			t.Log(m.Errors)
 			t.Error("Error count mismatch")
 		}
 	}
@@ -49,7 +54,6 @@ func TestValidateAppMeta(t *testing.T) {
 
 func TestValidateUserPermissions(t *testing.T) {
 	g := &AppGetter{}
-	meta := domain.AppFilesMetadata{AppName: "blah", AppVersion: "0.0.1"}
 	cases := []struct {
 		perms  []domain.AppspaceUserPermission
 		numErr int
@@ -61,13 +65,20 @@ func TestValidateUserPermissions(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		meta.UserPermissions = c.perms
-		errs, err := g.validateVersion(&meta)
+		m := domain.AppGetMeta{
+			Errors: make([]string, 0),
+			VersionMetadata: domain.AppFilesMetadata{
+				AppName:         "app name",
+				AppVersion:      domain.Version("0.1.0"),
+				UserPermissions: c.perms,
+			},
+		}
+		err := g.validateVersion(&m)
 		if err != nil {
 			t.Error(err)
 		}
-		if len(errs) != c.numErr {
-			t.Log(errs)
+		if len(m.Errors) != c.numErr {
+			t.Log(m.Errors)
 			t.Error("Error count mismatch")
 		}
 	}
@@ -91,13 +102,12 @@ func TestVersionSort(t *testing.T) {
 		{Version: domain.Version("0.8.1")},
 		{Version: domain.Version("0.2.1")},
 	}, nil)
-	vers, errs, err := g.getVersions(appID, *ver)
+	vers, appErr, err := g.getVersions(appID, *ver)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(errs) != 0 {
-		t.Log(errs)
-		t.Error("got unexpected errors")
+	if appErr != nil {
+		t.Error(appErr)
 	}
 	if vers[0].appVersion.Version != domain.Version("0.2.1") {
 		t.Error("sort order is wrong")
@@ -108,12 +118,11 @@ func TestVersionSort(t *testing.T) {
 		{Version: domain.Version("0.8.1")},
 		{Version: domain.Version("0.5.0")},
 	}, nil)
-	_, errs, err = g.getVersions(appID, *ver)
+	_, appErr, err = g.getVersions(appID, *ver)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(errs) != 1 {
-		t.Log(errs)
+	if appErr == nil {
 		t.Error("expected an error")
 	}
 }
@@ -123,10 +132,6 @@ func TestValidateSequence(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	appID := domain.AppID(7)
-	filesMeta := domain.AppFilesMetadata{
-		AppVersion:    domain.Version("0.5.0"),
-		SchemaVersion: 1,
-	}
 
 	appModel := testmocks.NewMockAppModel(mockCtrl)
 
@@ -164,9 +169,14 @@ func TestValidateSequence(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		appGetMeta := domain.AppGetMeta{}
+		appGetMeta := domain.AppGetMeta{
+			Schema: 1,
+			VersionMetadata: domain.AppFilesMetadata{
+				AppVersion: domain.Version("0.5.0"),
+			},
+		}
 		appModel.EXPECT().GetVersionsForApp(appID).Return(c.appVersions, nil)
-		err := g.validateVersionSequence(appID, &filesMeta, &appGetMeta)
+		err := g.validateVersionSequence(appID, &appGetMeta)
 		if err != nil {
 			t.Error(c.desc, err)
 		}
@@ -174,5 +184,91 @@ func TestValidateSequence(t *testing.T) {
 			t.Log(appGetMeta.Errors)
 			t.Error(c.desc, "got unexpected errors")
 		}
+	}
+}
+
+func TestValidateMigrationSteps(t *testing.T) {
+	g := &AppGetter{}
+
+	cases := []struct {
+		desc       string
+		migrations []domain.MigrationStep
+		schemas    []int
+		isErr      bool
+	}{
+		{
+			desc:       "empty array",
+			migrations: []domain.MigrationStep{},
+			schemas:    []int{},
+			isErr:      false,
+		}, {
+			desc: "up",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1}},
+			schemas: []int{1},
+			isErr:   false,
+		}, {
+			desc: "up up down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2},
+				{Direction: "up", Schema: 1}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up1 up1 down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
+				{Direction: "up", Schema: 1}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up down down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2},
+				{Direction: "down", Schema: 1}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up gap up down gap down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
+				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up up up down gap down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
+				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3},
+				{Direction: "up", Schema: 2}},
+			schemas: nil,
+			isErr:   true,
+		}, {
+			desc: "up up up down down down",
+			migrations: []domain.MigrationStep{
+				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
+				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3},
+				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2}},
+			schemas: []int{1, 2, 3},
+			isErr:   false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			schemas, err := g.ValidateMigrationSteps(c.migrations)
+			if (err != nil) != c.isErr {
+				t.Errorf("mismatch between error and expected: %v %v", c.isErr, err)
+			}
+			if !reflect.DeepEqual(schemas, c.schemas) {
+				t.Errorf("schemas not equal: %v, %v", schemas, c.schemas)
+			}
+		})
 	}
 }

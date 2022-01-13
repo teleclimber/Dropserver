@@ -2,16 +2,15 @@ import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
 import {match} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
 import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
 
-// Let's make an extremely simple POC router
-// That shows that we can create routes programmatically
-// in sandbox
-// and use them from host side.
+import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
-export interface Context<P extends object = object> {
+// TODO rename file to approutes. (the router is ds-dev-router)
+
+export interface Context {
 	req: ServerRequest
-	params: P
+	params: Record<string, unknown>
 	url: URL
-	proxy_id: string | null
+	proxyId: string | null
 }
 
 export type Handler = (ctx:Context) => void;
@@ -31,93 +30,88 @@ export type Path = {
 	end: boolean
 }
 
-type Route = {
-	id: string,
-	method: string,
-	path: Path,
-	auth: Auth,
-	handler: Handler,
-	match: undefined | MatchFunction
+type staticOpts = {
+	path: string
 }
 
-enum RouteType {
-	function = "function",
-	static = "static"
+interface Route {
+	id: string
+	method: string
+	path: Path
+	auth: Auth
+	type: RouteType
+	handler?: Handler
+	opts?: staticOpts
+	match?: MatchFunction
 }
+
 export type RouteExport = {
 	id: string,
 	method: string,
 	path: Path,
 	auth: Auth,
 	type: RouteType,
-	options: any
+	options: staticOpts|Record<never,never>
 }
 
-// staticOpts contains all the options to pass to the static file handler
-type staticOpts = {
-	path: string
-}
+/**
+ * Class representing a router for application routes.
+ */
+export default class AppRoutes {
+	routes: Map<string,Route> = new Map();
 
-export default class AppRouter {
-	stack: Route[] = [];
-	dict: Map<string,Route> = new Map();
-	static_handlers: Map<Handler,staticOpts> = new Map();
-
-	add(method:string, path:string|Path, auth:Auth, handler:Handler):string {
-		method = normalizeMethod(method);
-		if( typeof path === 'string' ) path = {path:path, end:true};
-		// should normalize path (trailing slash? caps?)
-		// .. and ensure there are no dupliacate method + path + end match option
-		const r :Route = {
-			id: makeRouteIdentifier(method, path),
-			method,
-			path,
-			auth,
-			handler,
-			match: undefined
-		};
-
-		this.stack.push(r);
-		this.dict.set(r.id, r);
-
-		return r.id;
+	cb: GetAppRoutesCallback|undefined;
+	setCallback(cb:GetAppRoutesCallback) :void {
+		if( this.cb !== undefined ) throw new Error("app routes callback already set");
+		this.cb = cb;
 	}
 
-	staticFileHandler(opts:staticOpts) :Handler {
-		const h = function() {};
-		this.static_handlers.set(h, opts);
-		return h;
+	loadRoutes() {
+		if( this.cb === undefined ) return;
+		const routes = this.cb();
+		routes.forEach( r => {
+			const stored :Route = {
+				id: makeRouteIdentifier(r.method, r.path),
+				method: normalizeMethod(r.method),
+				path: r.path,
+				auth: r.auth,
+				type: r.type,
+				handler: (r.type === RouteType.function ? r.handler : undefined ),
+				opts: (r.type === RouteType.static ? r.opts : undefined )
+			};
+			this.routes.set(stored.id, stored);
+		});
 	}
 
 	exportStack() :RouteExport[] {
 		// iterate over routes
 		// and replace known handlers with appropriate data
-		return this.stack.map( r => {
-			let type = RouteType.function;
-			let opts:any = {name: r.handler.name};
-			if( this.static_handlers.has(r.handler) ) {
-				type = RouteType.static;
-				opts = this.static_handlers.get(r.handler)
-			}
-			
-			return {
+		const ret :RouteExport[] = [];
+		this.routes.forEach( r => {
+			let opts:staticOpts|Record<never, never> = {};
+			if( r.type === RouteType.static && r.opts) opts = r.opts;
+			else if( r.type === RouteType.function && r.handler !== undefined ) opts = {name: r.handler.name};
+			else throw new Error("no handler or static opts found in route.");
+			ret.push({
 				id: r.id,
 				method: r.method,
 				path: r.path,
 				auth: r.auth,
-				type: type,
+				type: r.type,
 				options: opts
-			}
+			});
 		});
+		return ret;
 	}
 
-	getRouteWithMatch(route_id:string) :Route|undefined {
-		const r = this.dict.get(route_id);
-		if( r === undefined ) return undefined;
-		if( r.match === undefined ) {
-			r.match = match(r.path.path, {end:r.path.end});
+	getRouteWithMatch(routeId:string) :Route|undefined {
+		const stored = this.routes.get(routeId);
+		if( stored === undefined ) return undefined;
+		if( stored.match === undefined ) {
+			const p = stored.path;
+			stored.match = match(p.path, {end:p.end});
 		}
-		return r;
+		return stored;
 	}
 }
 

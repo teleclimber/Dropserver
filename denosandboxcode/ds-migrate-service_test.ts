@@ -2,29 +2,29 @@ import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import Twine, {Message} from './twine.ts';
-import Metadata from './ds-metadata.ts';
-import {runMigration, runStep} from './ds-migrate-service.ts';
+import Migrations from './migrations.ts';
+import MigrationService from './ds-migrate-service.ts';
 
 // test payload read
-// 
 
 Deno.test({
-	name: "run step error",
+	name: "run step with JS error in step",
 	fn: async () => {
-		
-		const dir = await Deno.makeTempDir();
-		const mig_dir = path.join(dir, "migrations", "2");
-		await Deno.mkdir(mig_dir, {recursive: true});
+		const mFn = () => {
+			//@ts-ignore because the point is to trigger an error
+			return <Promise<void>>new Promise(zzl);
+		}
 
-		const ts = 'export default function migrateUp() { zzzl; };';
-		await Deno.writeFile(path.join(mig_dir, "up.ts"), new TextEncoder().encode(ts));
+		const migrations = new Migrations;
+		migrations.setCallback( () => [{direction:"up", schema:2, func: mFn}] );
+		await migrations.loadMigrations();
 
-		Metadata.app_path = dir;
+		const service = new MigrationService(migrations);
 
 		let err:Error|undefined = undefined;
 		
 		try {
-			await runStep(2, true);
+			await service.runStep(2, true);
 		}
 		catch(e) {
 			err = e;
@@ -33,44 +33,49 @@ Deno.test({
 		if(!err) {
 			throw new Error("no error thrown for bad test");
 		}
-
-		await Deno.remove(dir, {recursive: true});
+		else {
+			console.log("OK got error:", err);
+		}
 	}
 });
 
 Deno.test({
 	name: "run step up",
 	fn: async () => {
-		const dir = await Deno.makeTempDir();
-		const mig_dir = path.join(dir, "migrations", "2");
-		await Deno.mkdir(mig_dir, {recursive: true});
+		const mFn = () => {
+			return <Promise<void>>new Promise( (resolve, _) => {resolve()});
+		}
 
-		const ts = 'export default function migrateUp() {};';
-		await Deno.writeFile(path.join(mig_dir, "up.ts"), new TextEncoder().encode(ts));
+		const migrations = new Migrations;
+		migrations.setCallback( () => [{direction:"up", schema:2, func: mFn}] );
+		await migrations.loadMigrations();
 
-		Metadata.app_path = dir;
+		const service = new MigrationService(migrations);
 
-		await runStep(2, true);
-
-		await Deno.remove(dir, {recursive: true});
+		await service.runStep(2, true);
 	}
 });
 
+// this is kind of an all-in test.
+//.. need to inject app path in metadata somehow.
 Deno.test("run migration up", async ()=> {
 	const dir = await Deno.makeTempDir();
-	const mig_dir = path.join(dir, "migrations");
-	await Deno.mkdir(path.join(mig_dir, "2"), {recursive: true});
-	await Deno.mkdir(path.join(mig_dir, "3"));
 
-	for( const n of [2,3] ) {
-		const ts = 'export default async function migrateUp() { await Deno.writeFile("'+dir+'/out.txt", new TextEncoder().encode("'+n+'"), {append: true}); }';	// no-op migrate script. Could improve by having the migration code leave a trace of its run, like a file.
-		await Deno.writeFile(path.join(mig_dir, n+"", "up.ts"), new TextEncoder().encode(ts));
+	const up2 = async () => {
+		await Deno.writeFile(path.join(dir,'out.txt'), new TextEncoder().encode('2'), {append: true});
+	}
+	const up3 = async () => {
+		await Deno.writeFile(path.join(dir,'out.txt'), new TextEncoder().encode('3'), {append: true});
 	}
 
-	Metadata.app_path = dir;
+	const migrations = new Migrations;
+	migrations.setCallback( () => [
+		{direction:"up", schema:2, func: up2},
+		{direction:"up", schema:3, func: up3}
+	]);
+	const service = new MigrationService(migrations);
 
 	const payload_data = {from: 1, to:3};
-
 	const twine = new Twine("", false);
 	const msg = new Message({
 		service: 13,
@@ -83,7 +88,7 @@ Deno.test("run migration up", async ()=> {
 	const stubbed_sendOK: Stub<Message> = stub(msg, "sendOK");
 	const stubbed_sendError: Stub<Message> = stub(msg, "sendError");
 
-	await runMigration(msg);
+	await service.runMigration(msg);
 
 	if( stubbed_sendError.calls.length > 0 ) {
 		console.error(stubbed_sendError.calls[0].args[0])
@@ -100,16 +105,20 @@ Deno.test("run migration up", async ()=> {
 
 Deno.test("run migration down", async ()=> {
 	const dir = await Deno.makeTempDir();
-	const mig_dir = path.join(dir, "migrations");
-	await Deno.mkdir(path.join(mig_dir, "2"), {recursive: true});
-	await Deno.mkdir(path.join(mig_dir, "3"));
 
-	for( const n of [2,3] ) {
-		const ts = 'export default async function migrateUp() { await Deno.writeFile("'+dir+'/out.txt", new TextEncoder().encode("'+n+'"), {append: true}); }';	// no-op migrate script. Could improve by having the migration code leave a trace of its run, like a file.
-		await Deno.writeFile(path.join(mig_dir, n+"", "down.ts"), new TextEncoder().encode(ts));
-	};
+	const down2 = async () => {
+		await Deno.writeFile(path.join(dir,'out.txt'), new TextEncoder().encode('2'), {append: true});
+	}
+	const down3 = async () => {
+		await Deno.writeFile(path.join(dir,'out.txt'), new TextEncoder().encode('3'), {append: true});
+	}
 
-	Metadata.app_path = dir;
+	const migrations = new Migrations;
+	migrations.setCallback( () => [
+		{direction:"down", schema:2, func: down2},
+		{direction:"down", schema:3, func: down3}
+	]);
+	const service = new MigrationService(migrations);
 
 	const payload_data = {from:3, to:1};
 
@@ -125,7 +134,7 @@ Deno.test("run migration down", async ()=> {
 	const stubbed_sendOK: Stub<Message> = stub(msg, "sendOK");
 	const stubbed_sendError: Stub<Message> = stub(msg, "sendError");
 
-	await runMigration(msg);
+	await service.runMigration(msg);
 
 	if( stubbed_sendError.calls.length > 0 ) {
 		console.error(stubbed_sendError.calls[0].args[0])

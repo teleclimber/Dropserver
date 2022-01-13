@@ -315,6 +315,7 @@ type AppGetKey string
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
 	Key             AppGetKey        `json:"key"`
+	Schema          int              `json:"schema"`
 	PrevVersion     Version          `json:"prev_version"`
 	NextVersion     Version          `json:"next_version"`
 	Errors          []string         `json:"errors"`
@@ -370,13 +371,12 @@ type AppspaceUserPermission struct {
 
 // AppFilesMetadata containes metadata that can be gleaned from
 // reading the application files
+// This is going to evolve until it becomes data that comes from the sandbox.
 type AppFilesMetadata struct {
 	AppName         string                   `json:"name"`
 	AppVersion      Version                  `json:"version"`
-	SchemaVersion   int                      `json:"schema"`
 	APIVersion      APIVersion               `json:"api_version"`
-	Migrations      []int                    `json:"migrations"`
-	UserPermissions []AppspaceUserPermission `json:"user_permissions"`
+	UserPermissions []AppspaceUserPermission `json:"user_permissions"` // this should be removed.
 }
 
 // ErrAppConfigNotFound means the application config (dropapp.json) file was not found
@@ -458,6 +458,14 @@ type AppspaceRouteConfig struct {
 	Path    string               `json:"path"`
 	Auth    AppspaceRouteAuth    `json:"auth"`
 	Handler AppspaceRouteHandler `json:"handler"`
+}
+
+// migration data comign from sandbox:
+// this should  also include description as string.
+// Maybe an explicit "lossy" flag? Or Lossless so taht default false doesn't imply things that aren't true.
+type MigrationStep struct {
+	Direction string `json:"direction"`
+	Schema    int    `json:"schema"`
 }
 
 // New appspace route stuff:

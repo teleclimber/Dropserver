@@ -112,7 +112,7 @@ func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
 		AppID:       appID,
 		AppName:     results.VersionMetadata.AppName,
 		Version:     results.VersionMetadata.AppVersion,
-		Schema:      results.VersionMetadata.SchemaVersion,
+		Schema:      results.Schema,
 		Created:     time.Now(),
 		LocationKey: ""}
 
@@ -237,6 +237,12 @@ func (w *DevAppWatcher) setClean() {
 	w.dirtyMux.Unlock()
 }
 
+func (w *DevAppWatcher) isDirty() bool {
+	w.dirtyMux.Lock()
+	defer w.dirtyMux.Unlock()
+	return w.dirty
+}
+
 func (w *DevAppWatcher) setRunning() bool {
 	w.runMux.Lock()
 	defer w.runMux.Unlock()
@@ -245,6 +251,12 @@ func (w *DevAppWatcher) setRunning() bool {
 	}
 	w.running = true
 	return true
+}
+
+func (w *DevAppWatcher) isRunning() bool {
+	w.runMux.Lock()
+	defer w.runMux.Unlock()
+	return w.running
 }
 
 func (w *DevAppWatcher) unsetRunning() {

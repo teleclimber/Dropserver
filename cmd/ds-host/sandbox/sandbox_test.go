@@ -203,6 +203,7 @@ func TestRunnerScriptError(t *testing.T) {
 	s.WaitFor(domain.SandboxDead)
 }
 
+// currently fails. Fix please, along with a number of other tests in this suite.
 func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

@@ -134,6 +134,7 @@ func main() {
 	devAppFilesModel := &DevAppFilesModel{
 		*appFilesModel,
 		nil,
+		nil,
 	}
 
 	devAppModel := &DevAppModel{}
@@ -328,8 +329,10 @@ func main() {
 		InspectSandboxEvents: inspectSandboxEvents,
 	}
 	appMetaService := &AppMetaService{
+		DevAppModel:      devAppModel,
 		AppVersionEvents: appVersionEvents,
 		AppFilesModel:    devAppFilesModel,
+		AppGetter:        appGetter,
 	}
 	userService := &UserService{
 		DevAuthenticator:     devAuth,
@@ -355,7 +358,7 @@ func main() {
 
 	dsDevHandler := &DropserverDevServer{
 		DevAppModel:            devAppModel,
-		AppFilesModel:          devAppFilesModel,
+		AppGetter:              appGetter,
 		AppspaceFiles:          appspaceFiles,
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
