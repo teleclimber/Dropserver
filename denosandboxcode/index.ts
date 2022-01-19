@@ -1,4 +1,3 @@
-import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
 import Metadata from './metadata.ts';
@@ -32,11 +31,5 @@ services.setAppService(appService);
 const server = new DsRouteServer(services, libSupport.appRoutes);
 services.setServer(server);
 
-const appMod = path.join(metadata.app_path, 'app.ts');
-console.log("app module:", appMod);
-await import(appMod);
-
-appRoutes.loadRoutes();
-
-services.initTwine(metadata.rev_sock_path);	// this results in host getting "Ready"
+services.initTwine(metadata.rev_sock_path);	// this results in host getting "Ready", which is weird because we haven't even loaded the app code yet?
 server.startServer(metadata.sock_path);	// only start it if we need to, but deal with later.

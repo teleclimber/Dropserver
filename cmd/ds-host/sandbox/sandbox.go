@@ -185,8 +185,12 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		return err
 	}
 
-	// Here start should take necessary data about appspace
-	// ..in order to pass in the right permissions to deno.
+	// here write a file that imports the sandbox code and the app code
+	// This should be done at install time of the app
+	err = s.writeBootstrapFile()
+	if err != nil {
+		return err
+	}
 
 	twineServer, err := twine.NewUnixServer(path.Join(socketsDir, "rev.sock"))
 	if err != nil {
@@ -223,10 +227,10 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		"--importmap=" + s.getImportPathFile(),
 		"--allow-read=" + strings.Join(append(readFiles, readWriteFiles...), ","),
 		"--allow-write=" + strings.Join(readWriteFiles, ","),
-		"--allow-net", // TODO needed to import remote modules until Deno gives me more options
-		filepath.Join(s.Config.Exec.SandboxCodePath, "index.ts"),
+		//"--allow-net=...",
+		s.getBootstrapFilename(),
 		s.socketsDir,
-		s.getAppFilesPath(), // while we have an import-map, these are stil needed to read files without importing
+		s.getAppFilesPath(), // while we have an import-map, these are still needed to read files without importing
 		appspacePath,
 	}
 
@@ -691,7 +695,8 @@ type ImportPaths struct {
 	Imports map[string]string `json:"imports"`
 }
 
-func (s *Sandbox) makeImportMap() (*[]byte, error) {
+func (s *Sandbox) makeImportMap() ([]byte, error) {
+	bootstrapPath := s.getBootstrapFilename()
 	appPath := trailingSlash(s.getAppFilesPath())
 	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
@@ -700,6 +705,7 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 		Imports: map[string]string{
 			"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
+			bootstrapPath:  bootstrapPath,
 			appPath:        appPath,
 			dropserverPath: dropserverPath,
 
@@ -716,6 +722,7 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 			Imports: map[string]string{
 				"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
 				"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
+				bootstrapPath:  bootstrapPath,
 				appPath:        appPath,
 				appspacePath:   appspacePath,
 				dropserverPath: dropserverPath,
@@ -734,7 +741,7 @@ func (s *Sandbox) makeImportMap() (*[]byte, error) {
 		return nil, err
 	}
 
-	return &j, nil
+	return j, nil
 }
 func trailingSlash(p string) string {
 	if strings.HasSuffix(p, string(os.PathSeparator)) {
@@ -749,7 +756,7 @@ func (s *Sandbox) writeImportMap() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(s.getImportPathFile(), *data, 0600)
+	err = ioutil.WriteFile(s.getImportPathFile(), data, 0600)
 	if err != nil {
 		s.getLogger("writeImportMap()").AddNote("ioutil.WriteFile file: " + s.getImportPathFile()).Error(err)
 		return err
@@ -758,10 +765,25 @@ func (s *Sandbox) writeImportMap() error {
 	return nil
 }
 
+func (s *Sandbox) getBootstrapFilename() string {
+	return filepath.Join(s.Location2Path.AppMeta(s.appVersion.LocationKey), "bootstrap.js")
+}
+func (s *Sandbox) writeBootstrapFile() error {
+	str := "import '" + path.Join(s.Config.Exec.SandboxCodePath, "index.ts") + "';\n"
+	str += "import '" + path.Join(s.Location2Path.AppFiles(s.appVersion.LocationKey), "app.ts") + "';"
+
+	p := s.getBootstrapFilename()
+	err := ioutil.WriteFile(p, []byte(str), 0600)
+	if err != nil {
+		s.getLogger("writeBootstrapFile()").AddNote("ioutil.WriteFile file: " + p).Error(err)
+		return err
+	}
+	return nil
+}
+
 func (s *Sandbox) populateFilePerms() (readFiles, readWriteFiles []string) {
 	// sandbox runner and socket:
 	readWriteFiles = append(readWriteFiles, s.socketsDir)
-	readFiles = append(readFiles, s.Config.Exec.SandboxCodePath)
 
 	// read app files:
 	readFiles = append(readFiles, s.Location2Path.AppFiles(s.appVersion.LocationKey))

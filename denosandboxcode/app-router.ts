@@ -4,7 +4,7 @@ import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/inde
 
 import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
-// TODO rename file to approutes. (the router is ds-dev-router)
+// TODO rename file to approutes. (the router is ds-route-router)
 
 export interface Context {
 	req: ServerRequest
@@ -59,6 +59,7 @@ export type RouteExport = {
  */
 export default class AppRoutes {
 	routes: Map<string,Route> = new Map();
+	routes_loaded = false;
 
 	cb: GetAppRoutesCallback|undefined;
 	setCallback(cb:GetAppRoutesCallback) :void {
@@ -68,6 +69,7 @@ export default class AppRoutes {
 
 	loadRoutes() {
 		if( this.cb === undefined ) return;
+		if( this.routes_loaded ) return;
 		const routes = this.cb();
 		routes.forEach( r => {
 			const stored :Route = {
@@ -81,11 +83,11 @@ export default class AppRoutes {
 			};
 			this.routes.set(stored.id, stored);
 		});
+		this.routes_loaded = true;
 	}
 
 	exportStack() :RouteExport[] {
-		// iterate over routes
-		// and replace known handlers with appropriate data
+		this.loadRoutes();
 		const ret :RouteExport[] = [];
 		this.routes.forEach( r => {
 			let opts:staticOpts|Record<never, never> = {};
@@ -105,6 +107,7 @@ export default class AppRoutes {
 	}
 
 	getRouteWithMatch(routeId:string) :Route|undefined {
+		this.loadRoutes();
 		const stored = this.routes.get(routeId);
 		if( stored === undefined ) return undefined;
 		if( stored.match === undefined ) {

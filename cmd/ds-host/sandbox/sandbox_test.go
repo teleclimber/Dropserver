@@ -33,7 +33,7 @@ func TestImportMaps(t *testing.T) {
 		t.Error(err)
 	}
 
-	str := string(*b)
+	str := string(b)
 	t.Log(str)
 	if !strings.Contains(str, "/av-loc-77/app/\"") {
 		t.Error("expected path with trailing slash")
