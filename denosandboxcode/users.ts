@@ -1,4 +1,4 @@
-import DsServices from './ds-services.ts';
+import DsServices from './services/services.ts';
 
 const service = 16;
 

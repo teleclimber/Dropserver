@@ -3,9 +3,9 @@ import { sleep } from "https://deno.land/x/sleep/mod.ts";
 import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import Twine from "./twine.ts";
-import AppRoutes from './app-router.ts';
-import DsServices from "./ds-services.ts";
-import DsRouteServer from './ds-route-server.ts';
+import AppRoutes from '../approutes.ts';
+import DsServices from './services.ts';
+import DsRouteServer from './routeserver.ts';
 
 Deno.test({
 	name: "start and stop server",

@@ -1,7 +1,7 @@
 import Twine from "./twine.ts";
-import MigrationService from './ds-migrate-service.ts';
-import DsAppService from './ds-app-service.ts';
-import DsRouteServer from "./ds-route-server.ts";
+import MigrationService from './migrateservice.ts';
+import DsAppService from './appservice.ts';
+import DsRouteServer from './routeserver.ts';
 
 import type {ReceivedMessageI} from './twine.ts';
 
@@ -42,7 +42,7 @@ export default class DsServices {
 					this.handleMessage(message);
 					break
 				case executeService:
-					const exec_mod = await import("./ds-exec-service.ts");
+					const exec_mod = await import("./execservice.ts");	// This is not how this should work...
 					exec_mod.handleMessage(message);
 					break;
 				case appService:

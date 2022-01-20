@@ -1,6 +1,6 @@
 import type {ReceivedMessageI} from "./twine.ts";
 
-import Migrations from './migrations.ts';
+import Migrations from '../migrations.ts';
 
 const run_migration_cmd = 11;
 const get_migrations_cmd = 12;

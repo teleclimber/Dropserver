@@ -4,8 +4,6 @@ import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/inde
 
 import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
-// TODO rename file to approutes. (the router is ds-route-router)
-
 export interface Context {
 	req: ServerRequest
 	params: Record<string, unknown>

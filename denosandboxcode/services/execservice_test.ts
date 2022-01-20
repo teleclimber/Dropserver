@@ -2,7 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import Twine, { Message } from "./twine.ts";
-import {handleMessage} from "./ds-exec-service.ts";
+import {handleMessage} from "./execservice.ts";
 
 Deno.test({
 	name: "execute default function",

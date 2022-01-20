@@ -1,5 +1,5 @@
-import AppRoutes from './app-router.ts';
-import type {RouteExport} from './app-router.ts';
+import AppRoutes from '../approutes.ts';
+import type {RouteExport} from '../approutes.ts';
 import type {ReceivedMessageI} from "./twine.ts";
 
 const get_app_routes_cmd = 11;

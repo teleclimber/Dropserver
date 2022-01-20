@@ -1,12 +1,12 @@
 import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
 import Metadata from './metadata.ts';
-import DsServices from './ds-services.ts';
+import DsServices from './services/services.ts';
 import Migrations from './migrations.ts';
-import MigrationService from './ds-migrate-service.ts';
-import AppRoutes from './app-router.ts';
-import DsAppService from './ds-app-service.ts';
-import DsRouteServer from './ds-route-server.ts';
+import MigrationService from './services/migrateservice.ts';
+import AppRoutes from './approutes.ts';
+import DsAppService from './services/appservice.ts';
+import DsRouteServer from './services/routeserver.ts';
 import LibSupport from './libsupport.ts';
 
 const metadata = new Metadata;

@@ -1,6 +1,6 @@
 import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import Twine from "./twine.ts";
-import DsServices from './ds-services.ts';
+import DsServices from './services.ts';
 
 Deno.test({
 	name: "execute default function",

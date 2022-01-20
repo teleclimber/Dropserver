@@ -2,8 +2,8 @@ import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import Twine, {Message} from './twine.ts';
-import Migrations from './migrations.ts';
-import MigrationService from './ds-migrate-service.ts';
+import Migrations from '../migrations.ts';
+import MigrationService from './migrateservice.ts';
 
 // test payload read
 

@@ -1,8 +1,8 @@
 import Metadata from './metadata.ts';
-import DsServices from './ds-services.ts';
+import DsServices from './services/services.ts';
 import Migrations from './migrations.ts';
-import AppRoutes from './app-router.ts';
-import Users from './appspace-users.ts';
+import AppRoutes from './approutes.ts';
+import Users from './users.ts';
 
 export default class LibSupport {
 	_migrations: Migrations|undefined;

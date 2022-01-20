@@ -2,9 +2,9 @@ import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
 import { Server } from "https://deno.land/std@0.106.0/http/server.ts";
 import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
 
-import DsServices from './ds-services.ts';
-import type AppRoutes from './app-router.ts';
-import type {Context} from './app-router.ts';
+import DsServices from './services.ts';
+import type AppRoutes from '../approutes.ts';
+import type {Context} from '../approutes.ts';
 
 const serverRemoteService = 11;
 const serverReadyCommand = 11;
