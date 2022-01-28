@@ -52,7 +52,23 @@ class BaseData {
 	user_permissions: AppspaceUserPermission[] = [];
 
 	_start() {
+		this.fetchInitialData();
 		twineClient.registerService(13, this);
+	}
+	async fetchInitialData() {
+		const res = await fetch('base-data');
+		if( !res.ok ) {
+			throw new Error("fetch error for basic data");
+		}
+
+		try {
+			const data = await res.json();
+			Object.assign(this, data);
+		}
+		catch(error) {
+			console.error(error);
+		}
+		this.loaded = true;
 	}
 	handleMessage(m:ReceivedMessageI) {
 		switch (m.command) {
