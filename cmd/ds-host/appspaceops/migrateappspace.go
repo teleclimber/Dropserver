@@ -2,6 +2,7 @@ package appspaceops
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -31,6 +32,9 @@ type MigrationJobController struct {
 	AppspaceInfoModel interface {
 		GetSchema(domain.AppspaceID) (int, error)
 		SetSchema(domain.AppspaceID, int) error
+	} `checkinject:"required"`
+	AppspaceLogger interface {
+		Log(appspaceID domain.AppspaceID, source string, message string)
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
@@ -277,6 +281,8 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 			// if no rows, that means version was deleted even though appspaces were using it. That's a program error
 		}
 	}
+
+	c.AppspaceLogger.Log(appspaceID, "ds-host", fmt.Sprintf("Migrating from schema %v to schema %v", job.fromSchema, job.toSchema))
 
 	// everything checks out so before running actual migration take a backup
 	var backupZip string

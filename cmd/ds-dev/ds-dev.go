@@ -238,6 +238,7 @@ func main() {
 		AppModel:          devAppModel,
 		AppspaceInfoModel: appspaceInfoModel,
 		AppspaceModel:     devAppspaceModel,
+		AppspaceLogger:    appspaceLogger,
 		AppspaceStatus:    nil, //set below
 		BackupAppspace:    nil, // TODO going to need something like this!
 		RestoreAppspace:   nil,
@@ -393,6 +394,9 @@ func main() {
 		}
 		depGraph.CheckMissing()
 	}
+
+	// open the appspace log.
+	appspaceLogger.Open(appspaceID)
 
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.

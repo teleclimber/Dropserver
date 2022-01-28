@@ -238,12 +238,12 @@ func (s *DropserverDevServer) migrate(migrateTo int) error {
 		return err
 	}
 	if migrateTo < appspaceSchema {
-		s.DevAppModel.ToVer.Version = domain.Version("0.0.1")
+		s.DevAppModel.ToVer.Version = domain.Version("0.0.0")
 		s.DevAppModel.ToVer.Schema = migrateTo
 		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
 		s.MigrationJobController.WakeUp()
 	} else if migrateTo > appspaceSchema {
-		s.DevAppModel.ToVer.Version = domain.Version("100.0.0")
+		s.DevAppModel.ToVer.Version = domain.Version("1000.0.0")
 		s.DevAppModel.ToVer.Schema = migrateTo
 		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
 		s.MigrationJobController.WakeUp()
