@@ -13,6 +13,12 @@ const (
 	getAllUsersCmd = 13
 )
 
+type SandboxUser struct {
+	ProxyID     domain.ProxyID `json:"proxyId"`
+	DisplayName string         `json:"displayName"`
+	Avatar      string         `json:"avatar"`
+}
+
 // UsersV0 responds to requests about appspace users for the appspace
 type UsersV0 struct {
 	AppspaceUsersV0 interface {
@@ -21,10 +27,6 @@ type UsersV0 struct {
 	}
 	appspaceID domain.AppspaceID
 }
-
-// service HandleMessage is for sandboxed code.
-// Not frontend or anything. ...I think?
-// host frontend and other systems will use controllers that will call regular model methods.
 
 // HandleMessage processes a command and payload from the reverse listener
 func (u *UsersV0) HandleMessage(message twine.ReceivedMessageI) {
@@ -51,7 +53,7 @@ func (u *UsersV0) handleGetUserCommand(message twine.ReceivedMessageI) {
 	if user.ProxyID == "" {
 		message.Reply(13, nil)
 	} else {
-		bytes, err := json.Marshal(user)
+		bytes, err := json.Marshal(getUserForSandbox(user))
 		if err != nil {
 			u.getLogger("handleGetUserCommand(), json Marshal error").Error(err)
 			message.SendError("Error on host")
@@ -67,7 +69,10 @@ func (u *UsersV0) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
 		message.SendError(err.Error())
 		return
 	}
-
+	sUsers := make([]SandboxUser, len(users))
+	for i, u := range users {
+		sUsers[i] = getUserForSandbox(u)
+	}
 	bytes, err := json.Marshal(users)
 	if err != nil {
 		u.getLogger("handleGetAllUsersCommand(), json Marshal error").Error(err)
@@ -82,4 +87,12 @@ func (u *UsersV0) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
+}
+
+func getUserForSandbox(user domain.AppspaceUser) SandboxUser {
+	return SandboxUser{
+		ProxyID:     user.ProxyID,
+		DisplayName: user.DisplayName,
+		Avatar:      user.Avatar,
+	}
 }
