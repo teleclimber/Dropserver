@@ -1,6 +1,5 @@
 module.exports = {
-	mode: "jit",
-	purge: [
+	content: [
 		'./src/**/*.vue',
 		'*.html'
 	],
@@ -11,6 +10,5 @@ module.exports = {
 	theme: {
 	  extend: {},
 	},
-	variants: {},
 	plugins: [],
 }
