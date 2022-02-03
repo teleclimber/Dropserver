@@ -7,8 +7,8 @@
 
 <template>
 	<div class="border-l-4 border-gray-800  my-8">
-		<h4 class="bg-gray-800 px-2 text-white inline-block">App Routes:</h4>
-		<div class="overflow-y-scroll h-64 bg-gray-100">
+		<h4 class="bg-gray-800 px-2 py-1 text-white inline-block">App Routes:</h4>
+		<div class="bg-gray-100">
 			<div v-if="appRoutesService.error" class="">
 				<p class="bg-red-200">{{appRoutesService.error}}</p>
 			</div>

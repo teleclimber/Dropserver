@@ -59,6 +59,9 @@ class UserData {
 	getUser(proxy_id:string) : User|undefined {
 		return this.users.find((u:User) => u.proxy_id === proxy_id);
 	}
+	getActiveUser() :User|undefined {
+		return this.getUser(this.user_proxy_id);
+	}
 	isUser(proxy_id:string) :boolean {
 		return proxy_id === this.user_proxy_id;
 	}
@@ -105,7 +108,7 @@ class UserData {
 		}
 	}
 
-	async setUser(proxy_id :string) {
+	async setActiveUser(proxy_id :string) {
 		const payload = new TextEncoder().encode(proxy_id);
 		const reply = await twineClient.twine.sendBlock(userService, userSelectUserCmd, payload);
 

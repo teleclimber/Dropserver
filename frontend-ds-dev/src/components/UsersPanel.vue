@@ -1,41 +1,61 @@
 <style scoped>
 	.log-grid {
 		display: grid;
-		grid-template-columns: 3rem 50px 10rem 5rem 1fr 8rem;
+		grid-template-columns: 3rem 50px max-content max-content 1fr max-content;
 	}
 </style>
 
 <template>
-	<div class="border-l-4 border-gray-800  my-8">
-		<h4 class="bg-gray-800 px-2 text-white inline-block">Users:</h4>
-		<button ref="add_btn" class="bg-blue-400 inline-block px-2 mx-2 rounded" @click.stop.prevent="showAddUser">Add</button>
-		<div class="overflow-y-scroll h-64 bg-gray-100" style="scroll-behavior: smooth" ref="scroll_container">
-			<div class="log-grid items-stretch">
+	<p class="m-4 flex items-center h-8">
+		Active User:
+		<div v-if="active_user" class="flex items-center bg-gray-100 mx-2 pr-2">
+			<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
+			<span class="font-bold ml-2">{{active_user.display_name}}</span>
+			<span class="font-mono text-sm ml-2">{{active_user.proxy_id}}</span>
+		</div>
+		<UiButton v-if="active_user" class="mx-2" @click.stop.prevent="userData.setActiveUser('')">Deactivate</UiButton>
+		<span v-else class="italic text-gray-600 ml-2">
+			No user selected. Requests are interpreted as unauthenticated.
+		</span>
+	</p>
+	<div class="m-4">
+		<div class="flex justify-between">
+			<h2 class="text-2xl my-2">{{userData.users.length}} Appspace Users:</h2>
+			<UiButton ref="add_btn" class="self-center mx-2 flex items-center" @click.stop.prevent="showAddUser" title="Add a new appspace user">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pr-1" viewBox="0 0 20 20" fill="currentColor">
+					<path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+				</svg>
+				Add User
+			</UiButton>
+		</div>
+		<div class=" bg-gray-100">
+			<div class="log-grid items-stretch border-t border-gray-400">
 				<template  v-for="user in userData.users" :key="user.proxy_id">
-					<span class="bg-gray-200 pt-1 border-b border-gray-400 text-green-500 text-center hover:bg-green-200" @click.stop.prevent="userData.setUser(user.proxy_id)">
-						<svg v-if="userData.isUser(user.proxy_id)" class="inline w-8 h-8" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-							<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-						</svg>
-					</span>
+					<label class="bg-gray-200 border-b border-gray-400 flex justify-center items-center text-center hover:bg-yellow-200" 
+						:class="{'bg-yellow-100':userData.isUser(user.proxy_id)}">
+						<input type="radio" name="activeuser" :value="user.proxy_id" v-model="active_user_input" />
+					</label>
 					<img v-if="user.avatar" :src="'avatar/appspace/'+user.avatar">
 					<div v-else class="bg-gray-300 border-b border-gray-400">&nbsp;</div>
-					<span class="bg-gray-200 text-gray-700 pl-2 py-2 text-lg font-bold border-b border-gray-400">{{user.display_name}}</span>
-					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm font-mono border-b border-gray-400">{{user.proxy_id}}</span>
-					<span class="bg-gray-200 text-gray-700 pl-2 pt-3 text-sm border-b border-gray-400">{{user.permissions.join(", ")}}</span>
-					<span class="bg-gray-200 pt-3 text-sm border-b border-gray-400">
-						<button class="bg-blue-400 inline-block px-2 mx-2 rounded" @click.stop.prevent="showEditUser(user.proxy_id)">Edit</button>
-						<button class="bg-blue-400 inline-block px-2 mx-2 rounded" @click.stop.prevent="delUser(user.proxy_id)">Del</button>
+					<span class="bg-gray-200 text-gray-700 pl-4 self-stretch flex items-center text-lg font-bold border-b border-gray-400">{{user.display_name}}</span>
+					<span class="bg-gray-200 text-gray-700 pl-4 self-stretch flex items-center text-sm font-mono border-b border-gray-400">{{user.proxy_id}}</span>
+					<span class="bg-gray-200 text-gray-700 pl-4 self-stretch flex items-center text-sm border-b border-gray-400">{{user.permissions.join(", ")}}</span>
+					<span class="bg-gray-200 text-sm border-b border-gray-400 flex items-center justify-end">
+						<UiButton class="mx-2 flex items-center" @click.stop.prevent="showEditUser(user.proxy_id)">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pr-1" viewBox="0 0 20 20" fill="currentColor">
+								<path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+								<path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" />
+							</svg>
+							Edit
+						</UiButton>
+						<UiButton class="mx-2 flex items-center" @click.stop.prevent="delUser(user.proxy_id)">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 pr-1" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+							</svg>
+							Del
+						</UiButton>
 					</span>
 				</template>
-
-				<span class="bg-blue-100 pt-1 border-b border-gray-400 text-green-500 text-center hover:bg-green-200" @click.stop.prevent="userData.setUser('')">
-					<svg v-if="userData.isUser('')" class="inline w-8 h-8" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-						<path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-					</svg>
-				</span>
-				<div class="bg-blue-100 border-b border-gray-400">&nbsp;</div>
-				<span style="grid-column: span 4" class="bg-blue-100 text-blue-700 pl-2 py-2 text-lg font-bold border-b border-gray-400 italic">Public</span>
-					
 			</div>
 		</div>
 	</div>
@@ -70,8 +90,8 @@
 				</label>
 
 				<div class="flex justify-between mt-4">
-					<button @click="closeUserModal" class="bg-gray-700 hover:bg-gray-900 text-white py-1 px-2 rounded">Cancel</button>
-					<button type="submit" @click="saveEditUser" class="bg-red-700 hover:bg-red-900 text-white py-1 px-2 rounded">Save</button>
+					<UiButton @click="closeUserModal" class="">Cancel</UiButton>
+					<UiButton type="submit" @click="saveEditUser" class="">Save</UiButton>
 				</div>
 
 				<button class="absolute top-0 right-0 p-2" @click="closeUserModal">
@@ -84,10 +104,12 @@
 
 
 <script lang="ts">
-import { defineComponent, reactive, ref, Ref, nextTick} from 'vue';
+import { defineComponent, onMounted, reactive, ref, Ref, nextTick, computed, watch} from 'vue';
 
 import baseData from '../models/base-data';
 import userData from '../models/user-data';
+
+import UiButton from './ui/UiButton.vue';
 
 // Redo:
 // - list users from db
@@ -101,8 +123,8 @@ import userData from '../models/user-data';
 
 
 export default defineComponent({
-	name: 'UserControl',
 	components: {
+		UiButton
 	},
 	setup(props, context) {
 		const display_name_input :Ref<HTMLInputElement|null> = ref(null);
@@ -218,6 +240,21 @@ export default defineComponent({
 			}
 		}
 
+		const active_user = computed( () => {
+			return userData.getActiveUser();
+		});
+		const active_user_input = ref("");
+		onMounted( () => {
+			const u = userData.getActiveUser();
+			if(u) active_user_input.value =  u.proxy_id;
+		});
+		watch( active_user, () => {
+			active_user_input.value = active_user.value ? active_user.value.proxy_id : '';
+		});
+		watch( active_user_input, () => {
+			userData.setActiveUser(active_user_input.value);
+		});
+
 		return { userData, baseData, 
 			edit_user_open, is_edit,
 			display_name_input, display_name,
@@ -225,6 +262,7 @@ export default defineComponent({
 			showAddUser, showEditUser, saveEditUser, closeUserModal,
 			baked_in_avatars, avatar, avatar_url, avatarChanged,
 			delUser,
+			active_user, active_user_input,
 		};
 	},
 });

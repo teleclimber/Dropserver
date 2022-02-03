@@ -1,73 +1,72 @@
 <template>
-	<h3 class="text-gray-600">Dropserver App Dev<br>-app {{baseData.app_path}}<br>-appspace {{baseData.appspace_path}}</h3>
+	<div class="flex flex-col h-screen">
+		<AppHead></AppHead>
 
-	<div class="grid grid-cols-2 my-8">
-		<div class="border-l-4 border-gray-800">
-			<h4 class="bg-gray-800 px-2 text-white inline-block">App:</h4>
-			<h1 class="text-2xl px-2">{{baseData.name}} <span class="bg-gray-400 px-2 rounded-md">{{baseData.version}}</span></h1>
-			<div class="px-2">
-				Schema: <span>{{appspaceStatus.app_version_schema}}</span>
-			</div>
+		<div class="flex border-b-4 border-black px-4 ">
+			<Tab tab="app">
+				App
+			</Tab>
+			<Tab tab="appspace">
+				Appspace
+			</Tab>
+			<Tab tab="route-hits">
+				Route Hits
+			</Tab>
+			<Tab tab="migrations">
+				Migrations
+			</Tab>
+			<Tab tab="users">
+				Users
+			</Tab>
 		</div>
-		<div class="border-l-4 border-gray-800">
-			<h4 class="bg-gray-800 px-2 text-white inline-block">Appspace:</h4>
-			<h1 class="text-2xl px-2">[baseData.appspace_name]</h1>
-			<div class="px-2">
-				Schema: <span>{{appspaceStatus.appspace_schema}}</span>
-			</div>
+
+		<div class="flex-shrink flex-grow overflow-y-scroll">
+			<AppPanel v-if="app_control.tab === 'app'" ></AppPanel>
+			<AppspacePanel v-else-if="app_control.tab === 'appspace'"></AppspacePanel>
+			<RouteHitsPanel v-else-if="app_control.tab === 'route-hits'"></RouteHitsPanel>
+			<MigrationsPanel v-else-if="app_control.tab === 'migrations'"></MigrationsPanel>
+			<UsersPanel v-else-if="app_control.tab === 'users'"></UsersPanel>
 		</div>
+
+		<AppspaceLogPanel v-if="app_control.tab !== 'app'"></AppspaceLogPanel>
+
 	</div>
-
-	<AppspaceControl></AppspaceControl>
-
-	<UserControl></UserControl>
-
-	<SandboxLog title="App" :live_log="appLog"></SandboxLog>
-
-	<SandboxLog title="Appspace" :live_log="appspaceLog"></SandboxLog>
-
-	<MigrationJobs></MigrationJobs>
-
-	<RouteHits></RouteHits>
-
-	<AppRoutes></AppRoutes>
-
 </template>
 
 <script lang="ts">
 import { defineComponent, reactive, watch } from 'vue';
 import baseData from './models/base-data';
 import appspaceStatus from './models/appspace-status';
-import LiveLog from './models/appspace-log-data';
 
-import AppspaceControl from './components/AppspaceControl.vue';
-import UserControl from './components/UserControl.vue';
-import SandboxLog from './components/AppspaceLog.vue';
-import MigrationJobs from './components/MigrationJobs.vue';
-import RouteHits from './components/RouteHits.vue';
-import AppRoutes from './components/AppRoutes.vue';
+import AppHead from './components/AppHead.vue';
+import Tab from './components/Tab.vue';
+import AppPanel from './components/AppPanel.vue';
+import AppspacePanel from './components/AppspacePanel.vue';
+import RouteHitsPanel from './components/RouteHitsPanel.vue';
+import MigrationsPanel from './components/MigrationsPanel.vue';
+import UsersPanel from './components/UsersPanel.vue';
+import AppspaceLogPanel from './components/AppspaceLogPanel.vue';
+
+import {app_control} from './main';
 
 export default defineComponent({
 	name: 'DropserverAppDev',
 	components: {
-		AppspaceControl,
-		UserControl,
-		SandboxLog,
-		MigrationJobs,
-		RouteHits,
-		AppRoutes,
+		AppHead,
+		Tab,
+		AppPanel,
+		AppspacePanel,
+		RouteHitsPanel,
+		MigrationsPanel,
+		UsersPanel,
+		AppspaceLogPanel
 	},
 	setup(props, context) {
-		const appLog = <LiveLog>reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
-		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
-		
-		const appspaceLog = <LiveLog>reactive(new LiveLog);
-		appspaceLog.subscribeAppspaceLog(15);	// 15 is designated hard-coded appspace id in ds-dev.
+	
 		return {
 			baseData,
 			appspaceStatus,
-			appLog,
-			appspaceLog,
+			app_control,
 		};
 	}
 });

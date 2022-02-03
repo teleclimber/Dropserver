@@ -45,7 +45,7 @@ class BaseData {
 
 	name = "";
 	version = "0.0.0";
-	schema = 0;
+	schema = 0;	// this app schema!!
 	api = 0;
 	migrations: MigrationStep[] = [];
     schemas: number[] = [];
@@ -147,7 +147,7 @@ export class ImportAndMigrate {
 	public cur_state:string = "";
 
 	reset() {
-		this.cur_state = "Import and Migrate"
+		this.cur_state = "Reload Appspace"
 	}
 	start() {
 		this.cur_state = "Working...";
