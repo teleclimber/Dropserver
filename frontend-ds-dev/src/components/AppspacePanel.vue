@@ -1,7 +1,6 @@
 <template>
 	<div class="m-4 flex justify-between">
 		<AppspaceControl></AppspaceControl>
-		<Sandbox></Sandbox>
 	</div>
 	<div class="m-4">
 		<p>Working Dir: ??</p>
@@ -16,13 +15,11 @@ import { defineComponent, reactive } from 'vue';
 import appspaceStatus from '../models/appspace-status';
 
 import AppspaceControl from './AppspaceControl.vue';
-import Sandbox from './Sandbox.vue';
 import Log from './Log.vue';
 
 export default defineComponent({
 	components: {
 		AppspaceControl,
-		Sandbox,
 		Log,
 	},
 	setup() {

@@ -20,6 +20,9 @@ type DevSandboxManager struct {
 	AppVersionEvents interface {
 		Subscribe(chan<- string)
 	} `checkinject:"required"`
+	SandboxStatusEvents interface {
+		Send(SandboxStatus)
+	} `checkinject:"required"`
 	Location2Path interface {
 		AppMeta(string) string
 		AppFiles(string) string
@@ -60,6 +63,7 @@ func (sM *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appsp
 		}()
 	} else {
 		sM.startSandbox(appVersion, appspace, ch)
+
 	}
 
 	return ch
@@ -72,6 +76,16 @@ func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspac
 	newSandbox.Logger = sM.AppspaceLogger.Get(appspaceID)
 	newSandbox.SetInspect(sM.inspect)
 	sM.sb = newSandbox
+
+	statCh := newSandbox.SubscribeStatus()
+	go func() {
+		for stat := range statCh {
+			sM.SandboxStatusEvents.Send(SandboxStatus{
+				Type:   "appspace",
+				Status: stat,
+			})
+		}
+	}()
 
 	go func() {
 		err := newSandbox.Start()
@@ -123,7 +137,10 @@ type DevSandboxMaker struct {
 	Location2Path interface {
 		AppMeta(string) string
 		AppFiles(string) string
-	}
+	} `checkinject:"required"`
+	SandboxStatusEvents interface {
+		Send(SandboxStatus)
+	} `checkinject:"required"`
 	Config  *domain.RuntimeConfig
 	inspect bool
 }
@@ -138,10 +155,21 @@ func (m *DevSandboxMaker) SetInspect(inspect bool) {
 
 func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
 	s := sandbox.NewSandbox(sandboxID, appVersion, nil, nil, m.Config)
-	sandboxID++
 	s.Location2Path = m.Location2Path
 	s.Logger = m.AppLogger.Get("")
 	s.SetInspect(m.inspect)
+
+	statCh := s.SubscribeStatus()
+	go func() {
+		for stat := range statCh {
+			m.SandboxStatusEvents.Send(SandboxStatus{
+				Type:   "app",
+				Status: stat,
+			})
+		}
+	}()
+
+	sandboxID++
 
 	err := s.Start()
 	if err != nil {
@@ -156,10 +184,21 @@ func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI
 // Make a new migration sandbox
 func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
 	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
-	sandboxID++
 	s.Location2Path = m.Location2Path
 	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.SetInspect(m.inspect)
+
+	statCh := s.SubscribeStatus()
+	go func() {
+		for stat := range statCh {
+			m.SandboxStatusEvents.Send(SandboxStatus{
+				Type:   "migration",
+				Status: stat,
+			})
+		}
+	}()
+
+	sandboxID++
 
 	err := s.Start()
 	if err != nil {

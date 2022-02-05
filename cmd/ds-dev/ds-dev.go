@@ -115,6 +115,7 @@ func main() {
 	// dev-only events:
 	appVersionEvents := &DevAppVersionEvents{}
 	inspectSandboxEvents := &InspectSandboxEvents{}
+	sandboxStatusEvents := &SandboxStatusEvents{}
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
@@ -226,10 +227,11 @@ func main() {
 	appspaceLogger.Init()
 
 	devSandboxManager := &DevSandboxManager{
-		AppspaceLogger:   appspaceLogger,
-		Config:           runtimeConfig,
-		AppVersionEvents: appVersionEvents,
-		Location2Path:    location2path,
+		AppspaceLogger:      appspaceLogger,
+		Config:              runtimeConfig,
+		AppVersionEvents:    appVersionEvents,
+		SandboxStatusEvents: sandboxStatusEvents,
+		Location2Path:       location2path,
 	}
 	devSandboxManager.Init()
 
@@ -306,11 +308,12 @@ func main() {
 	devSandboxManager.Services = services
 
 	devSandboxMaker := &DevSandboxMaker{
-		AppspaceLogger: appspaceLogger,
-		AppLogger:      appLogger,
-		Services:       services,
-		Location2Path:  location2path,
-		Config:         runtimeConfig}
+		AppspaceLogger:      appspaceLogger,
+		AppLogger:           appLogger,
+		Services:            services,
+		Location2Path:       location2path,
+		SandboxStatusEvents: sandboxStatusEvents,
+		Config:              runtimeConfig}
 
 	migrateJobController.SandboxMaker = devSandboxMaker
 	appGetter.SandboxMaker = devSandboxMaker
@@ -328,6 +331,7 @@ func main() {
 		DevSandboxMaker:      devSandboxMaker,
 		DevSandboxManager:    devSandboxManager,
 		InspectSandboxEvents: inspectSandboxEvents,
+		SandboxStatusEvents:  sandboxStatusEvents,
 	}
 	appMetaService := &AppMetaService{
 		DevAppModel:      devAppModel,

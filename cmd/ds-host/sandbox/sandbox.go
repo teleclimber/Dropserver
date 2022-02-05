@@ -51,8 +51,9 @@ func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, e
 	s := &Sandbox{
 		id:            0,
 		appVersion:    appVersion,
-		status:        domain.SandboxStarting,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		status:        domain.SandboxPrepared,
+		statusSub:     make([]chan domain.SandboxStatus, 0),
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Location2Path: m.Location2Path,
 		Config:        m.Config,
 		Logger:        m.AppLogger.Get(appVersion.LocationKey)}
@@ -73,8 +74,9 @@ func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *dom
 		appVersion:    appVersion,
 		appspace:      appspace,
 		services:      m.Services.Get(appspace, appVersion.APIVersion),
-		status:        domain.SandboxStarting,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		status:        domain.SandboxPrepared,
+		statusSub:     make([]chan domain.SandboxStatus, 0),
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Location2Path: m.Location2Path,
 		Config:        m.Config,
 		Logger:        m.AppspaceLogger.Get(appspace.AppspaceID)}
@@ -121,13 +123,14 @@ type Sandbox struct {
 	appVersion      *domain.AppVersion
 	appspace        *domain.Appspace
 	Logger          interface{ Log(string, string) }
-	status          domain.SandboxStatus // getter/setter, so make it unexported.
 	socketsDir      string
 	cmd             *exec.Cmd
 	twine           *twine.Twine
 	services        domain.ReverseServiceI
 	statusMux       sync.Mutex
-	statusSub       map[domain.SandboxStatus][]chan domain.SandboxStatus
+	status          domain.SandboxStatus
+	statusSub       []chan domain.SandboxStatus
+	waitStatusSub   map[domain.SandboxStatus][]chan domain.SandboxStatus
 	transport       http.RoundTripper
 	appSpaceSession appSpaceSession // put a getter for that?
 	killScore       float64         // this should not be here.
@@ -144,13 +147,14 @@ type Sandbox struct {
 // or executing functions in a running appspace
 func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.Appspace, services domain.ReverseServiceI, config *domain.RuntimeConfig) *Sandbox {
 	newSandbox := &Sandbox{
-		id:         sandboxID,
-		appVersion: appVersion,
-		appspace:   appspace,
-		services:   services,
-		status:     domain.SandboxStarting,
-		statusSub:  make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:     config}
+		id:            sandboxID,
+		appVersion:    appVersion,
+		appspace:      appspace,
+		services:      services,
+		status:        domain.SandboxPrepared,
+		statusSub:     make([]chan domain.SandboxStatus, 0),
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		Config:        config}
 
 	return newSandbox
 }
@@ -166,6 +170,8 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	s.getLogger("Start()").Debug("starting...")
 
 	logger := s.getLogger("Start()")
+
+	s.SetStatus(domain.SandboxStarting)
 
 	logString := "Sandbox starting"
 	if s.inspect {
@@ -645,19 +651,32 @@ func (s *Sandbox) isTiedUp() (tiedUp bool) {
 }
 
 // SetStatus sets the status
+// why is this public?? -> sandbox manager uses it, but this should be posible to work around.
 func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
+	fmt.Printf("Set Status from %v to %v", s.status, status)
+
 	if status > s.status {
+
 		s.status = status
-		for stat, subs := range s.statusSub {
+		for stat, subs := range s.waitStatusSub {
 			if stat <= s.status {
 				for _, sub := range subs {
-					sub <- s.status // this might block if nobody is actually waiting on the channel?
+					sub <- s.status
 				}
-				delete(s.statusSub, stat)
+				delete(s.waitStatusSub, stat)
 			}
+		}
+		for _, sub := range s.statusSub {
+			sub <- s.status
+		}
+		if status == domain.SandboxDead {
+			for _, sub := range s.statusSub {
+				close(sub)
+			}
+			s.statusSub = make([]chan domain.SandboxStatus, 0)
 		}
 	}
 }
@@ -671,15 +690,25 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 	}
 	fmt.Println(s.id, "waiting for sandbox status", status)
 
-	if _, ok := s.statusSub[status]; !ok {
-		s.statusSub[status] = []chan domain.SandboxStatus{}
+	if _, ok := s.waitStatusSub[status]; !ok {
+		s.waitStatusSub[status] = []chan domain.SandboxStatus{}
 	}
 	statusMet := make(chan domain.SandboxStatus)
-	s.statusSub[status] = append(s.statusSub[status], statusMet)
+	s.waitStatusSub[status] = append(s.waitStatusSub[status], statusMet)
 
 	s.statusMux.Unlock()
 
 	<-statusMet
+}
+
+// SubscribeStatus returns a channel that will receive status for this sandbox
+// It automatically closes the channel after sending sandbox dead
+func (s *Sandbox) SubscribeStatus() chan domain.SandboxStatus {
+	s.statusMux.Lock()
+	defer s.statusMux.Unlock()
+	sub := make(chan domain.SandboxStatus)
+	s.statusSub = append(s.statusSub, sub)
+	return sub
 }
 
 func (s *Sandbox) log(logString string) {

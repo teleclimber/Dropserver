@@ -100,8 +100,10 @@ type MetricsI interface {
 type SandboxStatus int
 
 const (
+	// SandboxPrepared is the initial status
+	SandboxPrepared SandboxStatus = iota + 1
 	// SandboxStarting sb is starting not ready yet
-	SandboxStarting SandboxStatus = iota + 1
+	SandboxStarting
 	// SandboxReady means it's ready to take incoming requests
 	SandboxReady
 	// SandboxKilling means the system considers it is going down

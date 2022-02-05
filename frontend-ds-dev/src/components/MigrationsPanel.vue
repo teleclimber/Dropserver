@@ -16,7 +16,6 @@
 				Migrate
 			</UiButton>
 		</div>
-		<Sandbox></Sandbox>
 	</div>
 	<div class="m-4">
 		<MigrationJobs></MigrationJobs>
@@ -29,14 +28,12 @@ import baseData, { runMigration } from '../models/base-data';
 import appspaceStatus from '../models/appspace-status';
 import sandboxControl from '../models/sandbox-control';
 
-import Sandbox from './Sandbox.vue';
 import MigrationJobs from './MigrationJobs.vue';
 import UiButton from './ui/UiButton.vue';
 
 export default defineComponent({
 	name: 'MigrationsPanel',
 	components: {
-		Sandbox,
 		MigrationJobs,
 		UiButton
 	},

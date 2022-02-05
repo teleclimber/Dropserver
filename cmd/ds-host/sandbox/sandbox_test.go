@@ -43,8 +43,8 @@ func TestImportMaps(t *testing.T) {
 // Ttest the status subscription system
 func TestStatus(t *testing.T) {
 	s := &Sandbox{
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		status:        domain.SandboxStarting,
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	s.SetStatus(domain.SandboxReady)
 
@@ -53,8 +53,8 @@ func TestStatus(t *testing.T) {
 
 func TestStatusWait(t *testing.T) {
 	s := &Sandbox{
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		status:        domain.SandboxStarting,
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -66,8 +66,8 @@ func TestStatusWait(t *testing.T) {
 
 func TestStatusWaitSkip(t *testing.T) {
 	s := &Sandbox{
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		status:        domain.SandboxStarting,
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -79,8 +79,8 @@ func TestStatusWaitSkip(t *testing.T) {
 
 func TestStatusNotReached(t *testing.T) {
 	s := &Sandbox{
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		status:        domain.SandboxStarting,
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -97,8 +97,8 @@ func TestStatusNotReached(t *testing.T) {
 
 func TestStatusWaitMultiple(t *testing.T) {
 	s := &Sandbox{
-		status:    domain.SandboxStarting,
-		statusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		status:        domain.SandboxStarting,
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -186,7 +186,7 @@ func TestRunnerScriptError(t *testing.T) {
 		appVersion:    &domain.AppVersion{},
 		appspace:      &domain.Appspace{},
 		status:        domain.SandboxStarting,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Location2Path: &l2p{app: dir, appFiles: dir},
 		Config:        cfg}
 
@@ -250,7 +250,7 @@ func TestStart(t *testing.T) {
 		Location2Path: &loc,
 		Config:        cfg,
 		Logger:        log,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -304,7 +304,7 @@ func TestStartAppOnly(t *testing.T) {
 		status:        domain.SandboxStarting,
 		Location2Path: &loc,
 		Config:        cfg,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -370,7 +370,7 @@ func __TestExecFn(t *testing.T) {
 		Location2Path: &loc,
 		Config:        cfg,
 		Logger:        log,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {
@@ -438,7 +438,7 @@ func __TestExecForbiddenImport(t *testing.T) {
 		status:        domain.SandboxStarting,
 		Location2Path: &l2p{app: dir, appFiles: dir},
 		Config:        cfg,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.Start()
 	if err != nil {

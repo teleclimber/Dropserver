@@ -125,3 +125,45 @@ func (e *InspectSandboxEvents) removeSubscriber(ch chan<- bool) {
 		}
 	}
 }
+
+type SandboxStatusEvents struct {
+	subLock     sync.Mutex
+	subscribers []chan SandboxStatus
+	last        SandboxStatus
+}
+
+// Send sends an app is changed
+func (e *SandboxStatusEvents) Send(stat SandboxStatus) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.last = stat
+	for _, ch := range e.subscribers {
+		ch <- stat
+	}
+}
+
+// Subscribe to an event for when an app is changed
+func (e *SandboxStatusEvents) Subscribe() (SandboxStatus, <-chan SandboxStatus) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	ch := make(chan SandboxStatus)
+	e.subscribers = append(e.subscribers, ch)
+	return e.last, ch
+}
+
+// Unsubscribe to an event for when an app is changed
+func (e *SandboxStatusEvents) Unsubscribe(ch <-chan SandboxStatus) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.removeSubscriber(ch)
+}
+
+func (e *SandboxStatusEvents) removeSubscriber(ch <-chan SandboxStatus) {
+	for i, c := range e.subscribers {
+		if c == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+			close(c)
+		}
+	}
+}

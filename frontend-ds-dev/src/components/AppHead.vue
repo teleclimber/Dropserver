@@ -10,16 +10,18 @@
 				<span v-else class="text-gray-400 italic">(none provided)</span>
 			</p>
 		</div>
-		<div class="flex flex-col items-stretch">
-			<AppspaceStatus></AppspaceStatus>
-			<div v-if="active_user" class="flex items-center bg-gray-100 mt-2 w-48">
-				<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
-				<span class="font-bold ml-2 whitespace-nowrap overflow-hidden flex-shrink">{{active_user.display_name}}</span>
-				<span class="font-mono text-sm ml-2 flex-shrink overflow-hidden">{{active_user.proxy_id}}</span>
+		<div class="flex items-stretch">
+			<Sandbox></Sandbox>
+			<div class="ml-4 flex flex-col items-stretch">
+				<AppspaceStatus></AppspaceStatus>
+				<div v-if="active_user" class="flex items-center bg-gray-100 mt-2 w-48">
+					<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
+					<span class="font-bold ml-2 whitespace-nowrap overflow-hidden flex-shrink">{{active_user.display_name}}</span>
+				</div>
+				<span v-else class="italic text-sm bg-gray-50 text-gray-600 mt-2 h-8 flex justify-center items-center">
+					No user active.
+				</span>
 			</div>
-			<span v-else class="italic text-gray-600 mt-2 h-8 text-center">
-				No user active.
-			</span>
 		</div>		
 	</header>
 </template>
@@ -28,6 +30,7 @@
 import { defineComponent, computed } from 'vue';
 
 import AppspaceStatus from './AppspaceStatus.vue';
+import Sandbox from './Sandbox.vue';
 
 import baseData from '../models/base-data';
 import appspaceStatus from '../models/appspace-status';
@@ -36,7 +39,8 @@ import userData from '../models/user-data';
 export default defineComponent({
 	name: 'AppHead',
 	components: {
-		AppspaceStatus
+		AppspaceStatus,
+		Sandbox
 	},
 	setup(props, context) {
 

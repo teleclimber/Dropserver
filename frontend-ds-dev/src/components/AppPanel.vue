@@ -9,10 +9,6 @@
 			</div>
 			<div v-if="show_process_log">
 
-				<div class="my-4">
-					<!-- will also need a reprocess button near sandbox -->
-					<Sandbox></Sandbox>
-				</div>
 				<!-- error message, processing steps coming from backend. -->
 
 				<div class="border-l-4 border-gray-800 flex flex-col ">
@@ -48,13 +44,11 @@ import { defineComponent, reactive, ref, computed } from 'vue';
 import LiveLog from '../models/appspace-log-data';
 import baseData from '../models/base-data';
 
-import Sandbox from './Sandbox.vue';
 import Log from './Log.vue';
 import AppRoutes from './AppRoutes.vue';
 
 export default defineComponent({
 	components: {
-		Sandbox,
 		Log,
 		AppRoutes
 	},

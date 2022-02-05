@@ -82,7 +82,8 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 		Logger:        sM.AppspaceLogger.Get(appspace.AppspaceID),
 		services:      sM.Services.Get(appspace, appVersion.APIVersion),
 		status:        domain.SandboxStarting,
-		statusSub:     make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		statusSub:     make([]chan domain.SandboxStatus, 0),
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
 		Location2Path: sM.Location2Path,
 		Config:        sM.Config}
 
