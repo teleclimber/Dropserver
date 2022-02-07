@@ -29,7 +29,8 @@ type twineService interface {
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	DevAppModel *DevAppModel `checkinject:"required"`
+	Config      *domain.RuntimeConfig `checkinject:"required"`
+	DevAppModel *DevAppModel          `checkinject:"required"`
 	AppGetter   interface {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
@@ -84,8 +85,9 @@ func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Req
 	res.WriteHeader(http.StatusOK)
 
 	baseData := BaseData{
-		AppPath:      s.appPath, // these don't change
-		AppspacePath: s.appspacePath}
+		AppPath:            s.appPath, // these don't change
+		AppspacePath:       s.appspacePath,
+		AppspaceWorkingDir: s.Config.Exec.AppspacesPath}
 
 	json.NewEncoder(res).Encode(baseData)
 

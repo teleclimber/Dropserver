@@ -33,10 +33,9 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from 'vue';
-import type {RouteConfig} from '../models/app-routes';
+import {RouteConfig} from '../models/app-routes';
 
 export default defineComponent({
-	name: 'AppspaceRoute',
 	props: {
 		route: {
 			type: Object as PropType<RouteConfig>,

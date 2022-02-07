@@ -18,10 +18,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, ref, computed, watch, watchEffect } from 'vue';
-import { pauseAppspace, runMigration, ImportAndMigrate } from '../models/base-data';
-import appspaceStatus from '../models/appspace-status';
-import sandboxControl from '../models/sandbox-control';
+import { defineComponent, reactive, ref, computed, watch } from 'vue';
+import appspaceStatus, { pauseAppspace, runMigration, ImportAndMigrate }  from '../models/appspace-status';
 
 import UiButton from './ui/UiButton.vue';
 
@@ -37,21 +35,10 @@ export default defineComponent({
 		});
 		function togglePause() {
 			ui_paused.value = !ui_paused.value;
-			console.log("toggling pause to ", ui_paused.value);
 			pauseAppspace(ui_paused.value);
 		}
 
 		const migrate_to_schema = ref(0);
-
-		const ui_inspect_sandbox = ref(false);
-		function toggleInspect() {
-			ui_inspect_sandbox.value = !ui_inspect_sandbox.value;
-			console.log( "setting inspect sandbox", ui_inspect_sandbox.value);
-			sandboxControl.setInspect(ui_inspect_sandbox.value);
-		};
-		watch( () => sandboxControl.inspect, () => {
-			ui_inspect_sandbox.value = sandboxControl.inspect;
-		});
 
 		const status_string = computed( () => {
 			if( appspaceStatus.problem ) return "problem";
@@ -63,10 +50,6 @@ export default defineComponent({
 
 		function runMigrationClicked() {
 			runMigration(migrate_to_schema.value);
-		}
-
-		function stopSandbox() {
-			sandboxControl.stopSandbox();
 		}
 
 		const importAndMigrate = reactive(new ImportAndMigrate);

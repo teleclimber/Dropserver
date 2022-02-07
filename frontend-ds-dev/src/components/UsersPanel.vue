@@ -6,7 +6,7 @@
 </style>
 
 <template>
-	<p class="m-4 flex items-center h-8">
+	<div class="m-4 flex items-center h-8">
 		Active User:
 		<div v-if="active_user" class="flex items-center bg-gray-100 mx-2 pr-2">
 			<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
@@ -17,7 +17,7 @@
 		<span v-else class="italic text-gray-600 ml-2">
 			No user selected. Requests are interpreted as unauthenticated.
 		</span>
-	</p>
+	</div>
 	<div class="m-4">
 		<div class="flex justify-between">
 			<h2 class="text-2xl my-2">{{userData.users.length}} Appspace Users:</h2>
@@ -84,7 +84,7 @@
 					</div>
 				</div>
 				<div>Permissions:</div>
-				<label v-for="permission in baseData.user_permissions" :key="permission.key">
+				<label v-for="permission in appData.user_permissions" :key="permission.key">
 					<input type="checkbox" v-model="permissions[permission.key]" />
 					{{permission.name}}
 				</label>
@@ -106,7 +106,7 @@
 <script lang="ts">
 import { defineComponent, onMounted, reactive, ref, Ref, nextTick, computed, watch} from 'vue';
 
-import baseData from '../models/base-data';
+import appData from '../models/app-data';
 import userData from '../models/user-data';
 
 import UiButton from './ui/UiButton.vue';
@@ -255,7 +255,7 @@ export default defineComponent({
 			userData.setActiveUser(active_user_input.value);
 		});
 
-		return { userData, baseData, 
+		return { userData, appData, 
 			edit_user_open, is_edit,
 			display_name_input, display_name,
 			permissions,

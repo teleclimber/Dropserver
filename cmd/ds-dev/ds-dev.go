@@ -362,6 +362,7 @@ func main() {
 	}
 
 	dsDevHandler := &DropserverDevServer{
+		Config:                 runtimeConfig,
 		DevAppModel:            devAppModel,
 		AppGetter:              appGetter,
 		AppspaceFiles:          appspaceFiles,

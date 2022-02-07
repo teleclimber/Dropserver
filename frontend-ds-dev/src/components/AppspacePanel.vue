@@ -3,7 +3,7 @@
 		<AppspaceControl></AppspaceControl>
 	</div>
 	<div class="m-4">
-		<p>Working Dir: ??</p>
+		<p>Working Dir: {{baseData.appspace_working_dir}}</p>
 		<p>Appspace Schema: {{appspaceStatus.appspace_schema}}</p>
 	</div>
 	<!-- here in future I imagine we'd have a rudimentary file viewer? -->
@@ -12,6 +12,7 @@
 <script lang="ts">
 import { defineComponent, reactive } from 'vue';
 
+import baseData from '../models/base-data';
 import appspaceStatus from '../models/appspace-status';
 
 import AppspaceControl from './AppspaceControl.vue';
@@ -24,6 +25,7 @@ export default defineComponent({
 	},
 	setup() {
 		return {
+			baseData,
 			appspaceStatus,
 		}
 	},

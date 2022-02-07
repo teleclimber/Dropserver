@@ -2,8 +2,7 @@
 	<header class="pt-4 px-4 flex justify-between">
 		<div class="">
 			<div class="flex items-baseline">
-				<h1 class="text-2xl">{{baseData.name}} <span class="bg-gray-300 px-2 rounded-md">{{baseData.version}}</span></h1>
-				<p class="px-1">{{baseData.app_path}}</p>
+				<h1 class="text-2xl">{{appData.name}} <span class="bg-gray-300 px-2 rounded-md">{{appData.version}}</span></h1>
 			</div>
 			<p>Appspace dir: 
 				<span v-if="baseData.appspace_path">{{baseData.appspace_path}}</span>
@@ -33,11 +32,11 @@ import AppspaceStatus from './AppspaceStatus.vue';
 import Sandbox from './Sandbox.vue';
 
 import baseData from '../models/base-data';
+import appData from '../models/app-data';
 import appspaceStatus from '../models/appspace-status';
 import userData from '../models/user-data';
 
 export default defineComponent({
-	name: 'AppHead',
 	components: {
 		AppspaceStatus,
 		Sandbox
@@ -48,7 +47,7 @@ export default defineComponent({
 			return userData.getActiveUser();
 		});
 		return {
-			baseData, appspaceStatus,
+			baseData, appData, appspaceStatus,
 			active_user
 		}
 	}

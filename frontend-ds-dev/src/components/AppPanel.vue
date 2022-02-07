@@ -26,9 +26,10 @@
 		<div v-if="app_ok" class="m-4">
 			<h2 class="text-2xl my-2">Application Data:</h2>
 			<div class="my-4">
-				<p>Name: {{baseData.name}}</p>
-				<p>Version: {{baseData.version}}</p>
-				<p>Schema: {{baseData.schema}}</p>
+				<p>App dir: {{baseData.app_path}}</p>
+				<p>Name: {{appData.name}}</p>
+				<p>Version: {{appData.version}}</p>
+				<p>Schema: {{appData.schema}}</p>
 				<p>Migrations: {{migrations_str}}</p>
 			</div>
 			<AppRoutes></AppRoutes>
@@ -41,8 +42,9 @@
 <script lang="ts">
 import { defineComponent, reactive, ref, computed } from 'vue';
 
-import LiveLog from '../models/appspace-log-data';
 import baseData from '../models/base-data';
+import LiveLog from '../models/appspace-log-data';
+import appData from '../models/app-data';
 
 import Log from './Log.vue';
 import AppRoutes from './AppRoutes.vue';
@@ -56,17 +58,18 @@ export default defineComponent({
 		const show_process_log = ref(false);
 		const app_ok = ref(true);	//temporary. 
 
-		const appLog = <LiveLog>reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
+		const appLog = reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
 		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
 		
 		const migrations_str = computed( () => {
-			const m = baseData.possible_migrations;
+			const m = appData.possible_migrations;
 			if( m.length === 0 ) return "n/a";
 			return `${m[0]} to ${m[m.length -1]}`;	// whatever. Migrations should have more metadata (like description) and should be listed individually
 		});
 		return {
-			show_process_log, app_ok,
 			baseData,
+			show_process_log, app_ok,
+			appData,
 			migrations_str,
 			appLog
 		}

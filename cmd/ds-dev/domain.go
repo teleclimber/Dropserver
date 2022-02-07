@@ -4,8 +4,9 @@ import "github.com/teleclimber/DropServer/cmd/ds-host/domain"
 
 // BaseData is the basic app and appspace meta data
 type BaseData struct {
-	AppPath      string `json:"app_path"`
-	AppspacePath string `json:"appspace_path"`
+	AppPath            string `json:"app_path"`
+	AppspacePath       string `json:"appspace_path"`
+	AppspaceWorkingDir string `json:"appspace_working_dir"`
 }
 
 type SandboxStatus struct {

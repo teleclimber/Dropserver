@@ -6,7 +6,7 @@
 			</span>
 			<div class="bg-gray-200 self-stretch flex items-center">
 				<select class="px-1 mx-1 text-lg " v-model="migrate_to_schema">
-					<option v-for="m in baseData.possible_migrations.reverse()" :value="m" :key="'migrate-to-schema-'+m">{{m}}</option>
+					<option v-for="m in appData.possible_migrations.reverse()" :value="m" :key="'migrate-to-schema-'+m">{{m}}</option>
 				</select>
 			</div>
 			<UiButton class="flex items-center" type="submit" :disabled="migrate_to_schema === appspaceStatus.appspace_schema" @click.stop.prevent="runMigrationClicked()">
@@ -24,8 +24,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
-import baseData, { runMigration } from '../models/base-data';
-import appspaceStatus from '../models/appspace-status';
+import appData from '../models/app-data';
+import appspaceStatus, { runMigration } from '../models/appspace-status';
 import sandboxControl from '../models/sandbox-control';
 
 import MigrationJobs from './MigrationJobs.vue';
@@ -50,7 +50,7 @@ export default defineComponent({
 		}
 
 		return {
-			baseData, appspaceStatus,
+			appData, appspaceStatus,
 			migrate_to_schema, 
 			runMigrationClicked,
 			stopSandbox,

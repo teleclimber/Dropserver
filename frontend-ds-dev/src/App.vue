@@ -9,14 +9,14 @@
 			<Tab tab="appspace">
 				Appspace
 			</Tab>
-			<Tab tab="route-hits">
-				Route Hits
-			</Tab>
 			<Tab tab="migrations">
 				Migrations
 			</Tab>
 			<Tab tab="users">
 				Users
+			</Tab>
+			<Tab tab="route-hits">
+				Route Hits
 			</Tab>
 		</div>
 
