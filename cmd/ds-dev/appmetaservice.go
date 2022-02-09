@@ -16,6 +16,10 @@ type AppMetaService struct {
 	AppGetter interface {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
+	DevAppProcessEvents interface {
+		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
+		Unsubscribe(<-chan AppProcessEvent)
+	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Subscribe(chan<- string)
 		Unsubscribe(chan<- string)
@@ -36,12 +40,22 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 	}()
 	s.sendAppData(t)
 
+	ev, appProcessCh := s.DevAppProcessEvents.Subscribe()
+	go func() {
+		for appProcessEvent := range appProcessCh {
+			go s.sendAppGetEvent(t, appProcessEvent)
+		}
+	}()
+	go s.sendAppGetEvent(t, ev)
+
 	t.WaitClose()
 
+	s.DevAppProcessEvents.Unsubscribe(appProcessCh)
 	s.AppVersionEvents.Unsubscribe(appVersionEvent)
 }
 
 const appDataCmd = 12
+const appProcessEventCmd = 13
 
 type AppMetaResp struct {
 	AppName       string                 `json:"name"`
@@ -73,8 +87,19 @@ func (s *AppMetaService) sendAppData(twine *twine.Twine) {
 	if err != nil {
 		fmt.Println("sendAppData json Marshal Error: " + err.Error())
 	}
-	_, err = twine.SendBlock(baseDataService, appDataCmd, bytes) // this should be its own service number
+	_, err = twine.SendBlock(appDataService, appDataCmd, bytes)
 	if err != nil {
 		fmt.Println("sendAppData SendBlock Error: " + err.Error())
+	}
+}
+
+func (s *AppMetaService) sendAppGetEvent(twine *twine.Twine, ev AppProcessEvent) {
+	bytes, err := json.Marshal(ev)
+	if err != nil {
+		fmt.Println("sendAppGetEvent json Marshal Error: " + err.Error())
+	}
+	_, err = twine.SendBlock(appDataService, appProcessEventCmd, bytes)
+	if err != nil {
+		fmt.Println("sendAppGetEvent SendBlock Error: " + err.Error())
 	}
 }

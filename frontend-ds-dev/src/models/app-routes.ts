@@ -45,7 +45,7 @@ export type RouteConfig = {
 
 class AppRoutesData {
 	routes : RouteConfig[] = [];
-	error :string|null = null;
+	error :string|null = null;	// can we get rid of error, or is it still needed?
 	dirty = true;
 
 	_start() {

@@ -26,7 +26,21 @@ type AppFilesMetadata = {
 	user_permissions: AppspaceUserPermission[]
 }
 
+
+type AppProcessEvent = {
+	processing: boolean,
+	step: string
+	errors: string[],
+}
+
 class AppData {
+
+	last_processing_event :AppProcessEvent = {
+		processing: true,
+		step: 'waiting...',
+		errors: []
+	};
+
 	name = "";
 	version = "0.0.0";
 	schema = 0;
@@ -43,6 +57,9 @@ class AppData {
 			case 12:
 				this.handleAppDataMessage(m);
 				break;
+			case 13:
+				this.handleAppGetEventMessage(m);
+				break;
 			default:
 				m.sendError("command not recognized: "+m.command);
 		}
@@ -53,8 +70,6 @@ class AppData {
 			const new_app_data = <AppFilesMetadata>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 			Object.assign(this, new_app_data);
 			if( !this.schemas ) this.schemas = [];
-
-			console.debug("new app data ", new_app_data);
 		}
 		catch(e) {
 			m.sendError("error processing app version data "+e);
@@ -64,6 +79,18 @@ class AppData {
 
 		if( !this.user_permissions ) this.user_permissions = [];
 	
+		m.sendOK();
+	}
+
+	handleAppGetEventMessage(m:ReceivedMessageI) {
+		try {
+			this.last_processing_event = <AppProcessEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+		}
+		catch(e) {
+			m.sendError("error processing app get event data "+e);
+			console.error(e);
+			return;
+		}
 		m.sendOK();
 	}
 

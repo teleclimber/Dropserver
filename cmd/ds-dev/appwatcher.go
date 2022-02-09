@@ -26,8 +26,11 @@ type DevAppWatcher struct {
 		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
 		DeleteKeyData(key domain.AppGetKey)
 	} `checkinject:"required"`
-	DevAppModel      *DevAppModel      `checkinject:"required"`
-	DevAppspaceModel *DevAppspaceModel `checkinject:"required"`
+	DevAppModel         *DevAppModel      `checkinject:"required"`
+	DevAppspaceModel    *DevAppspaceModel `checkinject:"required"`
+	DevAppProcessEvents interface {
+		Send(AppProcessEvent)
+	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Send(string)
 	} `checkinject:"required"`
@@ -79,6 +82,21 @@ func (w *DevAppWatcher) reprocessAppFiles() { // This should probably be handled
 	// subscribe and wait
 	reloading := false
 	for e := range appGetCh {
+		if e.Done {
+			// if processing is done, get results to get the errors.
+			results, ok := w.AppGetter.GetResults(appGetKey)
+			if ok {
+				w.DevAppProcessEvents.Send(AppProcessEvent{
+					Processing: false,
+					Step:       e.Step,
+					Errors:     results.Errors})
+			}
+		} else {
+			w.DevAppProcessEvents.Send(AppProcessEvent{
+				Processing: true,
+				Step:       e.Step,
+				Errors:     []string{}})
+		}
 		if !reloading && e.Done {
 			reloading = true
 			go w.reloadMetadata(appGetKey)

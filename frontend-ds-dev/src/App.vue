@@ -3,14 +3,18 @@
 		<AppHead></AppHead>
 
 		<div class="flex border-b-4 border-black px-4 ">
-			<Tab tab="app">
+			<Tab tab="app" class="relative flex items-center">
 				App
+				<span v-if="app_error" class="absolute -top-1 right-2 flex h-3 w-3 ">
+					<span v-if="app_control.tab !== 'app'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+					<span class="inline-flex rounded-full h-3 w-3 bg-red-500 "></span>
+				</span>
 			</Tab>
 			<Tab tab="appspace">
 				Appspace
 			</Tab>
 			<Tab tab="migrations">
-				Migrations
+				Migrate
 			</Tab>
 			<Tab tab="users">
 				Users
@@ -34,8 +38,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch } from 'vue';
+import { defineComponent, computed, watch } from 'vue';
 import baseData from './models/base-data';
+import appData from './models/app-data';
 import appspaceStatus from './models/appspace-status';
 
 import AppHead from './components/AppHead.vue';
@@ -62,11 +67,14 @@ export default defineComponent({
 		AppspaceLogPanel
 	},
 	setup(props, context) {
-	
+		const app_error = computed( () => {
+			return !appData.last_processing_event.processing && appData.last_processing_event.errors.length
+		});
 		return {
 			baseData,
 			appspaceStatus,
 			app_control,
+			app_error
 		};
 	}
 });

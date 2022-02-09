@@ -12,10 +12,13 @@
 			<div v-if="appRoutesService.error" class="">
 				<p class="bg-red-200">{{appRoutesService.error}}</p>
 			</div>
-			<div v-else class="log-grid">
+			<div v-else-if="appRoutesService.routes.length" class="log-grid">
 				<template  v-for="route in appRoutesService.routes"  :key="route.method+route.path">
 					<Route :route="route"></Route>
 				</template>
+			</div>
+			<div v-else class="flex justify-center items-center p-4">
+				No app routes.
 			</div>
 		</div>
 	</div>

@@ -114,6 +114,7 @@ func main() {
 
 	// dev-only events:
 	appVersionEvents := &DevAppVersionEvents{}
+	appProcessingEvents := &DevAppProcessingEvents{}
 	inspectSandboxEvents := &InspectSandboxEvents{}
 	sandboxStatusEvents := &SandboxStatusEvents{}
 	// events:
@@ -172,10 +173,11 @@ func main() {
 	}
 
 	devAppWatcher := &DevAppWatcher{
-		AppGetter:        appGetter,
-		DevAppModel:      devAppModel,
-		DevAppspaceModel: devAppspaceModel,
-		AppVersionEvents: appVersionEvents,
+		AppGetter:           appGetter,
+		DevAppModel:         devAppModel,
+		DevAppspaceModel:    devAppspaceModel,
+		DevAppProcessEvents: appProcessingEvents,
+		AppVersionEvents:    appVersionEvents,
 	}
 
 	// Now read appspace metadata.
@@ -334,10 +336,11 @@ func main() {
 		SandboxStatusEvents:  sandboxStatusEvents,
 	}
 	appMetaService := &AppMetaService{
-		DevAppModel:      devAppModel,
-		AppVersionEvents: appVersionEvents,
-		AppFilesModel:    devAppFilesModel,
-		AppGetter:        appGetter,
+		DevAppModel:         devAppModel,
+		DevAppProcessEvents: appProcessingEvents,
+		AppVersionEvents:    appVersionEvents,
+		AppFilesModel:       devAppFilesModel,
+		AppGetter:           appGetter,
 	}
 	userService := &UserService{
 		DevAuthenticator:     devAuth,

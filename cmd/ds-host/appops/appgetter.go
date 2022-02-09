@@ -619,8 +619,10 @@ func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 		return
 	}
 
+	results, _ := g.GetResults(key)
+
 	// Send one last event in case there are any subscribers
-	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Step: "Deleting processing data"})
+	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Error: len(results.Errors) > 0, Step: "Deleting processing data"})
 	// unsubscribe the channels listenning for updates to the key
 	g.unsubscribeKey(appGetData.key)
 	// delete the last_event

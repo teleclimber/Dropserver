@@ -14,6 +14,12 @@ type SandboxStatus struct {
 	Status domain.SandboxStatus `json:"status"`
 }
 
+type AppProcessEvent struct {
+	Processing bool     `json:"processing"`
+	Step       string   `json:"step"`
+	Errors     []string `json:"errors"`
+}
+
 // DevAppspaceUser represents a user and is intended to be independent of DS API version
 // iow it might be a union of all props of the vxUsers
 type DevAppspaceUser struct {

@@ -86,6 +86,49 @@ func (e *DevAppVersionEvents) removeSubscriber(ch chan<- string) {
 	}
 }
 
+// DevAppProcessingEvents
+type DevAppProcessingEvents struct {
+	subLock     sync.Mutex
+	subscribers []chan AppProcessEvent
+	last_event  AppProcessEvent
+}
+
+// Send an AppProcessEvent
+func (e *DevAppProcessingEvents) Send(ev AppProcessEvent) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.last_event = ev
+	for _, ch := range e.subscribers {
+		ch <- ev
+	}
+}
+
+// Subscribe to an event
+func (e *DevAppProcessingEvents) Subscribe() (AppProcessEvent, <-chan AppProcessEvent) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	ch := make(chan AppProcessEvent)
+	e.subscribers = append(e.subscribers, ch)
+	return e.last_event, ch
+}
+
+// Unsubscribe to an event
+func (e *DevAppProcessingEvents) Unsubscribe(ch <-chan AppProcessEvent) {
+	e.subLock.Lock()
+	defer e.subLock.Unlock()
+	e.removeSubscriber(ch)
+}
+
+func (e *DevAppProcessingEvents) removeSubscriber(ch <-chan AppProcessEvent) {
+	for i, c := range e.subscribers {
+		if c == ch {
+			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
+			e.subscribers = e.subscribers[:len(e.subscribers)-1]
+			close(c)
+		}
+	}
+}
+
 // InspectSandboxEvents notifes of changes to the sandbox inspect state
 type InspectSandboxEvents struct {
 	subLock     sync.Mutex
