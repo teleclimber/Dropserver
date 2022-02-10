@@ -83,7 +83,6 @@ class AppRoutesData {
 		}
 		this.error = null;
 		this.dirty = false;
-		console.log('all routes', this.routes);
 		m.sendOK();
 	}
 

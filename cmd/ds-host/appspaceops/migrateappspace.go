@@ -143,18 +143,6 @@ func (c *MigrationJobController) eventManifold() { // eventBus?
 	}
 }
 
-func makeMigrationStatusData(s runningJobStatus) domain.MigrationStatusData {
-	return domain.MigrationStatusData{
-		JobID:      s.origJob.JobID,
-		AppspaceID: s.origJob.AppspaceID,
-		Status:     s.status,
-		Started:    s.origJob.Started,
-		Finished:   s.origJob.Finished,
-		ErrString:  s.errString,
-		CurSchema:  s.curSchema,
-	}
-}
-
 // WakeUp tells the job controller to immediately look for a job to process
 // Call this after inserting a new job with high priority to start that job right away
 // (if possible, depending on load and other jobs in the queue)
@@ -375,8 +363,7 @@ type runningJob struct {
 	status     domain.MigrationJobStatus
 	errStr     nulltypes.NullString
 	statusSubs []chan<- runningJobStatus
-	//curStatusData domain.MigrationStatusData
-	statusMux sync.Mutex
+	statusMux  sync.Mutex
 }
 
 type runningJobStatus struct {

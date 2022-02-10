@@ -94,13 +94,10 @@ export async function  runMigration(to_schema:number) {
 }
 
 export class ImportAndMigrate {
-	public cur_state:string = "";
+	public working = false;
 
-	reset() {
-		this.cur_state = "Reload Appspace"
-	}
 	start() {
-		this.cur_state = "Working...";
+		this.working = true;
 		this._run();
 	}
 	async _run() {
@@ -109,7 +106,6 @@ export class ImportAndMigrate {
 		for await (const m of sent.incomingMessages()) {
 			switch (m.command) {
 				case 11:	//cur_state
-					this.cur_state = new TextDecoder('utf-8').decode(m.payload);
 					m.sendOK();
 					break;
 			
@@ -124,11 +120,6 @@ export class ImportAndMigrate {
 			throw reply.error;	// TODO investigate: I think we changed error to be a string so you can throw it from the right place.
 		}
 
-		this.cur_state = 'All done!';
-
-		setTimeout(() => {
-			this.reset();
-		}, 1000);
-		
+		this.working = false;
 	}
 }

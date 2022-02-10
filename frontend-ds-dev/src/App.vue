@@ -13,9 +13,6 @@
 			<Tab tab="appspace">
 				Appspace
 			</Tab>
-			<Tab tab="migrations">
-				Migrate
-			</Tab>
 			<Tab tab="users">
 				Users
 			</Tab>
@@ -28,7 +25,6 @@
 			<AppPanel v-if="app_control.tab === 'app'" ></AppPanel>
 			<AppspacePanel v-else-if="app_control.tab === 'appspace'"></AppspacePanel>
 			<RouteHitsPanel v-else-if="app_control.tab === 'route-hits'"></RouteHitsPanel>
-			<MigrationsPanel v-else-if="app_control.tab === 'migrations'"></MigrationsPanel>
 			<UsersPanel v-else-if="app_control.tab === 'users'"></UsersPanel>
 		</div>
 
@@ -48,7 +44,6 @@ import Tab from './components/Tab.vue';
 import AppPanel from './components/AppPanel.vue';
 import AppspacePanel from './components/AppspacePanel.vue';
 import RouteHitsPanel from './components/RouteHitsPanel.vue';
-import MigrationsPanel from './components/MigrationsPanel.vue';
 import UsersPanel from './components/UsersPanel.vue';
 import AppspaceLogPanel from './components/AppspaceLogPanel.vue';
 
@@ -62,7 +57,6 @@ export default defineComponent({
 		AppPanel,
 		AppspacePanel,
 		RouteHitsPanel,
-		MigrationsPanel,
 		UsersPanel,
 		AppspaceLogPanel
 	},

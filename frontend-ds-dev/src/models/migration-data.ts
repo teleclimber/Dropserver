@@ -7,21 +7,18 @@ const route_commands = {
 };
 
 type MigrationStatusData = {
-	job_id: number
-	appspace_id: number
-	status: number
-	started: Date|null
+	job_id: number	// meh
+	appspace_id: number	// irrelevant here
+	started: Date|null	// who cares i nthis context
 	finished: Date|null
-	err: string|null
-	cur_schema: number
+	error: string|null
 }
 
 // MigrationData records migration jobs and their updates.
 class MigrationData {
-	jobs :MigrationStatusData[];
-	constructor() {
+	last_job :MigrationStatusData|undefined;
+	_start() {
 		twineClient.registerService(14, this);	// may be unnecessary
-		this.jobs = reactive([]);
 		
 		this.handleRefMessages();
 	}
@@ -52,11 +49,7 @@ class MigrationData {
 	}
 	handleMigrationEvent(m:ReceivedMessageI) {
 		try {
-			const event = <MigrationStatusData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			const job_id = event.job_id;
-			const index = this.jobs.findIndex((j:MigrationStatusData) => j.job_id === job_id );
-			if( index === -1 ) this.jobs.push(event);
-			else this.jobs[index] = event;
+			this.last_job = <MigrationStatusData>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 		}
 		catch(e) {
 			m.sendError("error processing migration event "+e);
@@ -68,6 +61,7 @@ class MigrationData {
 	}
 }
 
-const migrationData = new MigrationData();
+const migrationData = reactive(new MigrationData());
+migrationData._start();
 
 export default migrationData;

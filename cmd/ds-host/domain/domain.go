@@ -407,17 +407,6 @@ const ( //maybe at MigrationWaiting at some point
 	// When changing cases make sure to also change in response types and in frontend code!
 )
 
-// MigrationStatusData reflects the current status of the migrationJob referenced
-type MigrationStatusData struct {
-	JobID      JobID                `json:"job_id"`
-	AppspaceID AppspaceID           `json:"appspace_id"`
-	Status     MigrationJobStatus   `json:"status"` // this one is harder, but is it necessary? we have started and finished datetime
-	Started    nulltypes.NullTime   `json:"started"`
-	Finished   nulltypes.NullTime   `json:"finished"`
-	ErrString  nulltypes.NullString `json:"err"`
-	CurSchema  int                  `json:"cur_schema"`
-}
-
 // JobID is the id of appspace migration job
 type JobID int
 

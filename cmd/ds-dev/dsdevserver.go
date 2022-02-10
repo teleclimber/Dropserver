@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -44,9 +43,6 @@ type DropserverDevServer struct {
 	AppspaceDB interface {
 		CloseAppspace(domain.AppspaceID)
 	} `checkinject:"required"`
-	AppspaceInfoModel interface {
-		GetSchema(domain.AppspaceID) (int, error)
-	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Close(domain.AppspaceID)
 		Open(domain.AppspaceID) domain.LoggerI
@@ -55,7 +51,7 @@ type DropserverDevServer struct {
 		StopAppspace(domain.AppspaceID)
 	} `checkinject:"required"`
 	MigrationJobModel interface {
-		Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error)
+		CreateFromSchema(migrateTo int) error
 	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
@@ -180,9 +176,9 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		}
 	case migrateAppspaceCmd:
 		migrateTo := int(binary.BigEndian.Uint16(m.Payload()))
-		err := s.migrate(migrateTo)
+		err := s.MigrationJobModel.CreateFromSchema(migrateTo)
 		if err != nil {
-			m.SendError("error migrating: " + err.Error())
+			m.SendError("error creating migration job: " + err.Error())
 		} else {
 			m.SendOK()
 		}
@@ -207,7 +203,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 		close(tempPauseCh) // close here so migration system can obtain a pause
 
 		m.RefSendBlock(11, []byte("Migrating..."))
-		err = s.migrate(s.DevAppModel.Ver.Schema) // migrate the appspace to the app's schema.
+		err = s.MigrationJobModel.CreateFromSchema(s.DevAppModel.Ver.Schema) // migrate the appspace to the app's schema.
 		if err != nil && err != errNoMigrationNeeded {
 			m.SendError("error migrating: " + err.Error())
 			return
@@ -224,35 +220,6 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 	default:
 		m.SendError("service not found")
 	}
-}
-
-// If migrating up, create a app version with higher version, and to-schema,
-// *or* create a lower version with current schema, and re-create the main app-version with new schema?
-// but maybe this takes place automatically on observe of app code?
-
-var errNoMigrationNeeded = errors.New("no migration needed")
-
-// If migrating down, then create dummy version with lower version, to-schema.
-// Location key and rest is immaterial as it souldn't get used.
-func (s *DropserverDevServer) migrate(migrateTo int) error {
-	appspaceSchema, err := s.AppspaceInfoModel.GetSchema(appspaceID)
-	if err != nil {
-		return err
-	}
-	if migrateTo < appspaceSchema {
-		s.DevAppModel.ToVer.Version = domain.Version("0.0.0")
-		s.DevAppModel.ToVer.Schema = migrateTo
-		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
-		s.MigrationJobController.WakeUp()
-	} else if migrateTo > appspaceSchema {
-		s.DevAppModel.ToVer.Version = domain.Version("1000.0.0")
-		s.DevAppModel.ToVer.Schema = migrateTo
-		s.MigrationJobModel.Create(ownerID, appspaceID, s.DevAppModel.ToVer.Version, true)
-		s.MigrationJobController.WakeUp()
-	} else {
-		return errNoMigrationNeeded
-	}
-	return nil
 }
 
 // SetPaths sets the paths of the ppa nd appspace so it can be reported on the frontend

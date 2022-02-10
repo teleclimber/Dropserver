@@ -120,7 +120,6 @@ func main() {
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspacePausedEvents := &events.AppspacePausedEvents{}
-	//appspaceLogEvents := &events.AppspaceLogEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
@@ -209,7 +208,10 @@ func main() {
 		noAuth: true} // start as public
 
 	devMigrationJobModel := &DevMigrationJobModel{
-		MigrationJobEvents: migrationJobEvents,
+		DevAppModel:            devAppModel,
+		AppspaceInfoModel:      appspaceInfoModel,
+		MigrationJobController: nil, // see below
+		MigrationJobEvents:     migrationJobEvents,
 	}
 
 	devAppspaceModel.Appspace = domain.Appspace{
@@ -237,7 +239,7 @@ func main() {
 	}
 	devSandboxManager.Init()
 
-	migrateJobController := &appspaceops.MigrationJobController{
+	migrationJobController := &appspaceops.MigrationJobController{
 		MigrationJobModel: devMigrationJobModel,
 		AppModel:          devAppModel,
 		AppspaceInfoModel: appspaceInfoModel,
@@ -248,6 +250,7 @@ func main() {
 		RestoreAppspace:   nil,
 		SandboxMaker:      nil, // added below
 		SandboxManager:    devSandboxManager}
+	devMigrationJobModel.MigrationJobController = migrationJobController
 
 	//devAppspaceStatus := &DevAppspaceStatus{}
 	appspaceStatus := &appspacestatus.AppspaceStatus{
@@ -262,7 +265,7 @@ func main() {
 		AppVersionEvents:     appVersionEvents,
 	}
 	appspaceStatus.Init()
-	migrateJobController.AppspaceStatus = appspaceStatus
+	migrationJobController.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
 	appspaceLogger.AppspaceStatus = appspaceStatus
 
@@ -317,12 +320,12 @@ func main() {
 		SandboxStatusEvents: sandboxStatusEvents,
 		Config:              runtimeConfig}
 
-	migrateJobController.SandboxMaker = devSandboxMaker
+	migrationJobController.SandboxMaker = devSandboxMaker
 	appGetter.SandboxMaker = devSandboxMaker
 
 	devAppWatcher.Start(*appDirFlag)
 
-	migrateJobController.Start()
+	migrationJobController.Start()
 
 	// Ds-dev frontend twine services:
 	appsaceStatusService := &AppspaceStatusService{
@@ -372,11 +375,10 @@ func main() {
 		DevAppspaceModel:       devAppspaceModel,
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceDB:             appspaceDB,
-		AppspaceInfoModel:      appspaceInfoModel,
 		AppspaceLogger:         appspaceLogger,
 		DevSandboxManager:      devSandboxManager,
 		MigrationJobModel:      devMigrationJobModel,
-		MigrationJobController: migrateJobController,
+		MigrationJobController: migrationJobController,
 		AppspaceStatus:         appspaceStatus,
 		AppspaceStatusService:  appsaceStatusService,
 		SandboxControlService:  sandboxControlService,

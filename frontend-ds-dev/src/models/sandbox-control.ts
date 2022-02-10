@@ -49,7 +49,6 @@ class SandboxControl {
 	handleStatusMessage(m:ReceivedMessageI) {
 		try {
 			const data = <SandboxStatus>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			console.log( 'sandbox status:', data);
 			if( data.status != 5 ) this.type = data.type;
 			else this.type = "";
 			this.status = Number(data.status);

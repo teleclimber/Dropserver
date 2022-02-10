@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -136,35 +135,17 @@ func (m *DevAppspaceModel) SetVersion(appspaceID domain.AppspaceID, version doma
 	return nil
 }
 
-////////////
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomProxyID() domain.ProxyID {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand2.Intn(len(chars36))]
-	}
-	return domain.ProxyID(string(b))
-}
-
-////////
-// MigrationJobModel handles writing jobs to the db
-// type MigrationJobModel interface {
-// 	Create(UserID, AppspaceID, Version, bool) (*MigrationJob, Error)
-// 	GetJob(JobID) (*MigrationJob, Error)
-// 	GetPending() ([]*MigrationJob, Error)
-// 	SetStarted(JobID) (bool, Error)
-// 	SetFinished(JobID, nulltypes.NullString) Error
-// 	//GetForAppspace(AppspaceID) (*MigrationJob, Error)
-// 	// Delete(AppspaceID) Error
-// }
+var errNoMigrationNeeded = errors.New("no migration needed")
 
 // DevMigrationJobModel tracks a single migration job at a time
 type DevMigrationJobModel struct {
+	DevAppModel       *DevAppModel `checkinject:"required"`
+	AppspaceInfoModel interface {
+		GetSchema(domain.AppspaceID) (int, error)
+	} `checkinject:"required"`
+	MigrationJobController interface {
+		WakeUp()
+	} `checkinject:"required"`
 	MigrationJobEvents interface {
 		Send(domain.MigrationJob)
 	} `checkinject:"required"`
@@ -173,22 +154,38 @@ type DevMigrationJobModel struct {
 	job       *domain.MigrationJob
 }
 
-// Create a migration job
-func (m *DevMigrationJobModel) Create(ownerID domain.UserID, appspaceID domain.AppspaceID, toVersion domain.Version, priority bool) (*domain.MigrationJob, error) {
+func (m *DevMigrationJobModel) CreateFromSchema(migrateTo int) error {
 	if m.job != nil && m.job.Started.Valid && !m.job.Finished.Valid {
-		return nil, errors.New("DevMigrationJobModel can't create job while one is in use")
+		return errors.New("DevMigrationJobModel can't create job while one is in use")
 	}
+	appspaceSchema, err := m.AppspaceInfoModel.GetSchema(appspaceID)
+	if err != nil {
+		return err
+	}
+	if migrateTo < appspaceSchema {
+		m.DevAppModel.ToVer.Version = domain.Version("0.0.0")
+		m.DevAppModel.ToVer.Schema = migrateTo
+	} else if migrateTo > appspaceSchema {
+		m.DevAppModel.ToVer.Version = domain.Version("1000.0.0")
+		m.DevAppModel.ToVer.Schema = migrateTo
+	} else {
+		return errNoMigrationNeeded
+	}
+
 	m.nextJobID++
 	m.job = &domain.MigrationJob{
 		JobID:      domain.JobID(m.nextJobID),
 		AppspaceID: appspaceID,
 		Created:    time.Now(),
 		OwnerID:    ownerID,
-		ToVersion:  toVersion,
-		Priority:   priority,
+		ToVersion:  m.DevAppModel.ToVer.Version,
+		Priority:   true,
 	}
 	go m.sendJobAsEvent()
-	return nil, nil
+
+	m.MigrationJobController.WakeUp()
+
+	return nil
 }
 
 func (m *DevMigrationJobModel) GetJob(jobID domain.JobID) (*domain.MigrationJob, error) {

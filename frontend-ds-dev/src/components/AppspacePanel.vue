@@ -1,8 +1,9 @@
 <template>
-	<div class="m-4 flex justify-between">
+	<div class="m-4">
 		<AppspaceControl></AppspaceControl>
 	</div>
 	<div class="m-4">
+		<h2 class="text-2xl my-2">Appspace Data:</h2>
 		<p>Working Dir: {{baseData.appspace_working_dir}}</p>
 		<p>Appspace Schema: {{appspaceStatus.appspace_schema}}</p>
 	</div>
@@ -10,7 +11,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent } from 'vue';
 
 import baseData from '../models/base-data';
 import appspaceStatus from '../models/appspace-status';
