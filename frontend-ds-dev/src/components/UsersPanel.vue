@@ -7,13 +7,18 @@
 
 <template>
 	<div class="m-4 flex items-center h-8">
-		Active User:
+		Logged-in user:
 		<div v-if="active_user" class="flex items-center bg-gray-100 mx-2 pr-2">
 			<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
 			<span class="font-bold ml-2">{{active_user.display_name}}</span>
 			<span class="font-mono text-sm ml-2">{{active_user.proxy_id}}</span>
 		</div>
-		<UiButton v-if="active_user" class="mx-2" @click.stop.prevent="userData.setActiveUser('')">Deactivate</UiButton>
+		<UiButton v-if="active_user" class="mx-2 flex items-center" @click.stop.prevent="userData.setActiveUser('')">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+				<path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd" />
+			</svg>
+			Log out
+		</UiButton>
 		<span v-else class="italic text-gray-600 ml-2">
 			No user selected. Requests are interpreted as unauthenticated.
 		</span>
