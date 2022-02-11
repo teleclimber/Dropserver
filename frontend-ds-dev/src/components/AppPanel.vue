@@ -83,7 +83,7 @@ export default defineComponent({
 		const show_process_log = ref(false);
 		const app_ok = ref(true);	//temporary. 
 
-		const appLog = reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
+		const appLog = <LiveLog>reactive(new LiveLog);	// have to <LiveLog> to make TS happy.
 		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
 		
 		const migrations_str = computed( () => {

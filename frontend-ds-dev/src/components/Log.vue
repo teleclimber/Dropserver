@@ -34,7 +34,7 @@ export default defineComponent({
 			required: true
 		},
 		live_log: {
-			type: Object as PropType<LiveLog>,
+			type: LiveLog,
 			required: true
 		}
 	},
