@@ -43,7 +43,7 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 	ev, appProcessCh := s.DevAppProcessEvents.Subscribe()
 	go func() {
 		for appProcessEvent := range appProcessCh {
-			go s.sendAppGetEvent(t, appProcessEvent)
+			s.sendAppGetEvent(t, appProcessEvent)
 		}
 	}()
 	go s.sendAppGetEvent(t, ev)
