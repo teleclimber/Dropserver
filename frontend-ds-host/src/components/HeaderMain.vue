@@ -1,14 +1,4 @@
 <style scoped>
-	@layer base {
-		@responsive {
-			.ds-header-full {
-				grid-template-columns: 1fr 1fr;
-			}
-		}
-		.ds-header-phone {
-			grid-template-columns: 4rem 1fr 1fr;
-		}
-	}
 	header {
 		grid-area: header;
 	}

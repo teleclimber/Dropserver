@@ -20,3 +20,20 @@
 }
 
 @tailwind utilities;
+
+@layer components {
+	.ds-full-layout {
+		display: grid;
+		grid-template-columns: 16rem 1fr;
+		grid-template-rows: 5.5rem 1fr;
+		grid-template-areas:
+			"nav header"
+			"nav view";
+	}
+	.ds-header-phone {
+		grid-template-columns: 4rem 1fr 1fr;
+	}
+	.ds-header-full {
+		grid-template-columns: 1fr 1fr;
+	}
+}

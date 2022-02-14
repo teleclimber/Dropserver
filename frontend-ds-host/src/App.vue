@@ -1,18 +1,3 @@
-<style scoped>
-	@layer base {
-		@responsive {
-			.ds-full-layout {
-				display: grid;
-				grid-template-columns: 16rem 1fr;
-				grid-template-rows: 5.5rem 1fr;
-				grid-template-areas:
-					"nav header"
-					"nav view";
-			}
-		}
-	}
-</style>
-
 <template>
 	<div class="md:ds-full-layout w-full md:h-screen">
 		<NavMain></NavMain>
