@@ -26,7 +26,7 @@ High level directories of Dropserver repo:
 
 Although it goes against Go's recommendations I favor lots of small packages.
 
-The organization of the Go code is inspired by Ben Johnson's [Standard Package Layout](https://www.gobeyond.dev/standard-package-layout/). I took the ideas and evolved them to fit my needs.
+The organization of the Go code is inspired by Ben Johnson's [Standard Package Layout](https://www.gobeyond.dev/standard-package-layout/). I took the ideas and evolved them to fit the needs of this project.
 
 Specifically, Dropserver is currently made up of two executables that share a lot of functionality, and I foresee more as the project develops. For this reason it's important to maximize the reusability of packages. This is accomplished as follows:
 
@@ -67,21 +67,7 @@ You should have [Deno](https//deno.land) installed and available from wherever y
 
 `ds-dev` is used when developing an app locally. It watches your app files and restarts the sandbox as needed.
 
-To run `ds-dev` specify an app directory and optionally an appspace directory:
-
-```
-$ ds-dev -app=/home/dev/Leftovers/app/ -appspace=/home/dev/leftovers-appspace/
-```
-
-If you don't specify an appspace it will create a blank one for you in a temporary directory, as if the appspace had just been created.
-
-You can access the UI at http://localhost:3003/dropserver-dev/
-
-*Note: `ds-dev` is not obvious to use right now, sorry. Some tips:*
-
-- Load http://localhost:3003/dropserver-dev/ after launching `ds-dev`.
-- You can access the appspace at http://localhost:3003/ in a separate tab
-- Add a user and click in the space to the left of the avatar to make them the active user. Now when you reload the appspace you will be logged in as that user and can access private routes.
+Read about using `ds-dev` in the [Dropserver Docs](https://dropserver.org/docs/ds-dev/).
 
 ## ds-host
 
@@ -192,7 +178,7 @@ However:
 
 Code quality is variable. Some parts are OK, some are pretty shoddy. Sorry.
 
-There is decent code coverage of the Go code (for a project that is nowhere near 1.0). Some of the Go tests are flaky, but I am working on fixing those.
+There is decent code coverage of the Go code (for a project that is nowhere near 1.0).
 
 There is little to no test coverage for frontend code, and `denosandboxcode` coverage is sparse.
 
