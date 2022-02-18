@@ -305,6 +305,8 @@ func main() {
 		SandboxMaker:      sandboxMaker,
 		BackupAppspace:    backupAppspace,
 		RestoreAppspace:   restoreAppspace,
+		AppspaceLogger:    appspaceLogger,
+		AppspaceStatus:    nil, // added below
 		MigrationJobModel: migrationJobModel}
 
 	deleteAppspace := &appspaceops.DeleteAppspace{
