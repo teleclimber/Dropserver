@@ -392,24 +392,17 @@ func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 func (s *Sandbox) Graceful() {
 	s.getLogger("Graceful()").Log("starting shutdown")
 
-	// need to send signal to other side via twine to say it can shut itself down.
-	// .. which means closing all the loops so that the script exits.
-	// This might mean that it is the other side that initiates Twine.Graceful()?
-	// OR it's part of this call here.
+	reply, err := s.twine.SendBlock(sandboxService, 13, nil)
+	if err != nil {
+		// ???
+		s.getLogger("Graceful() twine.SendBlock()").Error(err)
+	}
+	if !reply.OK() {
+		s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
+	}
 
-	// TODO: Bug in Deno causes this to never work.
-	// reply, err := s.twine.SendBlock(sandboxService, 13, nil)
-	// if err != nil {
-	// 	// ???
-	// 	s.getLogger("Graceful() twine.SendBlock()").Error(err)
-	// }
-	// if !reply.OK() {
-	// 	s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
-	// }
-
-	// So for now just call kill:
-	s.Kill()
-
+	// Then tell twine to shut down nicely:
+	s.twine.Graceful()
 }
 
 // Kill the sandbox. No mercy.
@@ -656,7 +649,7 @@ func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
-	fmt.Printf("Set Status from %v to %v", s.status, status)
+	s.getLogger("SetStatus()").Log(fmt.Sprintf("Sandbox %v set status from %v to %v\n", s.id, s.status, status))
 
 	if status > s.status {
 
@@ -743,6 +736,8 @@ func (s *Sandbox) makeImportMap() ([]byte, error) {
 			// "/Users/ollie/Documents/Code/dropserver_lib_support/": "/Users/ollie/Documents/Code/dropserver_lib_support/",
 			// "https://deno.land/x/dropserver_app/":                 "/Users/ollie/Documents/Code/dropserver_app/",
 			// "/Users/ollie/Documents/Code/dropserver_app/":         "/Users/ollie/Documents/Code/dropserver_app/",
+			// "https://deno.land/x/twine@0.1.0/":        "/Users/ollie/Documents/Code/twine-deno/",
+			// "/Users/ollie/Documents/Code/twine-deno/": "/Users/ollie/Documents/Code/twine-deno/",
 		}}
 
 	if s.appspace != nil {

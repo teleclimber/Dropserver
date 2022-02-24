@@ -426,8 +426,10 @@ func (g *AppGetter) getRoutes(data appGetData, s domain.SandboxI) ([]domain.V0Ap
 	err = json.Unmarshal(reply.Payload(), &routes)
 	if err != nil {
 		g.getLogger("getRoutes, json.Unmarshal").Error(err)
+		reply.SendError("json unmarshal error")
 		return nil, err
 	}
+	reply.SendOK()
 
 	return routes, nil
 }

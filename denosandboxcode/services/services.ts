@@ -69,10 +69,11 @@ export default class DsServices {
 		switch (m.command) {
 			case 13:	// graceful shutdown
 				try {
-					// All we need to do is stop the route server, and the script will exit. I think.
+					// All we need to do is stop the route server, and the script should exit.
 					if( this.server !== undefined ) await this.server.stopServer();
 				}
 				catch(e) {
+					console.error(e);
 					m.sendError(e);
 				}
 				m.sendOK();

@@ -54,7 +54,6 @@ export default class DsRouteServer {
 				return;
 			}
 			this.stop_resolve = resolve;
-			console.log("server.close() "+(typeof this.server));
 			this.server?.close();
 		});
 	}

@@ -201,7 +201,7 @@ func TestRunnerScriptError(t *testing.T) {
 		t.Error("sandbox status should be killing or dead")
 	}
 
-	s.Graceful()
+	s.Kill()
 
 	s.WaitFor(domain.SandboxDead)
 }
