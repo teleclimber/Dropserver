@@ -141,7 +141,11 @@ type DevSandboxMaker struct {
 	SandboxStatusEvents interface {
 		Send(SandboxStatus)
 	} `checkinject:"required"`
-	Config  *domain.RuntimeConfig
+	Config *domain.RuntimeConfig
+
+	appSandbox       domain.SandboxI
+	migrationSandbox domain.SandboxI
+
 	inspect bool
 }
 
@@ -158,6 +162,8 @@ func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI
 	s.Location2Path = m.Location2Path
 	s.Logger = m.AppLogger.Get("")
 	s.SetInspect(m.inspect)
+
+	m.appSandbox = s
 
 	statCh := s.SubscribeStatus()
 	go func() {
@@ -188,6 +194,8 @@ func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *
 	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.SetInspect(m.inspect)
 
+	m.migrationSandbox = s
+
 	statCh := s.SubscribeStatus()
 	go func() {
 		for stat := range statCh {
@@ -207,4 +215,13 @@ func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *
 	s.WaitFor(domain.SandboxReady)
 
 	return s, nil
+}
+
+func (m *DevSandboxMaker) StopSandboxes() {
+	if m.appSandbox != nil {
+		m.appSandbox.Kill()
+	}
+	if m.migrationSandbox != nil {
+		m.migrationSandbox.Kill()
+	}
 }

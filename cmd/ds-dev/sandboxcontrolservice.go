@@ -15,6 +15,7 @@ type SandboxControlService struct {
 	} `checkinject:"required"`
 	DevSandboxMaker interface {
 		SetInspect(bool)
+		StopSandboxes()
 	} `checkinject:"required"`
 	InspectSandboxEvents interface {
 		Send(bool)
@@ -44,7 +45,7 @@ func (s *SandboxControlService) HandleMessage(m twine.ReceivedMessageI) {
 		m.SendOK()
 	case stopSandbox:
 		// force-kill for unruly scripts? Or for when we started with inspect by mistake.
-		// TODO This could be an app sandbox or a migration sandbox too...
+		s.DevSandboxMaker.StopSandboxes()
 		s.DevSandboxManager.StopAppspace(appspaceID)
 		m.SendOK()
 	}
