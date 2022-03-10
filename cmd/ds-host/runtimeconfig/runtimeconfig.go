@@ -27,7 +27,10 @@ var configDefault = []byte(`{
 		"static-assets": "static"
 	},
 	"sandbox": {
-		"num": 3
+		"num": 3,
+		"use-cgroups": true,
+		"cgroup-mount": "/sys/fs/cgroup",
+		"memory-high": 512
 	}
 }`)
 

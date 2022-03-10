@@ -265,7 +265,19 @@ func main() {
 	migrationJobModel.PrepareStatements()
 	migrationJobModel.StartupFinishStartedJobs("Job found unfinished at startup")
 
+	var cGroups *sandbox.CGroups
+	if runtimeConfig.Sandbox.UseCGroups {
+		cGroups = &sandbox.CGroups{
+			Config: runtimeConfig,
+		}
+		err = cGroups.Init()
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	sandboxMaker := &sandbox.SandboxMaker{
+		CGroups:        cGroups,
 		AppLogger:      appLogger,
 		AppspaceLogger: appspaceLogger,
 		Location2Path:  location2path,
@@ -273,9 +285,11 @@ func main() {
 		//Services: , // below
 	}
 	sandboxManager := &sandbox.Manager{
+		CGroups:        cGroups,
 		AppspaceLogger: appspaceLogger,
 		Location2Path:  location2path,
-		Config:         runtimeConfig}
+		Config:         runtimeConfig,
+	}
 
 	backupAppspace := &appspaceops.BackupAppspace{
 		Config:         runtimeConfig,

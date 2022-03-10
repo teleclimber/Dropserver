@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // This is going to be different and quite simplified
@@ -17,6 +18,11 @@ import (
 
 // Manager manages sandboxes
 type Manager struct {
+	CGroups interface {
+		CreateCGroup() (string, error)
+		AddPid(string, int) error
+		RemoveCGroup(string) error
+	} `checkinject:"optional"`
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
@@ -34,12 +40,6 @@ type Manager struct {
 	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
-type request struct {
-	appSpace        string
-	app             string
-	sandboxChannels []chan domain.SandboxI
-}
-
 // Init creates maps
 func (sM *Manager) Init() {
 	sM.sandboxes = make(map[domain.AppspaceID]domain.SandboxI)
@@ -53,18 +53,21 @@ func (sM *Manager) Init() {
 // StopAll takes all known sandboxes and stops them
 func (sM *Manager) StopAll() {
 	var stopWg sync.WaitGroup
-	for _, c := range sM.sandboxes {
+	for _, sb := range sM.sandboxes {
 		// If we get to this point assume the connection from the host http proxy has been stopped
 		// so it should be safe to shut things down
 		// ..barring anything "waiting for"...
-		go func(sb domain.SandboxI) {
-			stopWg.Add(1)
-			sb.Graceful()
+		stopWg.Add(1)
+		go func(sb1 domain.SandboxI) {
+			go sb1.Graceful() // this never returns due to a glitch in the sandbox shutdown procedure.
+			sb1.WaitFor(domain.SandboxDead)
 			stopWg.Done()
-		}(c)
+		}(sb)
 	}
 
 	stopWg.Wait()
+
+	sM.getLogger("StopAll").Log("all sandboxes stopped")
 }
 
 // startSandbox launches a new Node/deno instance for a specific sandbox
@@ -79,6 +82,7 @@ func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.
 		id:            sandboxID,
 		appVersion:    appVersion,
 		appspace:      appspace,
+		CGroups:       sM.CGroups,
 		Logger:        sM.AppspaceLogger.Get(appspace.AppspaceID),
 		services:      sM.Services.Get(appspace, appVersion.APIVersion),
 		status:        domain.SandboxStarting,
@@ -251,4 +255,12 @@ func (sM *Manager) PrintSandboxes() {
 	// 	}
 	// 	fmt.Println(c.Name, c.Status, c.appSpaceID, tiedUp, c.recycleScore)
 	// }
+}
+
+func (sM *Manager) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("SandboxManager")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

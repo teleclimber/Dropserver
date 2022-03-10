@@ -31,6 +31,11 @@ import (
 // SandboxMaker creates unmanaged sandboxes for
 // use in migrations and and other maintenancne tasks
 type SandboxMaker struct {
+	CGroups interface {
+		CreateCGroup() (string, error)
+		AddPid(string, int) error
+		RemoveCGroup(string) error
+	} `checkinject:"optional"`
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
@@ -51,6 +56,7 @@ func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, e
 	s := &Sandbox{
 		id:            0,
 		appVersion:    appVersion,
+		CGroups:       m.CGroups,
 		status:        domain.SandboxPrepared,
 		statusSub:     make([]chan domain.SandboxStatus, 0),
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
@@ -73,6 +79,7 @@ func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *dom
 		id:            0,
 		appVersion:    appVersion,
 		appspace:      appspace,
+		CGroups:       m.CGroups,
 		services:      m.Services.Get(appspace, appVersion.APIVersion),
 		status:        domain.SandboxPrepared,
 		statusSub:     make([]chan domain.SandboxStatus, 0),
@@ -119,9 +126,14 @@ const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id              int
-	appVersion      *domain.AppVersion
-	appspace        *domain.Appspace
+	id         int
+	appVersion *domain.AppVersion
+	appspace   *domain.Appspace
+	CGroups    interface {
+		CreateCGroup() (string, error)
+		AddPid(string, int) error
+		RemoveCGroup(string) error
+	}
 	Logger          interface{ Log(string, string) }
 	socketsDir      string
 	cmd             *exec.Cmd
@@ -140,6 +152,8 @@ type Sandbox struct {
 		AppFiles(string) string
 	}
 	Config *domain.RuntimeConfig
+
+	cGroup string
 }
 
 // NewSandbox creates a new sandbox with the passed parameters
@@ -172,6 +186,14 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 	logger := s.getLogger("Start()")
 
 	s.SetStatus(domain.SandboxStarting)
+
+	if s.Config.Sandbox.UseCGroups {
+		cGroup, err := s.CGroups.CreateCGroup()
+		if err != nil {
+			return err
+		}
+		s.cGroup = cGroup
+	}
 
 	logString := "Sandbox starting"
 	if s.inspect {
@@ -263,6 +285,13 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		return err
 	}
 
+	if s.Config.Sandbox.UseCGroups {
+		err = s.CGroups.AddPid(s.cGroup, s.cmd.Process.Pid)
+		if err != nil {
+			return err
+		}
+	}
+
 	go s.monitor(stdout, stderr)
 
 	_, ok := <-s.twine.ReadyChan
@@ -319,14 +348,12 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	wg.Wait()
 
+	s.cleanup()
+
 	s.SetStatus(domain.SandboxDead)
 	// -> it may have crashed.
 
-	s.cleanup()
-
 	s.log("Sandbox terminated")
-
-	// now kill the reverse channel? Otherwise we risk killing it shile it could still provide valuable data?
 }
 
 func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
@@ -392,6 +419,7 @@ func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 func (s *Sandbox) Graceful() {
 	s.getLogger("Graceful()").Log("starting shutdown")
 
+	// it seems this SendBlock does not return. Bug in twine?
 	reply, err := s.twine.SendBlock(sandboxService, 13, nil)
 	if err != nil {
 		// ???
@@ -401,8 +429,12 @@ func (s *Sandbox) Graceful() {
 		s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
 	}
 
+	s.getLogger("Graceful()").Log("sending twine.Graceful()")
+
 	// Then tell twine to shut down nicely:
 	s.twine.Graceful()
+
+	s.getLogger("Graceful()").Log("graceful complete")
 }
 
 // Kill the sandbox. No mercy.
@@ -446,8 +478,6 @@ func (s *Sandbox) Kill() {
 // Cleanup socket paths, and listeners, etc...
 // After the sandbox has terminated
 func (s *Sandbox) cleanup() {
-	s.getLogger("cleanup()").Log("starting cleanup")
-
 	// maybe twine needs a checkConn()? or something?
 	// or maybe graceful itself should do it, so it can act accordingly
 	//s.twine.Graceful() // not sure this will work because we probably have messages in limbo?
@@ -460,6 +490,15 @@ func (s *Sandbox) cleanup() {
 		// might ignore err?
 		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
 	}
+
+	if s.Config.Sandbox.UseCGroups {
+		err = s.CGroups.RemoveCGroup(s.cGroup)
+		if err != nil {
+			s.getLogger("Stop(), s.CGroups.RemoveCGroup").Error(err)
+		}
+	}
+
+	s.getLogger("cleanup()").Log("cleanup complete")
 }
 
 func (s *Sandbox) pidAlive() bool {
@@ -475,10 +514,7 @@ func (s *Sandbox) pidAlive() bool {
 	// what does proces look like after the underlying process has dies?
 
 	err := process.Signal(syscall.Signal(0))
-	if err == nil {
-		return true
-	}
-	return false
+	return err == nil
 }
 
 // kill sandbox, which means send it the kill sig
