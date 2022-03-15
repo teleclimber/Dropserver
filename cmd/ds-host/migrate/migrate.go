@@ -15,10 +15,9 @@ import (
 
 // Migrator manages the migration process
 type Migrator struct {
-	OrderedSteps []string
-	StringSteps  map[string]migrationStep
-	Config       *domain.RuntimeConfig `checkinject:"required"`
-	DBManager    interface {
+	Steps     []MigrationStep       `checkinject:"required"`
+	Config    *domain.RuntimeConfig `checkinject:"required"`
+	DBManager interface {
 		GetHandle() *domain.DB
 		GetSchema() string
 		SetSchema(string) error
@@ -29,7 +28,7 @@ type Migrator struct {
 
 // LastStepName returns the last (current) schema name
 func (m *Migrator) LastStepName() string {
-	return m.OrderedSteps[len(m.OrderedSteps)-1]
+	return m.Steps[len(m.Steps)-1].name
 }
 
 // Migrate transforms the DB and anything else to match schema at "to"
@@ -58,11 +57,11 @@ func (m *Migrator) Migrate(to string) error {
 
 	toIndex, ok := m.indexOf(to)
 	if !ok {
-		return errors.New("Migration string not found. Migration string: " + to)
+		return errors.New("migration string not found. Migration string: " + to)
 	}
 
 	if fromIndex == toIndex {
-		return errors.New("Migration nonsensical: from and to are the same")
+		return errors.New("migration nonsensical: from and to are the same")
 	}
 
 	if toIndex > fromIndex {
@@ -85,11 +84,7 @@ func (m *Migrator) Migrate(to string) error {
 }
 
 func (m *Migrator) doStep(index int, up bool) error {
-	stepStr := m.OrderedSteps[index]
-	mStep, ok := m.StringSteps[stepStr]
-	if !ok {
-		return fmt.Errorf("Could not find migration step at %d", index)
-	}
+	mStep := m.Steps[index]
 
 	args := &stepArgs{
 		db: m.DBManager.GetHandle()}
@@ -101,37 +96,29 @@ func (m *Migrator) doStep(index int, up bool) error {
 		err = mStep.down(args)
 	}
 
-	// ^^ I would like to check for the existence of function before we call it
-	// otherwise panics are hard to reason about.
-	// Other option is to use an interface somehow
-
 	if err != nil {
 		// do some cleaning up?
 		return err
 	}
 
 	if up {
-		fmt.Println("Completed migration step: up", stepStr)
+		fmt.Println("Completed migration step: up", mStep.name)
 	} else {
-		stepStr = m.OrderedSteps[index-1]
-		fmt.Println("Completed migration step: down", stepStr)
+		mStep = m.Steps[index-1]
+		fmt.Println("Completed migration step: down", mStep.name)
 	}
 
-	err = m.DBManager.SetSchema(stepStr)
+	err = m.DBManager.SetSchema(mStep.name)
 	if err != nil {
 		return err
 	}
-
-	// ^^ should we really do this here?
-	// it could be easier to have Migrate do it once, instead of at each step?
-	// Also, migrate should set it to something recognizable as in-transit?
 
 	return nil
 }
 
 func (m *Migrator) indexOf(strStep string) (index int, ok bool) {
-	for i, val := range m.OrderedSteps {
-		if strStep == val {
+	for i, val := range m.Steps {
+		if strStep == val.name {
 			return i, true
 		}
 	}

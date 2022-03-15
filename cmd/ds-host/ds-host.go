@@ -121,10 +121,9 @@ func main() {
 	}
 
 	migrator := &migrate.Migrator{
-		OrderedSteps: migrate.OrderedSteps,
-		StringSteps:  migrate.StringSteps,
-		Config:       runtimeConfig,
-		DBManager:    dbManager}
+		Steps:     migrate.MigrationSteps,
+		Config:    runtimeConfig,
+		DBManager: dbManager}
 
 	if *migrateFlag {
 		err := migrator.Migrate("")

@@ -10,9 +10,9 @@ import (
 )
 
 func TestIndexOf(t *testing.T) {
-	orderedSteps := []string{"a", "b", "c"}
+	orderedSteps := []MigrationStep{{"a", nil, nil}, {"b", nil, nil}, {"c", nil, nil}}
 	m := Migrator{
-		OrderedSteps: orderedSteps}
+		Steps: orderedSteps}
 
 	cases := []struct {
 		input string
@@ -41,25 +41,21 @@ func TestDoStepUp(t *testing.T) {
 
 	called := false
 
-	bStep := migrationStep{
+	aStep := MigrationStep{name: "a"}
+	bStep := MigrationStep{
+		name: "b",
 		up: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
-
-	orderedSteps := []string{"a", "b"}
-	stringSteps := map[string]migrationStep{
-		"b": bStep,
-	}
 
 	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("b")
 
 	m := Migrator{
-		OrderedSteps: orderedSteps,
-		StringSteps:  stringSteps,
-		DBManager:    dbm}
+		Steps:     []MigrationStep{aStep, bStep},
+		DBManager: dbm}
 
 	err := m.doStep(1, true)
 	if err != nil {
@@ -76,25 +72,21 @@ func TestDoStepDown(t *testing.T) {
 
 	called := false
 
-	bStep := migrationStep{
+	aStep := MigrationStep{name: "a"}
+	bStep := MigrationStep{
+		name: "b",
 		down: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
-
-	orderedSteps := []string{"a", "b"}
-	stringSteps := map[string]migrationStep{
-		"b": bStep,
-	}
 
 	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 	dbm.EXPECT().SetSchema("a")
 
 	m := Migrator{
-		OrderedSteps: orderedSteps,
-		StringSteps:  stringSteps,
-		DBManager:    dbm}
+		Steps:     []MigrationStep{aStep, bStep},
+		DBManager: dbm}
 
 	err := m.doStep(1, false)
 	if err != nil {
@@ -110,23 +102,19 @@ func TestDoStepError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	bStep := migrationStep{
+	aStep := MigrationStep{name: "a"}
+	bStep := MigrationStep{
+		name: "b",
 		up: func(a *stepArgs) error {
 			return errors.New("Migration not possible")
 		}}
-
-	orderedSteps := []string{"a", "b"}
-	stringSteps := map[string]migrationStep{
-		"b": bStep,
-	}
 
 	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetHandle().Return(&domain.DB{})
 
 	m := Migrator{
-		OrderedSteps: orderedSteps,
-		StringSteps:  stringSteps,
-		DBManager:    dbm}
+		Steps:     []MigrationStep{aStep, bStep},
+		DBManager: dbm}
 
 	err := m.doStep(1, true)
 	if err == nil {
@@ -148,16 +136,12 @@ func TestMigrateFresh(t *testing.T) {
 
 	called := false
 
-	aStep := migrationStep{
+	aStep := MigrationStep{
+		name: "a",
 		up: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
-
-	orderedSteps := []string{"a"}
-	stringSteps := map[string]migrationStep{
-		"a": aStep,
-	}
 
 	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("")
@@ -165,9 +149,8 @@ func TestMigrateFresh(t *testing.T) {
 	dbm.EXPECT().SetSchema("a")
 
 	m := Migrator{
-		OrderedSteps: orderedSteps,
-		StringSteps:  stringSteps,
-		DBManager:    dbm}
+		Steps:     []MigrationStep{aStep},
+		DBManager: dbm}
 
 	err := m.Migrate("")
 	if err != nil {
@@ -185,16 +168,13 @@ func TestMigrateDown(t *testing.T) {
 
 	called := false
 
-	bStep := migrationStep{
+	aStep := MigrationStep{name: "a"}
+	bStep := MigrationStep{
+		name: "b",
 		down: func(a *stepArgs) error {
 			called = true
 			return nil
 		}}
-
-	orderedSteps := []string{"a", "b"}
-	stringSteps := map[string]migrationStep{
-		"b": bStep,
-	}
 
 	dbm := testmocks.NewMockDBManager(mockCtrl)
 	dbm.EXPECT().GetSchema().Return("b")
@@ -202,9 +182,8 @@ func TestMigrateDown(t *testing.T) {
 	dbm.EXPECT().SetSchema("a")
 
 	m := Migrator{
-		OrderedSteps: orderedSteps,
-		StringSteps:  stringSteps,
-		DBManager:    dbm}
+		Steps:     []MigrationStep{aStep, bStep},
+		DBManager: dbm}
 
 	err := m.Migrate("a")
 	if err != nil {

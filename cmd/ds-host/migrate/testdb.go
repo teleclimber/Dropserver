@@ -29,16 +29,15 @@ func MakeSqliteDummyDB() *sqlx.DB {
 	args := &stepArgs{
 		db: db}
 
-	for _, s := range OrderedSteps {
-		strStep := StringSteps[s]
-		err := strStep.up(args)
+	for _, s := range MigrationSteps {
+		err := s.up(args)
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	// we should probably set schema?
-	schema := OrderedSteps[len(OrderedSteps)-1]
+	schema := MigrationSteps[len(MigrationSteps)-1].name
 	_, err = handle.Exec(`UPDATE params SET value=? WHERE name="db_schema"`, schema)
 	if err != nil {
 		panic(err)

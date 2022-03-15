@@ -2,10 +2,6 @@ package migrate
 
 import "errors"
 
-var freshInstall = migrationStep{
-	up:   freshInstallUp,
-	down: freshInstallDown}
-
 // freshInstallUp means full instalation.
 // This means creating a DB at the very least and creating its schema
 // It may also mean things for sandboxes and ds-trusted, but we'll get to that some other time.

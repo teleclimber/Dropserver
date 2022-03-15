@@ -2,7 +2,6 @@ package migrate
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -16,24 +15,13 @@ import (
 // This test checks for this error.
 func TestDuplicateStrings(t *testing.T) {
 	strs := map[string]bool{}
-	for _, s := range OrderedSteps {
-		_, ok := strs[s]
+	for _, s := range MigrationSteps {
+		_, ok := strs[s.name]
 		if ok {
-			t.Error("Duplicate string: " + s)
+			t.Error("Duplicate string: " + s.name)
 			break
 		}
-		strs[s] = true
-	}
-}
-
-// There could also be a mistake made associating the string to the struct
-// So test that each string in ordered has a struct
-func TestStringStructs(t *testing.T) {
-	for _, s := range OrderedSteps {
-		_, ok := StringSteps[s]
-		if !ok {
-			t.Error("no struct for " + s)
-		}
+		strs[s.name] = true
 	}
 }
 
@@ -50,11 +38,9 @@ func TestStepsCheckDBError(t *testing.T) {
 	args := &stepArgs{
 		db: db}
 
-	for _, s := range OrderedSteps {
-		fmt.Println("testing error checking on ", s)
-		strStep := StringSteps[s]
+	for _, s := range MigrationSteps {
 		args.dbErr = errors.New("db error")
-		err := strStep.up(args)
+		err := s.up(args)
 		if err == nil {
 			t.Error("step should have returned an error", s)
 		}
@@ -79,10 +65,8 @@ func TestAllSteps(t *testing.T) {
 	args := &stepArgs{
 		db: db}
 
-	for _, s := range OrderedSteps {
-		fmt.Println("testing migration step", s)
-		strStep := StringSteps[s]
-		err := strStep.up(args)
+	for _, s := range MigrationSteps {
+		err := s.up(args)
 		if err != nil {
 			t.Error("Step returned an error", s, err)
 		}
