@@ -32,4 +32,12 @@ func (nt NullTime) MarshalJSON() ([]byte, error) {
 	return []byte(val), nil
 }
 
-////
+func (n NullTime) Equal(c NullTime) bool {
+	if !n.Valid && !c.Valid {
+		return true
+	}
+	if n.Valid != c.Valid {
+		return false
+	}
+	return n.Time.Equal(c.Time)
+}

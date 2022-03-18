@@ -37,5 +37,10 @@ type MigrationStep struct {
 var MigrationSteps []MigrationStep = []MigrationStep{{
 	name: "1905-fresh-install",
 	up:   freshInstallUp,
-	down: freshInstallDown},
+	down: freshInstallDown,
+}, {
+	name: "2203-sandboxusage",
+	up:   sandboxUsageUp,
+	down: sandboxUsageDown,
+},
 }

@@ -99,6 +99,25 @@ type MetricsI interface {
 	HostHandleReq(start time.Time)
 }
 
+// SandboxRunIDs contains all the identifiers relevant to a sandbox run
+type SandboxRunIDs struct {
+	SandboxID  string         `db:"sandbox_id" json:"sandbox_id"`
+	OwnerID    UserID         `db:"owner_id" json:"owner_id"`
+	AppID      AppID          `db:"app_id" json:"app_id"`
+	Version    Version        `db:"version" json:"version"`
+	AppspaceID NullAppspaceID `db:"appspace_id" json:"appspace_id"`
+	Operation  string         `db:"operation" json:"operation"`
+	CGroup     string         `db:"cgroup" json:"cgroup"`
+}
+
+type SandboxRun struct {
+	SandboxRunIDs
+	Start      time.Time          `db:"start" json:"start"`
+	End        nulltypes.NullTime `db:"end" json:"end"`
+	CpuSeconds float32            `db:"cpu_seconds" json:"cpu_seconds"`
+	Memory     int                `db:"memory" json:"memory"`
+}
+
 // SandboxStatus represents the Status of a Sandbox
 type SandboxStatus int
 
