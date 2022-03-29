@@ -45,37 +45,42 @@ func (m *SandboxRunsModel) PrepareStatements() {
 	// Maybe a selectNonAppspace makes more sense? We'll see what the UI calls for.
 
 	m.stmt.insert = p.Prep(`INSERT INTO sandbox_runs
-		(sandbox_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+		(instance, local_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
-	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, cpu_seconds = ?, memory = ? WHERE sandbox_id = ?`)
+	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, cpu_time = ?, memory = ? WHERE sandbox_id = ?`)
 }
 
-func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) error {
-	_, err := m.stmt.insert.Exec(run.SandboxID, run.OwnerID, run.AppID, run.Version, run.AppspaceID, run.Operation, run.CGroup, start)
+func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (int, error) {
+	result, err := m.stmt.insert.Exec(run.Instance, run.LocalID, run.OwnerID, run.AppID, run.Version, run.AppspaceID, run.Operation, run.CGroup, start)
 	if err != nil {
-		m.getLogger("Create()").Error(err)
-		return err
+		m.getLogger("Create() insert").Error(err)
+		return 0, err
 	}
-	return nil
+	lastID, err := result.LastInsertId()
+	if err != nil {
+		m.getLogger("Create() getLastInsertID").Error(err)
+		return 0, err
+	}
+	return int(lastID), nil
 }
 
-func (m *SandboxRunsModel) Update(sandboxID string, cpuSeconds float32, memory int) error {
-	err := m.update(sandboxID, nil, cpuSeconds, memory)
+func (m *SandboxRunsModel) Update(sandboxID int, cpuTime int, memory int) error {
+	err := m.update(sandboxID, nil, cpuTime, memory)
 	if err != nil {
 		m.getLogger("Update()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) End(sandboxID string, end time.Time, cpuSeconds float32, memory int) error {
-	err := m.update(sandboxID, end, cpuSeconds, memory)
+func (m *SandboxRunsModel) End(sandboxID int, end time.Time, cpuTime int, memory int) error {
+	err := m.update(sandboxID, end, cpuTime, memory)
 	if err != nil {
 		m.getLogger("End()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) update(sandboxID string, end interface{}, cpuSeconds float32, memory int) error {
+func (m *SandboxRunsModel) update(sandboxID int, end interface{}, cpuTime int, memory int) error {
 	var id string
 	err := m.stmt.checkID.QueryRowx(sandboxID).Scan(&id)
 	if err != nil {
@@ -84,7 +89,7 @@ func (m *SandboxRunsModel) update(sandboxID string, end interface{}, cpuSeconds 
 		}
 		return err
 	}
-	_, err = m.stmt.update.Exec(end, cpuSeconds, memory, sandboxID)
+	_, err = m.stmt.update.Exec(end, cpuTime, memory, sandboxID)
 	if err != nil {
 		return err
 	}

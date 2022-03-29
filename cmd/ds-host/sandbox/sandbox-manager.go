@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"errors"
 	"os"
 	"sort"
 	"sync"
@@ -10,25 +11,33 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
-// This is going to be different and quite simplified
-// each sandbox is always tied to an appspace id
-// So just have a map appspaceID[*sandbox]
-// -> some question on how to deal with sandbox shutting down while a request for it arrives
-// There is no recycling. You start the sb for an appspace, and then kill it completely.
+var opAppInit = "app-init"
+var opAppspaceRun = "appspace-run"
+var opAppspaceMigration = "appspace-migration"
 
 // Manager manages sandboxes
 type Manager struct {
+	SandboxRuns interface {
+		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
+		End(sandboxID int, end time.Time, cpuTime int, memory int) error
+	} `checkinject:"required"`
 	CGroups interface {
 		CreateCGroup() (string, error)
 		AddPid(string, int) error
+		GetMetrics(string) (domain.SandboxRunData, error)
 		RemoveCGroup(string) error
 	} `checkinject:"optional"`
+	AppLogger interface {
+		Get(string) domain.LoggerI
+	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
-	nextID    int
-	poolMux   sync.Mutex
-	sandboxes map[domain.AppspaceID]domain.SandboxI // all sandboxes are always committed
+	idMux  sync.Mutex
+	nextID int
+
+	sandboxesMux sync.Mutex
+	sandboxes    []domain.SandboxI
 
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
@@ -41,180 +50,193 @@ type Manager struct {
 }
 
 // Init creates maps
-func (sM *Manager) Init() {
-	sM.sandboxes = make(map[domain.AppspaceID]domain.SandboxI)
+func (m *Manager) Init() {
+	m.sandboxes = make([]domain.SandboxI, 0)
 
-	err := os.MkdirAll(sM.Config.Sandbox.SocketsDir, 0700)
+	err := os.MkdirAll(m.Config.Sandbox.SocketsDir, 0700)
 	if err != nil {
 		panic(err)
 	}
 }
 
 // StopAll takes all known sandboxes and stops them
-func (sM *Manager) StopAll() {
+func (m *Manager) StopAll() {
+	// lock Mutex?
 	var stopWg sync.WaitGroup
-	for _, sb := range sM.sandboxes {
-		// If we get to this point assume the connection from the host http proxy has been stopped
-		// so it should be safe to shut things down
-		// ..barring anything "waiting for"...
+	for _, sb := range m.sandboxes {
+		// Should migration and app init sandboxes be treated differently?
+		// Like, just wait for them to end naturally?
 		stopWg.Add(1)
 		go func(sb1 domain.SandboxI) {
-			go sb1.Graceful() // this never returns due to a glitch in the sandbox shutdown procedure.
-			sb1.WaitFor(domain.SandboxDead)
+			if sb1.Operation() == opAppspaceRun {
+				sb1.Graceful()
+			}
+			sb1.WaitFor(domain.SandboxCleanedUp)
 			stopWg.Done()
 		}(sb)
 	}
 
 	stopWg.Wait()
 
-	sM.getLogger("StopAll").Log("all sandboxes stopped")
-}
-
-// startSandbox launches a new Node/deno instance for a specific sandbox
-// not sure if it should return a channel or just a started sb.
-// Problem is if it takes too long, would like to independently send timout as response to request.
-func (sM *Manager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
-	sandboxID := sM.nextID
-	sM.nextID++ // TODO: this could fail if creating mutliple sandboxes at once. Use a mutex to lock!
-	// .. or trust that it only gets called with poolMux locked by caller.
-
-	newSandbox := &Sandbox{
-		id:            sandboxID,
-		appVersion:    appVersion,
-		appspace:      appspace,
-		CGroups:       sM.CGroups,
-		Logger:        sM.AppspaceLogger.Get(appspace.AppspaceID),
-		services:      sM.Services.Get(appspace, appVersion.APIVersion),
-		status:        domain.SandboxStarting,
-		statusSub:     make([]chan domain.SandboxStatus, 0),
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Location2Path: sM.Location2Path,
-		Config:        sM.Config}
-
-	sM.sandboxes[appspace.AppspaceID] = newSandbox
-
-	sM.recordSandboxStatusMetric()
-
-	go func() {
-		err := newSandbox.Start()
-		if err != nil {
-			close(ch)
-			newSandbox.Kill()
-			return
-		}
-		newSandbox.WaitFor(domain.SandboxReady)
-		// sandbox may not be ready if it failed to start.
-		// check status? Or maybe status ought to be checked by proxy for each request anyways?
-		ch <- newSandbox
-	}()
+	m.getLogger("StopAll").Log("all sandboxes stopped")
 }
 
 // GetForAppspace records the need for a sandbox and returns a channel
-func (sM *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
+// I wonder if this should essentially tie up the sandbox
+// such that it doesn't get cleaned out before the request gets passed to it.
+func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
 
-	// get appVersion from model
-	// Same for app if needed.
+	m.sandboxesMux.Lock()
+	defer m.sandboxesMux.Unlock()
 
-	sM.poolMux.Lock()
-	defer sM.poolMux.Unlock()
+	s, found := m.findAppspaceSandbox(appVersion, appspace.AppspaceID)
+	if !found {
+		newS := NewSandbox(m.getNextID(), opAppspaceRun, appspace.OwnerID, appVersion, appspace)
+		newS.Services = m.Services.Get(appspace, appVersion.APIVersion)
+		newS.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
 
-	c, ok := sM.sandboxes[appspace.AppspaceID]
-	if ok {
-		//OK, but is it ready yet?
-		// it may have *just* been started, so it'll get there but have to wait
-		go func() {
-			c.WaitFor(domain.SandboxReady)
-			ch <- c
-			sM.recordSandboxStatusMetric() // really?
-		}()
-	} else {
-		// Here we may want to start a sandbox.
-		// But we may not have enough RAM available to do it efficiently?
-		// For now just start one up. We'll fine-tune later.
-		// OK, but still need to queue up requests? .. or not.
-		// -> this could be the queueing mechanism.
+		m.startSandbox(newS)
 
-		sM.startSandbox(appVersion, appspace, ch)
-		// this ought to return quickly, like as soon as the sandbox data is established.
-		// .. so as to not tie up poolMux
+		s = newS
 
-		go sM.killPool()
+		// TODO somehow the to-be-started sandbox must indicate that it's "tied up?"
+		// If not it might get shut down before it gets a chance to serve a request
+		// However be careful about tie-up times that include when a sandbox is not even ready.
 	}
+
+	go func() {
+		s.WaitFor(domain.SandboxReady)
+		if s.Status() != domain.SandboxReady {
+			close(ch)
+			return
+		}
+		ch <- s
+	}()
 
 	return ch
 }
 
+// findAppspaceSandbox returns the first viable appspace-run sandbox for the appspace
+// If appVersion is passed, the sandbox will match the app id and verion.
+// Sandboxes that are dying or dead are not considered.
+func (m *Manager) findAppspaceSandbox(appVersion *domain.AppVersion, appspaceID domain.AppspaceID) (domain.SandboxI, bool) {
+	for _, s := range m.sandboxes {
+		nullAID := s.AppspaceID()
+		aID, hasAppspace := nullAID.Get()
+		if hasAppspace && aID == appspaceID && s.Operation() == opAppspaceRun && s.Status() <= domain.SandboxReady {
+			av := s.AppVersion()
+			if appVersion == nil || av.AppID == appVersion.AppID && av.Version == appVersion.Version {
+				return s, true
+			}
+		}
+	}
+	return nil, false
+}
+
 // StopAppspace is used to stop an appspace sandbox from running if there is one
 // it returns if/when no sanboxes are running for that appspace
-func (sM *Manager) StopAppspace(appspaceID domain.AppspaceID) {
-	sM.poolMux.Lock()
-	s, ok := sM.sandboxes[appspaceID]
-	if !ok {
-		sM.poolMux.Unlock()
+func (m *Manager) StopAppspace(appspaceID domain.AppspaceID) {
+	m.sandboxesMux.Lock()
+	s, found := m.findAppspaceSandbox(nil, appspaceID)
+	if !found {
+		m.sandboxesMux.Unlock()
 		return
 	}
-
-	delete(sM.sandboxes, appspaceID)
-	sM.poolMux.Unlock()
+	m.sandboxesMux.Unlock()
 
 	s.Graceful()
 
 	s.WaitFor(domain.SandboxDead)
 }
 
-// TODO: lots of likely problems with sandbox manager due to lack of tests?
+func (m *Manager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
+	// TODO need to add owner id
 
-type killable struct {
-	appspaceID domain.AppspaceID
-	score      float64
+	m.sandboxesMux.Lock()
+
+	s := NewSandbox(m.getNextID(), opAppInit, domain.UserID(0), appVersion, nil)
+	s.Logger = m.AppLogger.Get(appVersion.LocationKey)
+
+	m.startSandbox(s)
+	m.sandboxesMux.Unlock()
+
+	s.WaitFor(domain.SandboxReady)
+	if s.Status() == domain.SandboxReady {
+		return s, nil
+	}
+	return nil, errors.New("failed to start sandbox")
 }
 
-// Look for sandboxes to shut down to make room for others before you run out of resources.
-func (sM *Manager) killPool() {
-	sM.poolMux.Lock()
-	defer sM.poolMux.Unlock()
+func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
+	m.sandboxesMux.Lock()
 
-	// Need to use num sb from config I think.
-	numC := sM.Config.Sandbox.Num
-	numKill := len(sM.sandboxes) - numC
+	s := NewSandbox(m.getNextID(), opAppspaceMigration, appspace.OwnerID, appVersion, appspace)
+	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
+	s.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
 
-	if numKill > 0 {
-		var sortedKillable []killable
+	m.startSandbox(s)
+	m.sandboxesMux.Unlock()
 
-		for appspaceID, sb := range sM.sandboxes {
-			if sb.Status() == domain.SandboxReady && !sb.TiedUp() {
-				sortedKillable = append(sortedKillable, killable{
-					appspaceID,
-					time.Since(sb.LastActive()).Seconds()})
-			}
-		}
+	s.WaitFor(domain.SandboxReady) // what if it never gets there?
 
-		sort.Slice(sortedKillable, func(i, j int) bool {
-			return sortedKillable[i].score > sortedKillable[j].score
-		})
-
-		for i := 0; i < numKill && i < len(sortedKillable); i++ {
-			appspaceID := sortedKillable[i].appspaceID
-			sandbox := sM.sandboxes[appspaceID]
-			delete(sM.sandboxes, appspaceID)
-			sandbox.SetStatus(domain.SandboxKilling) // have to set it here to prevent other requests being dispatched to it before it actually starts shutting down.
-			go sandbox.Graceful()
-		}
+	if s.Status() == domain.SandboxReady {
+		return s, nil
 	}
 
-	go sM.recordSandboxStatusMetric()
+	return nil, errors.New("failed to start sandbox")
 }
 
-//
-// func (sM *Manager) SendReverse(appspaceID domain.AppspaceID, msg domain.ReverseMessage) {
-// 	sM.GetForAppSpace()	// argh, expects a appVersion.
-//  // This is a bigger deal and not terribly efficient to *reply*.
-//  // But will be OK for a call initiated from host (cron)
-//  // ..where you expect to create a sandbox if there isn't one.
-// }
+// startSandbox launches a new Node/deno instance for a specific sandbox
+// not sure if it should return a channel or just a started sb.
+// Problem is if it takes too long, would like to independently send timout as response to request.
+func (m *Manager) startSandbox(s *Sandbox) {
+	// expects poolmux to be locked
 
-func (sM *Manager) recordSandboxStatusMetric() {
+	s.CGroups = m.CGroups
+	s.Location2Path = m.Location2Path
+	s.Config = m.Config
+	s.SandboxRuns = m.SandboxRuns
+
+	m.sandboxes = append(m.sandboxes, s)
+
+	go m.startStopSandboxes()
+
+	go func() {
+		s.WaitFor(domain.SandboxDead)
+		m.removeSandbox(s)
+		m.startStopSandboxes()
+	}()
+}
+func (m *Manager) getNextID() int {
+	m.idMux.Lock()
+	defer m.idMux.Unlock()
+	m.nextID++
+	return m.nextID
+}
+
+func (m *Manager) removeSandbox(sandbox *Sandbox) {
+	m.sandboxesMux.Lock()
+	defer m.sandboxesMux.Unlock()
+	for i, s := range m.sandboxes {
+		if s == sandbox {
+			m.sandboxes = append(m.sandboxes[:i], m.sandboxes[i+1:]...)
+			return
+		}
+	}
+	// is it an error if you don't find the sandbox oyou want to remove? Probably?
+	m.getLogger("removeSandbox").Log("failed to find the sandbox to remove")
+}
+
+// startStopSandboxes determines which sandboxes should be stopped and which
+// should can be started based on availabel resources.
+func (m *Manager) startStopSandboxes() {
+	m.sandboxesMux.Lock()
+	defer m.sandboxesMux.Unlock()
+	startStopSandboxes(m.Config, m.sandboxes)
+}
+
+func (m *Manager) recordSandboxStatusMetric() {
 	// var s = &record.SandboxStatuses{ //TODO nope do not use imported record. inject instead
 	// 	Starting:   0,
 	// 	Ready:      0,
@@ -239,7 +261,7 @@ func (sM *Manager) recordSandboxStatusMetric() {
 }
 
 // PrintSandboxes outputs containersa and status
-func (sM *Manager) PrintSandboxes() {
+func (m *Manager) PrintSandboxes() {
 	// var readys []string
 	// for rc := sM.readySandboxes.Front(); rc != nil; rc = rc.Next() {
 	// 	readys = append(readys, rc.Value.(*Sandbox).Name)
@@ -257,10 +279,93 @@ func (sM *Manager) PrintSandboxes() {
 	// }
 }
 
-func (sM *Manager) getLogger(note string) *record.DsLogger {
+func (m *Manager) getLogger(note string) *record.DsLogger {
 	l := record.NewDsLogger().AddNote("SandboxManager")
 	if note != "" {
 		l.AddNote(note)
 	}
 	return l
+}
+
+type scored struct {
+	sandbox domain.SandboxI
+	score   float64
+}
+
+type startStopStatus struct {
+	startables []scored
+	stoppables []scored
+	numRunning int
+	numDying   int
+}
+
+// startStopSandboxes determines which sandboxes should be stopped and which
+// should can be started based on availabel resources.
+func startStopSandboxes(config *domain.RuntimeConfig, sandboxes []domain.SandboxI) {
+	status := getStartStoppables(sandboxes)
+	doStartStop(config, status)
+}
+
+func doStartStop(config *domain.RuntimeConfig, status startStopStatus) {
+	// if there are any in the start queue
+	// first see if there are enough resources to start
+	numMax := config.Sandbox.Num // For now just going to use num sandboxes from config as a resource max.
+	numStartable := len(status.startables)
+	if numStartable > 0 && status.numRunning < numMax {
+		// if we have room to start any sandboxes, go do it.
+		numStartNow := numMax - status.numRunning
+		if numStartable < numStartNow {
+			numStartNow = numStartable
+		}
+		for i := 0; i < numStartNow; i++ {
+			status.startables[i].sandbox.Start()
+		}
+	}
+	// try to shut off enough sandboxes to start as needed, or just to give us overhead
+	// (running - dying) - (max - startable - margin) = num_to_kill
+	numStopNow := status.numRunning - status.numDying - numMax + numStartable + 1 // right now hard-coding one sandbox of overhaed margin.
+	if numStopNow > len(status.stoppables) {
+		numStopNow = len(status.stoppables)
+	}
+	for i := 0; i < numStopNow; i++ {
+		status.stoppables[i].sandbox.Graceful()
+	}
+}
+
+func getStartStoppables(sandboxes []domain.SandboxI) startStopStatus {
+	s := startStopStatus{
+		startables: make([]scored, 0),
+		stoppables: make([]scored, 0),
+		numRunning: 0,
+		numDying:   0}
+
+	for _, sb := range sandboxes {
+		sbStatus := sb.Status()
+		if sbStatus == domain.SandboxPrepared {
+			score := 0.0
+			if sb.Operation() == opAppspaceRun {
+				score = 10.0
+			}
+			s.startables = append(s.startables, scored{sandbox: sb, score: score})
+		} else {
+			s.numRunning++ // includes those starting up and shutting down
+			if sb.Operation() == opAppspaceRun && sbStatus == domain.SandboxReady && !sb.TiedUp() {
+				score := time.Since(sb.LastActive()).Seconds()
+				s.stoppables = append(s.stoppables, scored{sandbox: sb, score: score})
+			}
+			if sbStatus == domain.SandboxKilling {
+				s.numDying++
+			}
+		}
+	}
+
+	// sort the startablles and killables
+	sort.Slice(s.startables, func(i, j int) bool {
+		return s.startables[i].score > s.startables[j].score
+	})
+	sort.Slice(s.stoppables, func(i, j int) bool {
+		return s.stoppables[i].score > s.stoppables[j].score
+	})
+
+	return s
 }

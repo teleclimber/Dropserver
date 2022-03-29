@@ -7,7 +7,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,ContactModel,DropIDModel,MigrationJobModel
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,ContactModel,DropIDModel,MigrationJobModel,SandboxRuns
 
 type CookieModel interface {
 	Get(cookieID string) (domain.Cookie, error)
@@ -129,4 +129,9 @@ type MigrationJobModel interface {
 	SetFinished(domain.JobID, nulltypes.NullString) error
 	GetForAppspace(appspaceID domain.AppspaceID) ([]*domain.MigrationJob, error)
 	DeleteForAppspace(appspaceID domain.AppspaceID) error
+}
+
+type SandboxRuns interface {
+	Create(run domain.SandboxRunIDs, start time.Time) (int, error)
+	End(sandboxID int, end time.Time, cpuTime int, memory int) error
 }

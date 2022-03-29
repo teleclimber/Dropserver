@@ -91,8 +91,7 @@ func TestRunJob(t *testing.T) {
 	sandbox.EXPECT().SendMessage(gomock.Any(), gomock.Any(), gomock.Any()).Return(sentMessage, nil)
 	sandbox.EXPECT().Graceful()
 
-	sandboxMaker := testmocks.NewMockSandboxMaker(mockCtrl)
-	sandboxMaker.EXPECT().ForMigration(gomock.Any(), gomock.Any()).Return(sandbox, nil)
+	sandboxManager.EXPECT().ForMigration(gomock.Any(), gomock.Any()).Return(sandbox, nil)
 
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().WaitTempPaused(appspaceID, "migrating").Return(make(chan struct{}))
@@ -109,7 +108,6 @@ func TestRunJob(t *testing.T) {
 		AppspaceInfoModel: infoModel,
 		BackupAppspace:    backupAppspace,
 		SandboxManager:    sandboxManager,
-		SandboxMaker:      sandboxMaker,
 		AppspaceStatus:    appspaceStatus,
 		AppspaceLogger:    appspaceLogger,
 	}

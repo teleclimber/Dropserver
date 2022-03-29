@@ -2,15 +2,25 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 )
 
-var sandboxID = 0
+var opAppInit = "app-init"
+var opAppspaceRun = "appspace-run"
+var opAppspaceMigration = "appspace-migration"
 
 // DevSandboxManager manages a single sandbox that can be resatrted to recompile app code
 type DevSandboxManager struct {
+	SandboxRuns interface {
+		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
+		End(sandboxID int, end time.Time, cpuTime int, memory int) error
+	} `checkinject:"required"`
+	AppLogger interface {
+		Get(string) domain.LoggerI
+	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
@@ -29,22 +39,27 @@ type DevSandboxManager struct {
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 
-	sb      domain.SandboxI
+	appSb       domain.SandboxI
+	migrationSb domain.SandboxI
+	appspaceSb  domain.SandboxI
+
+	nextID int
+
 	inspect bool
 }
 
 // Init sets up app version events loop
-func (sM *DevSandboxManager) Init() {
-	err := os.MkdirAll(sM.Config.Sandbox.SocketsDir, 0700)
+func (m *DevSandboxManager) Init() {
+	err := os.MkdirAll(m.Config.Sandbox.SocketsDir, 0700)
 	if err != nil {
 		panic(err)
 	}
 	appVersionEvent := make(chan string)
-	sM.AppVersionEvents.Subscribe(appVersionEvent) // this should probably come from app watcher
+	m.AppVersionEvents.Subscribe(appVersionEvent) // this should probably come from app watcher
 	go func() {
 		for e := range appVersionEvent {
 			if e == "loading" {
-				go sM.StopAppspace(appspaceID)
+				go m.StopAppspace(appspaceID)
 			}
 		}
 	}()
@@ -53,117 +68,71 @@ func (sM *DevSandboxManager) Init() {
 // need Start/Stop/Restart functions
 
 // GetForAppspace always returns the crrent sandbox
-func (sM *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
+func (m *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
 	ch := make(chan domain.SandboxI)
 
-	if sM.sb != nil {
+	if m.appspaceSb != nil {
 		go func() {
-			sM.sb.WaitFor(domain.SandboxReady)
-			ch <- sM.sb
+			m.appspaceSb.WaitFor(domain.SandboxReady)
+			ch <- m.appspaceSb
 		}()
 	} else {
-		sM.startSandbox(appVersion, appspace, ch)
-
+		m.startSandbox(appVersion, appspace, ch)
 	}
-
 	return ch
-
 }
 
-func (sM *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
-	newSandbox := sandbox.NewSandbox(sandboxID, appVersion, appspace, sM.Services.Get(appspace, 0), sM.Config)
-	newSandbox.Location2Path = sM.Location2Path
-	newSandbox.Logger = sM.AppspaceLogger.Get(appspaceID)
-	newSandbox.SetInspect(sM.inspect)
-	sM.sb = newSandbox
+func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
+	s := sandbox.NewSandbox(m.getNextID(), opAppspaceRun, ownerID, appVersion, appspace)
+	s.SandboxRuns = m.SandboxRuns
+	s.Services = m.Services.Get(appspace, 0)
+	s.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
+	s.Location2Path = m.Location2Path
+	s.Config = m.Config
+	s.SetInspect(m.inspect)
+	m.appspaceSb = s
 
-	statCh := newSandbox.SubscribeStatus()
+	statCh := s.SubscribeStatus()
 	go func() {
 		for stat := range statCh {
-			sM.SandboxStatusEvents.Send(SandboxStatus{
+			m.SandboxStatusEvents.Send(SandboxStatus{
 				Type:   "appspace",
 				Status: stat,
 			})
 		}
 	}()
 
+	s.Start()
+
 	go func() {
-		err := newSandbox.Start()
-		if err != nil {
-			close(ch)
-			newSandbox.Kill()
-			return
-		}
-		newSandbox.WaitFor(domain.SandboxReady)
+		s.WaitFor(domain.SandboxReady)
 		// sandbox may not be ready if it failed to start.
 		// check status? Or maybe status ought to be checked by proxy for each request anyways?
-		ch <- newSandbox
+		ch <- s
 	}()
 
 	go func() {
-		newSandbox.WaitFor(domain.SandboxKilling)
-		sM.sb = nil
+		s.WaitFor(domain.SandboxKilling)
+		m.appspaceSb = nil
 	}()
-
-	sandboxID++
 }
 
 // StopAppspace is used to stop an appspace sandbox from running if there is one
 // it returns if/when no sanboxes are running for that appspace
-func (sM *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
-	if sM.sb != nil {
-		sM.sb.Graceful()
+func (m *DevSandboxManager) StopAppspace(appspaceID domain.AppspaceID) {
+	if m.appspaceSb != nil {
+		m.appspaceSb.Graceful()
 	}
 }
 
-//SetInspect sets the inspect flag which makes the sandbox wait for a debugger to attach
-func (sM *DevSandboxManager) SetInspect(inspect bool) {
-	sM.inspect = inspect
-}
-
-////////////////////////////////////////////////////
-
-// DevSandboxMaker holds data necessary to create a new migration sandbox
-type DevSandboxMaker struct {
-	AppspaceLogger interface {
-		Get(domain.AppspaceID) domain.LoggerI
-	} `checkinject:"required"`
-	AppLogger interface {
-		Get(string) domain.LoggerI
-	} `checkinject:"required"`
-	Services interface {
-		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	} `checkinject:"required"`
-	Location2Path interface {
-		AppMeta(string) string
-		AppFiles(string) string
-	} `checkinject:"required"`
-	SandboxStatusEvents interface {
-		Send(SandboxStatus)
-	} `checkinject:"required"`
-	Config *domain.RuntimeConfig
-
-	appSandbox       domain.SandboxI
-	migrationSandbox domain.SandboxI
-
-	inspect bool
-}
-
-// here we can potentially add setDebug mode to pass to NewSandbox,
-// ..which should manifest as --debug or --inspect-brk
-
-// SetInspect sets the inspect flag on the sandbox
-func (m *DevSandboxMaker) SetInspect(inspect bool) {
-	m.inspect = inspect
-}
-
-func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
-	s := sandbox.NewSandbox(sandboxID, appVersion, nil, nil, m.Config)
-	s.Location2Path = m.Location2Path
+func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
+	s := sandbox.NewSandbox(m.getNextID(), opAppInit, ownerID, appVersion, nil)
+	s.SandboxRuns = m.SandboxRuns
 	s.Logger = m.AppLogger.Get("")
+	s.Location2Path = m.Location2Path
+	s.Config = m.Config
 	s.SetInspect(m.inspect)
-
-	m.appSandbox = s
+	m.appSb = s
 
 	statCh := s.SubscribeStatus()
 	go func() {
@@ -175,26 +144,25 @@ func (m *DevSandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI
 		}
 	}()
 
-	sandboxID++
+	s.Start()
 
-	err := s.Start()
-	if err != nil {
-		//m.getLogger("ForApp, sandbox.Start()").Error(err)
-		return nil, err
-	}
 	s.WaitFor(domain.SandboxReady)
 
+	// TODO check if ready, return error if not
 	return s, nil
 }
 
 // Make a new migration sandbox
-func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
-	s := sandbox.NewSandbox(sandboxID, appVersion, appspace, m.Services.Get(appspace, appVersion.APIVersion), m.Config)
+func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
+	s := sandbox.NewSandbox(m.getNextID(), opAppspaceMigration, ownerID, appVersion, appspace)
+	s.SandboxRuns = m.SandboxRuns
+	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
 	s.Location2Path = m.Location2Path
 	s.Logger = m.AppspaceLogger.Get(appspaceID)
+	s.Config = m.Config
 	s.SetInspect(m.inspect)
 
-	m.migrationSandbox = s
+	m.migrationSb = s
 
 	statCh := s.SubscribeStatus()
 	go func() {
@@ -206,22 +174,30 @@ func (m *DevSandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *
 		}
 	}()
 
-	sandboxID++
-
-	err := s.Start()
-	if err != nil {
-		return nil, err
-	}
+	s.Start()
 	s.WaitFor(domain.SandboxReady)
-
+	// TODO check if ready, return error if not
 	return s, nil
 }
 
-func (m *DevSandboxMaker) StopSandboxes() {
-	if m.appSandbox != nil {
-		m.appSandbox.Kill()
+//SetInspect sets the inspect flag which makes the sandbox wait for a debugger to attach
+func (m *DevSandboxManager) SetInspect(inspect bool) {
+	m.inspect = inspect
+}
+
+func (m *DevSandboxManager) StopSandboxes() {
+	if m.appspaceSb != nil {
+		m.appspaceSb.Kill()
 	}
-	if m.migrationSandbox != nil {
-		m.migrationSandbox.Kill()
+	if m.appSb != nil {
+		m.appSb.Kill()
 	}
+	if m.migrationSb != nil {
+		m.migrationSb.Kill()
+	}
+}
+
+func (m *DevSandboxManager) getNextID() int {
+	m.nextID++
+	return m.nextID
 }

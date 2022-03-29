@@ -31,3 +31,18 @@ func TestGetNewCGroups(t *testing.T) {
 // The Linux cgroup virtual fs works in ways that differ from "normal" fs,
 // (like echo "+cpu" > cgroup.controllers actually sets that file to "cpu", not "+cpu")
 // so testing against a dummy fs is pointless.
+
+func TestParseCpuTime(t *testing.T) {
+	c := &CGroups{}
+
+	str := `usage_usec 1447992
+user_usec 1338740
+system_usec 109252`
+	cpu, err := c.parseCpuTime(str)
+	if err != nil {
+		t.Error(err)
+	}
+	if cpu != 1447992 {
+		t.Errorf("cpu time does not match: %v", cpu)
+	}
+}

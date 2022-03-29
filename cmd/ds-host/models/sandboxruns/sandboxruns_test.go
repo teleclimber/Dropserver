@@ -35,7 +35,7 @@ func TestUpdateNoRow(t *testing.T) {
 
 	m.PrepareStatements()
 
-	err := m.update("foo", nil, 0, 0)
+	err := m.update(123, nil, 0, 0)
 	if err == nil || err.Error() != "sandbox id not in database" {
 		t.Errorf("Expected error: sandbox id not in database, got %v", err)
 	}
@@ -54,7 +54,8 @@ func TestCreateApp(t *testing.T) {
 	m.PrepareStatements()
 
 	ids := domain.SandboxRunIDs{
-		SandboxID:  "sandbox-1",
+		Instance:   "ds-test",
+		LocalID:    456,
 		OwnerID:    domain.UserID(123),
 		AppID:      domain.AppID(456),
 		Version:    domain.Version("0.5.0"),
@@ -63,10 +64,11 @@ func TestCreateApp(t *testing.T) {
 		CGroup:     "test-cgroup"}
 	start := time.Now()
 
-	err := m.Create(ids, start)
+	id, err := m.Create(ids, start)
 	if err != nil {
 		t.Error(err)
 	}
+	ids.SandboxID = id
 
 	runs, err := m.GetApp(ids.OwnerID, ids.AppID)
 	if err != nil {
@@ -75,12 +77,13 @@ func TestCreateApp(t *testing.T) {
 	if len(runs) != 1 {
 		t.Fatal("expected one run")
 	}
-	c := domain.SandboxRun{
-		ids,
-		start,
-		nulltypes.NewTime(time.Now(), false),
-		0,
-		0}
+	data := domain.SandboxRunData{
+		Start:   start,
+		End:     nulltypes.NewTime(time.Now(), false),
+		CpuTime: 0,
+		Memory:  0,
+	}
+	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {
 		t.Log(cmp.Diff(c, runs[0]))
 		t.Error("found differences in expected output")
@@ -101,7 +104,8 @@ func TestCreateEndAppspace(t *testing.T) {
 
 	appspaceID := domain.AppspaceID(789)
 	ids := domain.SandboxRunIDs{
-		SandboxID:  "sandbox-1",
+		Instance:   "ds-test",
+		LocalID:    456,
 		OwnerID:    domain.UserID(123),
 		AppID:      domain.AppID(456),
 		Version:    domain.Version("0.5.0"),
@@ -111,12 +115,13 @@ func TestCreateEndAppspace(t *testing.T) {
 	start := time.Now()
 	end := time.Now().Add(time.Minute)
 
-	err := m.Create(ids, start)
+	id, err := m.Create(ids, start)
 	if err != nil {
 		t.Error(err)
 	}
+	ids.SandboxID = id
 
-	err = m.End(ids.SandboxID, end, 7.7, 128)
+	err = m.End(ids.SandboxID, end, 777, 128)
 	if err != nil {
 		t.Error(err)
 	}
@@ -128,12 +133,13 @@ func TestCreateEndAppspace(t *testing.T) {
 	if len(runs) != 1 {
 		t.Fatal("expected one run")
 	}
-	c := domain.SandboxRun{
-		ids,
-		start,
-		nulltypes.NewTime(end, true),
-		7.7,
-		128}
+	data := domain.SandboxRunData{
+		Start:   start,
+		End:     nulltypes.NewTime(end, true),
+		CpuTime: 777,
+		Memory:  128,
+	}
+	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {
 		t.Log(cmp.Diff(c, runs[0]))
 		t.Error("found differences in expected output")

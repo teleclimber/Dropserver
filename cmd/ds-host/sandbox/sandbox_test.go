@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestImportMaps(t *testing.T) {
@@ -46,7 +47,7 @@ func TestStatus(t *testing.T) {
 		status:        domain.SandboxStarting,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	s.SetStatus(domain.SandboxReady)
+	s.setStatus(domain.SandboxReady)
 
 	s.WaitFor(domain.SandboxReady)
 }
@@ -58,7 +59,7 @@ func TestStatusWait(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.SetStatus(domain.SandboxReady)
+		s.setStatus(domain.SandboxReady)
 	}()
 
 	s.WaitFor(domain.SandboxReady)
@@ -71,7 +72,7 @@ func TestStatusWaitSkip(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.SetStatus(domain.SandboxKilling)
+		s.setStatus(domain.SandboxKilling)
 	}()
 
 	s.WaitFor(domain.SandboxReady)
@@ -84,7 +85,7 @@ func TestStatusNotReached(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.SetStatus(domain.SandboxReady)
+		s.setStatus(domain.SandboxReady)
 	}()
 
 	go func() {
@@ -102,7 +103,7 @@ func TestStatusWaitMultiple(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		s.SetStatus(domain.SandboxKilling)
+		s.setStatus(domain.SandboxKilling)
 	}()
 
 	var wg sync.WaitGroup
@@ -181,16 +182,37 @@ func TestRunnerScriptError(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.AppspacesPath = dir
 
+	ownerID := domain.UserID(22)
+	op := opAppspaceRun
+	appID := domain.AppID(33)
+	version := domain.Version("0.1.2")
+	appspaceID := domain.AppspaceID(11)
+
+	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
+	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
+		Instance:   "ds-host",
+		LocalID:    7,
+		OwnerID:    ownerID,
+		Operation:  op,
+		AppID:      appID,
+		Version:    version,
+		AppspaceID: domain.NewNullAppspaceID(appspaceID),
+	}, gomock.Any()).Return(456, nil)
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+
 	s := &Sandbox{
 		id:            7,
-		appVersion:    &domain.AppVersion{},
-		appspace:      &domain.Appspace{},
+		ownerID:       ownerID,
+		operation:     op,
+		appVersion:    &domain.AppVersion{AppID: appID, Version: version},
+		appspace:      &domain.Appspace{AppspaceID: appspaceID},
 		status:        domain.SandboxStarting,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		SandboxRuns:   sandboxRuns,
 		Location2Path: &l2p{app: dir, appFiles: dir},
 		Config:        cfg}
 
-	err = s.Start()
+	err = s.doStart()
 	if err == nil {
 		t.Error("expected error from sandbox")
 	}
@@ -231,10 +253,30 @@ func TestStart(t *testing.T) {
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.AppspacesPath = dir
 
+	ownerID := domain.UserID(22)
+	op := opAppspaceRun
+	appID := domain.AppID(33)
+	version := domain.Version("0.1.2")
+	appspaceID := domain.AppspaceID(11)
+
+	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
+	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
+		Instance:   "ds-host",
+		LocalID:    7,
+		OwnerID:    ownerID,
+		Operation:  op,
+		AppID:      appID,
+		Version:    version,
+		AppspaceID: domain.NewNullAppspaceID(appspaceID),
+	}, gomock.Any()).Return(456, nil)
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+
 	appVersion := &domain.AppVersion{
+		AppID:       appID,
+		Version:     version,
 		LocationKey: "app-loc"}
 	appspace := &domain.Appspace{
-		AppspaceID:  domain.AppspaceID(13),
+		AppspaceID:  appspaceID,
 		LocationKey: "appspace-loc"}
 
 	log := &testLogger2{
@@ -243,16 +285,19 @@ func TestStart(t *testing.T) {
 		}}
 
 	s := &Sandbox{
+		ownerID:       ownerID,
+		operation:     op,
 		id:            7,
 		appspace:      appspace,
 		appVersion:    appVersion,
 		status:        domain.SandboxStarting,
+		SandboxRuns:   sandboxRuns,
 		Location2Path: &loc,
 		Config:        cfg,
 		Logger:        log,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start()
+	err = s.doStart()
 	if err != nil {
 		t.Fatal(err)
 		s.Kill()
@@ -295,18 +340,40 @@ func TestStartAppOnly(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 
+	ownerID := domain.UserID(22)
+	op := opAppInit
+	appID := domain.AppID(33)
+	version := domain.Version("0.1.2")
+
+	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
+	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
+		Instance:   "ds-host",
+		LocalID:    7,
+		OwnerID:    ownerID,
+		Operation:  op,
+		AppID:      appID,
+		Version:    version,
+		AppspaceID: domain.NewNullAppspaceID(),
+	}, gomock.Any()).Return(456, nil)
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+
 	appVersion := &domain.AppVersion{
+		AppID:       appID,
+		Version:     version,
 		LocationKey: "app-loc"}
 
 	s := &Sandbox{
+		ownerID:       ownerID,
+		operation:     op,
 		id:            7,
 		appVersion:    appVersion,
 		status:        domain.SandboxStarting,
+		SandboxRuns:   sandboxRuns,
 		Location2Path: &loc,
 		Config:        cfg,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start()
+	err = s.doStart()
 	if err != nil {
 		t.Fatal(err)
 		s.Kill()
@@ -372,7 +439,7 @@ func __TestExecFn(t *testing.T) {
 		Logger:        log,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start()
+	err = s.doStart()
 	if err != nil {
 		s.Kill()
 		t.Error(err)
@@ -440,7 +507,7 @@ func __TestExecForbiddenImport(t *testing.T) {
 		Config:        cfg,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	err = s.Start()
+	err = s.doStart()
 	if err != nil {
 		s.Kill()
 		t.Error(err)

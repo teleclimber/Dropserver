@@ -70,6 +70,34 @@ func (m *MockSandboxI) EXPECT() *MockSandboxIMockRecorder {
 	return m.recorder
 }
 
+// AppVersion mocks base method
+func (m *MockSandboxI) AppVersion() *AppVersion {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppVersion")
+	ret0, _ := ret[0].(*AppVersion)
+	return ret0
+}
+
+// AppVersion indicates an expected call of AppVersion
+func (mr *MockSandboxIMockRecorder) AppVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppVersion", reflect.TypeOf((*MockSandboxI)(nil).AppVersion))
+}
+
+// AppspaceID mocks base method
+func (m *MockSandboxI) AppspaceID() NullAppspaceID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppspaceID")
+	ret0, _ := ret[0].(NullAppspaceID)
+	return ret0
+}
+
+// AppspaceID indicates an expected call of AppspaceID
+func (mr *MockSandboxIMockRecorder) AppspaceID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspaceID", reflect.TypeOf((*MockSandboxI)(nil).AppspaceID))
+}
+
 // ExecFn mocks base method
 func (m *MockSandboxI) ExecFn(arg0 AppspaceRouteHandler) error {
 	m.ctrl.T.Helper()
@@ -110,20 +138,6 @@ func (mr *MockSandboxIMockRecorder) Graceful() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Graceful", reflect.TypeOf((*MockSandboxI)(nil).Graceful))
 }
 
-// ID mocks base method
-func (m *MockSandboxI) ID() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ID")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// ID indicates an expected call of ID
-func (mr *MockSandboxIMockRecorder) ID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockSandboxI)(nil).ID))
-}
-
 // Kill mocks base method
 func (m *MockSandboxI) Kill() {
 	m.ctrl.T.Helper()
@@ -150,6 +164,34 @@ func (mr *MockSandboxIMockRecorder) LastActive() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastActive", reflect.TypeOf((*MockSandboxI)(nil).LastActive))
 }
 
+// Operation mocks base method
+func (m *MockSandboxI) Operation() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Operation")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Operation indicates an expected call of Operation
+func (mr *MockSandboxIMockRecorder) Operation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Operation", reflect.TypeOf((*MockSandboxI)(nil).Operation))
+}
+
+// OwnerID mocks base method
+func (m *MockSandboxI) OwnerID() UserID {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OwnerID")
+	ret0, _ := ret[0].(UserID)
+	return ret0
+}
+
+// OwnerID indicates an expected call of OwnerID
+func (mr *MockSandboxIMockRecorder) OwnerID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OwnerID", reflect.TypeOf((*MockSandboxI)(nil).OwnerID))
+}
+
 // SendMessage mocks base method
 func (m *MockSandboxI) SendMessage(arg0, arg1 int, arg2 []byte) (twine.SentMessageI, error) {
 	m.ctrl.T.Helper()
@@ -165,24 +207,10 @@ func (mr *MockSandboxIMockRecorder) SendMessage(arg0, arg1, arg2 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockSandboxI)(nil).SendMessage), arg0, arg1, arg2)
 }
 
-// SetStatus mocks base method
-func (m *MockSandboxI) SetStatus(arg0 SandboxStatus) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetStatus", arg0)
-}
-
-// SetStatus indicates an expected call of SetStatus
-func (mr *MockSandboxIMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockSandboxI)(nil).SetStatus), arg0)
-}
-
 // Start mocks base method
-func (m *MockSandboxI) Start() error {
+func (m *MockSandboxI) Start() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start")
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "Start")
 }
 
 // Start indicates an expected call of Start

@@ -50,7 +50,7 @@ type AppGetter struct {
 	AppLogger interface {
 		Log(locationKey string, source string, message string)
 	} `checkinject:"required"`
-	SandboxMaker interface {
+	SandboxManager interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	} `checkinject:"required"`
 	V0AppRoutes interface {
@@ -224,7 +224,7 @@ func (g *AppGetter) readFilesMetadata(keyData appGetData, meta *domain.AppGetMet
 func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMeta) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Starting sandbox to get app data"})
 
-	s, err := g.SandboxMaker.ForApp(&domain.AppVersion{LocationKey: keyData.locationKey})
+	s, err := g.SandboxManager.ForApp(&domain.AppVersion{LocationKey: keyData.locationKey})
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 	// Set a timeout so that this sandbox doesn't run forever in case of infinite loop or whatever.
 	go func(sb domain.SandboxI) {
 		time.Sleep(time.Minute) // one minute. Is that enough on heavily used system?
-		if sb.Status() != domain.SandboxDead {
+		if sb.Status() < domain.SandboxDead {
 			g.getLogger("getDataFromSandbox").Log("sandbox not dead, killing. Location key: " + keyData.locationKey)
 			sb.Kill()
 		}
@@ -600,7 +600,7 @@ func (g *AppGetter) Delete(key domain.AppGetKey) {
 		return
 	}
 
-	if appGetData.sandbox != nil && appGetData.sandbox.Status() != domain.SandboxDead {
+	if appGetData.sandbox != nil && appGetData.sandbox.Status() < domain.SandboxDead {
 		appGetData.sandbox.Kill()
 	}
 

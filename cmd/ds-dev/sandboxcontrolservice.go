@@ -12,9 +12,6 @@ type SandboxControlService struct {
 	DevSandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 		SetInspect(bool)
-	} `checkinject:"required"`
-	DevSandboxMaker interface {
-		SetInspect(bool)
 		StopSandboxes()
 	} `checkinject:"required"`
 	InspectSandboxEvents interface {
@@ -35,7 +32,6 @@ func (s *SandboxControlService) HandleMessage(m twine.ReceivedMessageI) {
 	case setInspect:
 		p := m.Payload()
 		s.inspect = p[0] != 0x00
-		s.DevSandboxMaker.SetInspect(s.inspect)
 		s.DevSandboxManager.SetInspect(s.inspect)
 		s.DevSandboxManager.StopAppspace(appspaceID)
 
@@ -45,8 +41,7 @@ func (s *SandboxControlService) HandleMessage(m twine.ReceivedMessageI) {
 		m.SendOK()
 	case stopSandbox:
 		// force-kill for unruly scripts? Or for when we started with inspect by mistake.
-		s.DevSandboxMaker.StopSandboxes()
-		s.DevSandboxManager.StopAppspace(appspaceID)
+		s.DevSandboxManager.StopSandboxes()
 		m.SendOK()
 	}
 }

@@ -239,3 +239,14 @@ func (m *DevMigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.
 func (m *DevMigrationJobModel) sendJobAsEvent() {
 	m.MigrationJobEvents.Send(*m.job)
 }
+
+// DevSandboxRunsModel is a dud for now.
+type DevSandboxRunsModel struct{}
+
+func (m *DevSandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (int, error) {
+	return 0, nil
+}
+
+func (m *DevSandboxRunsModel) End(sandboxID int, end time.Time, cpuTime int, memory int) error {
+	return nil
+}

@@ -28,85 +28,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// SandboxMaker creates unmanaged sandboxes for
-// use in migrations and and other maintenancne tasks
-type SandboxMaker struct {
-	CGroups interface {
-		CreateCGroup() (string, error)
-		AddPid(string, int) error
-		RemoveCGroup(string) error
-	} `checkinject:"optional"`
-	AppspaceLogger interface {
-		Get(domain.AppspaceID) domain.LoggerI
-	} `checkinject:"required"`
-	AppLogger interface {
-		Get(string) domain.LoggerI
-	} `checkinject:"required"`
-	Services interface {
-		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
-	} `checkinject:"required"`
-	Location2Path interface {
-		AppMeta(string) string
-		AppFiles(string) string
-	} `checkinject:"required"`
-	Config *domain.RuntimeConfig `checkinject:"required"`
-}
-
-func (m *SandboxMaker) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error) {
-	s := &Sandbox{
-		id:            0,
-		appVersion:    appVersion,
-		CGroups:       m.CGroups,
-		status:        domain.SandboxPrepared,
-		statusSub:     make([]chan domain.SandboxStatus, 0),
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Location2Path: m.Location2Path,
-		Config:        m.Config,
-		Logger:        m.AppLogger.Get(appVersion.LocationKey)}
-
-	err := s.Start()
-	if err != nil {
-		m.getLogger("ForApp, sandbox.Start()").Error(err)
-		return nil, err
-	}
-	s.WaitFor(domain.SandboxReady)
-
-	return s, nil
-}
-
-func (m *SandboxMaker) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
-	s := &Sandbox{
-		id:            0,
-		appVersion:    appVersion,
-		appspace:      appspace,
-		CGroups:       m.CGroups,
-		services:      m.Services.Get(appspace, appVersion.APIVersion),
-		status:        domain.SandboxPrepared,
-		statusSub:     make([]chan domain.SandboxStatus, 0),
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Location2Path: m.Location2Path,
-		Config:        m.Config,
-		Logger:        m.AppspaceLogger.Get(appspace.AppspaceID)}
-
-	err := s.Start()
-	if err != nil {
-		m.getLogger("ForMigration, sandbox.Start()").Error(err)
-		return nil, err
-	}
-	s.WaitFor(domain.SandboxReady)
-
-	return s, nil
-}
-
-func (m *SandboxMaker) getLogger(note string) *record.DsLogger {
-	l := record.NewDsLogger().AddNote("SandboxMaker")
-	if note != "" {
-		l.AddNote(note)
-	}
-	return l
-}
-
-type appSpaceSession struct {
+type appSpaceSession struct { // expand on this to track total tied up time
 	tasks      []*Task
 	lastActive time.Time
 	tiedUp     bool
@@ -115,6 +37,11 @@ type appSpaceSession struct {
 // Task tracks the container being tied up for one request
 type Task struct {
 	Finished bool //build up with start time, elapsed and any other metadata
+}
+
+type runDBIDData struct {
+	id int
+	ok bool
 }
 
 // local sandbox service:
@@ -126,26 +53,32 @@ const execFnCommand = 11
 
 // Sandbox holds the data necessary to interact with the container
 type Sandbox struct {
-	id         int
-	appVersion *domain.AppVersion
-	appspace   *domain.Appspace
-	CGroups    interface {
+	id          int //local id
+	operation   string
+	ownerID     domain.UserID
+	appVersion  *domain.AppVersion
+	appspace    *domain.Appspace
+	SandboxRuns interface {
+		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
+		End(int, time.Time, int, int) error
+	}
+	CGroups interface {
 		CreateCGroup() (string, error)
 		AddPid(string, int) error
+		GetMetrics(string) (domain.SandboxRunData, error)
 		RemoveCGroup(string) error
 	}
 	Logger          interface{ Log(string, string) }
 	socketsDir      string
 	cmd             *exec.Cmd
 	twine           *twine.Twine
-	services        domain.ReverseServiceI
+	Services        domain.ReverseServiceI
 	statusMux       sync.Mutex
 	status          domain.SandboxStatus
 	statusSub       []chan domain.SandboxStatus
 	waitStatusSub   map[domain.SandboxStatus][]chan domain.SandboxStatus
 	transport       http.RoundTripper
 	appSpaceSession appSpaceSession // put a getter for that?
-	killScore       float64         // this should not be here.
 	inspect         bool
 	Location2Path   interface {
 		AppMeta(string) string
@@ -156,21 +89,34 @@ type Sandbox struct {
 	cGroup string
 }
 
-// NewSandbox creates a new sandbox with the passed parameters
-// This sandbox is intended to be used when serving requests
-// or executing functions in a running appspace
-func NewSandbox(sandboxID int, appVersion *domain.AppVersion, appspace *domain.Appspace, services domain.ReverseServiceI, config *domain.RuntimeConfig) *Sandbox {
-	newSandbox := &Sandbox{
-		id:            sandboxID,
+func NewSandbox(id int, operation string, ownerID domain.UserID, appVersion *domain.AppVersion, appspace *domain.Appspace) *Sandbox {
+	s := &Sandbox{
+		id:            id,
+		ownerID:       ownerID,
+		operation:     operation,
 		appVersion:    appVersion,
 		appspace:      appspace,
-		services:      services,
 		status:        domain.SandboxPrepared,
 		statusSub:     make([]chan domain.SandboxStatus, 0),
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		Config:        config}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
-	return newSandbox
+	return s
+}
+
+func (s *Sandbox) OwnerID() domain.UserID {
+	return s.ownerID
+}
+func (s *Sandbox) AppspaceID() (a domain.NullAppspaceID) {
+	if s.appspace != nil {
+		a.Set(s.appspace.AppspaceID)
+	}
+	return
+}
+func (s *Sandbox) AppVersion() *domain.AppVersion {
+	return s.appVersion
+}
+func (s *Sandbox) Operation() string {
+	return s.operation
 }
 
 // SetInspect sets the inspect flag which will cause the sandbox to start with --inspect-brk
@@ -178,14 +124,24 @@ func (s *Sandbox) SetInspect(inspect bool) {
 	s.inspect = inspect
 }
 
-// Start Should start() return a channel or something?
-// or should callers just do go start()?
-func (s *Sandbox) Start() error { // TODO: return an error, presumably?
-	s.getLogger("Start()").Debug("starting...")
+// Start sets the status to starting
+// and begins the start process in a goroutine.
+func (s *Sandbox) Start() {
+	s.setStatus(domain.SandboxStarting)
+	go func() {
+		err := s.doStart()
+		if err != nil {
+			s.Kill()
+			return
+		}
+	}()
+}
 
-	logger := s.getLogger("Start()")
+func (s *Sandbox) doStart() error {
+	logger := s.getLogger("doStart()")
+	logger.Debug("starting...")
 
-	s.SetStatus(domain.SandboxStarting)
+	s.setStatus(domain.SandboxStarting) // should already be set, but just in case
 
 	if s.Config.Sandbox.UseCGroups {
 		cGroup, err := s.CGroups.CreateCGroup()
@@ -203,7 +159,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 
 	socketsDir, err := ioutil.TempDir(s.Config.Sandbox.SocketsDir, "sock")
 	if err != nil {
-		s.getLogger(fmt.Sprintf("Start(), ioutil.TempDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
+		logger.AddNote(fmt.Sprintf("ioutil.TempDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
 	}
 	s.socketsDir = socketsDir
@@ -279,6 +235,8 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		return err
 	}
 
+	runDbIDCh := s.createRun()
+
 	err = s.cmd.Start() // returns right away
 	if err != nil {
 		logger.AddNote("cmd.Start()").Error(err)
@@ -292,13 +250,13 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 		}
 	}
 
-	go s.monitor(stdout, stderr)
+	go s.monitor(stdout, stderr, runDbIDCh)
 
 	_, ok := <-s.twine.ReadyChan
 	if !ok {
 		logger.Log("Apparent failed start. ReadyChan closed")
 		s.Kill()
-		return errors.New("Failed to start sandbox")
+		return errors.New("failed to start sandbox")
 	}
 
 	go s.listenMessages()
@@ -308,7 +266,7 @@ func (s *Sandbox) Start() error { // TODO: return an error, presumably?
 
 // monitor waits for cmd to end or an error gets sent
 // It also collects output for use somewhere.
-func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
+func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser, runDBIDCh chan runDBIDData) {
 
 	go func() {
 		for { // you need to be in a loop to keep the channel "flowing"
@@ -348,10 +306,11 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser) {
 
 	wg.Wait()
 
-	s.cleanup()
+	s.setStatus(domain.SandboxDead)
 
-	s.SetStatus(domain.SandboxDead)
-	// -> it may have crashed.
+	s.cleanup(runDBIDCh)
+
+	s.setStatus(domain.SandboxCleanedUp)
 
 	s.log("Sandbox terminated")
 }
@@ -391,8 +350,8 @@ func (s *Sandbox) listenMessages() {
 		case sandboxService:
 			go s.handleMessage(message)
 		default:
-			if s.services != nil {
-				go s.services.HandleMessage(message)
+			if s.Services != nil {
+				go s.Services.HandleMessage(message)
 			} else {
 				s.getLogger("listenMessages()").Error(fmt.Errorf("sandboxed code trying to access service but no service attached to sandbox, service: %v", message.ServiceID()))
 				message.SendError("No services attached to sandbox")
@@ -407,7 +366,7 @@ const sandboxServerReady = 11
 func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case sandboxServerReady:
-		s.SetStatus(domain.SandboxReady)
+		s.setStatus(domain.SandboxReady)
 		m.SendOK()
 	default:
 		s.getLogger("handleMessage()").Log(fmt.Sprintf("Command not recognized: %v", m.CommandID()))
@@ -419,22 +378,26 @@ func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 func (s *Sandbox) Graceful() {
 	s.getLogger("Graceful()").Log("starting shutdown")
 
-	// it seems this SendBlock does not return. Bug in twine?
-	reply, err := s.twine.SendBlock(sandboxService, 13, nil)
-	if err != nil {
-		// ???
-		s.getLogger("Graceful() twine.SendBlock()").Error(err)
-	}
-	if !reply.OK() {
-		s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
-	}
+	s.setStatus(domain.SandboxKilling)
 
-	s.getLogger("Graceful()").Log("sending twine.Graceful()")
+	go func() {
+		// it seems this SendBlock does not return. Bug in twine?
+		reply, err := s.twine.SendBlock(sandboxService, 13, nil)
+		if err != nil {
+			// ???
+			s.getLogger("Graceful() twine.SendBlock()").Error(err)
+		}
+		if !reply.OK() {
+			s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
+		}
 
-	// Then tell twine to shut down nicely:
-	s.twine.Graceful()
+		s.getLogger("Graceful()").Log("sending twine.Graceful()")
 
-	s.getLogger("Graceful()").Log("graceful complete")
+		// Then tell twine to shut down nicely:
+		s.twine.Graceful()
+
+		s.getLogger("Graceful()").Log("graceful complete")
+	}()
 }
 
 // Kill the sandbox. No mercy.
@@ -455,9 +418,7 @@ func (s *Sandbox) Kill() {
 	// Proxy should probably lock the mutex when it creates a task,
 	// ..so that task count can be considered acurate in sandox manager's killing function
 
-	s.SetStatus(domain.SandboxKilling)
-
-	// TODO send a command on sandboxService to shutdown.
+	s.setStatus(domain.SandboxKilling)
 
 	err := s.kill(false)
 	if err != nil {
@@ -477,7 +438,7 @@ func (s *Sandbox) Kill() {
 
 // Cleanup socket paths, and listeners, etc...
 // After the sandbox has terminated
-func (s *Sandbox) cleanup() {
+func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 	// maybe twine needs a checkConn()? or something?
 	// or maybe graceful itself should do it, so it can act accordingly
 	//s.twine.Graceful() // not sure this will work because we probably have messages in limbo?
@@ -489,6 +450,12 @@ func (s *Sandbox) cleanup() {
 	if err != nil {
 		// might ignore err?
 		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
+	}
+
+	metrics := s.collectRunData()
+	dbIDData := <-runDBIDCh
+	if dbIDData.ok {
+		s.SandboxRuns.End(dbIDData.id, time.Now(), metrics.CpuTime, metrics.Memory)
 	}
 
 	if s.Config.Sandbox.UseCGroups {
@@ -554,11 +521,47 @@ func (s *Sandbox) kill(force bool) error {
 	return nil
 }
 
-// basic getters
+func (s *Sandbox) createRun() chan runDBIDData {
+	ch := make(chan runDBIDData)
+	aID := domain.NewNullAppspaceID()
+	if s.appspace != nil {
+		aID.Set(s.appspace.AppspaceID)
+	}
+	go func() {
+		dbID, err := s.SandboxRuns.Create(domain.SandboxRunIDs{
+			Instance:   "ds-host", //this should come from elsewhere? Config?
+			LocalID:    s.id,
+			OwnerID:    s.ownerID,
+			AppID:      s.appVersion.AppID,
+			Version:    s.appVersion.Version,
+			AppspaceID: aID,
+			Operation:  s.operation,
+			CGroup:     s.cGroup,
+		}, time.Now())
+		if err != nil {
+			ch <- runDBIDData{0, false}
+			close(ch)
+			s.getLogger("createRun, Create").Error(err)
+			return // for now we just bail.
+		}
+		ch <- runDBIDData{dbID, true}
+		close(ch)
+	}()
 
-// ID returns the ID of the sandbox
-func (s *Sandbox) ID() int {
-	return s.id
+	return ch
+}
+
+func (s *Sandbox) collectRunData() domain.SandboxRunData {
+	var metrics domain.SandboxRunData
+	var err error
+	if s.Config.Sandbox.UseCGroups {
+		metrics, err = s.CGroups.GetMetrics(s.cGroup)
+		if err != nil {
+			s.getLogger("collectRunData").Error(err)
+		}
+	}
+
+	return metrics
 }
 
 // Status returns the status of the Sandbox
@@ -679,13 +682,12 @@ func (s *Sandbox) isTiedUp() (tiedUp bool) {
 	return
 }
 
-// SetStatus sets the status
-// why is this public?? -> sandbox manager uses it, but this should be posible to work around.
-func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
+// setStatus sets the status
+func (s *Sandbox) setStatus(status domain.SandboxStatus) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
-	s.getLogger("SetStatus()").Log(fmt.Sprintf("Sandbox %v set status from %v to %v\n", s.id, s.status, status))
+	s.getLogger("setStatus()").Log(fmt.Sprintf("Sandbox %v set status from %v to %v\n", s.id, s.status, status))
 
 	if status > s.status {
 
@@ -701,7 +703,7 @@ func (s *Sandbox) SetStatus(status domain.SandboxStatus) {
 		for _, sub := range s.statusSub {
 			sub <- s.status
 		}
-		if status == domain.SandboxDead {
+		if status == domain.SandboxCleanedUp {
 			for _, sub := range s.statusSub {
 				close(sub)
 			}

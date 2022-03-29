@@ -35,6 +35,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/remoteappspacemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/sandboxruns"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
@@ -134,6 +135,7 @@ func main() {
 
 		sc := dbManager.GetSchema()
 		fmt.Println("schema after migration:", sc)
+		os.Exit(0)
 	}
 
 	// now check schema?
@@ -224,6 +226,10 @@ func main() {
 	}
 	remoteAppspaceModel.PrepareStatements()
 
+	sandboxRunsModel := &sandboxruns.SandboxRunsModel{
+		DB: db}
+	sandboxRunsModel.PrepareStatements()
+
 	appLogger := &appspacelogger.AppLogger{
 		Location2Path: location2path}
 	appLogger.Init()
@@ -275,16 +281,10 @@ func main() {
 		}
 	}
 
-	sandboxMaker := &sandbox.SandboxMaker{
+	sandboxManager := &sandbox.Manager{
+		SandboxRuns:    sandboxRunsModel,
 		CGroups:        cGroups,
 		AppLogger:      appLogger,
-		AppspaceLogger: appspaceLogger,
-		Location2Path:  location2path,
-		Config:         runtimeConfig,
-		//Services: , // below
-	}
-	sandboxManager := &sandbox.Manager{
-		CGroups:        cGroups,
 		AppspaceLogger: appspaceLogger,
 		Location2Path:  location2path,
 		Config:         runtimeConfig,
@@ -315,7 +315,6 @@ func main() {
 		AppModel:          appModel,
 		AppspaceInfoModel: appspaceInfoModel,
 		SandboxManager:    sandboxManager,
-		SandboxMaker:      sandboxMaker,
 		BackupAppspace:    backupAppspace,
 		RestoreAppspace:   restoreAppspace,
 		AppspaceLogger:    appspaceLogger,
@@ -330,11 +329,11 @@ func main() {
 	}
 
 	appGetter := &appops.AppGetter{
-		AppFilesModel: appFilesModel,
-		AppModel:      appModel,
-		AppLogger:     appLogger,
-		SandboxMaker:  sandboxMaker,
-		V0AppRoutes:   v0AppRoutes,
+		AppFilesModel:  appFilesModel,
+		AppModel:       appModel,
+		AppLogger:      appLogger,
+		SandboxManager: sandboxManager,
+		V0AppRoutes:    v0AppRoutes,
 	}
 	appGetter.Init()
 
@@ -598,7 +597,6 @@ func main() {
 		AppspaceUsersV0: appspaceUsersModelV0,
 		V0AppspaceDB:    appspaceDB.V0}
 	sandboxManager.Services = services
-	sandboxMaker.Services = services
 
 	// Create server.
 	server := &server.Server{

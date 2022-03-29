@@ -17,6 +17,7 @@ import (
 
 var hostCGroup = "host"
 var sandboxesCGroup = "sandboxes"
+var memoryHighBytes = 128 * 1024 * 1024
 
 type CGroups struct {
 	Config *domain.RuntimeConfig `checkinject:"required"`
@@ -130,7 +131,7 @@ func (c *CGroups) CreateCGroup() (string, error) {
 		value      string
 	}{
 		//{controller: "cpu.weight", value: "100"},
-		{controller: "memory.high", value: fmt.Sprintf("%v", 128*1024*1024)}, // TODO use a value set by appspace owner?
+		{controller: "memory.high", value: fmt.Sprintf("%v", memoryHighBytes)}, // TODO use a value set by appspace owner?
 	}
 	for _, ctl := range ctls {
 		err = c.setController(filepath.Join(sandboxesCGroup, cGroup, ctl.controller), ctl.value)
@@ -205,6 +206,57 @@ func (c *CGroups) setSubtreeControl(subPath string, controllers []string) error 
 		return err
 	}
 	return nil
+}
+
+func (c *CGroups) GetMetrics(cGroup string) (data domain.SandboxRunData, err error) {
+	err = c.validateCGroup(cGroup)
+	if err != nil {
+		return
+	}
+
+	cpuStr, err := c.readFile(filepath.Join(cGroup, "cpu.stat"))
+	if err != nil {
+		return
+	}
+	cpuTime, err := c.parseCpuTime(cpuStr)
+	if err != nil {
+		return
+	}
+
+	data.CpuTime = cpuTime
+	data.Memory = memoryHighBytes
+
+	return
+}
+
+func (c *CGroups) parseCpuTime(cpuStr string) (int, error) {
+	cpuLines := strings.Split(cpuStr, "\n")
+	// if len(cpuLines) != 3 {
+	// 	err = errors.New("expected cpu.stat to be 3 lines long, got: " + cpuStr)
+	// 	c.getLogger("GetMetrics").Error(err)
+	// 	return 0, err
+	// }
+	if !strings.HasPrefix(cpuLines[0], "usage_usec ") {
+		err := errors.New("cpu.stat start of first line is not 'usage_usec ': " + cpuStr)
+		c.getLogger("parseCpuTime").Error(err)
+		return 0, err
+	}
+	microSec, err := strconv.Atoi(strings.TrimPrefix(cpuLines[0], "usage_usec "))
+	if err != nil {
+		c.getLogger("parseCpuTime() strconv.Atoi").Error(err)
+		return 0, err
+	}
+	return microSec, nil
+}
+
+func (c *CGroups) readFile(subPath string) (string, error) {
+	p := filepath.Join(c.rootCGroupPath, sandboxesCGroup, subPath)
+	cpuBytes, err := ioutil.ReadFile(p)
+	if err != nil {
+		c.getLogger("readFile() ReadFile() error").AddNote(fmt.Sprintf("subPath: %v", subPath)).Error(err)
+		return "", err
+	}
+	return string(cpuBytes), nil
 }
 
 func (c *CGroups) RemoveCGroup(cGroup string) error {

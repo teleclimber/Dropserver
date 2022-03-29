@@ -101,7 +101,9 @@ type MetricsI interface {
 
 // SandboxRunIDs contains all the identifiers relevant to a sandbox run
 type SandboxRunIDs struct {
-	SandboxID  string         `db:"sandbox_id" json:"sandbox_id"`
+	SandboxID  int            `db:"sandbox_id" json:"sandbox_id"`
+	Instance   string         `db:"instance" json:"instance"`
+	LocalID    int            `db:"local_id" json:"local_id"`
 	OwnerID    UserID         `db:"owner_id" json:"owner_id"`
 	AppID      AppID          `db:"app_id" json:"app_id"`
 	Version    Version        `db:"version" json:"version"`
@@ -110,12 +112,18 @@ type SandboxRunIDs struct {
 	CGroup     string         `db:"cgroup" json:"cgroup"`
 }
 
+// SandboxRunData contains the metrics of a sandbox run
+// TODO add tied up time.
+type SandboxRunData struct {
+	Start   time.Time          `db:"start" json:"start"`
+	End     nulltypes.NullTime `db:"end" json:"end"`
+	CpuTime int                `db:"cpu_time" json:"cpu_time"` // microseconds
+	Memory  int                `db:"memory" json:"memory"`     // bytes
+}
+
 type SandboxRun struct {
 	SandboxRunIDs
-	Start      time.Time          `db:"start" json:"start"`
-	End        nulltypes.NullTime `db:"end" json:"end"`
-	CpuSeconds float32            `db:"cpu_seconds" json:"cpu_seconds"`
-	Memory     int                `db:"memory" json:"memory"`
+	SandboxRunData
 }
 
 // SandboxStatus represents the Status of a Sandbox
@@ -130,13 +138,18 @@ const (
 	SandboxReady
 	// SandboxKilling means the system considers it is going down
 	SandboxKilling
-	// SandboxDead means it's gone
+	// SandboxDead means the PID is dead
 	SandboxDead
+	// SandboxCleanedUp means metrics have been collected and traces of sandbox removed.
+	SandboxCleanedUp
 )
 
 // SandboxI describes the interface to a sandbox
 type SandboxI interface {
-	ID() int
+	OwnerID() UserID
+	Operation() string
+	AppspaceID() NullAppspaceID
+	AppVersion() *AppVersion
 	ExecFn(AppspaceRouteHandler) error
 	SendMessage(int, int, []byte) (twine.SentMessageI, error)
 	GetTransport() http.RoundTripper
@@ -144,9 +157,8 @@ type SandboxI interface {
 	LastActive() time.Time
 	TaskBegin() chan bool
 	Status() SandboxStatus
-	SetStatus(SandboxStatus)
 	WaitFor(SandboxStatus)
-	Start() error
+	Start()
 	Graceful()
 	Kill()
 }

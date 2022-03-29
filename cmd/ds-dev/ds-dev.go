@@ -144,6 +144,8 @@ func main() {
 	devAppspaceModel := &DevAppspaceModel{
 		AsPausedEvent: appspacePausedEvents}
 
+	devSandboxRunsModel := &DevSandboxRunsModel{}
+
 	//devAppspaceContactModel := &DevAppspaceContactModel{}
 
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
@@ -162,7 +164,7 @@ func main() {
 		AppModel:      devAppModel,
 		V0AppRoutes:   v0AppRoutes,
 		AppLogger:     appLogger,
-		//SandboxMaker: ,	// added below
+		//SandboxManager: ,	// added below
 	}
 	appGetter.Init()
 
@@ -231,6 +233,8 @@ func main() {
 	appspaceLogger.Init()
 
 	devSandboxManager := &DevSandboxManager{
+		SandboxRuns:         devSandboxRunsModel,
+		AppLogger:           appLogger,
 		AppspaceLogger:      appspaceLogger,
 		Config:              runtimeConfig,
 		AppVersionEvents:    appVersionEvents,
@@ -238,6 +242,7 @@ func main() {
 		Location2Path:       location2path,
 	}
 	devSandboxManager.Init()
+	appGetter.SandboxManager = devSandboxManager
 
 	migrationJobController := &appspaceops.MigrationJobController{
 		MigrationJobModel: devMigrationJobModel,
@@ -248,7 +253,6 @@ func main() {
 		AppspaceStatus:    nil, //set below
 		BackupAppspace:    nil, // TODO going to need something like this!
 		RestoreAppspace:   nil,
-		SandboxMaker:      nil, // added below
 		SandboxManager:    devSandboxManager}
 	devMigrationJobModel.MigrationJobController = migrationJobController
 
@@ -309,19 +313,7 @@ func main() {
 	services := &vxservices.VXServices{
 		AppspaceUsersV0: appspaceUsersModelV0,
 		V0AppspaceDB:    appspaceDB.V0}
-
 	devSandboxManager.Services = services
-
-	devSandboxMaker := &DevSandboxMaker{
-		AppspaceLogger:      appspaceLogger,
-		AppLogger:           appLogger,
-		Services:            services,
-		Location2Path:       location2path,
-		SandboxStatusEvents: sandboxStatusEvents,
-		Config:              runtimeConfig}
-
-	migrationJobController.SandboxMaker = devSandboxMaker
-	appGetter.SandboxMaker = devSandboxMaker
 
 	devAppWatcher.Start(*appDirFlag)
 
@@ -333,7 +325,6 @@ func main() {
 		AppspaceStatusEvents: appspaceStatusEvents,
 	}
 	sandboxControlService := &SandboxControlService{
-		DevSandboxMaker:      devSandboxMaker,
 		DevSandboxManager:    devSandboxManager,
 		InspectSandboxEvents: inspectSandboxEvents,
 		SandboxStatusEvents:  sandboxStatusEvents,

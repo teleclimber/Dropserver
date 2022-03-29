@@ -48,8 +48,6 @@ type MigrationJobController struct {
 	} `checkinject:"optional"`
 	SandboxManager interface { // regular appspace sandboxes
 		StopAppspace(domain.AppspaceID)
-	} `checkinject:"required"`
-	SandboxMaker interface {
 		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	} `checkinject:"required"`
 
@@ -204,11 +202,10 @@ func (c *MigrationJobController) startNext() {
 // - tell appspace to gracefully shutdown, and wait til it does to actually start job (blocking appspace)
 
 func (c *MigrationJobController) createRunningJob(job *domain.MigrationJob) *runningJob {
-
 	return &runningJob{
-		migrationJob: job,
-		sandboxMaker: c.SandboxMaker,
-		statusSubs:   make([]chan<- runningJobStatus, 0)}
+		migrationJob:   job,
+		sandboxManager: c.SandboxManager,
+		statusSubs:     make([]chan<- runningJobStatus, 0)}
 }
 func (c *MigrationJobController) runJob(job *runningJob) {
 	defer job.setStatus(domain.MigrationFinished)
@@ -349,14 +346,14 @@ func (c *MigrationJobController) getLogger(note string) *record.DsLogger {
 // Might cut down on message passing?
 
 type runningJob struct {
-	migrationJob *domain.MigrationJob
-	appspace     *domain.Appspace
-	useVersion   *domain.AppVersion
-	fromSchema   int
-	toSchema     int
-	curSchema    int // not sure about this one
-	migrateDown  bool
-	sandboxMaker interface {
+	migrationJob   *domain.MigrationJob
+	appspace       *domain.Appspace
+	useVersion     *domain.AppVersion
+	fromSchema     int
+	toSchema       int
+	curSchema      int // not sure about this one
+	migrateDown    bool
+	sandboxManager interface {
 		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	}
 	sandbox    domain.SandboxI
@@ -382,7 +379,7 @@ func (r *runningJob) runMigration() error {
 
 	r.getLogger("runMigration()").Debug("about to start migration")
 
-	s, err := r.sandboxMaker.ForMigration(r.useVersion, r.appspace)
+	s, err := r.sandboxManager.ForMigration(r.useVersion, r.appspace)
 	if err != nil {
 		return err
 	}

@@ -4,12 +4,15 @@ package migrate
 // This supports tracking and limiting or charging for resource usage.
 // columns: owner, app or appspace id,
 // start / end date time, sandbox label (for cross-referencing)
-// cpu seconds, memory.high
+// cpu time (microseconds?), memory.high
+// TODO tied up time,
 // Remember this is purely for accounting purposes
 // Performance diagnostics should be left out.
 func sandboxUsageUp(args *stepArgs) error {
 	args.dbExec(`CREATE TABLE "sandbox_runs" (
-		"sandbox_id" TEXT NOT NULL,
+		"sandbox_id" INTEGER PRIMARY KEY,
+		"instance" TEXT NOT NULL,
+		"local_id" INTEGER NOT NULL,
 		"owner_id" INTEGER NOT NULL,
 		"app_id" INTEGER NOT NULL,
 		"version" TEXT NOT NULL,
@@ -18,11 +21,10 @@ func sandboxUsageUp(args *stepArgs) error {
 		"cgroup" TEXT NOT NULL,
 		"start" DATETIME NOT NULL,
 		"end" DATETIME,
-		"cpu_seconds" REAL NOT NULL DEFAULT 0,
+		"cpu_time" INTEGER NOT NULL DEFAULT 0,
 		"memory" INTEGER NOT NULL DEFAULT 0
 	)`)
-	// indices? owner id, appspace_id, app_id, start
-	args.dbExec(`CREATE UNIQUE INDEX sandbox_runs_id ON sandbox_runs ( sandbox_id )`)
+	// sandbox_id is an alias for sqilte's rowid.
 	args.dbExec(`CREATE INDEX sandbox_runs_owner ON sandbox_runs ( owner_id )`)
 	args.dbExec(`CREATE INDEX sandbox_runs_app ON sandbox_runs ( app_id )`) // not sure we should include version in this index
 	args.dbExec(`CREATE INDEX sandbox_runs_appspace ON sandbox_runs ( appspace_id )`)
