@@ -78,10 +78,10 @@ func TestCreateApp(t *testing.T) {
 		t.Fatal("expected one run")
 	}
 	data := domain.SandboxRunData{
-		Start:   start,
-		End:     nulltypes.NewTime(time.Now(), false),
-		CpuTime: 0,
-		Memory:  0,
+		Start:       start,
+		End:         nulltypes.NewTime(time.Now(), false),
+		CpuUsec:     0,
+		MemoryBytes: 0,
 	}
 	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {
@@ -134,11 +134,11 @@ func TestCreateEndAppspace(t *testing.T) {
 		t.Fatal("expected one run")
 	}
 	data := domain.SandboxRunData{
-		Start:      start,
-		End:        nulltypes.NewTime(end, true),
-		TiedUpTime: 222,
-		CpuTime:    777,
-		Memory:     128,
+		Start:       start,
+		End:         nulltypes.NewTime(end, true),
+		TiedUpMs:    222,
+		CpuUsec:     777,
+		MemoryBytes: 128,
 	}
 	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {

@@ -114,11 +114,11 @@ type SandboxRunIDs struct {
 
 // SandboxRunData contains the metrics of a sandbox run
 type SandboxRunData struct {
-	Start      time.Time          `db:"start" json:"start"`
-	End        nulltypes.NullTime `db:"end" json:"end"`
-	TiedUpTime int                `db:"tied_up_time" json:"tied_up_time"` // milliseconds
-	CpuTime    int                `db:"cpu_time" json:"cpu_time"`         // microseconds
-	Memory     int                `db:"memory" json:"memory"`             // bytes
+	Start       time.Time          `db:"start" json:"start"`
+	End         nulltypes.NullTime `db:"end" json:"end"`
+	TiedUpMs    int                `db:"tied_up_ms" json:"tied_up_ms"`
+	CpuUsec     int                `db:"cpu_usec" json:"cpu_usec"`
+	MemoryBytes int                `db:"memory_bytes" json:"memory_bytes"`
 }
 
 type SandboxRun struct {

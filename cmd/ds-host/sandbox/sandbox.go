@@ -524,7 +524,7 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 	metrics := s.collectRunData()
 	dbIDData := <-runDBIDCh
 	if dbIDData.ok {
-		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), metrics.CpuTime, metrics.Memory)
+		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), metrics.CpuUsec, metrics.MemoryBytes)
 	}
 
 	if s.Config.Sandbox.UseCGroups {

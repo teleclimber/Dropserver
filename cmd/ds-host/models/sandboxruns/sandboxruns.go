@@ -47,7 +47,7 @@ func (m *SandboxRunsModel) PrepareStatements() {
 	m.stmt.insert = p.Prep(`INSERT INTO sandbox_runs
 		(instance, local_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
-	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_time = ?, cpu_time = ?, memory = ? WHERE sandbox_id = ?`)
+	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_ms = ?, cpu_usec = ?, memory_bytes = ? WHERE sandbox_id = ?`)
 }
 
 func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (int, error) {

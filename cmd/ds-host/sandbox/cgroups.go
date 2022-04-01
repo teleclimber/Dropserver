@@ -223,8 +223,8 @@ func (c *CGroups) GetMetrics(cGroup string) (data domain.SandboxRunData, err err
 		return
 	}
 
-	data.CpuTime = cpuTime
-	data.Memory = memoryHighBytes
+	data.CpuUsec = cpuTime
+	data.MemoryBytes = memoryHighBytes
 
 	return
 }
