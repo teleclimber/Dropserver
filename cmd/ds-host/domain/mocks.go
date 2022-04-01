@@ -164,6 +164,20 @@ func (mr *MockSandboxIMockRecorder) LastActive() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastActive", reflect.TypeOf((*MockSandboxI)(nil).LastActive))
 }
 
+// NewTask mocks base method
+func (m *MockSandboxI) NewTask() chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewTask")
+	ret0, _ := ret[0].(chan struct{})
+	return ret0
+}
+
+// NewTask indicates an expected call of NewTask
+func (mr *MockSandboxIMockRecorder) NewTask() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTask", reflect.TypeOf((*MockSandboxI)(nil).NewTask))
+}
+
 // Operation mocks base method
 func (m *MockSandboxI) Operation() string {
 	m.ctrl.T.Helper()
@@ -231,20 +245,6 @@ func (m *MockSandboxI) Status() SandboxStatus {
 func (mr *MockSandboxIMockRecorder) Status() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockSandboxI)(nil).Status))
-}
-
-// TaskBegin mocks base method
-func (m *MockSandboxI) TaskBegin() chan bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TaskBegin")
-	ret0, _ := ret[0].(chan bool)
-	return ret0
-}
-
-// TaskBegin indicates an expected call of TaskBegin
-func (mr *MockSandboxIMockRecorder) TaskBegin() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskBegin", reflect.TypeOf((*MockSandboxI)(nil).TaskBegin))
 }
 
 // TiedUp mocks base method

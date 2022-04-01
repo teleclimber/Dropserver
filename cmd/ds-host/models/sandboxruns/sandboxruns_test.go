@@ -35,7 +35,7 @@ func TestUpdateNoRow(t *testing.T) {
 
 	m.PrepareStatements()
 
-	err := m.update(123, nil, 0, 0)
+	err := m.update(123, nil, 0, 0, 0)
 	if err == nil || err.Error() != "sandbox id not in database" {
 		t.Errorf("Expected error: sandbox id not in database, got %v", err)
 	}
@@ -121,7 +121,7 @@ func TestCreateEndAppspace(t *testing.T) {
 	}
 	ids.SandboxID = id
 
-	err = m.End(ids.SandboxID, end, 777, 128)
+	err = m.End(ids.SandboxID, end, 222, 777, 128)
 	if err != nil {
 		t.Error(err)
 	}
@@ -134,10 +134,11 @@ func TestCreateEndAppspace(t *testing.T) {
 		t.Fatal("expected one run")
 	}
 	data := domain.SandboxRunData{
-		Start:   start,
-		End:     nulltypes.NewTime(end, true),
-		CpuTime: 777,
-		Memory:  128,
+		Start:      start,
+		End:        nulltypes.NewTime(end, true),
+		TiedUpTime: 222,
+		CpuTime:    777,
+		Memory:     128,
 	}
 	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {

@@ -113,12 +113,12 @@ type SandboxRunIDs struct {
 }
 
 // SandboxRunData contains the metrics of a sandbox run
-// TODO add tied up time.
 type SandboxRunData struct {
-	Start   time.Time          `db:"start" json:"start"`
-	End     nulltypes.NullTime `db:"end" json:"end"`
-	CpuTime int                `db:"cpu_time" json:"cpu_time"` // microseconds
-	Memory  int                `db:"memory" json:"memory"`     // bytes
+	Start      time.Time          `db:"start" json:"start"`
+	End        nulltypes.NullTime `db:"end" json:"end"`
+	TiedUpTime int                `db:"tied_up_time" json:"tied_up_time"` // milliseconds
+	CpuTime    int                `db:"cpu_time" json:"cpu_time"`         // microseconds
+	Memory     int                `db:"memory" json:"memory"`             // bytes
 }
 
 type SandboxRun struct {
@@ -155,7 +155,7 @@ type SandboxI interface {
 	GetTransport() http.RoundTripper
 	TiedUp() bool
 	LastActive() time.Time
-	TaskBegin() chan bool
+	NewTask() chan struct{}
 	Status() SandboxStatus
 	WaitFor(SandboxStatus)
 	Start()

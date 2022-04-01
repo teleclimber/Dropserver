@@ -247,6 +247,7 @@ func (m *DevSandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) 
 	return 0, nil
 }
 
-func (m *DevSandboxRunsModel) End(sandboxID int, end time.Time, cpuTime int, memory int) error {
+func (m *DevSandboxRunsModel) End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error {
+	fmt.Printf("Sandbox run: tied up: %vms, cpu: %vmicros, memory: %v bytes\n", tiedUpTime, cpuTime, memory)
 	return nil
 }

@@ -261,7 +261,7 @@ func assertSliceScored(a, b []scored) error {
 	if len(a) != len(b) {
 		return fmt.Errorf("different lengths for slice of scored: %v, %v", len(a), len(b))
 	}
-	for i, _ := range a {
+	for i := range a {
 		err := assertScored(a[i], b[i])
 		if err != nil {
 			return err

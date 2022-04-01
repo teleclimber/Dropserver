@@ -13,7 +13,7 @@ import (
 // SandboxProxy holds other structs for the proxy
 type SandboxProxy struct {
 	SandboxManager interface {
-		GetForAppspace(*domain.AppVersion, *domain.Appspace) chan domain.SandboxI
+		GetForAppspace(*domain.AppVersion, *domain.Appspace) (domain.SandboxI, chan struct{})
 	} `checkinject:"required"`
 }
 
@@ -26,23 +26,16 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(ctx)
 	appspace, _ := domain.CtxAppspaceData(ctx)
 
-	sandboxChan := s.SandboxManager.GetForAppspace(&appVersion, &appspace) // Change this to more solid IDs
-	sb := <-sandboxChan
+	sb, taskCh := s.SandboxManager.GetForAppspace(&appVersion, &appspace) // Change this to more solid IDs
+	defer close(taskCh)                                                   // signal end of task
 
-	if sb == nil {
-		// sandbox failed to start or something
+	sb.WaitFor(domain.SandboxReady)
+	if sb.Status() != domain.SandboxReady {
 		oRes.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	sbTransport := sb.GetTransport()
-
-	//timetrack.Track(getTime, "getting sandbox "+appSpace+" c"+sbName)
-
-	reqTaskCh := sb.TaskBegin()
-	defer func() {
-		reqTaskCh <- true
-	}()
 
 	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
 
@@ -64,6 +57,8 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 	}
 
 	cReq.Header = header
+
+	taskCh <- struct{}{} // signal start of task
 
 	cRes, err := sbTransport.RoundTrip(cReq)
 	if err != nil {

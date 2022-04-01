@@ -16,6 +16,160 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
+func TestNewNeverStartedTask(t *testing.T) {
+	tracker := taskTracker{
+		notifyCh: make(chan struct{}, 1),
+	}
+
+	if tracker.isTiedUp() {
+		t.Error("expected to not be tied up")
+	}
+
+	ch := tracker.newTask()
+
+	if !tracker.isTiedUp() {
+		t.Error("expected to be tied up")
+	}
+
+	close(ch)
+
+	<-tracker.notifyCh
+
+	if tracker.isTiedUp() {
+		t.Error("expected to not be tied upafter chan close")
+	}
+
+	tracker.mux.Lock()
+	if tracker.cumul != 0 {
+		t.Error("expected zero duration because we never started the task")
+	}
+	if !tracker.clumpStart.IsZero() || !tracker.clumpEnd.IsZero() {
+		t.Error("expected zero clump times because we never started the task")
+	}
+	if !tracker.lastActive.IsZero() {
+		t.Error("expected last active to be zero")
+	}
+	tracker.mux.Unlock()
+}
+
+func TestNewStartedTask(t *testing.T) {
+	tracker := taskTracker{
+		notifyCh: make(chan struct{}, 1),
+	}
+
+	ch := tracker.newTask()
+
+	ch <- struct{}{}
+
+	<-tracker.notifyCh
+
+	if !tracker.isTiedUp() {
+		t.Error("expected to be tied up")
+	}
+
+	tracker.mux.Lock()
+	if tracker.clumpStart.IsZero() {
+		t.Error("expected clump to have a start time")
+	}
+	if !tracker.clumpEnd.IsZero() {
+		t.Error("expected clump to not have an end time.")
+	}
+	tracker.mux.Unlock()
+
+	close(ch)
+
+	<-tracker.notifyCh
+
+	if tracker.isTiedUp() {
+		t.Error("expected to not be tied upafter chan close")
+	}
+
+	tracker.mux.Lock()
+	if tracker.cumul == 0 {
+		t.Error("expected non-zero duration")
+	}
+	if !tracker.clumpStart.IsZero() || !tracker.clumpEnd.IsZero() {
+		t.Error("expected zero clump times because we stopped the task")
+	}
+	if tracker.lastActive.IsZero() {
+		t.Error("expected last active to be non-zero")
+	}
+	tracker.mux.Unlock()
+}
+
+func TestTrackMultipleTasks(t *testing.T) {
+	tracker := taskTracker{
+		notifyCh: make(chan struct{}, 1),
+	}
+
+	ch1 := tracker.newTask()
+	ch1 <- struct{}{}
+
+	<-tracker.notifyCh
+
+	ch2 := tracker.newTask()
+	ch2 <- struct{}{}
+
+	<-tracker.notifyCh
+
+	if !tracker.isTiedUp() {
+		t.Error("expected to be tied up")
+	}
+
+	tracker.mux.Lock()
+	if tracker.numActive != 2 {
+		t.Error("expected 2 active tasks")
+	}
+	tracker.mux.Unlock()
+
+	close(ch2)
+
+	<-tracker.notifyCh
+
+	if !tracker.isTiedUp() {
+		t.Error("expected to be tied up")
+	}
+
+	tracker.mux.Lock()
+	if tracker.numActive != 1 {
+		t.Error("expected 1 active tasks")
+	}
+	if tracker.cumul != 0 {
+		t.Error("expected zero duration because we never started the task")
+	}
+	if tracker.clumpStart.IsZero() {
+		t.Error("expected clump start time")
+	}
+	clumpEnd := tracker.clumpEnd
+	if clumpEnd.IsZero() {
+		t.Error("clump end should be set")
+	}
+	if !tracker.lastActive.IsZero() {
+		t.Error("expected last active to be zero")
+	}
+	tracker.mux.Unlock()
+
+	close(ch1)
+
+	<-tracker.notifyCh
+
+	if tracker.isTiedUp() {
+		t.Error("expected to not be tied upafter chan close")
+	}
+
+	tracker.mux.Lock()
+	if tracker.cumul == 0 {
+		t.Error("expected non-zero duration")
+	}
+	if clumpEnd == tracker.clumpEnd {
+		t.Error("clump end was not updated on closing second taask")
+	}
+	if tracker.lastActive.IsZero() {
+		t.Error("expected last active to be non-zero")
+	}
+	tracker.mux.Unlock()
+}
+
 func TestImportMaps(t *testing.T) {
 	s := &Sandbox{
 		appspace: &domain.Appspace{
@@ -198,7 +352,7 @@ func TestRunnerScriptError(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(appspaceID),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 	s := &Sandbox{
 		id:            7,
@@ -269,7 +423,7 @@ func TestStart(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(appspaceID),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
@@ -355,7 +509,7 @@ func TestStartAppOnly(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
 	appVersion := &domain.AppVersion{
 		AppID:       appID,

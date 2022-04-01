@@ -1333,15 +1333,15 @@ func (mr *MockSandboxRunsMockRecorder) Create(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // End mocks base method
-func (m *MockSandboxRuns) End(arg0 int, arg1 time.Time, arg2, arg3 int) error {
+func (m *MockSandboxRuns) End(arg0 int, arg1 time.Time, arg2, arg3, arg4 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "End", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "End", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // End indicates an expected call of End
-func (mr *MockSandboxRunsMockRecorder) End(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockSandboxRunsMockRecorder) End(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "End", reflect.TypeOf((*MockSandboxRuns)(nil).End), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "End", reflect.TypeOf((*MockSandboxRuns)(nil).End), arg0, arg1, arg2, arg3, arg4)
 }

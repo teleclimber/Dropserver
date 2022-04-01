@@ -19,7 +19,7 @@ var opAppspaceMigration = "appspace-migration"
 type Manager struct {
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
-		End(sandboxID int, end time.Time, cpuTime int, memory int) error
+		End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error
 	} `checkinject:"required"`
 	CGroups interface {
 		CreateCGroup() (string, error)
@@ -84,9 +84,7 @@ func (m *Manager) StopAll() {
 // GetForAppspace records the need for a sandbox and returns a channel
 // I wonder if this should essentially tie up the sandbox
 // such that it doesn't get cleaned out before the request gets passed to it.
-func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
-	ch := make(chan domain.SandboxI)
-
+func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, chan struct{}) {
 	m.sandboxesMux.Lock()
 	defer m.sandboxesMux.Unlock()
 
@@ -95,26 +93,14 @@ func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain
 		newS := NewSandbox(m.getNextID(), opAppspaceRun, appspace.OwnerID, appVersion, appspace)
 		newS.Services = m.Services.Get(appspace, appVersion.APIVersion)
 		newS.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
+		newS.taskTracker.lastActive = time.Now()
 
 		m.startSandbox(newS)
 
 		s = newS
-
-		// TODO somehow the to-be-started sandbox must indicate that it's "tied up?"
-		// If not it might get shut down before it gets a chance to serve a request
-		// However be careful about tie-up times that include when a sandbox is not even ready.
 	}
 
-	go func() {
-		s.WaitFor(domain.SandboxReady)
-		if s.Status() != domain.SandboxReady {
-			close(ch)
-			return
-		}
-		ch <- s
-	}()
-
-	return ch
+	return s, s.NewTask()
 }
 
 // findAppspaceSandbox returns the first viable appspace-run sandbox for the appspace
@@ -162,10 +148,19 @@ func (m *Manager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	m.sandboxesMux.Unlock()
 
 	s.WaitFor(domain.SandboxReady)
-	if s.Status() == domain.SandboxReady {
-		return s, nil
+
+	if s.Status() != domain.SandboxReady {
+		return nil, errors.New("failed to start sandbox")
 	}
-	return nil, errors.New("failed to start sandbox")
+
+	taskCh := s.NewTask()
+	taskCh <- struct{}{}
+	go func() {
+		s.WaitFor(domain.SandboxDead)
+		close(taskCh)
+	}()
+
+	return s, nil
 }
 
 func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
@@ -180,14 +175,21 @@ func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.A
 
 	s.WaitFor(domain.SandboxReady) // what if it never gets there?
 
-	if s.Status() == domain.SandboxReady {
-		return s, nil
+	if s.Status() != domain.SandboxReady {
+		return nil, errors.New("failed to start sandbox")
 	}
 
-	return nil, errors.New("failed to start sandbox")
+	taskCh := s.NewTask()
+	taskCh <- struct{}{}
+	go func() {
+		s.WaitFor(domain.SandboxDead)
+		close(taskCh)
+	}()
+
+	return s, nil
 }
 
-// startSandbox launches a new Node/deno instance for a specific sandbox
+// startSandbox launches a new Deno instance for a specific sandbox
 // not sure if it should return a channel or just a started sb.
 // Problem is if it takes too long, would like to independently send timout as response to request.
 func (m *Manager) startSandbox(s *Sandbox) {

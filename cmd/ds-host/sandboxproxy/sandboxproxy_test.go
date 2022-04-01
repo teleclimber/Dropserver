@@ -76,11 +76,14 @@ func TestSandboxBadStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	ch := make(chan domain.SandboxI)
-	close(ch) //sandbox manager closes the channel to indicate bad start.
+	sandbox := domain.NewMockSandboxI(mockCtrl)
+	sandbox.EXPECT().WaitFor(domain.SandboxReady).Return()
+	sandbox.EXPECT().Status().Return(domain.SandboxDead)
+
+	taskCh := make(chan struct{})
 
 	sandboxManager := testmocks.NewMockSandboxManager(mockCtrl)
-	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).Return(ch)
+	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).Return(sandbox, taskCh)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -181,6 +184,8 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		SandboxManager: sandboxManager}
 
 	sandbox := domain.NewMockSandboxI(mockCtrl)
+	sandbox.EXPECT().WaitFor(domain.SandboxReady).Return()
+	sandbox.EXPECT().Status().Return(domain.SandboxReady)
 	sandbox.EXPECT().GetTransport().Return(&http.Transport{
 		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
 			return net.Dial("unix", serverSocket)
@@ -199,20 +204,13 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 	}
 	go server.Serve(unixListener)
 
-	taskCh := make(chan bool)
-	sandbox.EXPECT().TaskBegin().Return(taskCh)
+	taskCh := make(chan struct{})
 	go func() {
-		<-taskCh
-		fmt.Println("task done")
+		for range taskCh {
+		}
 	}()
 
-	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).DoAndReturn(func(av *domain.AppVersion, as *domain.Appspace) chan domain.SandboxI {
-		sandboxChan := make(chan domain.SandboxI)
-		go func() {
-			sandboxChan <- sandbox
-		}()
-		return sandboxChan
-	})
+	sandboxManager.EXPECT().GetForAppspace(gomock.Any(), gomock.Any()).Return(sandbox, taskCh)
 
 	return &testMocks{
 		tempDir:        tempDir,

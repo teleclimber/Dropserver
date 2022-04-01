@@ -64,11 +64,12 @@ func (mr *MockSandboxManagerMockRecorder) ForMigration(arg0, arg1 interface{}) *
 }
 
 // GetForAppspace mocks base method
-func (m *MockSandboxManager) GetForAppspace(arg0 *domain.AppVersion, arg1 *domain.Appspace) chan domain.SandboxI {
+func (m *MockSandboxManager) GetForAppspace(arg0 *domain.AppVersion, arg1 *domain.Appspace) (domain.SandboxI, chan struct{}) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetForAppspace", arg0, arg1)
-	ret0, _ := ret[0].(chan domain.SandboxI)
-	return ret0
+	ret0, _ := ret[0].(domain.SandboxI)
+	ret1, _ := ret[1].(chan struct{})
+	return ret0, ret1
 }
 
 // GetForAppspace indicates an expected call of GetForAppspace

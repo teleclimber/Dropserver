@@ -28,15 +28,82 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type appSpaceSession struct { // expand on this to track total tied up time
-	tasks      []*Task
+type taskTracker struct { // expand on this to track total tied up time
+	mux        sync.Mutex
+	numTask    int // number of tasks created that have not ended
+	numActive  int // active tasks have started but not ended
 	lastActive time.Time
-	tiedUp     bool
+	cumul      time.Duration
+	clumpStart time.Time
+	clumpEnd   time.Time
+	notifyCh   chan struct{}
 }
 
-// Task tracks the container being tied up for one request
-type Task struct {
-	Finished bool //build up with start time, elapsed and any other metadata
+func (t *taskTracker) newTask() chan struct{} {
+	ch := make(chan struct{})
+	start := time.Time{}
+	end := time.Time{}
+
+	go func() {
+		for range ch {
+			t.mux.Lock()
+			if start.IsZero() {
+				start = time.Now()
+				t.numActive++
+				if t.notifyCh != nil {
+					t.notifyCh <- struct{}{}
+				}
+			}
+			if t.clumpStart.IsZero() {
+				t.clumpStart = start // set the beginning of a clump if there is no clump.
+			}
+			t.mux.Unlock()
+		}
+
+		// When channel is closed, means task ended
+		t.mux.Lock()
+		defer t.mux.Unlock()
+		end = time.Now()
+		t.numTask--
+		t.numActive--
+		// Set clump end, but only if start was actually set
+		if !start.IsZero() && (t.clumpEnd.IsZero() || end.After(t.clumpEnd)) {
+			t.clumpEnd = end
+		}
+		// If there are zero active tasks, calculate cumul time and zero out clumps.
+		if t.numActive == 0 {
+			t.cumul += t.clumpEnd.Sub(t.clumpStart)
+			t.lastActive = t.clumpEnd
+			t.clumpStart = time.Time{}
+			t.clumpEnd = time.Time{}
+		}
+		if t.notifyCh != nil {
+			t.notifyCh <- struct{}{}
+		}
+	}()
+
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	t.numTask++
+
+	return ch
+}
+
+func (t *taskTracker) isTiedUp() bool {
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	return t.numTask != 0
+}
+
+func (t *taskTracker) getCumulDuration() time.Duration {
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	c := t.cumul
+	if !t.clumpStart.IsZero() {
+		// There are some active tasks, calculate cumul from clump start to current time.
+		c += time.Since(t.clumpStart)
+	}
+	return c
 }
 
 type runDBIDData struct {
@@ -60,7 +127,7 @@ type Sandbox struct {
 	appspace    *domain.Appspace
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
-		End(int, time.Time, int, int) error
+		End(int, time.Time, int, int, int) error
 	}
 	CGroups interface {
 		CreateCGroup() (string, error)
@@ -68,19 +135,19 @@ type Sandbox struct {
 		GetMetrics(string) (domain.SandboxRunData, error)
 		RemoveCGroup(string) error
 	}
-	Logger          interface{ Log(string, string) }
-	socketsDir      string
-	cmd             *exec.Cmd
-	twine           *twine.Twine
-	Services        domain.ReverseServiceI
-	statusMux       sync.Mutex
-	status          domain.SandboxStatus
-	statusSub       []chan domain.SandboxStatus
-	waitStatusSub   map[domain.SandboxStatus][]chan domain.SandboxStatus
-	transport       http.RoundTripper
-	appSpaceSession appSpaceSession // put a getter for that?
-	inspect         bool
-	Location2Path   interface {
+	Logger        interface{ Log(string, string) }
+	socketsDir    string
+	cmd           *exec.Cmd
+	twine         *twine.Twine
+	Services      domain.ReverseServiceI
+	statusMux     sync.Mutex
+	status        domain.SandboxStatus
+	statusSub     []chan domain.SandboxStatus
+	waitStatusSub map[domain.SandboxStatus][]chan domain.SandboxStatus
+	transport     http.RoundTripper
+	taskTracker   taskTracker
+	inspect       bool
+	Location2Path interface {
 		AppMeta(string) string
 		AppFiles(string) string
 	}
@@ -439,6 +506,8 @@ func (s *Sandbox) Kill() {
 // Cleanup socket paths, and listeners, etc...
 // After the sandbox has terminated
 func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
+	tiedUpDuration := s.taskTracker.getCumulDuration()
+
 	// maybe twine needs a checkConn()? or something?
 	// or maybe graceful itself should do it, so it can act accordingly
 	//s.twine.Graceful() // not sure this will work because we probably have messages in limbo?
@@ -455,7 +524,7 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 	metrics := s.collectRunData()
 	dbIDData := <-runDBIDCh
 	if dbIDData.ok {
-		s.SandboxRuns.End(dbIDData.id, time.Now(), metrics.CpuTime, metrics.Memory)
+		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), metrics.CpuTime, metrics.Memory)
 	}
 
 	if s.Config.Sandbox.UseCGroups {
@@ -574,10 +643,12 @@ func (s *Sandbox) Status() domain.SandboxStatus {
 // ExecFn executes a function in athesandbox, based on the params of AppspaceRouteHandler
 func (s *Sandbox) ExecFn(handler domain.AppspaceRouteHandler) error {
 	// check status of sandbox first?
-	taskCh := s.TaskBegin()
-	defer func() {
-		taskCh <- true
-	}()
+	// taskCh := s.	// need to rethink how tasks are managed when calling ExecFn.
+	// If folliwng the pattern of http requests, then it's up to the caller to signal task start and end?
+	// but that seems unnecessary here.
+	// defer func() {
+	// 	taskCh <- true
+	// }()
 
 	payload, err := json.Marshal(handler)
 	if err != nil {
@@ -642,44 +713,20 @@ func (s *Sandbox) getLogger(note string) *record.DsLogger {
 	return l
 }
 
-// TiedUp returns the appspaceSession
+// TiedUp indicates whether the sandbox has unfinished tasks
 func (s *Sandbox) TiedUp() bool {
-	return s.appSpaceSession.tiedUp
+	return s.taskTracker.isTiedUp()
 }
 
 // LastActive returns the last used time
 func (s *Sandbox) LastActive() time.Time {
-	return s.appSpaceSession.lastActive
+	return s.taskTracker.lastActive
 }
 
-// TaskBegin adds a new task to session tasks and returns it
-func (s *Sandbox) TaskBegin() chan bool {
-	reqTask := Task{}
-	s.appSpaceSession.tasks = append(s.appSpaceSession.tasks, &reqTask)
-	s.appSpaceSession.lastActive = time.Now()
-	s.appSpaceSession.tiedUp = true
-
-	ch := make(chan bool) // this should just be struct{} instead of bool
-
-	// go func here that blocks on chanel.
-	go func() {
-		<-ch
-		reqTask.Finished = true
-		s.appSpaceSession.lastActive = time.Now()
-		s.appSpaceSession.tiedUp = s.isTiedUp()
-	}()
-
-	return ch //instead of returning a task we should return a chanel.
-}
-
-func (s *Sandbox) isTiedUp() (tiedUp bool) {
-	for _, task := range s.appSpaceSession.tasks {
-		if !task.Finished {
-			tiedUp = true
-			break
-		}
-	}
-	return
+// NewTask returns a channel used to signal the beginning and end of a task.
+// Pass a struct to indicate the task has started, close to indicate it has ended.
+func (s *Sandbox) NewTask() chan struct{} {
+	return s.taskTracker.newTask()
 }
 
 // setStatus sets the status

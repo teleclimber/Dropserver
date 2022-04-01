@@ -170,7 +170,7 @@ func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (doma
 	return u.toDomainUserV0(appspaceID, user), nil
 }
 
-// GetForAppspace returns an appspace's list of users.
+// GetAll returns an appspace's list of users.
 func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) { // TODO this should return a V0 user type
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {

@@ -47,7 +47,7 @@ func (m *SandboxRunsModel) PrepareStatements() {
 	m.stmt.insert = p.Prep(`INSERT INTO sandbox_runs
 		(instance, local_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
-	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, cpu_time = ?, memory = ? WHERE sandbox_id = ?`)
+	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_time = ?, cpu_time = ?, memory = ? WHERE sandbox_id = ?`)
 }
 
 func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (int, error) {
@@ -64,23 +64,23 @@ func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (in
 	return int(lastID), nil
 }
 
-func (m *SandboxRunsModel) Update(sandboxID int, cpuTime int, memory int) error {
-	err := m.update(sandboxID, nil, cpuTime, memory)
+func (m *SandboxRunsModel) Update(sandboxID int, tiedUpTime int, cpuTime int, memory int) error {
+	err := m.update(sandboxID, nil, tiedUpTime, cpuTime, memory)
 	if err != nil {
 		m.getLogger("Update()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) End(sandboxID int, end time.Time, cpuTime int, memory int) error {
-	err := m.update(sandboxID, end, cpuTime, memory)
+func (m *SandboxRunsModel) End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error {
+	err := m.update(sandboxID, end, tiedUpTime, cpuTime, memory)
 	if err != nil {
 		m.getLogger("End()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) update(sandboxID int, end interface{}, cpuTime int, memory int) error {
+func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpTime int, cpuTime int, memory int) error {
 	var id string
 	err := m.stmt.checkID.QueryRowx(sandboxID).Scan(&id)
 	if err != nil {
@@ -89,7 +89,7 @@ func (m *SandboxRunsModel) update(sandboxID int, end interface{}, cpuTime int, m
 		}
 		return err
 	}
-	_, err = m.stmt.update.Exec(end, cpuTime, memory, sandboxID)
+	_, err = m.stmt.update.Exec(end, tiedUpTime, cpuTime, memory, sandboxID)
 	if err != nil {
 		return err
 	}

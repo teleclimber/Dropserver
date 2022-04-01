@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -16,7 +17,7 @@ var opAppspaceMigration = "appspace-migration"
 type DevSandboxManager struct {
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
-		End(sandboxID int, end time.Time, cpuTime int, memory int) error
+		End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error
 	} `checkinject:"required"`
 	AppLogger interface {
 		Get(string) domain.LoggerI
@@ -68,21 +69,14 @@ func (m *DevSandboxManager) Init() {
 // need Start/Stop/Restart functions
 
 // GetForAppspace always returns the crrent sandbox
-func (m *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) chan domain.SandboxI {
-	ch := make(chan domain.SandboxI)
-
-	if m.appspaceSb != nil {
-		go func() {
-			m.appspaceSb.WaitFor(domain.SandboxReady)
-			ch <- m.appspaceSb
-		}()
-	} else {
-		m.startSandbox(appVersion, appspace, ch)
+func (m *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, chan struct{}) {
+	if m.appspaceSb == nil {
+		m.startSandbox(appVersion, appspace)
 	}
-	return ch
+	return m.appspaceSb, m.appspaceSb.NewTask()
 }
 
-func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace, ch chan domain.SandboxI) {
+func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace) {
 	s := sandbox.NewSandbox(m.getNextID(), opAppspaceRun, ownerID, appVersion, appspace)
 	s.SandboxRuns = m.SandboxRuns
 	s.Services = m.Services.Get(appspace, 0)
@@ -105,13 +99,6 @@ func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace
 	s.Start()
 
 	go func() {
-		s.WaitFor(domain.SandboxReady)
-		// sandbox may not be ready if it failed to start.
-		// check status? Or maybe status ought to be checked by proxy for each request anyways?
-		ch <- s
-	}()
-
-	go func() {
 		s.WaitFor(domain.SandboxKilling)
 		m.appspaceSb = nil
 	}()
@@ -132,6 +119,7 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 	s.Location2Path = m.Location2Path
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
+
 	m.appSb = s
 
 	statCh := s.SubscribeStatus()
@@ -145,10 +133,18 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 	}()
 
 	s.Start()
+	s.WaitFor(domain.SandboxReady) // what if it never gets there?
+	if s.Status() != domain.SandboxReady {
+		return nil, errors.New("failed to start sandbox")
+	}
 
-	s.WaitFor(domain.SandboxReady)
+	taskCh := s.NewTask()
+	taskCh <- struct{}{}
+	go func() {
+		s.WaitFor(domain.SandboxDead)
+		close(taskCh)
+	}()
 
-	// TODO check if ready, return error if not
 	return s, nil
 }
 
@@ -176,7 +172,17 @@ func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace
 
 	s.Start()
 	s.WaitFor(domain.SandboxReady)
-	// TODO check if ready, return error if not
+	if s.Status() != domain.SandboxReady {
+		return nil, errors.New("failed to start sandbox")
+	}
+
+	taskCh := s.NewTask()
+	taskCh <- struct{}{}
+	go func() {
+		s.WaitFor(domain.SandboxDead)
+		close(taskCh)
+	}()
+
 	return s, nil
 }
 

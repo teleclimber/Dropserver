@@ -4,8 +4,8 @@ package migrate
 // This supports tracking and limiting or charging for resource usage.
 // columns: owner, app or appspace id,
 // start / end date time, sandbox label (for cross-referencing)
+// tied_up_time is in milliseconds
 // cpu time (microseconds?), memory.high
-// TODO tied up time,
 // Remember this is purely for accounting purposes
 // Performance diagnostics should be left out.
 func sandboxUsageUp(args *stepArgs) error {
@@ -21,6 +21,7 @@ func sandboxUsageUp(args *stepArgs) error {
 		"cgroup" TEXT NOT NULL,
 		"start" DATETIME NOT NULL,
 		"end" DATETIME,
+		"tied_up_time" INTEGER NOT NULL DEFAULT 0,
 		"cpu_time" INTEGER NOT NULL DEFAULT 0,
 		"memory" INTEGER NOT NULL DEFAULT 0
 	)`)
