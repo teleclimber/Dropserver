@@ -500,6 +500,7 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 		DeleteAppspace:         deleteAppspace,
 		AppspaceLogger:         appspaceLogger,
+		SandboxRunsModel:       sandboxRunsModel,
 		AppModel:               appModel}
 
 	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{

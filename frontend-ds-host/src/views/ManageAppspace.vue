@@ -60,6 +60,20 @@
 
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Usage <span class="text-base text-gray-500">(last 30 days)</span></h3>
+					<div class="flex items-baseline">
+						<!-- usage drilldown... -->
+					</div>
+				</div>
+				<div class="px-4 grid grid-cols-3">
+					<UsageSummaryValue name="Tied Up time" :val="usage.tied_up_ms" unit="ms"></UsageSummaryValue>
+					<UsageSummaryValue name="CPU time" :val="usage.cpu_usec" unit="usec"></UsageSummaryValue>
+					<UsageSummaryValue name="Memory" :val="usage.memory_byte_ms" unit="byte-ms"></UsageSummaryValue>
+				</div>
+			</div>
+
+			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Logs</h3>
 					<div class="flex items-baseline">
 						<!-- log ctl.. -->
@@ -82,11 +96,13 @@
 
 <script lang="ts">
 import {useRoute} from 'vue-router';
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, Ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 
 import { Appspace } from '../models/appspaces';
 import { App } from '../models/apps';
 import { AppVersion, AppVersionCollector } from '../models/app_versions';
+import { fetchAppspaceSummary} from '../models/usage';
+import type {SandboxSums} from '../models/usage';
 import { LiveLog } from '../models/log';
 import {setTitle} from '../controllers/nav';
 
@@ -99,6 +115,7 @@ import ManageAppspaceUsers from '../components/ManageAppspaceUsers.vue';
 import ManageBackups from '../components/appspace/ManageBackups.vue';
 import DeleteAppspace from '../components/appspace/DeleteAppspace.vue';
 import DataDef from '../components/ui/DataDef.vue';
+import UsageSummaryValue from '../components/UsageSummaryValue.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 
 // Manage appspace is going to grow to include all kinds of things:
@@ -119,6 +136,7 @@ export default defineComponent({
 		ManageBackups,
 		DeleteAppspace,
 		DataDef,
+		UsageSummaryValue,
 		LogViewer
 	},
 	setup() {
@@ -142,11 +160,17 @@ export default defineComponent({
 			}
 		}
 
+		const usage :Ref<SandboxSums> = ref({tied_up_ms:0, cpu_usec: 0, memory_byte_ms: 0});
+
 		onMounted( async () => {
 			const appspace_id = Number(route.params.id);
 			appspaceLog.initAppspaceLog(appspace_id);
 
 			await appspace.fetch(appspace_id);
+
+			fetchAppspaceSummary(appspace_id).then( (summary) => {
+				usage.value = summary;
+			});
 
 			const protocol = appspace.no_tls ? 'http' : 'https';
 			display_link.value = protocol+'://'+appspace.domain_name+appspace.port_string;
@@ -182,6 +206,7 @@ export default defineComponent({
 			app,
 			pause,
 			pausing,
+			usage,
 			appspaceLog
 		};
 	}

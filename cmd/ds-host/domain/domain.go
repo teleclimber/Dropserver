@@ -126,6 +126,14 @@ type SandboxRun struct {
 	SandboxRunData
 }
 
+// Aggreagte data for usage
+// is probably composite of structs from various usage sources (cgroups etc...)
+type SandboxRunSums struct {
+	TiedUpMs     int `db:"tied_up_ms" json:"tied_up_ms"`
+	CpuUsec      int `db:"cpu_usec" json:"cpu_usec"`
+	MemoryByteMs int `db:"memory_byte_ms" json:"memory_byte_ms"`
+}
+
 // SandboxStatus represents the Status of a Sandbox
 type SandboxStatus int
 

@@ -29,6 +29,7 @@ type SandboxRunsModel struct {
 		insert         *sqlx.Stmt
 		update         *sqlx.Stmt
 		end            *sqlx.Stmt
+		sumAppspace    *sqlx.Stmt
 	}
 }
 
@@ -48,6 +49,14 @@ func (m *SandboxRunsModel) PrepareStatements() {
 		(instance, local_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
 	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_ms = ?, cpu_usec = ?, memory_bytes = ? WHERE sandbox_id = ?`)
+
+	m.stmt.sumAppspace = p.Prep(`SELECT 
+		IFNULL(SUM(tied_up_ms), 0) as tied_up_ms,
+		IFNULL(SUM(cpu_usec), 0) as cpu_usec,
+		IFNULL(SUM(tied_up_ms*memory_bytes), 0) as memory_byte_ms
+		FROM sandbox_runs 
+		WHERE owner_id = ? AND appspace_id = ?
+		AND start >= ? AND start < ?`)
 }
 
 func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (int, error) {
@@ -64,23 +73,23 @@ func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (in
 	return int(lastID), nil
 }
 
-func (m *SandboxRunsModel) Update(sandboxID int, tiedUpTime int, cpuTime int, memory int) error {
-	err := m.update(sandboxID, nil, tiedUpTime, cpuTime, memory)
+func (m *SandboxRunsModel) Update(sandboxID int, tiedUpMs int, cpuUsec int, memBytes int) error {
+	err := m.update(sandboxID, nil, tiedUpMs, cpuUsec, memBytes)
 	if err != nil {
 		m.getLogger("Update()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error {
-	err := m.update(sandboxID, end, tiedUpTime, cpuTime, memory)
+func (m *SandboxRunsModel) End(sandboxID int, end time.Time, tiedUpMs int, cpuUsec int, memBytes int) error {
+	err := m.update(sandboxID, end, tiedUpMs, cpuUsec, memBytes)
 	if err != nil {
 		m.getLogger("End()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpTime int, cpuTime int, memory int) error {
+func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpMs int, cpuUsec int, memBytes int) error {
 	var id string
 	err := m.stmt.checkID.QueryRowx(sandboxID).Scan(&id)
 	if err != nil {
@@ -89,7 +98,7 @@ func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpTime int
 		}
 		return err
 	}
-	_, err = m.stmt.update.Exec(end, tiedUpTime, cpuTime, memory, sandboxID)
+	_, err = m.stmt.update.Exec(end, tiedUpMs, cpuUsec, memBytes, sandboxID)
 	if err != nil {
 		return err
 	}
@@ -106,6 +115,7 @@ func (m *SandboxRunsModel) GetApp(ownerID domain.UserID, appID domain.AppID) ([]
 	return ret, nil
 }
 
+// TODO this is far too open-ended. Need a time range.
 func (m *SandboxRunsModel) GetAppspace(ownerID domain.UserID, appspaceID domain.AppspaceID) ([]domain.SandboxRun, error) {
 	ret := []domain.SandboxRun{}
 
@@ -114,6 +124,23 @@ func (m *SandboxRunsModel) GetAppspace(ownerID domain.UserID, appspaceID domain.
 		m.getLogger("GetAppspace()").UserID(ownerID).AppspaceID(appspaceID).Error(err)
 		return nil, err
 	}
+	return ret, nil
+}
+
+// aggregate data getters:
+// - for appspace
+// - for user
+// With arbitrary Time range.
+
+func (m *SandboxRunsModel) AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunSums, error) {
+	var ret domain.SandboxRunSums
+
+	err := m.stmt.sumAppspace.QueryRowx(ownerID, appspaceID, from, to).StructScan(&ret)
+	if err != nil {
+		m.getLogger("AppsaceSums()").UserID(ownerID).AppspaceID(appspaceID).Error(err)
+		return ret, err
+	}
+
 	return ret, nil
 }
 

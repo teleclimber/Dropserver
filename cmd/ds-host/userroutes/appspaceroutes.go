@@ -53,6 +53,9 @@ type AppspaceRoutes struct {
 	AppspaceLogger interface {
 		Open(appspaceID domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
+	SandboxRunsModel interface {
+		AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunSums, error)
+	} `checkinject:"required"`
 	AppspaceUsersModelV0 interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
 	} `checkinject:"required"`
@@ -88,6 +91,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Get("/", a.getAppspace)
 		r.Delete("/", a.deleteAppspace)
 		r.Get("/log", a.getLog)
+		r.Get("/usage", a.getUsage)
 		r.Post("/pause", a.changeAppspacePause)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
@@ -390,6 +394,21 @@ func (a *AppspaceRoutes) getLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, chunk)
+}
+
+func (a *AppspaceRoutes) getUsage(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	now := time.Now()
+	nowMinus30d := now.Add(-30 * 24 * time.Hour)
+
+	sums30d, err := a.SandboxRunsModel.AppsaceSums(appspace.OwnerID, appspace.AppspaceID, nowMinus30d, now)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	writeJSON(w, sums30d)
 }
 
 func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
