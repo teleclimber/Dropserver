@@ -20,6 +20,9 @@ type DeleteAppspace struct {
 	MigrationJobModel interface {
 		DeleteForAppspace(domain.AppspaceID) error
 	} `checkinject:"required"`
+	SandboxManager interface {
+		StopAppspace(domain.AppspaceID)
+	} `checkinject:"required"`
 }
 
 // Delete permanently deletes all data associated with an appspace
@@ -32,6 +35,8 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 		return errors.New("failed to get lock closed")
 	}
 	defer close(closedCh)
+
+	d.SandboxManager.StopAppspace(appspace.AppspaceID)
 
 	// This is where I'd like to be able to pass a transaction around
 	// so we can do all these deletions ..or none at all.

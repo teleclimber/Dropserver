@@ -326,6 +326,7 @@ func main() {
 		AppspaceModel:      appspaceModel,
 		AppspaceFilesModel: appspaceFilesModel,
 		MigrationJobModel:  migrationJobModel,
+		SandboxManager:     sandboxManager,
 	}
 
 	appGetter := &appops.AppGetter{

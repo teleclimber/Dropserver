@@ -46,7 +46,7 @@ type MigrationJobController struct {
 		PrepareBackup(appspaceID domain.AppspaceID, backupFile string) (string, error)
 		ReplaceData(tok string, appspaceID domain.AppspaceID) error
 	} `checkinject:"optional"`
-	SandboxManager interface { // regular appspace sandboxes
+	SandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	} `checkinject:"required"`
