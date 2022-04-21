@@ -132,7 +132,7 @@ type Sandbox struct {
 	CGroups interface {
 		CreateCGroup() (string, error)
 		AddPid(string, int) error
-		GetMetrics(string) (domain.SandboxRunData, error)
+		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	}
 	Logger        interface{ Log(string, string) }
@@ -521,10 +521,11 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
 	}
 
-	metrics := s.collectRunData()
+	cGroupData := s.collectRunData()
+	memByteSec := calcMemByteSec(cGroupData.MemoryBytes, tiedUpDuration)
 	dbIDData := <-runDBIDCh
 	if dbIDData.ok {
-		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), metrics.CpuUsec, metrics.MemoryBytes)
+		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), cGroupData.CpuUsec, memByteSec)
 	}
 
 	if s.Config.Sandbox.UseCGroups {
@@ -620,8 +621,8 @@ func (s *Sandbox) createRun() chan runDBIDData {
 	return ch
 }
 
-func (s *Sandbox) collectRunData() domain.SandboxRunData {
-	var metrics domain.SandboxRunData
+func (s *Sandbox) collectRunData() domain.CGroupData {
+	var metrics domain.CGroupData
 	var err error
 	if s.Config.Sandbox.UseCGroups {
 		metrics, err = s.CGroups.GetMetrics(s.cGroup)
@@ -631,6 +632,10 @@ func (s *Sandbox) collectRunData() domain.SandboxRunData {
 	}
 
 	return metrics
+}
+
+func calcMemByteSec(memBytes int, tiedUp time.Duration) int {
+	return memBytes * int(tiedUp.Milliseconds()) / 1000
 }
 
 // Status returns the status of the Sandbox

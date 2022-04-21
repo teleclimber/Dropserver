@@ -34,13 +34,13 @@ export default defineComponent({
 });
 
 function humanValues(val:number, unit:string) :{val:string, unit:string} {
-	if( unit === 'byte-ms' ) {
+	if( unit === 'byte-sec' ) {
 		if( val >= 1024 ) {
 			val = val/1024;
-			unit = 'Mb-ms';
-			if( val >= 1000 ) {
-				val = val/1000;
-				unit = 'Mb-sec';
+			unit = 'Mb-sec';
+			if( val >= 3600 ) {
+				val = val/3600;
+				unit = 'Mb-hour';
 			}
 		}
 	}

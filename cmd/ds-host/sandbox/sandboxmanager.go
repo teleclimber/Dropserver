@@ -24,7 +24,7 @@ type Manager struct {
 	CGroups interface {
 		CreateCGroup() (string, error)
 		AddPid(string, int) error
-		GetMetrics(string) (domain.SandboxRunData, error)
+		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	} `checkinject:"optional"`
 	AppLogger interface {

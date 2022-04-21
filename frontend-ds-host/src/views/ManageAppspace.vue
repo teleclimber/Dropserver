@@ -68,7 +68,7 @@
 				<div class="px-4 grid grid-cols-3">
 					<UsageSummaryValue name="Tied Up time" :val="usage.tied_up_ms" unit="ms"></UsageSummaryValue>
 					<UsageSummaryValue name="CPU time" :val="usage.cpu_usec" unit="usec"></UsageSummaryValue>
-					<UsageSummaryValue name="Memory" :val="usage.memory_byte_ms" unit="byte-ms"></UsageSummaryValue>
+					<UsageSummaryValue name="Memory" :val="usage.memory_byte_sec" unit="byte-sec"></UsageSummaryValue>
 				</div>
 			</div>
 
@@ -160,7 +160,7 @@ export default defineComponent({
 			}
 		}
 
-		const usage :Ref<SandboxSums> = ref({tied_up_ms:0, cpu_usec: 0, memory_byte_ms: 0});
+		const usage :Ref<SandboxSums> = ref({tied_up_ms:0, cpu_usec: 0, memory_byte_sec: 0});
 
 		onMounted( async () => {
 			const appspace_id = Number(route.params.id);

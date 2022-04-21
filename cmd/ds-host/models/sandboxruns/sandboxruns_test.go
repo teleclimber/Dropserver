@@ -78,10 +78,10 @@ func TestCreateApp(t *testing.T) {
 		t.Fatal("expected one run")
 	}
 	data := domain.SandboxRunData{
-		Start:       start,
-		End:         nulltypes.NewTime(time.Now(), false),
-		CpuUsec:     0,
-		MemoryBytes: 0,
+		Start:         start,
+		End:           nulltypes.NewTime(time.Now(), false),
+		CpuUsec:       0,
+		MemoryByteSec: 0,
 	}
 	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {
@@ -134,11 +134,11 @@ func TestCreateEndAppspace(t *testing.T) {
 		t.Fatal("expected one run")
 	}
 	data := domain.SandboxRunData{
-		Start:       start,
-		End:         nulltypes.NewTime(end, true),
-		TiedUpMs:    222,
-		CpuUsec:     777,
-		MemoryBytes: 128,
+		Start:         start,
+		End:           nulltypes.NewTime(end, true),
+		TiedUpMs:      222,
+		CpuUsec:       777,
+		MemoryByteSec: 128,
 	}
 	c := domain.SandboxRun{ids, data}
 	if !cmp.Equal(c, runs[0]) {
@@ -171,14 +171,14 @@ func TestAppspaceSum(t *testing.T) {
 		CGroup:     "test-cgroup"}
 
 	start1 := time.Date(2022, time.March, 18, 17, 0, 0, 0, time.UTC)
-	createRun(m, t, id1, start1, 222, 1111, 128)
+	createRun(m, t, id1, start1, 200, 2000, 2000)
 
 	start2 := time.Date(2022, time.April, 12, 12, 41, 0, 0, time.UTC)
-	createRun(m, t, id1, start2, 222, 1111, 128)
+	createRun(m, t, id1, start2, 300, 3000, 3000)
 
 	id2 := id1
 	id2.AppspaceID = domain.NewNullAppspaceID(domain.AppspaceID(999))
-	createRun(m, t, id2, start1, 999, 9999, 99)
+	createRun(m, t, id2, start1, 999, 9999, 9999)
 
 	// empty set:
 	sums, err := m.AppsaceSums(id1.OwnerID, appspaceID1, firstOf(time.February), firstOf(time.March))
@@ -186,9 +186,9 @@ func TestAppspaceSum(t *testing.T) {
 		t.Error(err)
 	}
 	expected := domain.SandboxRunSums{
-		TiedUpMs:     0,
-		CpuUsec:      0,
-		MemoryByteMs: 0,
+		TiedUpMs:      0,
+		CpuUsec:       0,
+		MemoryByteSec: 0,
 	}
 	if !cmp.Equal(sums, expected) {
 		t.Log(cmp.Diff(sums, expected))
@@ -201,9 +201,9 @@ func TestAppspaceSum(t *testing.T) {
 		t.Error(err)
 	}
 	expected = domain.SandboxRunSums{
-		TiedUpMs:     222,
-		CpuUsec:      1111,
-		MemoryByteMs: 222 * 128,
+		TiedUpMs:      200,
+		CpuUsec:       2000,
+		MemoryByteSec: 2000,
 	}
 	if !cmp.Equal(sums, expected) {
 		t.Log(cmp.Diff(sums, expected))
@@ -216,9 +216,9 @@ func TestAppspaceSum(t *testing.T) {
 		t.Error(err)
 	}
 	expected = domain.SandboxRunSums{
-		TiedUpMs:     444,
-		CpuUsec:      2222,
-		MemoryByteMs: 444 * 128,
+		TiedUpMs:      500,
+		CpuUsec:       5000,
+		MemoryByteSec: 5000,
 	}
 	if !cmp.Equal(sums, expected) {
 		t.Log(cmp.Diff(sums, expected))
@@ -226,12 +226,12 @@ func TestAppspaceSum(t *testing.T) {
 	}
 }
 
-func createRun(m *SandboxRunsModel, t *testing.T, ids domain.SandboxRunIDs, start time.Time, tiedUpMs int, cpuUsec int, memBytes int) {
+func createRun(m *SandboxRunsModel, t *testing.T, ids domain.SandboxRunIDs, start time.Time, tiedUpMs int, cpuUsec int, memByteSec int) {
 	id, err := m.Create(ids, start)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = m.End(id, start, tiedUpMs, cpuUsec, memBytes)
+	err = m.End(id, start, tiedUpMs, cpuUsec, memByteSec)
 	if err != nil {
 		t.Error(err)
 	}

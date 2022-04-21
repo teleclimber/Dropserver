@@ -208,7 +208,7 @@ func (c *CGroups) setSubtreeControl(subPath string, controllers []string) error 
 	return nil
 }
 
-func (c *CGroups) GetMetrics(cGroup string) (data domain.SandboxRunData, err error) {
+func (c *CGroups) GetMetrics(cGroup string) (data domain.CGroupData, err error) {
 	err = c.validateCGroup(cGroup)
 	if err != nil {
 		return

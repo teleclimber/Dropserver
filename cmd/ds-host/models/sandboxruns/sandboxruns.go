@@ -48,12 +48,12 @@ func (m *SandboxRunsModel) PrepareStatements() {
 	m.stmt.insert = p.Prep(`INSERT INTO sandbox_runs
 		(instance, local_id, owner_id, app_id, version, appspace_id, operation, cgroup, start ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
-	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_ms = ?, cpu_usec = ?, memory_bytes = ? WHERE sandbox_id = ?`)
+	m.stmt.update = p.Prep(`UPDATE sandbox_runs SET end = ?, tied_up_ms = ?, cpu_usec = ?, memory_byte_sec = ? WHERE sandbox_id = ?`)
 
 	m.stmt.sumAppspace = p.Prep(`SELECT 
 		IFNULL(SUM(tied_up_ms), 0) as tied_up_ms,
 		IFNULL(SUM(cpu_usec), 0) as cpu_usec,
-		IFNULL(SUM(tied_up_ms*memory_bytes), 0) as memory_byte_ms
+		IFNULL(SUM(memory_byte_sec), 0) as memory_byte_sec
 		FROM sandbox_runs 
 		WHERE owner_id = ? AND appspace_id = ?
 		AND start >= ? AND start < ?`)
@@ -73,23 +73,23 @@ func (m *SandboxRunsModel) Create(run domain.SandboxRunIDs, start time.Time) (in
 	return int(lastID), nil
 }
 
-func (m *SandboxRunsModel) Update(sandboxID int, tiedUpMs int, cpuUsec int, memBytes int) error {
-	err := m.update(sandboxID, nil, tiedUpMs, cpuUsec, memBytes)
+func (m *SandboxRunsModel) Update(sandboxID int, tiedUpMs int, cpuUsec int, memByteSec int) error {
+	err := m.update(sandboxID, nil, tiedUpMs, cpuUsec, memByteSec)
 	if err != nil {
 		m.getLogger("Update()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) End(sandboxID int, end time.Time, tiedUpMs int, cpuUsec int, memBytes int) error {
-	err := m.update(sandboxID, end, tiedUpMs, cpuUsec, memBytes)
+func (m *SandboxRunsModel) End(sandboxID int, end time.Time, tiedUpMs int, cpuUsec int, memByteSec int) error {
+	err := m.update(sandboxID, end, tiedUpMs, cpuUsec, memByteSec)
 	if err != nil {
 		m.getLogger("End()").Error(err)
 	}
 	return err
 }
 
-func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpMs int, cpuUsec int, memBytes int) error {
+func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpMs int, cpuUsec int, memByteSec int) error {
 	var id string
 	err := m.stmt.checkID.QueryRowx(sandboxID).Scan(&id)
 	if err != nil {
@@ -98,7 +98,7 @@ func (m *SandboxRunsModel) update(sandboxID int, end interface{}, tiedUpMs int, 
 		}
 		return err
 	}
-	_, err = m.stmt.update.Exec(end, tiedUpMs, cpuUsec, memBytes, sandboxID)
+	_, err = m.stmt.update.Exec(end, tiedUpMs, cpuUsec, memByteSec, sandboxID)
 	if err != nil {
 		return err
 	}
