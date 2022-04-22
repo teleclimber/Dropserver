@@ -89,46 +89,6 @@ func TestReady(t *testing.T) {
 	}
 }
 
-func TestPauseEvent(t *testing.T) {
-	leaktest.GoroutineLeakCheck(t)
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appspaceID := domain.AppspaceID(7)
-
-	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
-	appspaceStatusEvents.EXPECT().Send(appspaceID, domain.AppspaceStatusEvent{AppspaceID: appspaceID, Paused: true})
-
-	s := AppspaceStatus{
-		AppspaceStatusEvents: appspaceStatusEvents,
-		status:               make(map[domain.AppspaceID]*status),
-	}
-
-	pauseChan := make(chan domain.AppspacePausedEvent)
-	go s.handleAppspacePause(pauseChan)
-
-	migrateChan := make(chan domain.MigrationJob)
-	go s.handleMigrationJobUpdate(migrateChan)
-
-	s.status[appspaceID] = &status{
-		data: statusData{
-			paused: false}}
-
-	pauseChan <- domain.AppspacePausedEvent{
-		AppspaceID: appspaceID,
-		Paused:     true}
-
-	time.Sleep(time.Millisecond * 20) // have to give the code in the goroutine a chance to change the status
-
-	status := s.getStatus(appspaceID)
-	status.lock.Lock()
-	if !status.data.paused {
-		t.Error("expected paused")
-	}
-	status.lock.Unlock()
-}
-
 func TestTempPause(t *testing.T) {
 	leaktest.GoroutineLeakCheck(t)
 

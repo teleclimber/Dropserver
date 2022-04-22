@@ -36,8 +36,7 @@ type DropserverDevServer struct {
 	AppspaceFiles interface {
 		Reset()
 	} `checkinject:"required"`
-	DevAppspaceModel *DevAppspaceModel `checkinject:"required"`
-	AppspaceMetaDB   interface {
+	AppspaceMetaDB interface {
 		CloseConn(domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceDB interface {
@@ -55,6 +54,9 @@ type DropserverDevServer struct {
 	} `checkinject:"required"`
 	MigrationJobController interface {
 		WakeUp()
+	} `checkinject:"required"`
+	PauseAppspace interface {
+		Pause(appspaceID domain.AppspaceID, pause bool) error
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(domain.AppspaceID, string) chan struct{}
@@ -157,7 +159,7 @@ const importAndMigrate = 16
 func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case pauseAppspaceCmd:
-		err := s.DevAppspaceModel.Pause(appspaceID, true)
+		err := s.PauseAppspace.Pause(appspaceID, true)
 		if err != nil {
 			msg := "error pausing appspace " + err.Error()
 			fmt.Println(msg)
@@ -166,7 +168,7 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			m.SendOK()
 		}
 	case unpauseAppspaceCmd:
-		err := s.DevAppspaceModel.Pause(appspaceID, false)
+		err := s.PauseAppspace.Pause(appspaceID, false)
 		if err != nil {
 			msg := "error unpausing appspace " + err.Error()
 			fmt.Println(msg)

@@ -7,7 +7,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -271,11 +270,8 @@ func TestPause(t *testing.T) {
 	db := &domain.DB{
 		Handle: h}
 
-	asPausedEvents := testmocks.NewMockAppspacePausedEvents(mockCtrl)
-	asPausedEvents.EXPECT().Send(gomock.Any(), true)
 	model := &AppspaceModel{
-		AsPausedEvent: asPausedEvents,
-		DB:            db}
+		DB: db}
 
 	model.PrepareStatements()
 
@@ -304,7 +300,6 @@ func TestPause(t *testing.T) {
 	if !appspace.Paused {
 		t.Error("appspace should be paused")
 	}
-
 }
 
 func TestSetVersion(t *testing.T) {

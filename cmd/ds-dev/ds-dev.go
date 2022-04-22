@@ -119,7 +119,6 @@ func main() {
 	sandboxStatusEvents := &SandboxStatusEvents{}
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
-	appspacePausedEvents := &events.AppspacePausedEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
@@ -141,8 +140,7 @@ func main() {
 	devAppModel := &DevAppModel{}
 	devSingleAppModel := &DevSingleAppModel{}
 
-	devAppspaceModel := &DevAppspaceModel{
-		AsPausedEvent: appspacePausedEvents}
+	devAppspaceModel := &DevAppspaceModel{}
 
 	devSandboxRunsModel := &DevSandboxRunsModel{}
 
@@ -244,6 +242,12 @@ func main() {
 	devSandboxManager.Init()
 	appGetter.SandboxManager = devSandboxManager
 
+	pauseAppspace := &appspaceops.PauseAppspace{
+		AppspaceModel:  devAppspaceModel,
+		AppspaceStatus: nil, // see below
+		SandboxManager: devSandboxManager,
+		AppspaceLogger: appspaceLogger,
+	}
 	migrationJobController := &appspaceops.MigrationJobController{
 		MigrationJobModel: devMigrationJobModel,
 		AppModel:          devAppModel,
@@ -261,7 +265,6 @@ func main() {
 		AppspaceModel:        devAppspaceModel,
 		AppModel:             devAppModel,
 		AppspaceInfoModel:    appspaceInfoModel,
-		AppspacePausedEvent:  appspacePausedEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
 		AppspaceRouter:       nil, //added below
 		MigrationJobEvents:   migrationJobEvents,
@@ -269,6 +272,7 @@ func main() {
 		AppVersionEvents:     appVersionEvents,
 	}
 	appspaceStatus.Init()
+	pauseAppspace.AppspaceStatus = appspaceStatus
 	migrationJobController.AppspaceStatus = appspaceStatus
 	appspaceMetaDb.AppspaceStatus = appspaceStatus
 	appspaceLogger.AppspaceStatus = appspaceStatus
@@ -363,7 +367,7 @@ func main() {
 		DevAppModel:            devAppModel,
 		AppGetter:              appGetter,
 		AppspaceFiles:          appspaceFiles,
-		DevAppspaceModel:       devAppspaceModel,
+		PauseAppspace:          pauseAppspace,
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceDB:             appspaceDB,
 		AppspaceLogger:         appspaceLogger,

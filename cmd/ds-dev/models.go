@@ -103,17 +103,12 @@ func (m *DevSingleAppModel) GetVersion(appID domain.AppID, version domain.Versio
 
 // DevAppspaceModel can return an appspace struct as needed
 type DevAppspaceModel struct {
-	AsPausedEvent interface {
-		Send(domain.AppspaceID, bool)
-	} `checkinject:"required"`
 	Appspace domain.Appspace
 }
 
 // Pause pauses the appspace
 func (m *DevAppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
 	m.Appspace.Paused = pause // wait does that work? we're not dealing with pointers here.
-
-	m.AsPausedEvent.Send(appspaceID, pause)
 
 	return nil
 }

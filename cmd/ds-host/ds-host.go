@@ -148,7 +148,6 @@ func main() {
 
 	// events
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
-	appspacePausedEvent := &events.AppspacePausedEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 
@@ -217,8 +216,7 @@ func main() {
 		AppspaceFilesEvents: appspaceFilesEvents}
 
 	appspaceModel := &appspacemodel.AppspaceModel{
-		DB:            db,
-		AsPausedEvent: appspacePausedEvent}
+		DB: db}
 	appspaceModel.PrepareStatements()
 
 	remoteAppspaceModel := &remoteappspacemodel.RemoteAppspaceModel{
@@ -290,6 +288,12 @@ func main() {
 		Config:         runtimeConfig,
 	}
 
+	pauseAppspace := &appspaceops.PauseAppspace{
+		AppspaceModel:  appspaceModel,
+		AppspaceStatus: nil, // see below
+		SandboxManager: sandboxManager,
+		AppspaceLogger: appspaceLogger,
+	}
 	backupAppspace := &appspaceops.BackupAppspace{
 		Config:         runtimeConfig,
 		AppspaceModel:  appspaceModel,
@@ -414,11 +418,11 @@ func main() {
 		AppspaceInfoModel:    appspaceInfoModel,
 		MigrationJobEvents:   migrationJobEvents,
 		AppspaceFilesEvents:  appspaceFilesEvents,
-		AppspacePausedEvent:  appspacePausedEvent,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		//AppspaceRouter: see below
 	}
 	appspaceStatus.Init()
+	pauseAppspace.AppspaceStatus = appspaceStatus
 	backupAppspace.AppspaceStatus = appspaceStatus
 	restoreAppspace.AppspaceStatus = appspaceStatus
 	migrationJobCtl.AppspaceStatus = appspaceStatus
@@ -499,6 +503,7 @@ func main() {
 		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl,
+		PauseAppspace:          pauseAppspace,
 		DeleteAppspace:         deleteAppspace,
 		AppspaceLogger:         appspaceLogger,
 		SandboxRunsModel:       sandboxRunsModel,

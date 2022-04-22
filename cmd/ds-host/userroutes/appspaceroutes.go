@@ -44,8 +44,10 @@ type AppspaceRoutes struct {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
 		Create(domain.Appspace) (*domain.Appspace, error)
-		Pause(domain.AppspaceID, bool) error
 		GetFromDomain(string) (*domain.Appspace, error)
+	} `checkinject:"required"`
+	PauseAppspace interface {
+		Pause(appspaceID domain.AppspaceID, pause bool) error
 	} `checkinject:"required"`
 	DeleteAppspace interface {
 		Delete(domain.Appspace) error
@@ -364,7 +366,7 @@ func (a *AppspaceRoutes) changeAppspacePause(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = a.AppspaceModel.Pause(appspace.AppspaceID, reqData.Pause)
+	err = a.PauseAppspace.Pause(appspace.AppspaceID, reqData.Pause)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return

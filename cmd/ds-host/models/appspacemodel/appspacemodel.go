@@ -15,10 +15,6 @@ import (
 type AppspaceModel struct {
 	DB *domain.DB
 
-	AsPausedEvent interface {
-		Send(domain.AppspaceID, bool)
-	} `checkinject:"required"`
-
 	stmt struct {
 		selectID         *sqlx.Stmt
 		selectOwner      *sqlx.Stmt
@@ -186,7 +182,6 @@ func (m *AppspaceModel) Pause(appspaceID domain.AppspaceID, pause bool) error {
 		m.getLogger("Pause, checkOneRowAffected").Error(err)
 		return err
 	}
-	m.AsPausedEvent.Send(appspaceID, pause)
 
 	return nil
 }

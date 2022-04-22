@@ -69,9 +69,6 @@ type AppspaceStatus struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
-	AppspacePausedEvent interface {
-		Subscribe(chan<- domain.AppspacePausedEvent)
-	} `checkinject:"required"`
 	AppModel interface {
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	} `checkinject:"required"`
@@ -115,10 +112,6 @@ type AppspaceStatus struct {
 func (s *AppspaceStatus) Init() {
 	s.status = make(map[domain.AppspaceID]*status)
 	s.closed = make(map[domain.AppspaceID]bool)
-
-	asPausedCh := make(chan domain.AppspacePausedEvent)
-	go s.handleAppspacePause(asPausedCh)
-	s.AppspacePausedEvent.Subscribe(asPausedCh)
 
 	asFilesCh := make(chan domain.AppspaceID)
 	go s.handleAppspaceFiles(asFilesCh)
@@ -171,6 +164,19 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 
 // ^^ Wonder if we should have a WaitReady(ctx context.Context) bool
 // That would wait for ready state (until context says no more)
+
+// PauseAppspace sets the pause flag on the status if it is tracked
+func (s *AppspaceStatus) PauseAppspace(appspaceID domain.AppspaceID, pause bool) {
+	status := s.getTrackedStatus(appspaceID)
+	if status != nil {
+		status.lock.Lock()
+		defer status.lock.Unlock()
+		if status.data.paused != pause {
+			status.data.paused = pause
+			s.sendChangedEvent(appspaceID, status.data)
+		}
+	}
+}
 
 // WaitTempPaused pauses the appspace and returns when appspace activity is stopped
 // This function returns for only one caller at a time.
@@ -302,20 +308,6 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	data.dataSchema = schema
 
 	return data
-}
-
-func (s *AppspaceStatus) handleAppspacePause(ch <-chan domain.AppspacePausedEvent) {
-	for p := range ch {
-		status := s.getTrackedStatus(p.AppspaceID)
-		if status != nil {
-			status.lock.Lock()
-			if status.data.paused != p.Paused {
-				status.data.paused = p.Paused
-				s.sendChangedEvent(p.AppspaceID, status.data)
-			}
-			status.lock.Unlock()
-		}
-	}
 }
 
 func (s *AppspaceStatus) handleAppspaceFiles(ch <-chan domain.AppspaceID) {
