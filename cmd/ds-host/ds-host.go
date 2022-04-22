@@ -297,6 +297,7 @@ func main() {
 	backupAppspace := &appspaceops.BackupAppspace{
 		Config:         runtimeConfig,
 		AppspaceModel:  appspaceModel,
+		SandboxManager: sandboxManager,
 		AppspaceStatus: nil,
 		AppspaceMetaDB: appspaceMetaDb,
 		AppspaceDB:     appspaceDB,

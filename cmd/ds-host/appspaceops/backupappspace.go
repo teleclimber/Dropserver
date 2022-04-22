@@ -23,6 +23,9 @@ type BackupAppspace struct {
 	AppspaceModel interface {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
+	SandboxManager interface {
+		StopAppspace(domain.AppspaceID)
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 		IsTempPaused(appspaceID domain.AppspaceID) bool
@@ -74,6 +77,8 @@ func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	// appspace meta
 	// appspace dbs
 	// appspace logs
+
+	e.SandboxManager.StopAppspace(appspaceID)
 
 	err := e.AppspaceMetaDB.CloseConn(appspaceID)
 	if err != nil {
