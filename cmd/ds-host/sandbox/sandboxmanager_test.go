@@ -131,6 +131,35 @@ func TestGetStartStoppablesStopDying(t *testing.T) {
 	}
 }
 
+func TestGetStartStoppablesOld(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	var lastActive time.Time
+	s1 := makeScoredSandbox(mockCtrl, domain.SandboxKilling, opAppspaceRun, lastActive, false) // already stopping
+	lastActive = time.Now().Add(-1 * time.Second)
+	s2 := makeScoredSandbox(mockCtrl, domain.SandboxReady, opAppspaceRun, lastActive, false) // can be stopped
+	s3 := makeScoredSandbox(mockCtrl, domain.SandboxReady, opAppspaceRun, lastActive, true)  // tied up, so can't be stopped
+	lastActive = time.Now().Add(-1 * time.Hour)
+	s4 := makeScoredSandbox(mockCtrl, domain.SandboxReady, opAppspaceRun, lastActive, false) // old
+	sandboxes := []domain.SandboxI{s1, s2, s3, s4}
+
+	s := getStartStoppables(sandboxes)
+
+	expected := startStopStatus{
+		startables: []scored{},
+		stoppables: []scored{{sandbox: s4, score: 3600.0}, {sandbox: s2, score: 1.0}},
+		numRunning: 4,
+		numOld:     1,
+		numDying:   1,
+	}
+
+	err := assertStartStopStatus(s, expected)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestScoredSort(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

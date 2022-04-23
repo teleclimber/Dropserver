@@ -17,6 +17,7 @@ var opAppspaceMigration = "appspace-migration"
 
 // Manager manages sandboxes
 type Manager struct {
+	Config      *domain.RuntimeConfig `checkinject:"required"`
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
 		End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error
@@ -33,12 +34,6 @@ type Manager struct {
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
-	idMux  sync.Mutex
-	nextID int
-
-	sandboxesMux sync.Mutex
-	sandboxes    []domain.SandboxI
-
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
@@ -46,7 +41,14 @@ type Manager struct {
 		AppMeta(string) string
 		AppFiles(string) string
 	} `checkinject:"required"`
-	Config *domain.RuntimeConfig `checkinject:"required"`
+
+	idMux  sync.Mutex
+	nextID int
+
+	sandboxesMux sync.Mutex
+	sandboxes    []domain.SandboxI
+
+	ticker *time.Ticker
 }
 
 // Init creates maps
@@ -57,10 +59,20 @@ func (m *Manager) Init() {
 	if err != nil {
 		panic(err)
 	}
+
+	m.ticker = time.NewTicker(2 * time.Minute)
+	go func() {
+		for range m.ticker.C {
+			m.startStopSandboxes()
+		}
+	}()
 }
 
-// StopAll takes all known sandboxes and stops them
+// StopAll takes all known sandboxes and stops them.
+// It also stops the ticker
 func (m *Manager) StopAll() {
+	m.ticker.Stop()
+
 	// lock Mutex?
 	var stopWg sync.WaitGroup
 	for _, sb := range m.sandboxes {
@@ -298,6 +310,7 @@ type startStopStatus struct {
 	startables []scored
 	stoppables []scored
 	numRunning int
+	numOld     int
 	numDying   int
 }
 
@@ -326,10 +339,11 @@ func doStartStop(config *domain.RuntimeConfig, status startStopStatus) {
 	// try to shut off enough sandboxes to start as needed, or just to give us overhead
 	// (running - dying) - (max - startable - margin) = num_to_kill
 	numStopNow := status.numRunning - status.numDying - numMax + numStartable + 1 // right now hard-coding one sandbox of overhaed margin.
-	if numStopNow > len(status.stoppables) {
-		numStopNow = len(status.stoppables)
+	// stop the old unused sandboxes even if we don't need the resources:
+	if status.numOld > numStopNow {
+		numStopNow = status.numOld
 	}
-	for i := 0; i < numStopNow; i++ {
+	for i := 0; i < numStopNow && i < len(status.stoppables); i++ {
 		status.stoppables[i].sandbox.Graceful()
 	}
 }
@@ -339,6 +353,7 @@ func getStartStoppables(sandboxes []domain.SandboxI) startStopStatus {
 		startables: make([]scored, 0),
 		stoppables: make([]scored, 0),
 		numRunning: 0,
+		numOld:     0,
 		numDying:   0}
 
 	for _, sb := range sandboxes {
@@ -354,6 +369,9 @@ func getStartStoppables(sandboxes []domain.SandboxI) startStopStatus {
 			if sb.Operation() == opAppspaceRun && sbStatus == domain.SandboxReady && !sb.TiedUp() {
 				score := time.Since(sb.LastActive()).Seconds()
 				s.stoppables = append(s.stoppables, scored{sandbox: sb, score: score})
+				if score > 10*60 { // hard coded 10 minute max unused time for sandbox.
+					s.numOld++
+				}
 			}
 			if sbStatus == domain.SandboxKilling {
 				s.numDying++
