@@ -56,7 +56,7 @@ type AppspaceRoutes struct {
 		Open(appspaceID domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
 	SandboxRunsModel interface {
-		AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunSums, error)
+		AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error)
 	} `checkinject:"required"`
 	AppspaceUsersModelV0 interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)

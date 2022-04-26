@@ -127,7 +127,7 @@ type Sandbox struct {
 	appspace    *domain.Appspace
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
-		End(int, time.Time, int, int, int) error
+		End(int, time.Time, domain.SandboxRunData) error
 	}
 	CGroups interface {
 		CreateCGroup() (string, error)
@@ -525,7 +525,12 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 	memByteSec := calcMemByteSec(cGroupData.MemoryBytes, tiedUpDuration)
 	dbIDData := <-runDBIDCh
 	if dbIDData.ok {
-		s.SandboxRuns.End(dbIDData.id, time.Now(), int(tiedUpDuration.Milliseconds()), cGroupData.CpuUsec, memByteSec)
+		s.SandboxRuns.End(dbIDData.id, time.Now(), domain.SandboxRunData{
+			TiedUpMs:      int(tiedUpDuration.Milliseconds()),
+			CpuUsec:       cGroupData.CpuUsec,
+			MemoryByteSec: memByteSec,
+			IOBytes:       cGroupData.IOBytes,
+			IOs:           cGroupData.IOs})
 	}
 
 	if s.Config.Sandbox.UseCGroups {
@@ -630,7 +635,6 @@ func (s *Sandbox) collectRunData() domain.CGroupData {
 			s.getLogger("collectRunData").Error(err)
 		}
 	}
-
 	return metrics
 }
 

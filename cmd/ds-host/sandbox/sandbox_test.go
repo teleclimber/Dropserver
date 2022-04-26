@@ -352,7 +352,7 @@ func TestRunnerScriptError(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(appspaceID),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any())
 
 	s := &Sandbox{
 		id:            7,
@@ -423,7 +423,7 @@ func TestStart(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(appspaceID),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any())
 
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
@@ -509,7 +509,7 @@ func TestStartAppOnly(t *testing.T) {
 		Version:    version,
 		AppspaceID: domain.NewNullAppspaceID(),
 	}, gomock.Any()).Return(456, nil)
-	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any())
 
 	appVersion := &domain.AppVersion{
 		AppID:       appID,

@@ -115,28 +115,24 @@ type SandboxRunIDs struct {
 type CGroupData struct {
 	CpuUsec     int
 	MemoryBytes int
+	IOBytes     int
+	IOs         int
 }
 
 // SandboxRunData contains the metrics of a sandbox run
 type SandboxRunData struct {
-	Start         time.Time          `db:"start" json:"start"`
-	End           nulltypes.NullTime `db:"end" json:"end"`
-	TiedUpMs      int                `db:"tied_up_ms" json:"tied_up_ms"`
-	CpuUsec       int                `db:"cpu_usec" json:"cpu_usec"`
-	MemoryByteSec int                `db:"memory_byte_sec" json:"memory_byte_sec"`
+	TiedUpMs      int `db:"tied_up_ms" json:"tied_up_ms"`
+	CpuUsec       int `db:"cpu_usec" json:"cpu_usec"`
+	MemoryByteSec int `db:"memory_byte_sec" json:"memory_byte_sec"`
+	IOBytes       int `db:"io_bytes" json:"io_bytes"`
+	IOs           int `db:"io_ops" json:"io_ops"`
 }
 
 type SandboxRun struct {
 	SandboxRunIDs
 	SandboxRunData
-}
-
-// Aggreagte data for usage
-// is probably composite of structs from various usage sources (cgroups etc...)
-type SandboxRunSums struct {
-	TiedUpMs      int `db:"tied_up_ms" json:"tied_up_ms"`
-	CpuUsec       int `db:"cpu_usec" json:"cpu_usec"`
-	MemoryByteSec int `db:"memory_byte_sec" json:"memory_byte_sec"`
+	Start time.Time          `db:"start" json:"start"`
+	End   nulltypes.NullTime `db:"end" json:"end"`
 }
 
 // SandboxStatus represents the Status of a Sandbox

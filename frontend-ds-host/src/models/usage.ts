@@ -6,7 +6,9 @@ import {get} from '../controllers/userapi';
 export type SandboxSums = {
 	tied_up_ms: number,
     cpu_usec: number,
-    memory_byte_sec: number
+    memory_byte_sec: number,
+	io_bytes: number,
+	io_ops: number
 }
 
 export async function fetchAppspaceSummary(appspace_id: number) :Promise<SandboxSums> {

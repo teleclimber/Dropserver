@@ -17,7 +17,7 @@ var opAppspaceMigration = "appspace-migration"
 type DevSandboxManager struct {
 	SandboxRuns interface {
 		Create(run domain.SandboxRunIDs, start time.Time) (int, error)
-		End(sandboxID int, end time.Time, tiedUpTime int, cpuTime int, memory int) error
+		End(sandboxID int, end time.Time, data domain.SandboxRunData) error
 	} `checkinject:"required"`
 	AppLogger interface {
 		Get(string) domain.LoggerI

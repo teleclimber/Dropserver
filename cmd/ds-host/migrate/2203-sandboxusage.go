@@ -21,7 +21,9 @@ func sandboxUsageUp(args *stepArgs) error {
 		"end" DATETIME,
 		"tied_up_ms" INTEGER NOT NULL DEFAULT 0,
 		"cpu_usec" INTEGER NOT NULL DEFAULT 0,
-		"memory_byte_sec" INTEGER NOT NULL DEFAULT 0
+		"memory_byte_sec" INTEGER NOT NULL DEFAULT 0,
+		"io_bytes" INTEGER NOT NULL DEFAULT 0,
+		"io_ops" INTEGER NOT NULL DEFAULT 0
 	)`)
 	// sandbox_id is an alias for sqilte's rowid.
 	args.dbExec(`CREATE INDEX sandbox_runs_owner ON sandbox_runs ( owner_id )`)

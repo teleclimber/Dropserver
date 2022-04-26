@@ -46,3 +46,19 @@ system_usec 109252`
 		t.Errorf("cpu time does not match: %v", cpu)
 	}
 }
+
+func TestReadIOStats(t *testing.T) {
+	c := &CGroups{}
+
+	str := "8:0 rbytes=4096 wbytes=745472 rios=1 wios=72 dbytes=0 dios=0"
+	ioBytes, ioOps, err := c.readIOStats(str)
+	if err != nil {
+		t.Error(err)
+	}
+	if ioBytes != 4096+745472 {
+		t.Error("Got wrong ioBytes")
+	}
+	if ioOps != 1+72 {
+		t.Error("Got Wrong io ops")
+	}
+}

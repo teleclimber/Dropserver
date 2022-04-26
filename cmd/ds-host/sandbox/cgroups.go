@@ -88,7 +88,7 @@ func (c *CGroups) Init() error {
 
 	// then populate subtree_control at root and sandboxes
 	for _, p := range []string{"", sandboxesCGroup} {
-		err = c.setSubtreeControl(p, []string{"memory"})
+		err = c.setSubtreeControl(p, []string{"memory", "io"})
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func (c *CGroups) addPidToSubGroup(pid int, subPath string) error {
 func (c *CGroups) setSubtreeControl(subPath string, controllers []string) error {
 	ctrl := ""
 	for _, c := range controllers {
-		ctrl += "+" + c
+		ctrl += "+" + c + " "
 	}
 	l := c.getLogger(fmt.Sprintf("setSubtreeControl at: %v, num controllers: %v", subPath, ctrl))
 	l.Log("setting subtree_control")
@@ -209,6 +209,8 @@ func (c *CGroups) setSubtreeControl(subPath string, controllers []string) error 
 }
 
 func (c *CGroups) GetMetrics(cGroup string) (data domain.CGroupData, err error) {
+	data.MemoryBytes = memoryHighBytes
+
 	err = c.validateCGroup(cGroup)
 	if err != nil {
 		return
@@ -222,9 +224,18 @@ func (c *CGroups) GetMetrics(cGroup string) (data domain.CGroupData, err error) 
 	if err != nil {
 		return
 	}
-
 	data.CpuUsec = cpuTime
-	data.MemoryBytes = memoryHighBytes
+
+	ioStats, err := c.readFile(filepath.Join(cGroup, "io.stat"))
+	if err != nil {
+		return
+	}
+	ioBytes, ioOps, err := c.readIOStats(ioStats)
+	if err != nil {
+		return
+	}
+	data.IOBytes = ioBytes
+	data.IOs = ioOps
 
 	return
 }
@@ -247,6 +258,33 @@ func (c *CGroups) parseCpuTime(cpuStr string) (int, error) {
 		return 0, err
 	}
 	return microSec, nil
+}
+func (c *CGroups) readIOStats(ioStats string) (ioBytes int, ioOps int, err error) {
+	lines := strings.Split(ioStats, "\n")
+	for _, line := range lines {
+		pairs := strings.Split(line, " ")
+		for _, p := range pairs[1:] {
+			parts := strings.Split(p, "=")
+			if len(parts) != 2 {
+				err = fmt.Errorf("invalid pair %v", p)
+				c.getLogger("readIOStats()").Error(err)
+				return
+			}
+			var val int
+			val, err = strconv.Atoi(parts[1])
+			if err != nil {
+				c.getLogger("readIOStats() strconv.Atoi").AddNote(p).Error(err)
+				return
+			}
+			switch parts[0] {
+			case "rbytes", "wbytes":
+				ioBytes += val
+			case "rios", "wios":
+				ioOps += val
+			}
+		}
+	}
+	return
 }
 
 func (c *CGroups) readFile(subPath string) (string, error) {
