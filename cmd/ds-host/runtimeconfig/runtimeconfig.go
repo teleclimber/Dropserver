@@ -30,7 +30,7 @@ var configDefault = []byte(`{
 		"num": 3,
 		"use-cgroups": true,
 		"cgroup-mount": "/sys/fs/cgroup",
-		"memory-high": 512
+		"memory-high-mb": 512
 	}
 }`)
 

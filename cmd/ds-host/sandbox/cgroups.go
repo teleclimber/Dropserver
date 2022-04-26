@@ -17,7 +17,6 @@ import (
 
 var hostCGroup = "host"
 var sandboxesCGroup = "sandboxes"
-var memoryHighBytes = 128 * 1024 * 1024
 
 type CGroups struct {
 	Config *domain.RuntimeConfig `checkinject:"required"`
@@ -100,7 +99,7 @@ func (c *CGroups) Init() error {
 		value      string
 	}{
 		//{controller: "cpu.weight", value: "100"},
-		{controller: "memory.high", value: fmt.Sprintf("%v", c.Config.Sandbox.MemoryHigh*1024*1024)},
+		{controller: "memory.high", value: fmt.Sprintf("%v", c.Config.Sandbox.MemoryHighMb*1024*1024)},
 	}
 	for _, ctl := range ctls {
 		err = c.setController(filepath.Join(sandboxesCGroup, ctl.controller), ctl.value)
@@ -131,7 +130,7 @@ func (c *CGroups) CreateCGroup() (string, error) {
 		value      string
 	}{
 		//{controller: "cpu.weight", value: "100"},
-		{controller: "memory.high", value: fmt.Sprintf("%v", memoryHighBytes)}, // TODO use a value set by appspace owner?
+		{controller: "memory.high", value: fmt.Sprintf("%v", c.getSandboxMemoryHigh())}, // TODO use a value set by appspace owner?
 	}
 	for _, ctl := range ctls {
 		err = c.setController(filepath.Join(sandboxesCGroup, cGroup, ctl.controller), ctl.value)
@@ -208,8 +207,12 @@ func (c *CGroups) setSubtreeControl(subPath string, controllers []string) error 
 	return nil
 }
 
+func (c *CGroups) getSandboxMemoryHigh() int {
+	return 128 * 1024 * 1024
+}
+
 func (c *CGroups) GetMetrics(cGroup string) (data domain.CGroupData, err error) {
-	data.MemoryBytes = memoryHighBytes
+	data.MemoryBytes = c.getSandboxMemoryHigh()
 
 	err = c.validateCGroup(cGroup)
 	if err != nil {

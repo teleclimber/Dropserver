@@ -83,6 +83,8 @@ Running `ds-host` takes a bit more work:
 6. Run `ds-host -config=/home/dev/ds-config.json -migrate` to create the DB and the admin user
 7. Run `ds-host -config=/home/dev/ds-config.json`
 
+Beyond that, I recommend running `ds-host` as a systemd service, and enabling cgroups to monitor appspace resource usage (see below).
+
 ### ds-config.json
 
 If you are running `ds-host` behind a reverse proxy with SSL termination (recommended) your config might look something like this:
@@ -102,7 +104,8 @@ If you are running `ds-host` behind a reverse proxy with SSL termination (recomm
 		"static-assets": "static"
 	},
 	"sandbox":{
-		"sockets-dir": "/home/dev/ds-sockets"
+		"sockets-dir": "/home/dev/ds-sockets",
+		"use-cgroups": false
 	}
 }
 ```
@@ -127,7 +130,8 @@ If you are experimenting on a local network, you might try a configuration like 
 		"static-assets": "static"
 	},
 	"sandbox":{
-		"sockets-dir": "/home/dev/ds-sockets"
+		"sockets-dir": "/home/dev/ds-sockets",
+		"use-cgroups": false
 	}
 }
 ```
@@ -156,10 +160,35 @@ You can also skip the whole SSL thing for local experimentation like this:
 		"static-assets": "static"
 	},
 	"sandbox":{
-		"sockets-dir": "/home/dev/ds-sockets"
+		"sockets-dir": "/home/dev/ds-sockets",
+		"use-cgroups": false
 	}
 }
 ```
+
+### CGroups
+
+By default `ds-host` uses cgroups (version 2) to measure and control resources used by appspaces (this is a work in progress). 
+
+**Important:** To use cgroups, `ds-host` must run in a delegatable cgroup. This is typically accomplished by having systemd run ds-host as a service, and setting `Delegate=true` in the service config.
+
+The default config for cgroups looks like this:
+
+```
+{
+	...
+	"sandbox": {
+		...
+		"use-cgroups": true,
+		"cgroup-mount": "/sys/fs/cgroup",
+		"memory-high-mb": 512
+	}
+}
+```
+
+- `use-cgroups` set to false if you can not or do not want to deal with cgroups.
+- `cgroup-mount`: the location of your system's cgroups.
+- `memory-high-mb`: the `memory.high` value for the cgroup that contains all the sandbox cgroups, in megabytes.
 
 ## Leftovers App
 

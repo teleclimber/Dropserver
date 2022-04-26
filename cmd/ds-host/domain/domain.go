@@ -48,11 +48,12 @@ type RuntimeConfig struct {
 		StaticAssets string `json:"static-assets"` // this can't just be a subdomain, has to be full domain, (but you could use a cname in DNS, right)
 	} `json:"subdomains"`
 	Sandbox struct {
-		Num         int    `json:"num"`
 		SocketsDir  string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
+		Num         int    `json:"num"`
 		UseCGroups  bool   `json:"use-cgroups"`
 		CGroupMount string `json:"cgroup-mount"`
-		MemoryHigh  int    `json:"memory-high"`
+		// MemoryBytesMb is the memory.high value for the cgroup that is parent of all sandboxe cgroups
+		MemoryHighMb int `json:"memory-high-mb"`
 	} `json:"sandbox"`
 	Log        string `json:"log"`
 	Prometheus struct {
