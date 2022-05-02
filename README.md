@@ -217,4 +217,4 @@ Contributions are welcome. However given the early stage of this project please 
 
 # License
 
-TODO
+Apache License Version 2.0 (see LICENSE.txt).
