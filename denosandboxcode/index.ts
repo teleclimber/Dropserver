@@ -22,7 +22,7 @@ libSupport.setMigrations(migrations);
 const migrationService = new MigrationService(migrations);
 services.setMigrationService(migrationService);
 
-const appRoutes = new AppRoutes;
+const appRoutes = new AppRoutes(services);
 libSupport.setAppRoutes(appRoutes);
 
 const appService = new DsAppService(appRoutes);

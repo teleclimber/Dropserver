@@ -4,6 +4,8 @@ import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/inde
 
 import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
 
+import DsServices from './services/services.ts';
+
 export interface Context {
 	req: ServerRequest
 	params: Record<string, unknown>
@@ -59,10 +61,16 @@ export default class AppRoutes {
 	routes: Map<string,Route> = new Map();
 	routes_loaded = false;
 
+	constructor(private services:DsServices) {}
+
 	cb: GetAppRoutesCallback|undefined;
 	setCallback(cb:GetAppRoutesCallback) :void {
 		if( this.cb !== undefined ) throw new Error("app routes callback already set");
 		this.cb = cb;
+		// Here we are using this method call as a proxy for determining that the app code is loaded and running.
+		// We can therefore set appReady() whcih tells the host that it can proceed fith forwarding requests, etc...
+		// Not doubt there are better ways of doing this in the future.
+		this.services.appReady();
 	}
 
 	loadRoutes() {

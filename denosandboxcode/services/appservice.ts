@@ -26,6 +26,7 @@ export default class DsAppService {
 			routes = this.appRoutes.exportStack();
 		}
 		catch(e) {
+			console.error('Error getting routes: '+e);
 			await message.sendError(e.toString());
 			return;
 		}

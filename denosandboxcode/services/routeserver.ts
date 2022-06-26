@@ -6,9 +6,6 @@ import DsServices from './services.ts';
 import type AppRoutes from '../approutes.ts';
 import type {Context} from '../approutes.ts';
 
-const serverRemoteService = 11;
-const serverReadyCommand = 11;
-
 export default class DsRouteServer {
 	private server :Server|undefined;
 
@@ -27,14 +24,10 @@ export default class DsRouteServer {
 			listenP.catch((reason) => {
 				console.error("liste rejected: "+reason);
 			});
-		})()
+		})();
 
-		const twine = this.services.getTwine();
-		const reply = await twine.sendBlock(serverRemoteService, serverReadyCommand, undefined);
-		if(!reply.ok) {
-			throw reply.error;
-		}
-		console.log("server started");
+		this.services.serverReady();
+
 	}
 	private async listen() {
 		if( this.server === undefined ) throw new Error("no server to listen on");

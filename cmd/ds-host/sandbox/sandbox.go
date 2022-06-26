@@ -428,11 +428,11 @@ func (s *Sandbox) listenMessages() {
 }
 
 // incoming commands on sandboxService
-const sandboxServerReady = 11
+const sandboxReady = 11
 
 func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
-	case sandboxServerReady:
+	case sandboxReady:
 		s.setStatus(domain.SandboxReady)
 		m.SendOK()
 	default:

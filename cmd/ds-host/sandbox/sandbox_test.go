@@ -397,7 +397,9 @@ func TestStart(t *testing.T) {
 	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
-	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), []byte("console.log('hw');"), 0600)
+	// app code has to setCallback to trigger sandbox ready
+	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
+	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -485,7 +487,9 @@ func TestStartAppOnly(t *testing.T) {
 	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
-	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), []byte("console.log('hw');"), 0600)
+	// app code has to setCallback to trigger sandbox ready
+	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
+	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}

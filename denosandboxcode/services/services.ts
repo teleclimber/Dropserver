@@ -10,6 +10,8 @@ const executeService = 12;
 const migrateService = 13;
 const appService = 14;
 
+const sandboxReadyCommand = 11;
+
 export default class DsServices {
 	private twine:Twine|undefined;
 	private server :DsRouteServer|undefined;
@@ -80,6 +82,28 @@ export default class DsServices {
 				break;
 			default:
 				m.sendError("What is this command? "+m.command);
+		}
+	}
+
+	#server_ready = false;
+	serverReady() {
+		if( this.#server_ready ) return;
+		this.#server_ready = true;
+		this.#sendReady();
+	}
+	#app_ready = false;
+	appReady() {
+		if( this.#app_ready ) return;
+		this.#app_ready = true;
+		this.#sendReady();
+	}
+	async #sendReady() {
+		if(this.#server_ready && this.#app_ready ) {
+			const twine = this.getTwine();
+			const reply = await twine.sendBlock(sandboxService, sandboxReadyCommand, undefined);
+			if(!reply.ok) {
+				throw reply.error;
+			}
 		}
 	}
 }

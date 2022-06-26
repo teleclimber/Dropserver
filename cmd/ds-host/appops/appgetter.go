@@ -314,6 +314,7 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 	reply.SendOK()
 
 	// Should also verify that the response is command 11?
+	g.getLogger("getMigrations").Debug("got migrations payload")
 
 	var migrations []domain.MigrationStep
 	err = json.Unmarshal(reply.Payload(), &migrations)
