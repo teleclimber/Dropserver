@@ -23,7 +23,7 @@ type Manager struct {
 		End(sandboxID int, end time.Time, data domain.SandboxRunData) error
 	} `checkinject:"required"`
 	CGroups interface {
-		CreateCGroup() (string, error)
+		CreateCGroup(domain.CGroupLimits) (string, error)
 		AddPid(string, int) error
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error

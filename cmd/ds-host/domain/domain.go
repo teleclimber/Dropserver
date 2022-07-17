@@ -113,6 +113,11 @@ type SandboxRunIDs struct {
 	CGroup     string         `db:"cgroup" json:"cgroup"`
 }
 
+// CGroupLimits specifies the limits to appply to sandboxes via cgroup controllers
+type CGroupLimits struct {
+	MemoryHigh int
+}
+
 type CGroupData struct {
 	CpuUsec     int
 	MemoryBytes int

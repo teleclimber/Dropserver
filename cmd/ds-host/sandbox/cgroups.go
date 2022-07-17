@@ -112,7 +112,7 @@ func (c *CGroups) Init() error {
 }
 
 //CreateCGroup creates a cgroup for a sandbox
-func (c *CGroups) CreateCGroup() (string, error) {
+func (c *CGroups) CreateCGroup(limits domain.CGroupLimits) (string, error) {
 	cGroup := c.getNewCGroup()
 	p := filepath.Join(c.rootCGroupPath, sandboxesCGroup, cGroup)
 
@@ -130,7 +130,7 @@ func (c *CGroups) CreateCGroup() (string, error) {
 		value      string
 	}{
 		//{controller: "cpu.weight", value: "100"},
-		{controller: "memory.high", value: fmt.Sprintf("%v", c.getSandboxMemoryHigh())}, // TODO use a value set by appspace owner?
+		{controller: "memory.high", value: fmt.Sprintf("%v", limits.MemoryHigh)},
 	}
 	for _, ctl := range ctls {
 		err = c.setController(filepath.Join(sandboxesCGroup, cGroup, ctl.controller), ctl.value)

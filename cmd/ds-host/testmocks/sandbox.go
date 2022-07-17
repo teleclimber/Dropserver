@@ -15,7 +15,7 @@ type SandboxManager interface {
 }
 
 type CGroups interface {
-	CreateCGroup() (cGroup string, err error)
+	CreateCGroup(limits domain.CGroupLimits) (cGroup string, err error)
 	AddPid(cGroup string, pid int) error
 	RemoveCGroup(cGroup string) error
 }

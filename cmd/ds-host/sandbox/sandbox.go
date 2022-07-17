@@ -130,7 +130,7 @@ type Sandbox struct {
 		End(int, time.Time, domain.SandboxRunData) error
 	}
 	CGroups interface {
-		CreateCGroup() (string, error)
+		CreateCGroup(domain.CGroupLimits) (string, error)
 		AddPid(string, int) error
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
@@ -210,13 +210,27 @@ func (s *Sandbox) doStart() error {
 
 	s.setStatus(domain.SandboxStarting) // should already be set, but just in case
 
+	// Mark beginning of start here
+	tStart := time.Now()
+	tRef := time.Now()
+
+	memHigh := 128 * 1024 * 1024
+	if s.operation == opAppInit {
+		memHigh = 256 * 1024 * 1024 // allow more memory for type-checking
+	}
+	limits := domain.CGroupLimits{
+		MemoryHigh: memHigh,
+	}
+
 	if s.Config.Sandbox.UseCGroups {
-		cGroup, err := s.CGroups.CreateCGroup()
+		cGroup, err := s.CGroups.CreateCGroup(limits)
 		if err != nil {
 			return err
 		}
 		s.cGroup = cGroup
 	}
+
+	tStr := fmt.Sprintf("Create Cgroups: %s", time.Since(tRef))
 
 	logString := "Sandbox starting"
 	if s.inspect {
@@ -243,12 +257,16 @@ func (s *Sandbox) doStart() error {
 		return err
 	}
 
+	tRef = time.Now()
+
 	twineServer, err := twine.NewUnixServer(path.Join(socketsDir, "rev.sock"))
 	if err != nil {
 		logger.AddNote("twine.NewUnixServer").Error(err)
 		return err // maybe return a user-centered error
 	}
 	s.twine = twineServer
+
+	tStr += fmt.Sprintf(" Start Twine: %s", time.Since(tRef))
 
 	err = os.Setenv("NO_COLOR", "true")
 	if err != nil {
@@ -274,7 +292,13 @@ func (s *Sandbox) doStart() error {
 		panic("sandbox readFiles or readWriteFiles are empty")
 	}
 
+	typeCheck := "--no-check"
+	if s.operation == opAppInit {
+		typeCheck = "--check"
+	}
+
 	runArgs := []string{
+		typeCheck,
 		"--importmap=" + s.getImportPathFile(),
 		"--allow-read=" + strings.Join(append(readFiles, readWriteFiles...), ","),
 		"--allow-write=" + strings.Join(readWriteFiles, ","),
@@ -304,11 +328,15 @@ func (s *Sandbox) doStart() error {
 
 	runDbIDCh := s.createRun()
 
+	tStr += fmt.Sprintf(" Total pre-start: %s", time.Since(tStart))
+
 	err = s.cmd.Start() // returns right away
 	if err != nil {
 		logger.AddNote("cmd.Start()").Error(err)
 		return err
 	}
+
+	tRef = time.Now()
 
 	if s.Config.Sandbox.UseCGroups {
 		err = s.CGroups.AddPid(s.cGroup, s.cmd.Process.Pid)
@@ -316,6 +344,8 @@ func (s *Sandbox) doStart() error {
 			return err
 		}
 	}
+
+	tStr += fmt.Sprintf(" Pid to CGroup: %s", time.Since(tRef))
 
 	go s.monitor(stdout, stderr, runDbIDCh)
 
@@ -327,6 +357,14 @@ func (s *Sandbox) doStart() error {
 	}
 
 	go s.listenMessages()
+
+	tStr += fmt.Sprintf(" Total to Twine ready: %s", time.Since(tStart))
+
+	go func() {
+		s.WaitFor(domain.SandboxReady)
+		tStr += fmt.Sprintf(" Total to Sandbox ready: %s", time.Since(tStart))
+		logger.Debug(tStr)
+	}()
 
 	return nil
 }
@@ -887,10 +925,15 @@ func (s *Sandbox) getBootstrapFilename() string {
 	return filepath.Join(s.Location2Path.AppMeta(s.appVersion.LocationKey), "bootstrap.js")
 }
 func (s *Sandbox) writeBootstrapFile() error {
+	p := s.getBootstrapFilename()
+	if _, err := os.Stat(p); !errors.Is(err, os.ErrNotExist) {
+		s.getLogger("writeBootstrapFile()").Debug("Skipping writing bootstrap js file")
+		return nil
+	}
+
 	str := "import '" + path.Join(s.Config.Exec.SandboxCodePath, "index.ts") + "';\n"
 	str += "import '" + path.Join(s.Location2Path.AppFiles(s.appVersion.LocationKey), "app.ts") + "';"
 
-	p := s.getBootstrapFilename()
 	err := ioutil.WriteFile(p, []byte(str), 0600)
 	if err != nil {
 		s.getLogger("writeBootstrapFile()").AddNote("ioutil.WriteFile file: " + p).Error(err)
