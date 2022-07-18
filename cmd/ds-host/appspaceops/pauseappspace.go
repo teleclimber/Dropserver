@@ -16,7 +16,6 @@ type PauseAppspace struct {
 	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
-		Close(appspaceID domain.AppspaceID)
 	} `checkinject:"required"`
 }
 

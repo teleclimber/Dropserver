@@ -59,7 +59,7 @@ func (e *BackupAppspace) CreateBackup(appspaceID domain.AppspaceID) (string, err
 }
 
 // BackupNoPause creates a backup zip file like CreateBackup
-// but it expects the backup to be already paused
+// but it expects the appspace to be already paused
 func (e *BackupAppspace) BackupNoPause(appspaceID domain.AppspaceID) (string, error) {
 	if !e.AppspaceStatus.IsTempPaused(appspaceID) {
 		return "", errors.New("appspace is not temp paused as expected")

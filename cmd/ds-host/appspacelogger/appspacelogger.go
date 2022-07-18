@@ -37,17 +37,17 @@ func (l *AppspaceLogger) Log(appspaceID domain.AppspaceID, source string, messag
 	logger.Log(source, message)
 }
 
-// Get a reference to logger for app at locationKey
+// Get a reference to logger for appspaceID
 func (l *AppspaceLogger) Get(appspaceID domain.AppspaceID) domain.LoggerI {
 	return l.getLogger(appspaceID, false)
 }
 
-// Open the log file and return the logger at locationKey
+// Open the log file and return the logger for appspace ID
 func (l *AppspaceLogger) Open(appspaceID domain.AppspaceID) domain.LoggerI {
 	return l.getLogger(appspaceID, true)
 }
 
-// Close the log file for logger at locationKey
+// Close the log file for logger for appspace ID
 func (l *AppspaceLogger) Close(appspaceID domain.AppspaceID) {
 	logger := l.getLogger(appspaceID, false)
 	if logger == nil {
@@ -59,7 +59,7 @@ func (l *AppspaceLogger) Close(appspaceID domain.AppspaceID) {
 	}
 }
 
-// Forget about this locationKey
+// Forget about logger for appspace ID
 // This closes the log file and drops all subscriptions
 func (l *AppspaceLogger) Forget(appspaceID domain.AppspaceID) {
 	logger := l.getLogger(appspaceID, false)

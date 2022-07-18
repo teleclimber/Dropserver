@@ -59,8 +59,10 @@ func (l *Logger) close() error {
 
 func (l *Logger) Log(source, message string) {
 	str := fmt.Sprintf("%s %s %s", time.Now().Format(time.RFC3339), source, sanitizeMessage(message))
-	l.writeEntry(str)
-	// maybe check error and write to host log.
+	err := l.writeEntry(str)
+	if err != nil {
+		l.getHostLogger("Log").Log("Error writing entry " + str + " Error: " + err.Error())
+	}
 }
 func (l *Logger) writeEntry(entry string) error {
 	l.logMux.Lock()

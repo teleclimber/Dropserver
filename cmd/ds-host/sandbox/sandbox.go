@@ -837,8 +837,6 @@ func (s *Sandbox) SubscribeStatus() chan domain.SandboxStatus {
 }
 
 func (s *Sandbox) log(logString string) {
-	// Maybe make that either app or appspace
-	// or somehow make it a generic log and handle the app/appspace -specific stuff otuside.
 	if s.Logger != nil {
 		go s.Logger.Log("sandbox-"+strconv.Itoa(s.id), logString)
 	}
