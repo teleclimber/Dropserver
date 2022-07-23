@@ -215,10 +215,8 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 
 		// Reopen log after the work is complete so tahtthe frontend can get current log view.
 		// Is this really necessary? -> maybe, since we don't have locks on apps, need to explicitly open log?
-		logger := s.AppspaceLogger.Open(appspaceID)
-		if logger == nil {
-			fmt.Println("Unable to open appspace logger")
-		}
+		s.AppspaceLogger.Open(appspaceID)
+
 	default:
 		m.SendError("service not found")
 	}

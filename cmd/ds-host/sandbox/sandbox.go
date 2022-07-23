@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -427,7 +428,7 @@ func (s *Sandbox) handleLog(rc io.ReadCloser, source string) {
 		n, err := rc.Read(buf)
 		if n > 0 {
 			logString := string(buf[0:n])
-			if s.Logger != nil {
+			if !reflect.ValueOf(s.Logger).IsNil() {
 				go s.Logger.Log(logSource, logString)
 			}
 		}
@@ -837,7 +838,7 @@ func (s *Sandbox) SubscribeStatus() chan domain.SandboxStatus {
 }
 
 func (s *Sandbox) log(logString string) {
-	if s.Logger != nil {
+	if !reflect.ValueOf(s.Logger).IsNil() {
 		go s.Logger.Log("sandbox-"+strconv.Itoa(s.id), logString)
 	}
 }
