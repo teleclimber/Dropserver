@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -93,20 +94,14 @@ func (c *CGroups) Init() error {
 		}
 	}
 
-	// set memory limit for all sandboxes together:
-	ctls := []struct {
-		controller string
-		value      string
-	}{
-		//{controller: "cpu.weight", value: "100"},
-		{controller: "memory.high", value: fmt.Sprintf("%v", c.Config.Sandbox.MemoryHighMb*1024*1024)},
+	err = c.SetSandboxesMemoryHigh(c.Config.Sandbox.MemoryHighMb * 1024 * 1024)
+	if err != nil {
+		return err
 	}
-	for _, ctl := range ctls {
-		err = c.setController(filepath.Join(sandboxesCGroup, ctl.controller), ctl.value)
-		if err != nil {
-			return err
-		}
-	}
+
+	// Here maybe monitor memory pressure on sandbox cgroup
+	// for now just log it when you get an event.
+	go c.epollMemoryPressure()
 
 	return nil
 }
@@ -139,6 +134,26 @@ func (c *CGroups) CreateCGroup(limits domain.CGroupLimits) (string, error) {
 		}
 	}
 	return cGroup, nil
+}
+
+func (c *CGroups) SetLimits(cGroup string, limits domain.CGroupLimits) error {
+	err := c.validateCGroup(cGroup)
+	if err != nil {
+		return err
+	}
+	ctls := []struct {
+		controller string
+		value      string
+	}{
+		{controller: "memory.high", value: fmt.Sprintf("%v", limits.MemoryHigh)},
+	}
+	for _, ctl := range ctls {
+		err = c.setController(filepath.Join(sandboxesCGroup, cGroup, ctl.controller), ctl.value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *CGroups) setController(subPath string, val string) error {
@@ -370,6 +385,196 @@ func (c *CGroups) initRootCgroupPath() error {
 
 	return sc.Err()
 }
+
+type pressure struct {
+	some map[string]int
+	full map[string]int
+}
+
+func (c *CGroups) readMemoryPressure() {
+	memData, err := ioutil.ReadFile(filepath.Join(c.rootCGroupPath, sandboxesCGroup, "memory.pressure"))
+	if err != nil {
+		c.getLogger("monitorMemoryPressure() ReadFile memory pressure").Error(err)
+		return
+	}
+
+	lines := strings.Split(string(memData), "\n")
+	c.getLogger("monitorMemoryPressure()").Log(lines[0] + " " + lines[1])
+
+	// memData:
+	// some avg10=0.00 avg60=0.00 avg300=0.00 total=0
+	// full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+	// lines :=  strings.Split(string(memData), "\n");
+	// if len(lines) != 2 {
+	// 	c.getLogger("monitorMemoryPressure()").Log(fmt.Sprintf("Split returned %v lines", len(lines)))
+	// 	return
+	// }
+
+	// for _, l := range lines {
+	// 	head, values, err := parsePressureLine(l)
+	// 	if err != nil {
+	// 		c.getLogger("monitorMemoryPressure()").AddNote("line: "+l).Error(err)
+	// 	}
+	// 	var different bool
+	// 	if head == "some" {
+	// 		different, err = comparePressures(c.pressure.some, values)
+	// 	} else if head == "full" {
+	// 		different, err = comparePressures(c.pressure.full, values)
+	// 	} else {
+	// 		c.getLogger("monitorMemoryPressure()").Log("head not recognized: "+head+" "+l)
+	// 		return
+	// 	}
+	// 	if err != nil {
+	// 		c.getLogger("monitorMemoryPressure()").AddNote("line: "+l).Error(err)
+	// 	}
+	// 	if different {
+
+	// 	}
+	// }
+
+}
+
+const (
+	EPOLLET        = 1 << 31
+	MaxEpollEvents = 32
+)
+
+func (c *CGroups) epollMemoryPressure() {
+	var event syscall.EpollEvent
+	var events [MaxEpollEvents]syscall.EpollEvent
+
+	pFile, err := os.OpenFile(filepath.Join(c.rootCGroupPath, sandboxesCGroup, "memory.pressure"), os.O_RDWR, 0000)
+	if err != nil {
+		c.getLogger("epollMemoryPressure() os.Open memory pressure").Error(err)
+		return
+	}
+	defer pFile.Close()
+
+	fd := int(pFile.Fd())
+
+	sub := []byte("some 1000 500000")
+
+	_, err = syscall.Write(fd, sub)
+	if err != nil {
+		c.getLogger("epollMemoryPressure() syscall.Write sub").Error(err)
+		return
+	}
+
+	epfd, err := syscall.EpollCreate1(0)
+	if err != nil {
+		c.getLogger("epollMemoryPressure() EpollCreate1").Error(err)
+		return
+	}
+	defer syscall.Close(epfd)
+
+	event.Events = syscall.EPOLLPRI
+	event.Fd = int32(fd)
+	err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, fd, &event)
+	if err != nil {
+		c.getLogger("epollMemoryPressure() EpollCtl").Error(err)
+		return
+	}
+
+	//increased := false
+
+	for {
+		nevents, err := syscall.EpollWait(epfd, events[:], -1)
+		if err != nil {
+			c.getLogger("epollMemoryPressure() EpollWaits").Error(err)
+			break
+			// Got this error once: interrupted system call
+			// Apparently you just have to keep reading EPollWaits
+			// So maybe if it's EINTR, continue instead of break
+		}
+
+		//c.getLogger("epollMemoryPressure()").Log()
+		//c.getLogger("epollMemoryPressure()").Log(fmt.Sprintf("Got events: %v", nevents))
+
+		for ev := 0; ev < nevents; ev++ {
+			c.getLogger("epollMemoryPressure()").Log(fmt.Sprintf("Event: %+v", events[ev]))
+			c.readMemoryPressure()
+
+			// Old experiment to squeeze and relieve pressure on all sandboxes:
+			// if !increased {
+			// 	c.SetSandboxesMemoryHigh(memHigh)
+			// 	increased = true
+			// 	go func() {
+			// 		time.Sleep(time.Second)
+			// 		c.SetSandboxesMemoryHigh(memSqueeze)
+			// 		increased = false
+			// 	}()
+			// }
+
+			//if int(events[ev].Fd) == fd && {
+			// 	connFd, _, err := syscall.Accept(fd)
+			// 	if err != nil {
+			// 		fmt.Println("accept: ", err)
+			// 		continue
+			// 	}
+			// 	syscall.SetNonblock(fd, true)
+			// 	event.Events = syscall.EPOLLIN | EPOLLET
+			// 	event.Fd = int32(connFd)
+			// 	if err := syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, connFd, &event); err != nil {
+			// 		fmt.Print("epoll_ctl: ", connFd, err)
+			// 		os.Exit(1)
+			// 	}
+			// } else {
+			// 	go echo(int(events[ev].Fd))
+			// }
+		}
+
+	}
+}
+
+// SetSandboxesMemoryHigh sets memory.high for all sandbox parent cgroup
+// memHigh is in bytes
+func (c *CGroups) SetSandboxesMemoryHigh(memHigh int) error {
+	ctls := []struct {
+		controller string
+		value      string
+	}{
+		{controller: "memory.high", value: fmt.Sprintf("%v", memHigh)},
+	}
+	for _, ctl := range ctls {
+		err := c.setController(filepath.Join(sandboxesCGroup, ctl.controller), ctl.value)
+		if err != nil {
+			c.getLogger("setSandboxesMemoryHigh() setController").Error(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func parsePressureLine(str string) (head string, values map[string]int, err error) {
+	values = make(map[string]int)
+	pieces := strings.Split(str, " ")
+	for i, p := range pieces {
+		if i == 0 {
+			head = p
+			continue
+		}
+		pair := strings.Split(p, "=")
+		intVal, e := strconv.Atoi(pair[1])
+		if e != nil {
+			err = e
+		}
+		values[pair[0]] = intVal
+	}
+	return
+}
+func comparePressures(a map[string]int, b map[string]int) (bool, error) {
+	for k, aVal := range a {
+		bVal, ok := b[k]
+		if !ok {
+			return true, errors.New("key not found in b: " + k)
+		}
+		if aVal != bVal {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (c *CGroups) getNewCGroup() string {
 	c.idMux.Lock()
 	defer c.idMux.Unlock()

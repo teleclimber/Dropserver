@@ -25,6 +25,7 @@ type Manager struct {
 	CGroups interface {
 		CreateCGroup(domain.CGroupLimits) (string, error)
 		AddPid(string, int) error
+		SetLimits(string, domain.CGroupLimits) error
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	} `checkinject:"optional"`
@@ -247,7 +248,7 @@ func (m *Manager) removeSandbox(sandbox *Sandbox) {
 func (m *Manager) startStopSandboxes() {
 	m.sandboxesMux.Lock()
 	defer m.sandboxesMux.Unlock()
-	startStopSandboxes(m.Config, m.sandboxes)
+	m.startStopSandboxesInner(m.Config, m.sandboxes)
 }
 
 func (m *Manager) recordSandboxStatusMetric() {
@@ -314,13 +315,13 @@ type startStopStatus struct {
 	numDying   int
 }
 
-// startStopSandboxes determines which sandboxes should be stopped and which
-// should can be started based on availabel resources.
-func startStopSandboxes(config *domain.RuntimeConfig, sandboxes []domain.SandboxI) {
+func (m *Manager) startStopSandboxesInner(config *domain.RuntimeConfig, sandboxes []domain.SandboxI) {
 	status := getStartStoppables(sandboxes)
 	doStartStop(config, status)
 }
 
+// doStartStop determines which sandboxes should be stopped and which
+// should can be started based on available resources.
 func doStartStop(config *domain.RuntimeConfig, status startStopStatus) {
 	// if there are any in the start queue
 	// first see if there are enough resources to start

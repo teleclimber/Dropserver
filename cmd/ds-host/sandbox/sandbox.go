@@ -29,6 +29,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Temporary hard coded memory.high values for individual sandboxes:
+const sbStartMb = 400
+const sbRunMb = 128
+
 type taskTracker struct { // expand on this to track total tied up time
 	mux        sync.Mutex
 	numTask    int // number of tasks created that have not ended
@@ -133,6 +137,7 @@ type Sandbox struct {
 	CGroups interface {
 		CreateCGroup(domain.CGroupLimits) (string, error)
 		AddPid(string, int) error
+		SetLimits(string, domain.CGroupLimits) error
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	}
@@ -215,12 +220,12 @@ func (s *Sandbox) doStart() error {
 	tStart := time.Now()
 	tRef := time.Now()
 
-	memHigh := 128 * 1024 * 1024
-	if s.operation == opAppInit {
-		memHigh = 256 * 1024 * 1024 // allow more memory for type-checking
+	memHighMb := sbStartMb
+	if s.Config.Sandbox.MemoryHighMb < memHighMb {
+		memHighMb = s.Config.Sandbox.MemoryHighMb
 	}
 	limits := domain.CGroupLimits{
-		MemoryHigh: memHigh,
+		MemoryHigh: memHighMb * 1024 * 1024,
 	}
 
 	if s.Config.Sandbox.UseCGroups {
@@ -365,6 +370,13 @@ func (s *Sandbox) doStart() error {
 		s.WaitFor(domain.SandboxReady)
 		tStr += fmt.Sprintf(" Total to Sandbox ready: %s", time.Since(tStart))
 		logger.Debug(tStr)
+
+		if s.Config.Sandbox.UseCGroups {
+			err = s.CGroups.SetLimits(s.cGroup, domain.CGroupLimits{MemoryHigh: sbRunMb * 1024 * 1024})
+			if err != nil {
+				logger.AddNote("s.CGroups.SetLimits").Error(err)
+			}
+		}
 	}()
 
 	return nil
