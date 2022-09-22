@@ -1,5 +1,4 @@
 {
     "go.testFlags": ["-race"],
-
     "jest.rootPath": "frontend-ds-host/",
 }
