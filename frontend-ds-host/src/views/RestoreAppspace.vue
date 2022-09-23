@@ -127,18 +127,18 @@ export default defineComponent({
 			if( form_elem.value === null ) return;
 			const radio_elem = form_elem.value.querySelector('input[name="select_backup"][value="upload"]');
 			if( !radio_elem ) return;
-			(<HTMLInputElement>radio_elem).checked = true;
+			(radio_elem as HTMLInputElement).checked = true;
 		}
 
 		async function toProcessingStep() {
 			if( form_elem.value === null ) return;
 			const sel_elem = form_elem.value.querySelector('input[name="select_backup"]:checked');
 			if( sel_elem === null ) return;
-			const selected_file = (<HTMLInputElement>sel_elem).value;
+			const selected_file = (sel_elem as HTMLInputElement).value;
 			if( !selected_file ) return;
 			if( selected_file === "upload" ) {
 				if( upload_input_elem.value === null ) return;
-				const files = <FileList>upload_input_elem.value.files;
+				const files = upload_input_elem.value.files as FileList;
 				if( files.length === 0 ) return;
 				step.value = "processing";
 				restore_data.value = await uploadRestoreZip(appspace.id, files[0]);

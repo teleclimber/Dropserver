@@ -136,7 +136,7 @@ export default defineComponent({
 			return app.versions.map( v => {
 				(v as VersionView).appspaces = appspaces.asArray.filter( a => a.app_version === v.version );
 				(v as VersionView).deleting = false;
-				return <VersionView>v;
+				return v as VersionView;
 			});
 		});
 

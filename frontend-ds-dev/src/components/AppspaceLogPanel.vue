@@ -20,7 +20,7 @@ export default defineComponent({
 		Log,
 	},
 	setup() {
-		const appspaceLog = <LiveLog>reactive(new LiveLog);
+		const appspaceLog = reactive(new LiveLog) as LiveLog;
 		appspaceLog.subscribeAppspaceLog(15);	// 15 is designated hard-coded appspace id in ds-dev.
 
 		return {

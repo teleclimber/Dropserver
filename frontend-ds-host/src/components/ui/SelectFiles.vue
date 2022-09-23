@@ -27,7 +27,7 @@ export default defineComponent({
 		function selected() {
 			if( input_elem.value === null ) return;
 
-			const files = <FileList>input_elem.value.files;
+			const files = input_elem.value.files as FileList;
 			const prefix = getPrefix(files);
 			const chop_length = prefix ? prefix.length +1 : 0;
 
@@ -35,7 +35,7 @@ export default defineComponent({
 
 			for( let i=0; i<files.length; ++i ) {
 				// us this as an opportunity to zap .git, etc...
-				const f = <WebkitFile>files[i];
+				const f = files[i] as WebkitFile;
 				const rel_path = f.webkitRelativePath.substring(chop_length);
 				selected_files.push({
 					file: files[i],
@@ -65,7 +65,7 @@ export default defineComponent({
 function getPrefix(files: FileList): string {
 	let prefix = '';
 	for( let i=0; i<files.length; ++i ) {
-		const f = <WebkitFile>files[i];
+		const f = files[i] as WebkitFile;
 		let wrp = f.webkitRelativePath;
 		const index = wrp.indexOf('/');
 		let p;

@@ -146,12 +146,12 @@ export default defineComponent({
 		const appspace = reactive( new Appspace );
 		const app_version = ref(new AppVersion);
 
-		const status = <AppspaceStatus>reactive(new AppspaceStatus);
+		const status = reactive(new AppspaceStatus) as AppspaceStatus;
 		
 		const display_link = ref("https://...loading...");
 		const enter_link = ref("");
 
-		const appspaceLog = <LiveLog>reactive(new LiveLog);
+		const appspaceLog = reactive(new LiveLog) as LiveLog;
 
 		const app = reactive(new App); 
 		const show_all_versions = ref(false);
