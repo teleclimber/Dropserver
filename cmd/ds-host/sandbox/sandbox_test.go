@@ -1,7 +1,6 @@
 package sandbox
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -316,7 +315,7 @@ func TestRunnerScriptError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -327,7 +326,7 @@ func TestRunnerScriptError(t *testing.T) {
 	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
-	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), []byte("setTimeout(hello.world, 100);"), 0644)
+	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), []byte("setTimeout(hello.world, 100);"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +385,7 @@ func TestStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -399,7 +398,7 @@ func TestStart(t *testing.T) {
 
 	// app code has to setCallback to trigger sandbox ready
 	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
+	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -476,7 +475,7 @@ func TestStartAppOnly(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -489,7 +488,7 @@ func TestStartAppOnly(t *testing.T) {
 
 	// app code has to setCallback to trigger sandbox ready
 	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = ioutil.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
+	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -552,7 +551,7 @@ func TestStartAppOnly(t *testing.T) {
 
 // TEST DISABLED bc ExecFn not functional rn.
 func __TestExecFn(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -577,7 +576,7 @@ func __TestExecFn(t *testing.T) {
 
 	scriptPath := path.Join(loc.AppFiles(appLocation), "app.ts")
 
-	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
+	err = os.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -625,7 +624,7 @@ func __TestExecFn(t *testing.T) {
 // TODO Test fails. It depends on ExecFn, so it can't pass until that's fixed.
 // TEST DISABLED
 func __TestExecForbiddenImport(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -633,7 +632,7 @@ func __TestExecForbiddenImport(t *testing.T) {
 
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
-	forbiddenDir, err := ioutil.TempDir("", "")
+	forbiddenDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -652,7 +651,7 @@ func __TestExecForbiddenImport(t *testing.T) {
 
 	scriptPath := path.Join(forbiddenDir, "bad.ts")
 
-	err = ioutil.WriteFile(scriptPath, []byte("export function abc() { console.log('hello bad'); }"), 0644)
+	err = os.WriteFile(scriptPath, []byte("export function abc() { console.log('hello bad'); }"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}

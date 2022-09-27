@@ -4,7 +4,6 @@ import (
 	"embed"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -54,6 +53,7 @@ var avatarsFS embed.FS
 
 var appDirFlag = flag.String("app", "", "specify root directory of app code")
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
+var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with additional import mappings")
 
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
@@ -80,7 +80,7 @@ func main() {
 		appspaceSourceDir = filepath.Join(wd, *appspaceDirFlag)
 	}
 
-	tempDir, err := ioutil.TempDir("", "")
+	tempDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		panic(err)
 	}
@@ -178,6 +178,7 @@ func main() {
 		DevAppProcessEvents: appProcessingEvents,
 		AppVersionEvents:    appVersionEvents,
 	}
+	devAppWatcher.AddDir(*appDirFlag)
 
 	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
@@ -241,6 +242,15 @@ func main() {
 	}
 	devSandboxManager.Init()
 	appGetter.SandboxManager = devSandboxManager
+
+	importMapExtras := &ImportMapExtras{
+		SandboxManager: devSandboxManager,
+		AppWatcher:     devAppWatcher,
+	}
+	importMapExtras.Init(*importMapFlag)
+
+	// We can start files watcher after import map extras have been registered.
+	devAppWatcher.Start()
 
 	pauseAppspace := &appspaceops.PauseAppspace{
 		AppspaceModel:  devAppspaceModel,
@@ -318,8 +328,6 @@ func main() {
 		AppspaceUsersV0: appspaceUsersModelV0,
 		V0AppspaceDB:    appspaceDB.V0}
 	devSandboxManager.Services = services
-
-	devAppWatcher.Start(*appDirFlag)
 
 	migrationJobController.Start()
 

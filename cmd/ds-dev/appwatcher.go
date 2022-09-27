@@ -36,6 +36,7 @@ type DevAppWatcher struct {
 	} `checkinject:"required"`
 
 	watcher     *fsnotify.Watcher
+	watchPaths  []string
 	ignorePaths []string
 
 	runMux  sync.Mutex
@@ -46,16 +47,23 @@ type DevAppWatcher struct {
 	timer    *time.Timer
 }
 
-// Start loads the appfiles and launches file watching
-func (w *DevAppWatcher) Start(appPath string) {
-	go w.reprocessAppFiles()
-
-	w.ignorePaths = make([]string, len(ignorePaths))
-	for i, p := range ignorePaths {
-		w.ignorePaths[i] = filepath.Join(appPath, p)
+func (w *DevAppWatcher) AddDir(dir string) {
+	if w.ignorePaths == nil {
+		w.ignorePaths = make([]string, 0)
 	}
+	for _, p := range ignorePaths {
+		w.ignorePaths = append(w.ignorePaths, filepath.Join(dir, p))
+	}
+	if w.watchPaths == nil {
+		w.watchPaths = make([]string, 0)
+	}
+	w.watchPaths = append(w.watchPaths, dir)
+}
 
-	go w.watch(appPath)
+// Start loads the appfiles and launches file watching
+func (w *DevAppWatcher) Start() {
+	go w.reprocessAppFiles()
+	go w.watch()
 }
 func (w *DevAppWatcher) reprocessAppFiles() { // This should probably be handled by app getter?
 	ok := w.setRunning()
@@ -144,9 +152,7 @@ func (w *DevAppWatcher) filesChanged() {
 	w.setDirty()
 }
 
-func (w *DevAppWatcher) watch(appPath string) {
-	fmt.Println("Watching: " + appPath)
-
+func (w *DevAppWatcher) watch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -190,10 +196,14 @@ func (w *DevAppWatcher) watch(appPath string) {
 		}
 	}()
 
-	err = w.watchDir(appPath)
-	if err != nil {
-		log.Fatal(err)
+	for _, p := range w.watchPaths {
+		fmt.Println("Watching: " + p)
+		err = w.watchDir(p)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
 }
 
 func (w *DevAppWatcher) watchDir(dir string) error {

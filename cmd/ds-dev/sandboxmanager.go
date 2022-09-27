@@ -46,7 +46,8 @@ type DevSandboxManager struct {
 
 	nextID int
 
-	inspect bool
+	inspect         bool
+	importMapExtras map[string]string
 }
 
 // Init sets up app version events loop
@@ -64,6 +65,10 @@ func (m *DevSandboxManager) Init() {
 			}
 		}
 	}()
+}
+
+func (m *DevSandboxManager) SetImportMapExtras(importMap map[string]string) {
+	m.importMapExtras = importMap
 }
 
 // need Start/Stop/Restart functions
@@ -84,6 +89,7 @@ func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace
 	s.Location2Path = m.Location2Path
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
+	s.SetImportMapExtras(m.importMapExtras)
 	m.appspaceSb = s
 
 	statCh := s.SubscribeStatus()
@@ -119,6 +125,7 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 	s.Location2Path = m.Location2Path
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
+	s.SetImportMapExtras(m.importMapExtras)
 
 	m.appSb = s
 
@@ -157,6 +164,7 @@ func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace
 	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
+	s.SetImportMapExtras(m.importMapExtras)
 
 	m.migrationSb = s
 

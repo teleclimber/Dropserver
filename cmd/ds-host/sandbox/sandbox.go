@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -141,19 +140,20 @@ type Sandbox struct {
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	}
-	Logger        interface{ Log(string, string) }
-	socketsDir    string
-	cmd           *exec.Cmd
-	twine         *twine.Twine
-	Services      domain.ReverseServiceI
-	statusMux     sync.Mutex
-	status        domain.SandboxStatus
-	statusSub     []chan domain.SandboxStatus
-	waitStatusSub map[domain.SandboxStatus][]chan domain.SandboxStatus
-	transport     http.RoundTripper
-	taskTracker   taskTracker
-	inspect       bool
-	Location2Path interface {
+	Logger          interface{ Log(string, string) }
+	socketsDir      string
+	cmd             *exec.Cmd
+	twine           *twine.Twine
+	Services        domain.ReverseServiceI
+	statusMux       sync.Mutex
+	status          domain.SandboxStatus
+	statusSub       []chan domain.SandboxStatus
+	waitStatusSub   map[domain.SandboxStatus][]chan domain.SandboxStatus
+	transport       http.RoundTripper
+	taskTracker     taskTracker
+	inspect         bool
+	importMapExtras map[string]string
+	Location2Path   interface {
 		AppMeta(string) string
 		AppFiles(string) string
 	}
@@ -195,6 +195,11 @@ func (s *Sandbox) Operation() string {
 // SetInspect sets the inspect flag which will cause the sandbox to start with --inspect-brk
 func (s *Sandbox) SetInspect(inspect bool) {
 	s.inspect = inspect
+}
+
+// SetImportMap sets items to include in the generated import map
+func (s *Sandbox) SetImportMapExtras(extras map[string]string) {
+	s.importMapExtras = extras
 }
 
 // Start sets the status to starting
@@ -244,9 +249,9 @@ func (s *Sandbox) doStart() error {
 	}
 	s.log(logString)
 
-	socketsDir, err := ioutil.TempDir(s.Config.Sandbox.SocketsDir, "sock")
+	socketsDir, err := os.MkdirTemp(s.Config.Sandbox.SocketsDir, "sock")
 	if err != nil {
-		logger.AddNote(fmt.Sprintf("ioutil.TempDir() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
+		logger.AddNote(fmt.Sprintf("os.MkdirTemp() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
 	}
 	s.socketsDir = socketsDir
@@ -893,13 +898,13 @@ func (s *Sandbox) makeImportMap() ([]byte, error) {
 				appPath:        appPath,
 				appspacePath:   appspacePath,
 				dropserverPath: dropserverPath,
-
-				// TODO DELETE EXTERMELY TEMPORARY
-				// "https://deno.land/x/dropserver_lib_support/":         "/Users/ollie/Documents/Code/dropserver_lib_support/",
-				// "/Users/ollie/Documents/Code/dropserver_lib_support/": "/Users/ollie/Documents/Code/dropserver_lib_support/",
-				// "https://deno.land/x/dropserver_app/":                 "/Users/ollie/Documents/Code/dropserver_app/",
-				// "/Users/ollie/Documents/Code/dropserver_app/":         "/Users/ollie/Documents/Code/dropserver_app/",
 			}}
+	}
+
+	if s.importMapExtras != nil {
+		for k, v := range s.importMapExtras {
+			im.Imports[k] = v
+		}
 	}
 
 	j, err := json.Marshal(im)
@@ -923,9 +928,9 @@ func (s *Sandbox) writeImportMap() error {
 		return err
 	}
 
-	err = ioutil.WriteFile(s.getImportPathFile(), data, 0600)
+	err = os.WriteFile(s.getImportPathFile(), data, 0600)
 	if err != nil {
-		s.getLogger("writeImportMap()").AddNote("ioutil.WriteFile file: " + s.getImportPathFile()).Error(err)
+		s.getLogger("writeImportMap()").AddNote("os.WriteFile file: " + s.getImportPathFile()).Error(err)
 		return err
 	}
 
@@ -945,9 +950,9 @@ func (s *Sandbox) writeBootstrapFile() error {
 	str := "import '" + path.Join(s.Config.Exec.SandboxCodePath, "index.ts") + "';\n"
 	str += "import '" + path.Join(s.Location2Path.AppFiles(s.appVersion.LocationKey), "app.ts") + "';"
 
-	err := ioutil.WriteFile(p, []byte(str), 0600)
+	err := os.WriteFile(p, []byte(str), 0600)
 	if err != nil {
-		s.getLogger("writeBootstrapFile()").AddNote("ioutil.WriteFile file: " + p).Error(err)
+		s.getLogger("writeBootstrapFile()").AddNote("os.WriteFile file: " + p).Error(err)
 		return err
 	}
 	return nil
