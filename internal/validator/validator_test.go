@@ -61,7 +61,7 @@ func TestDomainName(t *testing.T) {
 		{"0abc.def", false},
 		{"a-b-c.def", false},
 		{"-abc.def", true},
-		{"a_b_c.def", false},
+		{"a_b_c.def", true},
 		{"_abc.def", true},
 	}
 
