@@ -171,6 +171,54 @@ func TestServeHTTP404(t *testing.T) {
 	}
 }
 
+func TestResponseHeaders(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Test-Header", "test-header")
+		w.WriteHeader(200)
+	})
+	defer closeMocks(tm)
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	tm.sandboxProxy.ServeHTTP(rr, req)
+
+	testHeader := rr.Header().Get("X-Test-Header")
+	if testHeader != "test-header" {
+		t.Error("did not get expected test header")
+	}
+}
+
+func TestResponseCSPHeaders(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	tm := createMocks(mockCtrl, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Security-Policy", "img-src *")
+		w.WriteHeader(200)
+	})
+	defer closeMocks(tm)
+
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	tm.sandboxProxy.ServeHTTP(rr, req)
+
+	cspHeader := rr.Header().Get("Content-Security-Policy")
+	if cspHeader != "" {
+		t.Error("CSP header should be blocked")
+	}
+}
+
 func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter, *http.Request)) *testMocks {
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {

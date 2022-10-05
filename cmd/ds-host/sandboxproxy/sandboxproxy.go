@@ -67,13 +67,24 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 		return
 	}
 
-	cRes.Header = oRes.Header().Clone()
-	// Here we need to delete a bunch of headers, like CSP, CORS, etc...
+	cspKey := http.CanonicalHeaderKey("Content-Security-Policy")
+	resHeader := oRes.Header()
+	for k, vv := range cRes.Header {
+		k = http.CanonicalHeaderKey(k)
+		// filter out CSP, CORS, etc...
+		// Furthermore we could compare against a list of known and acceptable headers,
+		// and if not known mandate that it start with "X-"
+		if k == cspKey {
+			continue
+		}
+		for _, v := range vv {
+			resHeader.Add(k, v)
+		}
+	}
 
 	oRes.WriteHeader(cRes.StatusCode)
 
 	io.Copy(oRes, cRes.Body)
-
 	cRes.Body.Close()
 }
 
