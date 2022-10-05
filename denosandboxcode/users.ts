@@ -1,15 +1,10 @@
+import type {User} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 import DsServices from './services/services.ts';
 
 const service = 16;
 
 const getUserCmd     = 12;
 const getAllUsersCmd = 13;
-
-export type User = {
-	proxyId: string,
-	permissions: string[],
-	displayName: string
-}
 
 export default class Users {
 	constructor(private services:DsServices) {}

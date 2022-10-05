@@ -1,4 +1,4 @@
-import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
+import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
 import Twine from "./twine.ts";
 import DsServices from './services.ts';
 

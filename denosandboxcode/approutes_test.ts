@@ -1,6 +1,5 @@
-import { assertEquals } from "https://deno.land/std@0.106.0/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std@0.158.0/testing/asserts.ts";
 import {normalizeMethod} from './approutes.ts';
-
 
 Deno.test({
 	name: "normalize methods",

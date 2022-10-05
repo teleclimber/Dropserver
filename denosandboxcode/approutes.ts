@@ -1,34 +1,10 @@
-import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
-import {match} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
-import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.0/index.ts";
+import {match} from "https://deno.land/x/path_to_regexp@v6.2.1/index.ts";
+import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.1/index.ts";
 
-import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
+import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import type {Handler, Path, Auth} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 
 import DsServices from './services/services.ts';
-
-export interface Context {
-	req: ServerRequest
-	params: Record<string, unknown>
-	url: URL
-	proxyId: string | null
-}
-
-export type Handler = (ctx:Context) => void;
-
-export enum AuthAllow {
-	authorized = "authorized",
-	public = "public"
-}
-
-type Auth = {
-	allow: AuthAllow,	//string,	// actually an enum
-	permission?: string
-}
-
-export type Path = {
-	path: string,
-	end: boolean
-}
 
 type staticOpts = {
 	path: string

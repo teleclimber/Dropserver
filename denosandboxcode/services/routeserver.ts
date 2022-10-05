@@ -1,13 +1,12 @@
-import * as path from "https://deno.land/std@0.106.0/path/mod.ts";
-import { Server } from "https://deno.land/std@0.106.0/http/server.ts";
-import type {ServerRequest} from "https://deno.land/std@0.106.0/http/server.ts";
+import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
+
+import type {Context} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 
 import DsServices from './services.ts';
 import type AppRoutes from '../approutes.ts';
-import type {Context} from '../approutes.ts';
 
 export default class DsRouteServer {
-	private server :Server|undefined;
+	private listener :Deno.Listener|undefined;
 
 	private stop_resolve :undefined | ((value?: unknown) => void);
 
@@ -16,23 +15,17 @@ export default class DsRouteServer {
 	async startServer(sockPath: string) {
 		const sockFile = path.join(sockPath, 'server.sock');
 
-		const listener = await Deno.listen({ path: sockFile, transport: "unix" });
-		this.server = new Server(listener);
+		this.listener = await Deno.listen({ path: sockFile, transport: "unix" });
 
-		const listenP = this.listen();	// does this mean errors are uncaught?
-		(function() {
-			listenP.catch((reason) => {
-				console.error("liste rejected: "+reason);
-			});
-		})();
+		this.listen();
 
 		this.services.serverReady();
 
 	}
 	private async listen() {
-		if( this.server === undefined ) throw new Error("no server to listen on");
-		for await (const request of this.server) {
-			this.handleRequest(request);
+		if( this.listener === undefined ) throw new Error("no listener");
+		for await (const conn of this.listener) {
+			this.serveHttp(conn);
 		}
 		console.log("Server has shut down");
 		if( this.stop_resolve != undefined ) {
@@ -47,31 +40,38 @@ export default class DsRouteServer {
 				return;
 			}
 			this.stop_resolve = resolve;
-			this.server?.close();
+			this.listener?.close();
 		});
 	}
 
-	async handleRequest(request :ServerRequest) {
+	async serveHttp(conn: Deno.Conn) {
+		const httpConn = Deno.serveHttp(conn);
+		for await (const requestEvent of httpConn ) {
+			this.handleRequest(requestEvent);
+		}
+	}
+
+	async handleRequest(reqEvent: Deno.RequestEvent) {
 		const t0 = performance.now();
 
 		if( !this.appRoutes ) {	// should no longer happen
-			this.replyError(request, "app ruouter not loaded");
+			this.replyError(reqEvent, "app ruouter not loaded");
 			return;
 		}
 
-		const headers = request.headers;
+		const headers = reqEvent.request.headers;
 		const matched_route = headers.get("X-Dropserver-Route-ID");
 		if( matched_route === null ) {
-			this.replyError(request, "X-Dropserver-Route-ID header is null");
+			this.replyError(reqEvent, "X-Dropserver-Route-ID header is null");
 			return;
 		}
 		const route = this.appRoutes.getRouteWithMatch(matched_route);
 		if( route === undefined) {
-			this.replyError(request, "route id not found");
+			this.replyError(reqEvent, "route id not found");
 			return;
 		}
 		if( !route.handler ) {
-			this.replyError(request, "no handler attached to route");
+			this.replyError(reqEvent, "no handler attached to route");
 			return;
 		}
 		if( route.match === undefined ) {
@@ -80,20 +80,20 @@ export default class DsRouteServer {
 
 		const req_url_str = headers.get("X-Dropserver-Request-URL");
 		if( !req_url_str ) {
-			this.replyError(request, "no request url found in headers");
+			this.replyError(reqEvent, "no request url found in headers");
 			return;
 		}
 		const req_url = new URL(req_url_str, "https://appspace/");
 		const route_match = route.match(req_url.pathname);
 		if( !route_match ) {
-			this.replyError(request, "route failed to match in sandbox");
+			this.replyError(reqEvent, "route failed to match in sandbox");
 			return;
 		}
 
 		const proxyId = headers.get("X-Dropserver-User-ProxyID");
 
 		const ctx :Context = {
-			req: request,
+			req: reqEvent,
 			url: req_url,	// request.url is readonly, so we can't set it, so we pass url in context. We could wrap request in Proxy and intercept get url
 			params: <Record<string, unknown>>route_match.params,
 			proxyId: proxyId
@@ -103,7 +103,7 @@ export default class DsRouteServer {
 			await route.handler(ctx);
 		}
 		catch(e) {
-			this.replyError(request, e);
+			this.replyError(reqEvent, e);
 			return;
 		}
 
@@ -111,8 +111,8 @@ export default class DsRouteServer {
 		console.log(`request took ${t1 - t0} milliseconds.`);
 	}
 
-	replyError(req :ServerRequest, message :string) {
+	replyError(reqEvent :Deno.RequestEvent, message :string) {
 		console.error(message);
-		req.respond({status: 500, body: message})
+		reqEvent.respondWith( new Response(message,{status: 500}));
 	}
 }

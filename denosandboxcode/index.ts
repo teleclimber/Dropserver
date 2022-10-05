@@ -1,4 +1,4 @@
-import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.1.0/mod.ts';
+import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 
 import Metadata from './metadata.ts';
 import DsServices from './services/services.ts';
