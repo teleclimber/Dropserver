@@ -1,4 +1,4 @@
-import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
+import * as path from "https://deno.land/std@0.159.0/path/mod.ts";
 
 export class Metadata {
 	sock_path:string;

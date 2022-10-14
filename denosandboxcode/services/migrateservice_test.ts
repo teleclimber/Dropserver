@@ -1,5 +1,5 @@
-import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
-import { assertEquals } from "https://deno.land/std@0.158.0/testing/asserts.ts";
+import * as path from "https://deno.land/std@0.159.0/path/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.159.0/testing/asserts.ts";
 import { stub, Stub } from "https://raw.githubusercontent.com/udibo/mock/v0.8.0/stub.ts";
 import Twine, {Message} from './twine.ts';
 import Migrations from '../migrations.ts';

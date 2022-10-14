@@ -1,0 +1,5 @@
+{
+	"imports": {
+		"https://deno.land/x/dropserver_lib_support@v0.X.X/":"../../dropserver_lib_support/"
+	}
+}

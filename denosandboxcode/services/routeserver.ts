@@ -1,4 +1,4 @@
-import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
+import * as path from "https://deno.land/std@0.159.0/path/mod.ts";
 
 import {Context, RouteType} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 
