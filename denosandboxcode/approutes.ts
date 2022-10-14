@@ -6,20 +6,30 @@ import type {Handler, Path, Auth} from 'https://deno.land/x/dropserver_lib_suppo
 
 import DsServices from './services/services.ts';
 
+type handlerOpts = {
+	name: string
+}
 type staticOpts = {
 	path: string
 }
 
-interface Route {
+interface RouteBase {
 	id: string
 	method: string
 	path: Path
 	auth: Auth
-	type: RouteType
-	handler?: Handler
-	opts?: staticOpts
 	match?: MatchFunction
 }
+interface SandboxRoute extends RouteBase {
+	type: RouteType.function
+	handler: Handler
+	opts: handlerOpts
+}
+interface StaticRoute extends RouteBase {
+	type: RouteType.static
+	opts: staticOpts
+}
+type Route = SandboxRoute | StaticRoute
 
 export type RouteExport = {
 	id: string,
@@ -27,7 +37,7 @@ export type RouteExport = {
 	path: Path,
 	auth: Auth,
 	type: RouteType,
-	options: staticOpts|Record<never,never>
+	options: staticOpts|handlerOpts
 }
 
 /**
@@ -54,15 +64,33 @@ export default class AppRoutes {
 		if( this.routes_loaded ) return;
 		const routes = this.cb();
 		routes.forEach( r => {
-			const stored :Route = {
-				id: makeRouteIdentifier(r.method, r.path),
-				method: normalizeMethod(r.method),
-				path: r.path,
-				auth: r.auth,
-				type: r.type,
-				handler: (r.type === RouteType.function ? r.handler : undefined ),
-				opts: (r.type === RouteType.static ? r.opts : undefined )
-			};
+			let stored :Route;
+			if(r.type === RouteType.function) {
+				stored = {
+					id: makeRouteIdentifier(r.method, r.path),
+					method: normalizeMethod(r.method),
+					path: r.path,
+					auth: r.auth,
+					type: r.type,
+					handler: r.handler,
+					opts: {name: r.handlerName}
+				};
+			}
+			else if( r.type === RouteType.static ) {
+				stored = {
+					id: makeRouteIdentifier(r.method, r.path),
+					method: normalizeMethod(r.method),
+					path: r.path,
+					auth: r.auth,
+					type: r.type,
+					opts: r.opts
+				};
+			}
+			else {
+				//@ts-ignore r.type does not exist here according to TS, but TS doesn't know everything
+				throw new Error("Route type not recognized: "+r.type);
+			}
+			
 			this.routes.set(stored.id, stored);
 		});
 		this.routes_loaded = true;
@@ -72,17 +100,13 @@ export default class AppRoutes {
 		this.loadRoutes();
 		const ret :RouteExport[] = [];
 		this.routes.forEach( r => {
-			let opts:staticOpts|Record<never, never> = {};
-			if( r.type === RouteType.static && r.opts) opts = r.opts;
-			else if( r.type === RouteType.function && r.handler !== undefined ) opts = {name: r.handler.name};
-			else throw new Error("no handler or static opts found in route.");
 			ret.push({
 				id: r.id,
 				method: r.method,
 				path: r.path,
 				auth: r.auth,
 				type: r.type,
-				options: opts
+				options: r.opts
 			});
 		});
 		return ret;

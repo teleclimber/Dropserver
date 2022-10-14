@@ -1,6 +1,6 @@
 import * as path from "https://deno.land/std@0.158.0/path/mod.ts";
 
-import type {Context} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import {Context, RouteType} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
 
 import DsServices from './services.ts';
 import type AppRoutes from '../approutes.ts';
@@ -68,6 +68,10 @@ export default class DsRouteServer {
 		const route = this.appRoutes.getRouteWithMatch(matched_route);
 		if( route === undefined) {
 			this.replyError(reqEvent, "route id not found");
+			return;
+		}
+		if( route.type !== RouteType.function ) {
+			this.replyError(reqEvent, "matched route is not of type function");
 			return;
 		}
 		if( !route.handler ) {
