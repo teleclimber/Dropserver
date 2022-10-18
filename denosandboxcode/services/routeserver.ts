@@ -5,8 +5,13 @@ import {Context, RouteType} from 'https://deno.land/x/dropserver_lib_support@v0.
 import DsServices from './services.ts';
 import type AppRoutes from '../approutes.ts';
 
+// Some of this is heavily inspired by Deno std lib's server.ts:
+// https://github.com/denoland/deno_std/blob/main/http/server.ts
+
 export default class DsRouteServer {
 	private listener :Deno.Listener|undefined;
+
+	private httpConnections: Set<Deno.HttpConn> = new Set();
 
 	private stop_resolve :undefined | ((value?: unknown) => void);
 
@@ -27,27 +32,39 @@ export default class DsRouteServer {
 		for await (const conn of this.listener) {
 			this.serveHttp(conn);
 		}
-		console.log("Server has shut down");
 		if( this.stop_resolve != undefined ) {
 			this.stop_resolve();
 		}
 	}
 	stopServer() {
 		return new Promise((resolve, reject) => {
-			console.log("Shutting down server");
 			if( this.stop_resolve != undefined ) {
 				reject("stop already called");
 				return;
 			}
-			this.stop_resolve = resolve;
 			this.listener?.close();
+			for (const httpConn of this.httpConnections) {
+				this.closeHttpConn(httpConn);
+			}
+			this.httpConnections.clear();
+			this.stop_resolve = resolve;
 		});
 	}
 
 	async serveHttp(conn: Deno.Conn) {
 		const httpConn = Deno.serveHttp(conn);
+		this.httpConnections.add(httpConn);
 		for await (const requestEvent of httpConn ) {
 			this.handleRequest(requestEvent);
+		}
+		this.closeHttpConn(httpConn);
+	}
+	closeHttpConn(httpConn:Deno.HttpConn) {
+		this.httpConnections.delete(httpConn);
+		try {
+			httpConn.close();
+		} catch{
+			// already closed
 		}
 	}
 
