@@ -288,6 +288,11 @@ func main() {
 		Config:         runtimeConfig,
 	}
 
+	domainController := &domaincontroller.DomainController{
+		Config:        runtimeConfig,
+		AppspaceModel: appspaceModel,
+	}
+
 	pauseAppspace := &appspaceops.PauseAppspace{
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: nil, // see below
@@ -325,6 +330,16 @@ func main() {
 		AppspaceLogger:    appspaceLogger,
 		AppspaceStatus:    nil, // added below
 		MigrationJobModel: migrationJobModel}
+
+	createAppspace := &appspaceops.CreateAppspace{
+		AppModel:               appModel,
+		AppspaceModel:          appspaceModel,
+		AppspaceFilesModel:     appspaceFilesModel,
+		AppspaceMetaDB:         appspaceMetaDb,
+		AppspaceUsersModelV0:   appspaceUsersModelV0,
+		DomainController:       domainController,
+		MigrationJobModel:      migrationJobModel,
+		MigrationJobController: migrationJobCtl}
 
 	deleteAppspace := &appspaceops.DeleteAppspace{
 		AppspaceStatus:     nil,
@@ -401,10 +416,6 @@ func main() {
 	record.Debug("Main after sandbox manager start")
 
 	// controllers:
-	domainController := &domaincontroller.DomainController{
-		Config:        runtimeConfig,
-		AppspaceModel: appspaceModel,
-	}
 
 	deleteApp := &appops.DeleteApp{
 		AppFilesModel: appFilesModel,
@@ -491,24 +502,20 @@ func main() {
 		RestoreAppspace: restoreAppspace,
 	}
 	userAppspaceRoutes := &userroutes.AppspaceRoutes{
-		Config:                 *runtimeConfig,
-		AppspaceUserRoutes:     userAppspaceUserRoutes,
-		AppspaceFilesModel:     appspaceFilesModel,
-		AppspaceModel:          appspaceModel,
-		AppspaceUsersModelV0:   appspaceUsersModelV0,
-		AppspaceExportRoutes:   exportAppspaceRoutes,
-		AppspaceRestoreRoutes:  restoreAppspaceRoutes,
-		DropIDModel:            dropIDModel,
-		MigrationMinder:        migrationMinder,
-		AppspaceMetaDB:         appspaceMetaDb,
-		DomainController:       domainController,
-		MigrationJobModel:      migrationJobModel,
-		MigrationJobController: migrationJobCtl,
-		PauseAppspace:          pauseAppspace,
-		DeleteAppspace:         deleteAppspace,
-		AppspaceLogger:         appspaceLogger,
-		SandboxRunsModel:       sandboxRunsModel,
-		AppModel:               appModel}
+		Config:                *runtimeConfig,
+		AppspaceUserRoutes:    userAppspaceUserRoutes,
+		AppspaceModel:         appspaceModel,
+		AppspaceExportRoutes:  exportAppspaceRoutes,
+		AppspaceRestoreRoutes: restoreAppspaceRoutes,
+		DropIDModel:           dropIDModel,
+		MigrationMinder:       migrationMinder,
+		AppspaceMetaDB:        appspaceMetaDb,
+		CreateAppspace:        createAppspace,
+		PauseAppspace:         pauseAppspace,
+		DeleteAppspace:        deleteAppspace,
+		AppspaceLogger:        appspaceLogger,
+		SandboxRunsModel:      sandboxRunsModel,
+		AppModel:              appModel}
 
 	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{
 		RemoteAppspaceModel: remoteAppspaceModel,

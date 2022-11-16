@@ -12,7 +12,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
-//AppspaceMeta is
+// AppspaceMeta is
 type AppspaceMeta struct {
 	AppspaceID int            `json:"appspace_id"`
 	AppID      int            `json:"app_id"`
@@ -36,15 +36,13 @@ type AppspaceRoutes struct {
 		GetFromID(domain.AppID) (*domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
 	} `checkinject:"required"`
-	AppspaceFilesModel interface {
-		CreateLocation() (string, error)
-	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
-		Create(domain.Appspace) (*domain.Appspace, error)
-		GetFromDomain(string) (*domain.Appspace, error)
+	} `checkinject:"required"`
+	CreateAppspace interface {
+		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, error)
 	} `checkinject:"required"`
 	PauseAppspace interface {
 		Pause(appspaceID domain.AppspaceID, pause bool) error
@@ -58,12 +56,6 @@ type AppspaceRoutes struct {
 	SandboxRunsModel interface {
 		AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error)
 	} `checkinject:"required"`
-	AppspaceUsersModelV0 interface {
-		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-	} `checkinject:"required"`
-	DomainController interface {
-		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
-	} `checkinject:"required"`
 	DropIDModel interface {
 		Get(handle string, dom string) (domain.DropID, error)
 	} `checkinject:"required"`
@@ -72,12 +64,6 @@ type AppspaceRoutes struct {
 	} `checkinject:"required"`
 	AppspaceMetaDB interface {
 		Create(domain.AppspaceID, int) error
-	} `checkinject:"required"`
-	MigrationJobModel interface {
-		Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
-	} `checkinject:"required"`
-	MigrationJobController interface {
-		WakeUp()
 	} `checkinject:"required"`
 }
 
@@ -229,13 +215,12 @@ type PostAppspaceReq struct {
 	DropID     string         `json:"dropid"`
 }
 
-//PostAppspaceResp is the return data after creating a new appspace
+// PostAppspaceResp is the return data after creating a new appspace
 type PostAppspaceResp struct {
 	AppspaceID domain.AppspaceID `json:"appspace_id"`
 }
 
 func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request) {
-	// This whole process should be in an appspace ops function, not in the route handler.
 	userID, _ := domain.CtxAuthUserID(r.Context())
 
 	reqData := &PostAppspaceReq{}
@@ -269,22 +254,6 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Here it would be nice if CheckAppspaceDomain also reserved that name temporarily
-	check, err := a.DomainController.CheckAppspaceDomain(userID, reqData.DomainName, reqData.Subdomain)
-	if err != nil {
-		returnError(w, err)
-		return
-	}
-	if !check.Valid || !check.Available {
-		http.Error(w, "domain or subdomain no longer valid or available", http.StatusGone)
-		return
-	}
-
-	fullDomain := reqData.DomainName
-	if reqData.Subdomain != "" {
-		fullDomain = reqData.Subdomain + "." + reqData.DomainName
-	}
-
 	// also need to validate dropid
 	err = validator.DropIDFull(reqData.DropID)
 	if err != nil {
@@ -307,51 +276,15 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	locationKey, err := a.AppspaceFilesModel.CreateLocation()
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
+	// Here we should check validity of requested domain?
 
-	inAppspace := domain.Appspace{
-		OwnerID:     userID,
-		AppID:       app.AppID,
-		AppVersion:  version.Version,
-		DomainName:  fullDomain,
-		DropID:      reqData.DropID,
-		LocationKey: locationKey,
-	}
-
-	appspace, err := a.AppspaceModel.Create(inAppspace)
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	err = a.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
-	if err != nil {
-		http.Error(w, "Failed to create appspace meta db", http.StatusInternalServerError)
-	}
-
-	// Create owner user
-	_, err = a.AppspaceUsersModelV0.Create(appspace.AppspaceID, "dropid", dropIDStr)
+	appspaceID, err := a.CreateAppspace.Create(dropID, *version, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
 		returnError(w, err)
-		return
 	}
-	// TODO use whatver process that sets values of display name and avatar to set those for owner user
-
-	// migrate to whatever version was selected
-	_, err = a.MigrationJobModel.Create(userID, appspace.AppspaceID, version.Version, true)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	a.MigrationJobController.WakeUp()
 
 	resp := PostAppspaceResp{
-		AppspaceID: appspace.AppspaceID}
+		AppspaceID: appspaceID}
 
 	writeJSON(w, resp)
 }
