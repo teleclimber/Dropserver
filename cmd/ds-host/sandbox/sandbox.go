@@ -509,8 +509,7 @@ func (s *Sandbox) Graceful() {
 		if err != nil {
 			// ???
 			s.getLogger("Graceful() twine.SendBlock()").Error(err)
-		}
-		if !reply.OK() {
+		} else if !reply.OK() {
 			s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
 		}
 

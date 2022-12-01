@@ -224,7 +224,7 @@ func (a *RemoteAppspaceRoutes) makeRemoteAppspaceMeta(appspace domain.RemoteApps
 		DomainName:  appspace.DomainName,
 		OwnerDropID: appspace.OwnerDropID,
 		UserDropID:  appspace.UserDropID,
-		NoTLS:       a.Config.NoTLS, //how is this used? Would like to zap if possible.
+		NoTLS:       a.Config.Server.NoTLS, //how is this used? Would like to zap if possible.
 		PortString:  a.Config.PortString,
 		Created:     appspace.Created}
 }

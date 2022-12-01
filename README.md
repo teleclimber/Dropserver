@@ -93,10 +93,9 @@ If you are running `ds-host` behind a reverse proxy with SSL termination (recomm
 {
 	"data-dir": "/home/dev/ds-data",
 	"server": {
-		"port": 5050,
-		"host": "example.com",
-		"ssl-cert": "",
-		"ssl-key": ""
+		"http-port": 5050,
+		"no-tls": true,
+		"host": "example.com"
 	},
 	"port-string":"",
 	"subdomains":{
@@ -118,7 +117,7 @@ If you are experimenting on a local network, you might try a configuration like 
 {
 	"data-dir": "/home/dev/ds-data",
 	"server": {
-		"port": 5050,
+		"tls-port": 5050,
 		"host": "example.com",
 		"ssl-cert": "/home/dev/ssl/example_com.crt",
 		"ssl-key": "/home/dev/ssl/example_com.key"
@@ -148,12 +147,10 @@ You can also skip the whole SSL thing for local experimentation like this:
 {
 	"data-dir": "/home/dev/ds-data",
 	"server": {
-		"port": 5050,
+		"http-port": 5050,
+		"no-tls": true,
 		"host": "mydomain.com",
-		"ssl-cert": "",
-		"ssl-key": ""
 	},
-	"no-tls": true,
 	"port-string":":5050",
 	"subdomains":{
 		"user-accounts": "dropid",

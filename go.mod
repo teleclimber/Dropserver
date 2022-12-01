@@ -6,6 +6,7 @@ require (
 	github.com/Storytel/gomock-matchers v1.3.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8
+	github.com/caddyserver/certmagic v0.17.2
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7
@@ -27,3 +28,5 @@ require (
 )
 
 // replace github.com/teleclimber/twine-go => ../twine-go
+
+// replace github.com/mholt/acmez => ../acmez

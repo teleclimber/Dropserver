@@ -222,6 +222,14 @@ func TestGetters(t *testing.T) {
 	if len(appSpaces) != 1 {
 		t.Error("expected 1 appspaces")
 	}
+
+	domains, err := model.GetAllDomains()
+	if err != nil {
+		t.Error(err)
+	}
+	if len(domains) != 4 {
+		t.Error("expected 4 domains")
+	}
 }
 
 func TestCreateDupeSubdomain(t *testing.T) {
@@ -384,3 +392,5 @@ func TestDelete(t *testing.T) {
 		t.Error("expected no rows in result set error")
 	}
 }
+
+// TODO test getalldomains

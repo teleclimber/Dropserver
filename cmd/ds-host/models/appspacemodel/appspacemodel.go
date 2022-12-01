@@ -25,6 +25,7 @@ type AppspaceModel struct {
 		pause            *sqlx.Stmt
 		setVersion       *sqlx.Stmt
 		delete           *sqlx.Stmt
+		selectAllDomains *sqlx.Stmt
 	}
 }
 
@@ -58,6 +59,8 @@ func (m *AppspaceModel) PrepareStatements() {
 	m.stmt.setVersion = p.Prep(`UPDATE appspaces SET app_version = ? WHERE appspace_id = ?`)
 
 	m.stmt.delete = p.Prep(`DELETE FROM appspaces WHERE appspace_id = ?`)
+
+	m.stmt.selectAllDomains = p.Prep(`SELECT domain_name FROM appspaces`)
 }
 
 // GetFromID gets an AppSpace by its ID
@@ -216,6 +219,25 @@ func (m *AppspaceModel) Delete(appspaceID domain.AppspaceID) error {
 	}
 
 	return nil
+}
+
+func (m *AppspaceModel) GetAllDomains() ([]string, error) {
+	rows := []struct {
+		DomainName string `db:"domain_name"`
+	}{}
+
+	err := m.stmt.selectAllDomains.Select(&rows)
+	if err != nil {
+		m.getLogger("GetAllDomains()").Error(err)
+		return nil, err
+	}
+
+	ret := make([]string, len(rows))
+	for i, r := range rows {
+		ret[i] = r.DomainName
+	}
+
+	return ret, nil
 }
 
 func (m *AppspaceModel) getLogger(note string) *record.DsLogger {

@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -14,40 +14,78 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config *domain.RuntimeConfig `checkinject:"required"`
-
+	Config             *domain.RuntimeConfig `checkinject:"required"`
+	CertificateManager interface {
+		GetTLSConfig() *tls.Config
+		GetHTTPChallengeHandler(handler http.Handler) http.Handler
+	} `checkinject:"required"`
 	// admin routes, user routes, auth routes....
 	UserRoutes     http.Handler `checkinject:"required"`
 	AppspaceRouter http.Handler `checkinject:"required"`
 
-	server *http.Server
-}
-
-func (s *Server) Init() {
-
+	server              *http.Server
+	httpChallengeServer *http.Server
 }
 
 // Start up the server so it listens for connections
 func (s *Server) Start() { //return a server type
 	cfg := s.Config.Server
 
-	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
+	HTTPAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
+	HTTPSAddr := fmt.Sprintf(":%d", cfg.TLSPort)
 
 	s.getLogger("Start()").Debug("User Routes address: " + s.Config.Exec.UserRoutesDomain + s.Config.PortString)
 
 	s.server = &http.Server{
-		Addr:    addr,
-		Handler: s} // for now we're passing s directly, but in future probably need to wrap s in some middlewares and pass that in
+		Handler: s}
 
-	var err error
-	if s.Config.Server.SslCert == "" {
-		err = s.server.ListenAndServe()
+	if s.Config.Server.NoTLS {
+		// start plain http server and you're done.
+		s.server.Addr = HTTPAddr
+		go func() {
+			err := s.server.ListenAndServe()
+			if err != nil {
+				s.getLogger("ListenAndServe()").Error(err)
+			}
+		}()
 	} else {
-		err = s.server.ListenAndServeTLS(s.Config.Server.SslCert, s.Config.Server.SslKey)
-	}
-	if err != nil {
-		s.getLogger("Start(), http.ListenAndServe[TLS]").Error(err)
-		os.Exit(1)
+		// main server will be TLS
+		s.server.Addr = HTTPSAddr
+		cert := ""
+		key := ""
+		if s.Config.ManageTLSCertificates.Enable {
+			s.server.TLSConfig = s.CertificateManager.GetTLSConfig()
+		} else if s.Config.Server.SslCert != "" && s.Config.Server.SslKey != "" {
+			cert = s.Config.Server.SslCert
+			key = s.Config.Server.SslKey
+		} else {
+			// should never happen because config should be checked such that it does not happen
+			panic("no valid configuration to start the server")
+		}
+		go func() {
+			err := s.server.ListenAndServeTLS(cert, key)
+			if err != nil {
+				s.getLogger("ListenAndServeTLS()").Error(err)
+			}
+		}()
+
+		if s.Config.ManageTLSCertificates.Enable { // For now only start a plain http server to answer http challnges
+			var handler http.Handler
+			handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// this should optionally be a redirect to https
+				w.Write([]byte("Hello UN-encrypted world!"))
+			})
+			handler = s.CertificateManager.GetHTTPChallengeHandler(handler)
+			s.httpChallengeServer = &http.Server{
+				Addr:    HTTPAddr,
+				Handler: handler}
+			go func() {
+				err := s.httpChallengeServer.ListenAndServe()
+				if err != nil {
+					s.getLogger("Plain HTTP ListenAndServe()").Error(err)
+				}
+			}()
+		}
 	}
 }
 
@@ -56,12 +94,26 @@ func (s *Server) Shutdown() {
 		return
 	}
 
+	l := s.getLogger("Shutdown()")
+	l.Log("stopping main server")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := s.server.Shutdown(ctx)
 	if err != nil {
-		panic(err) // for now.// log it
+		s.getLogger("Cert Managed plain HTTP ListenAndServe()").Error(err)
 	}
+
+	if s.httpChallengeServer != nil {
+		l.Log("stopping http challenge server")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := s.httpChallengeServer.Shutdown(ctx)
+		if err != nil {
+			panic(err) // for now.// log it
+		}
+	}
+
+	l.Log("servers stopped")
 }
 
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {

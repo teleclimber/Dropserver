@@ -2,8 +2,6 @@ package runtimeconfig
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -12,11 +10,14 @@ import (
 func TestLoadDefault(t *testing.T) {
 	rtc := loadDefault()
 
-	if rtc.Server.Port != 5050 {
+	if rtc.Server.TLSPort != 5050 {
 		t.Error("port didn't register correctly. Expected 5050")
 	}
 	if rtc.Log != "" {
-		t.Error("Expected empth log")
+		t.Error("Expected empty log")
+	}
+	if rtc.ManageTLSCertificates.Enable {
+		t.Error("expected cert management to be off")
 	}
 	if rtc.Prometheus.Enable {
 		t.Error("Expected prometheus to not be enabled")
@@ -28,28 +29,22 @@ func TestMergeLocal(t *testing.T) {
 
 	var localJSON = bytes.NewReader([]byte(`{
 		"server": {
-			"port": 3999
+			"tls-port": 3999
 		}
 	}`))
 
 	mergeLocal(rtc, localJSON)
 
-	if rtc.Server.Port != 3999 {
+	if rtc.Server.TLSPort != 3999 {
 		t.Error("port wasn't overriden by local config. Expected 3999")
 	}
 }
 
 func TestValidateHost(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(dir)
-
-	rtc := getPassingDefault(dir)
+	rtc := getPassingDefault()
 	tv(t, rtc, "default", false)
 
-	rtc = getPassingDefault(dir)
+	rtc = getPassingDefault()
 	cases := []struct {
 		host        string
 		shouldPanic bool
@@ -68,32 +63,70 @@ func TestValidateHost(t *testing.T) {
 		rtc.Server.Host = c.host
 		tv(t, rtc, "server host: "+c.host, c.shouldPanic)
 	}
-
-	// mostly testing fo rproblems with host validation
-	// because it impacts a lot of things.
 }
 
-// this test no longer makes much sense since we've decoubled
-// outside "NoSsl" with ds-host server using SSL or not.
-func TestValidateSsl(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.RemoveAll(dir)
+func TestValidateServerTLS(t *testing.T) {
+	rtc := getPassingDefault()
+	tv(t, rtc, "no-tls:true and no certs", false)
 
-	rtc := getPassingDefault(dir)
-	tv(t, rtc, "default", false)
+	rtc.Server.NoTLS = false
+	tv(t, rtc, "no-tls: false and no certs", true)
 
 	rtc.Server.SslCert = "some.crt"
 	rtc.Server.SslKey = "the.key"
-	tv(t, rtc, "ssl with cert and key", false)
+	tv(t, rtc, "no-tls: false with certs", false)
+
+	rtc.Server.NoTLS = true
+	tv(t, rtc, "no-tls: true with certs", true)
+
+	rtc.ManageTLSCertificates.Enable = true
+	rtc.ManageTLSCertificates.Email = "a@b.c"
+	tv(t, rtc, "no-tls: true with certs and managed", true)
+
+	rtc.Server.SslCert = ""
+	rtc.Server.SslKey = ""
+	tv(t, rtc, "no-tls: true no certs and managed", true)
+
+	rtc.Server.NoTLS = false
+	tv(t, rtc, "no-tls: false no certs and managed", false)
+
+	if rtc.Server.HTTPPort != 80 {
+		t.Error("Expected HTTPPort to default to 80")
+	}
 }
-func getPassingDefault(dir string) *domain.RuntimeConfig {
+
+func TestValidateCertManageEnable(t *testing.T) {
+	rtc := getPassingDefault()
+	rtc.Server.NoTLS = false
+	rtc.ManageTLSCertificates.Enable = true
+	tv(t, rtc, "no-tls:false and enabled, no email", true)
+
+	rtc.ManageTLSCertificates.Email = "a@b.c"
+	tv(t, rtc, "no-tls:false and enabled", false)
+
+}
+
+func TestSetExec(t *testing.T) {
+	rtc := getPassingDefault()
+	rtc.Server.Host = "somedomain.com"
+	rtc.Subdomains.UserAccounts = "user-accounts"
+	setExec(rtc)
+	assertEqStr(t, "/a/b/c/sandbox-code", rtc.Exec.SandboxCodePath)
+	assertEqStr(t, "/a/b/c/apps", rtc.Exec.AppsPath)
+	assertEqStr(t, "/a/b/c/appspaces", rtc.Exec.AppspacesPath)
+	assertEqStr(t, "/a/b/c/certificates", rtc.Exec.CertificatesPath)
+	assertEqStr(t, "user-accounts.somedomain.com", rtc.Exec.UserRoutesDomain)
+
+	rtc.Subdomains.UserAccounts = ""
+	setExec(rtc)
+	assertEqStr(t, "somedomain.com", rtc.Exec.UserRoutesDomain)
+}
+
+func getPassingDefault() *domain.RuntimeConfig {
 	rtc := loadDefault()
-	rtc.DataDir = dir
-	rtc.Sandbox.SocketsDir = "blah"
-	rtc.NoTLS = true
+	rtc.DataDir = "/a/b/c"
+	rtc.Sandbox.SocketsDir = "/d/e/f"
+	rtc.Server.NoTLS = true
 	return rtc
 }
 func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic bool) {
@@ -106,5 +139,10 @@ func tv(t *testing.T, rtc *domain.RuntimeConfig, hintStr string, shouldPanic boo
 		}
 	}()
 	validateConfig(rtc)
+}
 
+func assertEqStr(t *testing.T, expected, actual string) {
+	if expected != actual {
+		t.Errorf("expected: %s actual: %s", expected, actual)
+	}
 }

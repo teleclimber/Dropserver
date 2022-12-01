@@ -195,7 +195,7 @@ func (a *Authenticator) setCookie(w http.ResponseWriter, cookieID string, expire
 		MaxAge:   int(time.Until(expires).Seconds()),
 		Domain:   domain,
 		SameSite: http.SameSiteStrictMode,
-		Secure:   !a.Config.NoTLS,
+		Secure:   !a.Config.Server.NoTLS, // When we allow both TLS and plain HTTP to connect to appspace, we'll need to look at which one it is to set this corrrecly.
 		Path:     "/",
 		HttpOnly: true,
 	})

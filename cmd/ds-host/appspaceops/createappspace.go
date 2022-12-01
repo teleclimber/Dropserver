@@ -28,6 +28,7 @@ type CreateAppspace struct {
 	} `checkinject:"required"`
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
+		StartManaging(dom string) error
 	} `checkinject:"required"`
 	MigrationJobModel interface {
 		Create(domain.UserID, domain.AppspaceID, domain.Version, bool) (*domain.MigrationJob, error)
@@ -104,7 +105,10 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 
 	c.MigrationJobController.WakeUp()
 
-	// obtain a TLS cert if needed
+	err = c.DomainController.StartManaging(fullDomain)
+	if err != nil {
+		return domain.AppspaceID(0), err
+	}
 
 	return appspace.AppspaceID, nil
 }

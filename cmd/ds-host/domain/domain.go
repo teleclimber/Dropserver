@@ -23,6 +23,22 @@ import (
 // So there would be a domain.User struct, but no u.ChangeEmail()
 // ..the change email function is a coll to the UserModel, which creates and oerates on domain.User
 
+// Reverse Proxy:
+// - port: port to connect to for getting lists of domains and reloading certs
+// (later can add specifically HAP API etc...)
+
+// Domains:
+// There is the host of the admin / user site (dropid.dropserver.develop)
+// Then there is the domain where appspaces are created, which may or may not be the same.
+// main-domain (for user and admin stuff):
+// - hostname
+// - generate cert? (unless no-tls) (certificate-management must be on)
+// -> ds-host at startup needs to read about all domains on system and check that none is the child of another if auth is involved.
+//    .. and then it needs to notify proxy of all domains and then start generating any certificates
+
+// Another possible config:
+// - public-IP: where to point appspace [sub-]domain to (only used to let user know)
+
 // RuntimeConfig represents the variables that can be set at runtime
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
@@ -30,23 +46,33 @@ import (
 type RuntimeConfig struct {
 	DataDir string `json:"data-dir"`
 	Server  struct {
-		Port    int16  `json:"port"`
-		Host    string `json:"host"`
-		SslCert string `json:"ssl-cert"`
+		Host     string `json:"host"`
+		TLSPort  int16  `json:"tls-port"`  // defaults to 443.
+		HTTPPort int16  `json:"http-port"` // defaults to 80.
+		NoTLS    bool   `json:"no-tls"`    // do not start HTTPS server
+		// SSL cert and key for the HTTPS server (if any).
+		// Leave empty if using ManageTLSCertificates
+		SslCert string `json:"ssl-cert"` // With certmagic we can possibly ignore or make optional?
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
-	// NoTLS indicates that this instance should be accessed from the outside without TLS
-	NoTLS bool `json:"no-tls"`
 	// PortString sets the port that will be appended to domains pointing to your instance.
 	// If your instance is exposed to the outside world on a non-standard port,
 	// use this setting to ensure generated links are correct.
 	// Example: ":5050"
 	PortString string `json:"port-string"`
+	// TrustCert is used in ds2ds
 	TrustCert  string `json:"trust-cert"`
 	Subdomains struct {
 		UserAccounts string `json:"user-accounts"`
 		StaticAssets string `json:"static-assets"` // this can't just be a subdomain, has to be full domain, (but you could use a cname in DNS, right)
 	} `json:"subdomains"`
+	ManageTLSCertificates struct {
+		Enable              bool   `json:"enable"`
+		Email               string `json:"acme-account-email"`
+		IssuerEndpoint      string `json:"issuer-endpoint"`       // default use lets encrypt?
+		RootCACertificate   string `json:"root-ca-certificate"`   // only needed if ds-host does TLS termination, right? Also apparently only used with issuer endpoint
+		DisableOCSPStapling bool   `json:"disable-ocsp-stapling"` // default false
+	} `json:"manage-certificates"`
 	Sandbox struct {
 		SocketsDir  string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
 		Num         int    `json:"num"`
@@ -67,6 +93,7 @@ type RuntimeConfig struct {
 		SandboxCodePath  string
 		AppsPath         string
 		AppspacesPath    string
+		CertificatesPath string
 	}
 }
 
@@ -206,7 +233,7 @@ type SandboxI interface {
 // You're either a ds-host user (user id),
 // or an appspace user proxy id
 // or you have an api key
-//...which is all fine, but it means cookies have to be tweaked as well
+// ...which is all fine, but it means cookies have to be tweaked as well
 type Authentication struct {
 	Authenticated bool
 	UserID        UserID
@@ -225,7 +252,7 @@ type TimedToken struct {
 	Created time.Time
 }
 
-//V0AppspaceLoginToken carries user auth data corresponding to a login token
+// V0AppspaceLoginToken carries user auth data corresponding to a login token
 type V0AppspaceLoginToken struct {
 	AppspaceID AppspaceID
 	DropID     string
@@ -625,7 +652,7 @@ type TwineServiceI interface {
 
 // Events...
 
-//AppspacePausedEvent is the payload for appspace paused event
+// AppspacePausedEvent is the payload for appspace paused event
 type AppspacePausedEvent struct {
 	AppspaceID AppspaceID
 	Paused     bool
@@ -637,7 +664,7 @@ type AppspacePausedEvent struct {
 // 	Path       string     `json:"path"`
 // }
 
-//AppspaceStatusEvent indicates readiness of appspace and the reason
+// AppspaceStatusEvent indicates readiness of appspace and the reason
 type AppspaceStatusEvent struct {
 	AppspaceID       AppspaceID `json:"appspace_id"`
 	Paused           bool       `json:"paused"`

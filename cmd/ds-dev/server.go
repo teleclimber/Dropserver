@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -54,7 +53,7 @@ func (s *Server) Start() { //return a server type
 	r.Handle("/*", s.AppspaceRouter)
 
 	cfg := s.Config.Server
-	addr := ":" + strconv.FormatInt(int64(cfg.Port), 10)
+	addr := fmt.Sprintf(":%d", cfg.HTTPPort)
 	fmt.Println("Server started. Visit http://localhost" + addr + "/dropserver-dev/")
 	err := http.ListenAndServe(addr, r)
 	if err != nil {

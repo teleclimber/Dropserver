@@ -17,6 +17,9 @@ type DeleteAppspace struct {
 	AppspaceFilesModel interface {
 		DeleteLocation(string) error
 	} `checkinject:"required"`
+	DomainController interface {
+		StopManaging(string)
+	} `checkinject:"required"`
 	MigrationJobModel interface {
 		DeleteForAppspace(domain.AppspaceID) error
 	} `checkinject:"required"`
@@ -58,6 +61,8 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 	if err != nil {
 		return err
 	}
+
+	d.DomainController.StopManaging(appspace.DomainName)
 
 	return nil
 }

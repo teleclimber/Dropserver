@@ -174,7 +174,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 	}
 
 	protocol := "https"
-	if m.Config.NoTLS {
+	if m.Config.Server.NoTLS {
 		protocol = "http"
 	}
 
@@ -209,7 +209,7 @@ func (m *V0TokenManager) getLogger(note string) *record.DsLogger {
 	return l
 }
 
-////////////
+// //////////
 // random string stuff
 // TODO CRYPTO: this should be using crypto package
 const chars61 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

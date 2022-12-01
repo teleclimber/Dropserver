@@ -20,6 +20,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacerouter"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
+	"github.com/teleclimber/DropServer/cmd/ds-host/certificatemanager.go"
 	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
@@ -345,6 +346,7 @@ func main() {
 		AppspaceStatus:     nil,
 		AppspaceModel:      appspaceModel,
 		AppspaceFilesModel: appspaceFilesModel,
+		DomainController:   domainController,
 		MigrationJobModel:  migrationJobModel,
 		SandboxManager:     sandboxManager,
 	}
@@ -382,38 +384,7 @@ func main() {
 		RemoteAppspaceModel: remoteAppspaceModel,
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-		record.Log(fmt.Sprintf("Caught signal %v, quitting.", sig))
-
-		sandboxManager.StopAll()
-		record.Debug("All sandbox stopped")
-
-		v0tokenManager.Stop()
-
-		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
-
-		restoreAppspace.DeleteAll()
-
-		appGetter.Stop()
-
-		// TODO server stop
-
-		record.StopPromMetrics()
-
-		err = record.CloseLogOutput()
-		if err != nil {
-			panic(err)
-		}
-
-		os.Exit(0)
-	}()
-
 	sandboxManager.Init()
-
-	record.Debug("Main after sandbox manager start")
 
 	// controllers:
 
@@ -449,6 +420,15 @@ func main() {
 
 	appspaceAvatars := &appspaceops.Avatars{
 		Config: runtimeConfig,
+	}
+
+	var certificateManager *certificatemanager.CertficateManager
+	if runtimeConfig.ManageTLSCertificates.Enable {
+		certificateManager = &certificatemanager.CertficateManager{
+			Config: runtimeConfig,
+		}
+		certificateManager.Init()
+		domainController.CertificateManager = certificateManager
 	}
 
 	// Create proxy
@@ -615,10 +595,41 @@ func main() {
 
 	// Create server.
 	server := &server.Server{
-		Config:         runtimeConfig,
-		UserRoutes:     userRoutes,
-		AppspaceRouter: appspaceRouter}
-	server.Init()
+		Config:             runtimeConfig,
+		CertificateManager: certificateManager,
+		UserRoutes:         userRoutes,
+		AppspaceRouter:     appspaceRouter}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	exit := make(chan struct{})
+	go func() {
+		sig := <-sigs
+		record.Log(fmt.Sprintf("Caught signal %v, quitting.", sig))
+
+		sandboxManager.StopAll()
+		record.Debug("All sandbox stopped")
+
+		v0tokenManager.Stop()
+
+		migrationJobCtl.Stop() // We should make all stop things async and have a waitgroup for them.
+
+		restoreAppspace.DeleteAll()
+
+		appGetter.Stop()
+
+		server.Shutdown()
+
+		record.StopPromMetrics()
+
+		err = record.CloseLogOutput()
+		if err != nil {
+			panic(err)
+		}
+
+		//os.Exit(0)
+		exit <- struct{}{}
+	}()
 
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
 		depGraph := checkinject.Collect(*server)
@@ -632,7 +643,9 @@ func main() {
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
 	server.Start()
-	// ^^ this blocks as it is. Obviously not what what we want.
 
-	record.Debug("Leaving main func")
+	go domainController.ResumeManagingCertificates()
+
+	<-exit
+
 }

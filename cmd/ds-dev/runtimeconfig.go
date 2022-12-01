@@ -12,8 +12,8 @@ func GetConfig(appPath string, tempDir string) *domain.RuntimeConfig {
 
 	rtc := &domain.RuntimeConfig{}
 	rtc.Server.Host = "localhost"
-	rtc.Server.Port = 3003
-	rtc.NoTLS = true
+	rtc.Server.HTTPPort = 3003
+	rtc.Server.NoTLS = true
 	rtc.PortString = ":3003"
 
 	if !filepath.IsAbs(appPath) {
