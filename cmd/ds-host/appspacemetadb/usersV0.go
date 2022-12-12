@@ -171,7 +171,7 @@ func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (doma
 }
 
 // GetAll returns an appspace's list of users.
-func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) { // TODO this should return a V0 user type
+func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return nil, err
@@ -257,7 +257,7 @@ func validatePermissionsV0(permissions []string) error {
 	return nil
 }
 
-////////////
+// //////////
 // random string
 const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
 
