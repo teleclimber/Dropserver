@@ -73,7 +73,7 @@ func (u *UsersV0) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
 	for i, u := range users {
 		sUsers[i] = getUserForSandbox(u)
 	}
-	bytes, err := json.Marshal(users)
+	bytes, err := json.Marshal(sUsers)
 	if err != nil {
 		u.getLogger("handleGetAllUsersCommand(), json Marshal error").Error(err)
 		message.SendError("Error on host")
