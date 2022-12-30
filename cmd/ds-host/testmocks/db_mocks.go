@@ -33,6 +33,20 @@ func (m *MockDBManager) EXPECT() *MockDBManagerMockRecorder {
 	return m.recorder
 }
 
+// DeleteSetupKey mocks base method
+func (m *MockDBManager) DeleteSetupKey() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteSetupKey")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSetupKey indicates an expected call of DeleteSetupKey
+func (mr *MockDBManagerMockRecorder) DeleteSetupKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSetupKey", reflect.TypeOf((*MockDBManager)(nil).DeleteSetupKey))
+}
+
 // GetHandle mocks base method
 func (m *MockDBManager) GetHandle() *domain.DB {
 	m.ctrl.T.Helper()
@@ -59,6 +73,21 @@ func (m *MockDBManager) GetSchema() string {
 func (mr *MockDBManagerMockRecorder) GetSchema() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchema", reflect.TypeOf((*MockDBManager)(nil).GetSchema))
+}
+
+// GetSetupKey mocks base method
+func (m *MockDBManager) GetSetupKey() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSetupKey")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSetupKey indicates an expected call of GetSetupKey
+func (mr *MockDBManagerMockRecorder) GetSetupKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSetupKey", reflect.TypeOf((*MockDBManager)(nil).GetSetupKey))
 }
 
 // Open mocks base method

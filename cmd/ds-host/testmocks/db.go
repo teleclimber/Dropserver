@@ -10,4 +10,6 @@ type DBManager interface {
 	GetHandle() *domain.DB
 	GetSchema() string
 	SetSchema(string) error
+	GetSetupKey() (string, error)
+	DeleteSetupKey() error
 }

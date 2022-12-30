@@ -21,7 +21,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacestatus"
 	"github.com/teleclimber/DropServer/cmd/ds-host/authenticator"
 	"github.com/teleclimber/DropServer/cmd/ds-host/certificatemanager.go"
-	"github.com/teleclimber/DropServer/cmd/ds-host/clihandlers"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
 	"github.com/teleclimber/DropServer/cmd/ds-host/ds2ds"
@@ -52,7 +51,6 @@ import (
 	"github.com/teleclimber/DropServer/denosandboxcode"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 	"github.com/teleclimber/DropServer/internal/embedutils"
-	"github.com/teleclimber/DropServer/internal/stdinput"
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
@@ -61,8 +59,6 @@ var cmd_version = "unspecified"
 var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
 var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
-
-var addAdminFlag = flag.Bool("add-admin", false, "add an admin")
 
 var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown format to this location")
 
@@ -145,8 +141,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	stdInput := &stdinput.StdInput{}
-
 	// events
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
@@ -164,33 +158,6 @@ func main() {
 	userModel := &usermodel.UserModel{
 		DB: db}
 	userModel.PrepareStatements()
-
-	cliHandlers := clihandlers.CliHandlers{
-		UserModel: userModel,
-		StdInput:  stdInput}
-
-	// Check we have admins before going further.
-	admins, dsErr := userModel.GetAllAdmins()
-	if dsErr != nil {
-		fmt.Println(dsErr)
-		os.Exit(1)
-	}
-	if len(admins) == 0 {
-		fmt.Println("There are currently no admin users, please create one.")
-	}
-
-	if *addAdminFlag || len(admins) == 0 {
-		err := cliHandlers.AddAdmin()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
-	if *addAdminFlag {
-		os.Exit(0)
-	}
 
 	cookieModel := &cookiemodel.CookieModel{
 		DB: db}
@@ -388,6 +355,12 @@ func main() {
 
 	// controllers:
 
+	setupKey := &runtimeconfig.SetupKey{
+		Config:    runtimeConfig,
+		DBManager: dbManager,
+		UserModel: userModel,
+	}
+
 	deleteApp := &appops.DeleteApp{
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
@@ -446,7 +419,8 @@ func main() {
 		SettingsModel:       settingsModel,
 		UserModel:           userModel,
 		UserInvitationModel: userInvitationModel,
-		Authenticator:       authenticator}
+		Authenticator:       authenticator,
+		SetupKey:            setupKey}
 
 	appspaceLoginRoutes := &userroutes.AppspaceLoginRoutes{
 		Config:              runtimeConfig,
@@ -645,6 +619,9 @@ func main() {
 	server.Start()
 
 	go domainController.ResumeManagingCertificates()
+
+	// Reveal the setup key in the log
+	setupKey.RevealKey()
 
 	<-exit
 

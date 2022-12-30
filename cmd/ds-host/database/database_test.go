@@ -62,3 +62,59 @@ func TestGetSchema(t *testing.T) {
 		t.Error("should have been foo")
 	}
 }
+
+func TestGetSetupKey(t *testing.T) {
+	handle := migrate.MakeSqliteDummyDB()
+	defer handle.Close()
+
+	dbm := &Manager{
+		handle: handle}
+
+	key, err := dbm.GetSetupKey()
+	if err != nil {
+		t.Error(err)
+	}
+	if key == "" {
+		t.Error("migration should have set the key to something")
+	}
+
+	results, err := handle.Exec(`UPDATE "params" SET value = ? WHERE name = ?`, "abcdef", "setup_key")
+	if err != nil {
+		t.Error(err)
+	}
+	rows, err := results.RowsAffected()
+	if err != nil {
+		t.Error(err)
+	}
+	if rows != 1 {
+		t.Error("bad test set up: failed to change row")
+	}
+
+	key, err = dbm.GetSetupKey()
+	if err != nil {
+		t.Error(err)
+	}
+	if key != "abcdef" {
+		t.Error("migration should have set the key to something")
+	}
+}
+
+func TestDeleteSetupKey(t *testing.T) {
+	handle := migrate.MakeSqliteDummyDB()
+	defer handle.Close()
+
+	dbm := &Manager{
+		handle: handle}
+
+	err := dbm.DeleteSetupKey()
+	if err != nil {
+		t.Error(err)
+	}
+	key, err := dbm.GetSetupKey()
+	if err != nil {
+		t.Error(err)
+	}
+	if key != "" {
+		t.Error("migration should have set the key to something")
+	}
+}

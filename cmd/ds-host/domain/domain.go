@@ -283,9 +283,10 @@ type LoginViewData struct {
 // SignupViewData is used to pass messages and parameters to the login page
 type SignupViewData struct {
 	RegistrationOpen bool
-	// username?
-	Message string
-	Email   string
+	HasSetupKey      bool
+	FormAction       string
+	Message          string
+	Email            string
 }
 
 ///////////////////////////////////

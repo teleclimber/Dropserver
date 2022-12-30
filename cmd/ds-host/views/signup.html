@@ -20,14 +20,18 @@
 
 			<h2>Create Account</h2>
 
-			{{if not .SignupViewData.RegistrationOpen}}
+			{{if .SignupViewData.HasSetupKey }}
+				<div class="reg-closed">
+					This will create an administrator account.
+				</div>
+			{{else if not .SignupViewData.RegistrationOpen}}
 				<div class="reg-closed">
 					Account creation is open to invited users only.
 					Your email must be recognized to proceed.
 				</div>
 			{{end}}
 
-			<form action="/signup" method="post" class="form-grid">
+			<form action="{{.SignupViewData.FormAction}}" method="post" class="form-grid">
 				<!-- label>Username:</label>
 				<input type="text" name="username" value="" -->
 				<label>Email:</label>

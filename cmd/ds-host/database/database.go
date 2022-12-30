@@ -1,6 +1,8 @@
 package database
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"path"
 
@@ -8,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // Manager manages the connection for the database
@@ -87,4 +90,56 @@ func (dbm *Manager) SetSchema(schema string) error {
 		return err
 	}
 	return nil
+}
+
+// GetSchema returns the schema as its written in the db metadata table.
+func (dbm *Manager) GetSetupKey() (string, error) {
+	if dbm.handle == nil {
+		err := errors.New("no db handle available")
+		dbm.getLogger("GetSetupKey()").Error(err)
+		return "", err
+	}
+	h := dbm.handle
+
+	var numTable int
+	err := h.Get(&numTable, `SELECT count(*) FROM sqlite_master WHERE type="table" AND name="params"`)
+	if err != nil {
+		dbm.getLogger("GetSetupKey() Select table").Error(err)
+		return "", err
+	}
+	if numTable == 0 {
+		err = errors.New("no params table available")
+		dbm.getLogger("GetSetupKey() Select table").Error(err)
+		return "", err
+	}
+
+	var setupKey string
+	err = h.Get(&setupKey, `SELECT value FROM params WHERE name="setup_key"`)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		dbm.getLogger("GetSetupKey() Select setup_key").Error(err)
+		return "", err
+	}
+
+	return setupKey, nil
+}
+
+func (dbm *Manager) DeleteSetupKey() error {
+	if dbm.handle == nil {
+		fmt.Println("GetSchema handle is nil")
+		return errors.New("no db handle available")
+	}
+	h := dbm.handle
+
+	_, err := h.Exec(`DELETE FROM params WHERE name="setup_key"`)
+	if err != nil {
+		dbm.getLogger("DeleteSetupKey()").Error(err)
+	}
+	return err
+}
+
+func (dbm *Manager) getLogger(note string) *record.DsLogger {
+	return record.NewDsLogger("DatabaseManager", note)
 }
