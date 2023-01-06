@@ -224,7 +224,7 @@ func (a *RemoteAppspaceRoutes) makeRemoteAppspaceMeta(appspace domain.RemoteApps
 		DomainName:  appspace.DomainName,
 		OwnerDropID: appspace.OwnerDropID,
 		UserDropID:  appspace.UserDropID,
-		NoTLS:       a.Config.Server.NoTLS, //how is this used? Would like to zap if possible.
-		PortString:  a.Config.PortString,
+		NoTLS:       a.Config.ExternalAccess.Scheme == "http", // used to create link in frontend, incorrect because this should prop of the remote
+		PortString:  a.Config.Exec.PortString,                 // this is wrong for same reason as above
 		Created:     appspace.Created}
 }

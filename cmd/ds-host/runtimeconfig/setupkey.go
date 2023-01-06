@@ -61,11 +61,7 @@ func (k *SetupKey) getSecretUrl() string {
 	if err != nil {
 		return ""
 	}
-	protocol := "https"
-	if k.Config.Server.NoTLS {
-		protocol = "http"
-	}
-	return fmt.Sprintf("%s://%s%s/%s", protocol, k.Config.Exec.UserRoutesDomain, k.Config.PortString, key)
+	return fmt.Sprintf("%s://%s%s/%s", k.Config.ExternalAccess.Scheme, k.Config.Exec.UserRoutesDomain, k.Config.Exec.PortString, key)
 }
 
 func (k *SetupKey) loadKey() error {

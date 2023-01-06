@@ -34,7 +34,8 @@ func (s *Server) Start() { //return a server type
 	HTTPAddr := fmt.Sprintf(":%d", cfg.HTTPPort)
 	HTTPSAddr := fmt.Sprintf(":%d", cfg.TLSPort)
 
-	s.getLogger("Start()").Debug("User Routes address: " + s.Config.Exec.UserRoutesDomain + s.Config.PortString)
+	u := fmt.Sprintf("%s://%s%s", s.Config.ExternalAccess.Scheme, s.Config.Exec.UserRoutesDomain, s.Config.Exec.PortString)
+	s.getLogger("Start()").Log("Log in at: " + u)
 
 	s.server = &http.Server{
 		Handler: s}

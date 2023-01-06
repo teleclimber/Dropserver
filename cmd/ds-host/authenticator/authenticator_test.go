@@ -313,7 +313,6 @@ func TestUnset(t *testing.T) {
 
 func getConfig() *domain.RuntimeConfig {
 	rtc := domain.RuntimeConfig{}
-	rtc.Server.Host = "dropserver.org"
 
 	return &rtc
 }

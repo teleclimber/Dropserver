@@ -11,10 +11,14 @@ import (
 func GetConfig(appPath string, tempDir string) *domain.RuntimeConfig {
 
 	rtc := &domain.RuntimeConfig{}
-	rtc.Server.Host = "localhost"
 	rtc.Server.HTTPPort = 3003
 	rtc.Server.NoTLS = true
-	rtc.PortString = ":3003"
+
+	rtc.ExternalAccess.Scheme = "http"
+	rtc.ExternalAccess.Domain = "localhost"
+	rtc.ExternalAccess.Port = 3003
+
+	rtc.Exec.PortString = ":3003"
 
 	if !filepath.IsAbs(appPath) {
 		wd, err := os.Getwd()

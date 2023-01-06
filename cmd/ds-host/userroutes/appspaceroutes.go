@@ -352,8 +352,8 @@ func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
 		DomainName: appspace.DomainName,
-		NoTLS:      a.Config.Server.NoTLS, //how is this used? zap?
-		PortString: a.Config.PortString,
+		NoTLS:      a.Config.ExternalAccess.Scheme == "http",
+		PortString: a.Config.Exec.PortString,
 		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}

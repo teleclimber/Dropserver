@@ -123,7 +123,7 @@ func TestMakeRequest(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	config := domain.RuntimeConfig{}
-	config.Server.NoTLS = true
+	config.ExternalAccess.Scheme = "http"
 
 	sess := "hjkl"
 	tok := "tokenabc"
@@ -178,7 +178,7 @@ func TestRequestToken(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	config := domain.RuntimeConfig{}
-	config.Server.NoTLS = true
+	config.ExternalAccess.Scheme = "http"
 
 	sess := "hjkl"
 	tok := "tokenabc"

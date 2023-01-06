@@ -2,6 +2,7 @@ package runtimeconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -12,17 +13,15 @@ import (
 )
 
 // default config values.
-// Fake paths are set for SSL, forcing user to either override to make non-ssl,
-// or set the correct paths.
 var configDefault = []byte(`{
 	"server": {
-		"tls-port": 5050,
-		"host": "localhost"
+		"tls-port": 5050
 	},
-	"port-string": ":5050",
-	"subdomains": {
-		"user-accounts": "dropid",
-		"static-assets": "static"
+	"external-access": {
+		"scheme": "https",
+		"domain": "localhost",
+		"subdomain": "dropid",
+		"port": 5050
 	},
 	"sandbox": {
 		"num": 3,
@@ -90,41 +89,55 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 		rtc.Server.TLSPort = 443
 	}
 
-	// do a little cleaning up on host:
-	rtc.Server.Host = strings.TrimSpace(rtc.Server.Host)
+	// do a little cleaning up on domain:
+	rtc.ExternalAccess.Domain = strings.TrimSpace(rtc.ExternalAccess.Domain)
 
-	host := rtc.Server.Host
-	if host == "" {
-		panic("host can not be empty")
+	dom := rtc.ExternalAccess.Domain
+	if dom == "" {
+		panic("domain can not be empty")
 	}
-	if strings.HasPrefix(host, ".") {
-		panic("host can not start with a .")
+	if strings.HasPrefix(dom, ".") {
+		panic("domain can not start with a .")
 	}
-	if strings.HasSuffix(host, ".") {
-		panic("host can not end with a .")
+	if strings.HasSuffix(dom, ".") {
+		panic("domain can not end with a .")
 	}
-	if strings.Contains(host, "/") {
-		panic("host can not contain a /")
+	if strings.Contains(dom, "/") {
+		panic("domain can not contain a /")
 	}
-	if strings.Contains(host, ":") {
-		panic("host can not contain a :")
+	if strings.Contains(dom, ":") {
+		panic("domain can not contain a :")
 	}
-	if addr := net.ParseIP(host); addr != nil {
-		panic("host can not be an IP")
+	if addr := net.ParseIP(dom); addr != nil {
+		panic("domain can not be an IP")
 	}
 
 	// Let's make sure there is a valid config for the server:
-	if !rtc.Server.NoTLS && rtc.Server.SslCert == "" && !rtc.ManageTLSCertificates.Enable {
+	if !rtc.Server.NoTLS && rtc.Server.SslCert == "" && !rtc.ManageTLSCertificates.Enable { //internal
 		panic("config error: no TLS cert specified and TLS Certificate Management disabled")
 	}
-	if rtc.Server.NoTLS && rtc.Server.SslCert != "" {
+	if rtc.Server.NoTLS && rtc.Server.SslCert != "" { //internal
 		panic("config error: server.ssl-cert is specified while no-tls is set to true")
 	}
-	if rtc.Server.NoTLS && rtc.ManageTLSCertificates.Enable {
+	if rtc.Server.NoTLS && rtc.ManageTLSCertificates.Enable { //internal
 		panic("config error: TLS Certificate Management enabled while no-tls is set to true")
 	}
 	if rtc.Server.SslCert != "" && rtc.ManageTLSCertificates.Enable {
 		panic("config error: ssl-cert is set and TLS Certificate Management is enabled")
+	}
+
+	scheme := rtc.ExternalAccess.Scheme
+	if scheme != "http" && scheme != "https" {
+		panic("config error: external-access.scheme should be http or https")
+	}
+	if rtc.ExternalAccess.Domain == "" {
+		panic("Domain can not be empty")
+	}
+	if rtc.ExternalAccess.Subdomain == "" {
+		panic("Subdomain can not be empty")
+	}
+	if rtc.ExternalAccess.Port == 0 {
+		panic("port can not be zero")
 	}
 
 	// ManageTLSCertificates
@@ -157,6 +170,13 @@ func checkDataDir(dir string) {
 }
 
 func setExec(rtc *domain.RuntimeConfig) {
+
+	rtc.Exec.PortString = ""
+	port := rtc.ExternalAccess.Port
+	if port != 80 && port != 443 {
+		rtc.Exec.PortString = fmt.Sprintf(":%d", port)
+	}
+
 	// set up runtime paths
 	rtc.Exec.SandboxCodePath = filepath.Join(rtc.DataDir, "sandbox-code")
 
@@ -166,8 +186,8 @@ func setExec(rtc *domain.RuntimeConfig) {
 
 	rtc.Exec.CertificatesPath = filepath.Join(rtc.DataDir, "certificates")
 
-	rtc.Exec.UserRoutesDomain = rtc.Server.Host
-	if rtc.Subdomains.UserAccounts != "" {
-		rtc.Exec.UserRoutesDomain = rtc.Subdomains.UserAccounts + "." + rtc.Server.Host
+	rtc.Exec.UserRoutesDomain = rtc.ExternalAccess.Domain
+	if rtc.ExternalAccess.Subdomain != "" {
+		rtc.Exec.UserRoutesDomain = rtc.ExternalAccess.Subdomain + "." + rtc.ExternalAccess.Domain
 	}
 }

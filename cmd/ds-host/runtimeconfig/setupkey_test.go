@@ -102,8 +102,11 @@ func TestLoadKeyWithAdmins(t *testing.T) {
 
 func TestGetSecretUrl(t *testing.T) {
 	c := &domain.RuntimeConfig{}
-	c.Exec.UserRoutesDomain = "xyz.uvw"
-	c.PortString = ":123"
+	c.ExternalAccess.Scheme = "https"
+	c.ExternalAccess.Domain = "uvw"
+	c.ExternalAccess.Subdomain = "xyz"
+	c.ExternalAccess.Port = 123
+	setExec(c)
 
 	k := &SetupKey{
 		Config: c,
@@ -112,8 +115,9 @@ func TestGetSecretUrl(t *testing.T) {
 
 	assertEqStr(t, "https://xyz.uvw:123/abc", k.getSecretUrl())
 
-	c.PortString = ""
-	c.Server.NoTLS = true
+	c.ExternalAccess.Port = 80
+	c.ExternalAccess.Scheme = "http"
+	setExec(c)
 
 	assertEqStr(t, "http://xyz.uvw/abc", k.getSecretUrl())
 }

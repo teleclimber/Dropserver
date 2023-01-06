@@ -80,7 +80,7 @@ func (d *DomainController) GetDomains(userID domain.UserID) ([]domain.DomainData
 		ForDropID:              true,
 		DropIDSubdomainAllowed: false,
 	}, {
-		DomainName:                d.Config.Server.Host,
+		DomainName:                d.Config.ExternalAccess.Domain,
 		UserOwned:                 false,
 		ForAppspace:               true,
 		AppspaceSubdomainRequired: true,
@@ -108,7 +108,7 @@ func (d *DomainController) CheckAppspaceDomain(userID domain.UserID, dom string,
 		Message:   ""}
 
 	// get domain...
-	if dom != d.Config.Server.Host {
+	if dom != d.Config.ExternalAccess.Domain {
 		ret.Message = "Base domain not found"
 		return ret, nil
 	}

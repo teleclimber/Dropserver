@@ -173,13 +173,8 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 		return err
 	}
 
-	protocol := "https"
-	if m.Config.Server.NoTLS {
-		protocol = "http"
-	}
-
 	client := m.DS2DS.GetClient()
-	u := protocol + "://" + appspace.DomainName + m.Config.PortString + "/.dropserver/v0/login-token"
+	u := fmt.Sprintf("%s://%s%s/.dropserver/v0/login-token", m.Config.ExternalAccess.Scheme, appspace.DomainName, m.Config.Exec.PortString)
 	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		log.AddNote("Error creating request").Error(err)

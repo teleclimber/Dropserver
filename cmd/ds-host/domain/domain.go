@@ -13,16 +13,6 @@ import (
 	"github.com/teleclimber/twine-go/twine"
 )
 
-// don't import anything
-// just define domain structs and interfaces
-
-// domain structs are not given any "methods" (they are not receiver for any function)
-// .. I think. This is because it would have to be defined in this package, which is not the idea.
-
-// So a domain struct is a common, standard way of passing data about core things of the domain.
-// So there would be a domain.User struct, but no u.ChangeEmail()
-// ..the change email function is a coll to the UserModel, which creates and oerates on domain.User
-
 // Reverse Proxy:
 // - port: port to connect to for getting lists of domains and reloading certs
 // (later can add specifically HAP API etc...)
@@ -36,9 +26,6 @@ import (
 // -> ds-host at startup needs to read about all domains on system and check that none is the child of another if auth is involved.
 //    .. and then it needs to notify proxy of all domains and then start generating any certificates
 
-// Another possible config:
-// - public-IP: where to point appspace [sub-]domain to (only used to let user know)
-
 // RuntimeConfig represents the variables that can be set at runtime
 // Or at least set via config file or cli flags that get read once
 // upon starting ds-host.
@@ -46,26 +33,22 @@ import (
 type RuntimeConfig struct {
 	DataDir string `json:"data-dir"`
 	Server  struct {
-		Host     string `json:"host"`
-		TLSPort  int16  `json:"tls-port"`  // defaults to 443.
-		HTTPPort int16  `json:"http-port"` // defaults to 80.
-		NoTLS    bool   `json:"no-tls"`    // do not start HTTPS server
+		TLSPort  int16 `json:"tls-port"`  // defaults to 443.
+		HTTPPort int16 `json:"http-port"` // defaults to 80.
+		NoTLS    bool  `json:"no-tls"`    // do not start HTTPS server
 		// SSL cert and key for the HTTPS server (if any).
 		// Leave empty if using ManageTLSCertificates
 		SslCert string `json:"ssl-cert"` // With certmagic we can possibly ignore or make optional?
 		SslKey  string `json:"ssl-key"`
 	} `json:"server"`
-	// PortString sets the port that will be appended to domains pointing to your instance.
-	// If your instance is exposed to the outside world on a non-standard port,
-	// use this setting to ensure generated links are correct.
-	// Example: ":5050"
-	PortString string `json:"port-string"`
+	ExternalAccess struct {
+		Scheme    string `json:"scheme"`    // http or https
+		Subdomain string `json:"subdomain"` // for users login
+		Domain    string `json:"domain"`
+		Port      int16  `json:"port"`
+	} `json:"external-access"`
 	// TrustCert is used in ds2ds
-	TrustCert  string `json:"trust-cert"`
-	Subdomains struct {
-		UserAccounts string `json:"user-accounts"`
-		StaticAssets string `json:"static-assets"` // this can't just be a subdomain, has to be full domain, (but you could use a cname in DNS, right)
-	} `json:"subdomains"`
+	TrustCert             string `json:"trust-cert"`
 	ManageTLSCertificates struct {
 		Enable              bool   `json:"enable"`
 		Email               string `json:"acme-account-email"`
@@ -89,6 +72,7 @@ type RuntimeConfig struct {
 	// Exec contains values determined at runtime
 	// These are not settable via json.
 	Exec struct {
+		PortString       string
 		UserRoutesDomain string
 		SandboxCodePath  string
 		AppsPath         string

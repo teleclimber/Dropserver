@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -111,7 +112,7 @@ func (u *AppspaceLoginRoutes) makeRedirectLink(appspaceDomain, token string) str
 	query := make(url.Values)
 	query.Add("dropserver-login-token", token)
 
-	return "https://" + appspaceDomain + u.Config.PortString + "?" + query.Encode()
+	return fmt.Sprintf("%s://%s%s?%s", u.Config.ExternalAccess.Scheme, appspaceDomain, u.Config.Exec.PortString, query.Encode())
 }
 
 // TODO we need a logger here.

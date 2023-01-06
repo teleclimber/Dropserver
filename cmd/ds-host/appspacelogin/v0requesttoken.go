@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -88,13 +89,8 @@ func (r *V0RequestToken) makeRequest(userID domain.UserID, appspaceDomain string
 		return
 	}
 
-	protocol := "https"
-	if r.Config.Server.NoTLS {
-		protocol = "http"
-	}
-
 	client := r.DS2DS.GetClient()
-	u := protocol + "://" + appspaceDomain + r.Config.PortString + "/.dropserver/v0/login-token-request"
+	u := fmt.Sprintf("%s://%s%s/.dropserver/v0/login-token-request", r.Config.ExternalAccess.Scheme, appspaceDomain, r.Config.Exec.PortString)
 	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		r.pushResults(ref, "", err)

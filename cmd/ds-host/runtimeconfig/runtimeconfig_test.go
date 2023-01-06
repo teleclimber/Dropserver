@@ -40,13 +40,13 @@ func TestMergeLocal(t *testing.T) {
 	}
 }
 
-func TestValidateHost(t *testing.T) {
+func TestValidateDomain(t *testing.T) {
 	rtc := getPassingDefault()
 	tv(t, rtc, "default", false)
 
 	rtc = getPassingDefault()
 	cases := []struct {
-		host        string
+		dom         string
 		shouldPanic bool
 	}{
 		{"", true},
@@ -60,8 +60,8 @@ func TestValidateHost(t *testing.T) {
 		{"10.255.5.11", true},
 	}
 	for _, c := range cases {
-		rtc.Server.Host = c.host
-		tv(t, rtc, "server host: "+c.host, c.shouldPanic)
+		rtc.ExternalAccess.Domain = c.dom
+		tv(t, rtc, "domain: "+c.dom, c.shouldPanic)
 	}
 }
 
@@ -108,8 +108,8 @@ func TestValidateCertManageEnable(t *testing.T) {
 
 func TestSetExec(t *testing.T) {
 	rtc := getPassingDefault()
-	rtc.Server.Host = "somedomain.com"
-	rtc.Subdomains.UserAccounts = "user-accounts"
+	rtc.ExternalAccess.Domain = "somedomain.com"
+	rtc.ExternalAccess.Subdomain = "user-accounts"
 	setExec(rtc)
 	assertEqStr(t, "/a/b/c/sandbox-code", rtc.Exec.SandboxCodePath)
 	assertEqStr(t, "/a/b/c/apps", rtc.Exec.AppsPath)
@@ -117,7 +117,7 @@ func TestSetExec(t *testing.T) {
 	assertEqStr(t, "/a/b/c/certificates", rtc.Exec.CertificatesPath)
 	assertEqStr(t, "user-accounts.somedomain.com", rtc.Exec.UserRoutesDomain)
 
-	rtc.Subdomains.UserAccounts = ""
+	rtc.ExternalAccess.Subdomain = ""
 	setExec(rtc)
 	assertEqStr(t, "somedomain.com", rtc.Exec.UserRoutesDomain)
 }
