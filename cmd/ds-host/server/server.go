@@ -56,9 +56,9 @@ func (s *Server) Start() { //return a server type
 		key := ""
 		if s.Config.ManageTLSCertificates.Enable {
 			s.server.TLSConfig = s.CertificateManager.GetTLSConfig()
-		} else if s.Config.Server.SslCert != "" && s.Config.Server.SslKey != "" {
-			cert = s.Config.Server.SslCert
-			key = s.Config.Server.SslKey
+		} else if s.Config.Server.TLSCert != "" && s.Config.Server.TLSKey != "" {
+			cert = s.Config.Server.TLSCert
+			key = s.Config.Server.TLSKey
 		} else {
 			// should never happen because config should be checked such that it does not happen
 			panic("no valid configuration to start the server")

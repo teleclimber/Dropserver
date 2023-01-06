@@ -113,16 +113,16 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 
 	// Let's make sure there is a valid config for the server:
-	if !rtc.Server.NoTLS && rtc.Server.SslCert == "" && !rtc.ManageTLSCertificates.Enable { //internal
+	if !rtc.Server.NoTLS && rtc.Server.TLSCert == "" && !rtc.ManageTLSCertificates.Enable {
 		panic("config error: no TLS cert specified and TLS Certificate Management disabled")
 	}
-	if rtc.Server.NoTLS && rtc.Server.SslCert != "" { //internal
-		panic("config error: server.ssl-cert is specified while no-tls is set to true")
+	if rtc.Server.NoTLS && rtc.Server.TLSCert != "" {
+		panic("config error: server.tls-cert is specified while no-tls is set to true")
 	}
-	if rtc.Server.NoTLS && rtc.ManageTLSCertificates.Enable { //internal
+	if rtc.Server.NoTLS && rtc.ManageTLSCertificates.Enable {
 		panic("config error: TLS Certificate Management enabled while no-tls is set to true")
 	}
-	if rtc.Server.SslCert != "" && rtc.ManageTLSCertificates.Enable {
+	if rtc.Server.TLSCert != "" && rtc.ManageTLSCertificates.Enable {
 		panic("config error: ssl-cert is set and TLS Certificate Management is enabled")
 	}
 

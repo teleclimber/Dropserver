@@ -36,10 +36,10 @@ type RuntimeConfig struct {
 		TLSPort  int16 `json:"tls-port"`  // defaults to 443.
 		HTTPPort int16 `json:"http-port"` // defaults to 80.
 		NoTLS    bool  `json:"no-tls"`    // do not start HTTPS server
-		// SSL cert and key for the HTTPS server (if any).
+		// TLS cert and key for the HTTPS server (if any).
 		// Leave empty if using ManageTLSCertificates
-		SslCert string `json:"ssl-cert"` // With certmagic we can possibly ignore or make optional?
-		SslKey  string `json:"ssl-key"`
+		TLSCert string `json:"tls-cert"`
+		TLSKey  string `json:"tls-key"`
 	} `json:"server"`
 	ExternalAccess struct {
 		Scheme    string `json:"scheme"`    // http or https

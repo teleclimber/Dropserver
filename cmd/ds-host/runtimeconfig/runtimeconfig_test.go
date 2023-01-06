@@ -72,8 +72,8 @@ func TestValidateServerTLS(t *testing.T) {
 	rtc.Server.NoTLS = false
 	tv(t, rtc, "no-tls: false and no certs", true)
 
-	rtc.Server.SslCert = "some.crt"
-	rtc.Server.SslKey = "the.key"
+	rtc.Server.TLSCert = "some.crt"
+	rtc.Server.TLSKey = "the.key"
 	tv(t, rtc, "no-tls: false with certs", false)
 
 	rtc.Server.NoTLS = true
@@ -83,8 +83,8 @@ func TestValidateServerTLS(t *testing.T) {
 	rtc.ManageTLSCertificates.Email = "a@b.c"
 	tv(t, rtc, "no-tls: true with certs and managed", true)
 
-	rtc.Server.SslCert = ""
-	rtc.Server.SslKey = ""
+	rtc.Server.TLSCert = ""
+	rtc.Server.TLSKey = ""
 	tv(t, rtc, "no-tls: true no certs and managed", true)
 
 	rtc.Server.NoTLS = false
