@@ -42,10 +42,10 @@ type RuntimeConfig struct {
 		TLSKey  string `json:"tls-key"`
 	} `json:"server"`
 	ExternalAccess struct {
-		Scheme    string `json:"scheme"`    // http or https
-		Subdomain string `json:"subdomain"` // for users login
+		Scheme    string `json:"scheme"`    // http or https // default to https
+		Subdomain string `json:"subdomain"` // for users login // default to dropid
 		Domain    string `json:"domain"`
-		Port      int16  `json:"port"`
+		Port      int16  `json:"port"` // default to 443
 	} `json:"external-access"`
 	// TrustCert is used in ds2ds
 	TrustCert             string `json:"trust-cert"`

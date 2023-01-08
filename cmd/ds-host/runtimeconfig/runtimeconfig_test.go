@@ -10,8 +10,8 @@ import (
 func TestLoadDefault(t *testing.T) {
 	rtc := loadDefault()
 
-	if rtc.Server.TLSPort != 5050 {
-		t.Error("port didn't register correctly. Expected 5050")
+	if rtc.Server.TLSPort != 443 {
+		t.Error("port didn't register correctly. Expected 443")
 	}
 	if rtc.Log != "" {
 		t.Error("Expected empty log")
@@ -125,6 +125,7 @@ func TestSetExec(t *testing.T) {
 func getPassingDefault() *domain.RuntimeConfig {
 	rtc := loadDefault()
 	rtc.DataDir = "/a/b/c"
+	rtc.ExternalAccess.Domain = "local.dropserver.develop"
 	rtc.Sandbox.SocketsDir = "/d/e/f"
 	rtc.Server.NoTLS = true
 	return rtc

@@ -15,13 +15,13 @@ import (
 // default config values.
 var configDefault = []byte(`{
 	"server": {
-		"tls-port": 5050
+		"tls-port": 443,
+		"http-port": 80
 	},
 	"external-access": {
 		"scheme": "https",
-		"domain": "localhost",
 		"subdomain": "dropid",
-		"port": 5050
+		"port": 443
 	},
 	"sandbox": {
 		"num": 3,
