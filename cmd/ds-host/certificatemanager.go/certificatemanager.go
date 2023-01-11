@@ -26,7 +26,6 @@ type CertficateManager struct {
 
 func (c *CertficateManager) Init() {
 	cfg := c.Config.ManageTLSCertificates
-	disableTLSALPNChallenge := true
 
 	certmagic.Default.Storage = &certmagic.FileStorage{
 		Path: c.Config.Exec.CertificatesPath}
@@ -37,45 +36,38 @@ func (c *CertficateManager) Init() {
 
 	c.magic = certmagic.NewDefault()
 
-	if cfg.IssuerEndpoint != "" {
-		issuer := certmagic.ACMEIssuer{
-			Agreed:                  true,
-			Email:                   cfg.Email, // email should be admin, particularly for self-hosters
-			CA:                      cfg.IssuerEndpoint,
-			AltHTTPPort:             int(c.Config.Server.HTTPPort),
-			AltTLSALPNPort:          int(c.Config.Server.TLSPort),
-			DisableTLSALPNChallenge: disableTLSALPNChallenge,
-		}
+	issuer := certmagic.ACMEIssuer{
+		Agreed:                  true,
+		Email:                   cfg.Email, // email should be admin, particularly for self-hosters
+		CA:                      cfg.IssuerEndpoint,
+		AltHTTPPort:             int(c.Config.Server.HTTPPort),
+		AltTLSALPNPort:          int(c.Config.Server.TLSPort),
+		DisableTLSALPNChallenge: false,
+	}
 
-		if cfg.RootCACertificate != "" {
-			rootCertPath := cfg.RootCACertificate
-			if !filepath.IsAbs(rootCertPath) {
-				wd, err := os.Getwd()
-				if err != nil {
-					panic(err)
-				}
-				rootCertPath = filepath.Join(wd, rootCertPath)
-			}
-			rootCA, err := ioutil.ReadFile(rootCertPath) // the file is inside the local directory
+	if cfg.RootCACertificate != "" {
+		rootCertPath := cfg.RootCACertificate
+		if !filepath.IsAbs(rootCertPath) {
+			wd, err := os.Getwd()
 			if err != nil {
 				panic(err)
 			}
-			rootCAPool := x509.NewCertPool()
-			ok := rootCAPool.AppendCertsFromPEM(rootCA)
-			if !ok {
-				panic("unable to append supplied cert into tls.Config, are you sure it is a valid certificate")
-			}
-			issuer.TrustedRoots = rootCAPool
+			rootCertPath = filepath.Join(wd, rootCertPath)
 		}
-
-		c.issuer = certmagic.NewACMEIssuer(c.magic, issuer)
-		certmagic.Default.Issuers = []certmagic.Issuer{c.issuer}
-	} else {
-		certmagic.DefaultACME.Agreed = true
-		certmagic.DefaultACME.Email = cfg.Email
-		certmagic.DefaultACME.CA = certmagic.LetsEncryptProductionCA
-		certmagic.DefaultACME.DisableTLSALPNChallenge = disableTLSALPNChallenge
+		rootCA, err := ioutil.ReadFile(rootCertPath) // the file is inside the local directory
+		if err != nil {
+			panic(err)
+		}
+		rootCAPool := x509.NewCertPool()
+		ok := rootCAPool.AppendCertsFromPEM(rootCA)
+		if !ok {
+			panic("unable to append supplied cert into tls.Config, are you sure it is a valid certificate")
+		}
+		issuer.TrustedRoots = rootCAPool
 	}
+
+	c.issuer = certmagic.NewACMEIssuer(c.magic, issuer)
+	certmagic.Default.Issuers = []certmagic.Issuer{c.issuer}
 
 	c.magic = certmagic.NewDefault()
 }

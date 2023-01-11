@@ -23,6 +23,9 @@ var configDefault = []byte(`{
 		"subdomain": "dropid",
 		"port": 443
 	},
+	"manage-certificates": {
+		"issuer-endpoint": "https://acme-v02.api.letsencrypt.org/directory"
+	},
 	"sandbox": {
 		"num": 3,
 		"use-cgroups": true,
@@ -144,9 +147,11 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	if rtc.ManageTLSCertificates.Enable {
 		m := rtc.ManageTLSCertificates
 		if m.Email == "" {
-			panic("enter an email address for the ACME account for TLS management")
+			panic("Enter an email address for the ACME account for TLS management")
 		}
-		// validate that the issuer endpoint looks like a URL?
+		if m.IssuerEndpoint == "" {
+			panic("An empty issuer endpoint is not allowed")
+		}
 	}
 
 	// Sandbox:
