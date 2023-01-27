@@ -12,7 +12,7 @@ type AppLocation2Path struct {
 
 // App returns the path to the App's generated files
 func (l *AppLocation2Path) Base(locationKey string) string { // should this be Base?
-	checkAppLocationKey(locationKey)
+	checkNotEmpty(locationKey, "app locationkey")
 	return filepath.Join(l.Config.Exec.AppsPath, locationKey)
 }
 func (l *AppLocation2Path) Meta(locationKey string) string {
@@ -27,7 +27,7 @@ type AppspaceLocation2Path struct {
 }
 
 func (s *AppspaceLocation2Path) Base(locationKey string) string {
-	checkAppLocationKey(locationKey)
+	checkNotEmpty(locationKey, "appspace locationKey")
 	return filepath.Join(s.Config.Exec.AppspacesPath, locationKey)
 }
 func (s *AppspaceLocation2Path) Data(locationKey string) string {
@@ -39,12 +39,16 @@ func (s *AppspaceLocation2Path) Files(locationKey string) string {
 func (s *AppspaceLocation2Path) Avatars(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "data", "avatars")
 }
+func (s *AppspaceLocation2Path) Avatar(locationKey string, avatar string) string {
+	checkNotEmpty(avatar, "avatar")
+	return filepath.Join(s.Base(locationKey), "data", "avatars", avatar)
+}
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
 }
 
-func checkAppLocationKey(loc string) {
+func checkNotEmpty(loc string, desc string) {
 	if loc == "" {
-		panic("Trying to get location with empty location key.")
+		panic("checkNotEmpty: " + desc)
 	}
 }

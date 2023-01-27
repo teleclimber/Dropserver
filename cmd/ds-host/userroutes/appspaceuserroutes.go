@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -40,7 +39,10 @@ type AppspaceUserRoutes struct {
 		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
 		Remove(locationKey string, fn string) error
 	} `checkinject:"required"`
-	Config *domain.RuntimeConfig `checkinject:"required"`
+	Config                *domain.RuntimeConfig `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Avatar(string, string) string
+	} `checkinject:"required"`
 }
 
 func (a *AppspaceUserRoutes) subRouter() http.Handler {
@@ -325,8 +327,7 @@ func (a *AppspaceUserRoutes) getAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fp := filepath.Join(a.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars", avatarFilename)
-	http.ServeFile(w, r, fp)
+	http.ServeFile(w, r, a.AppspaceLocation2Path.Avatar(appspace.LocationKey, avatarFilename))
 }
 
 func validateAuthStrings(authType, authID string) (string, error) {

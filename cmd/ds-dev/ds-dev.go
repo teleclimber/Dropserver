@@ -198,8 +198,8 @@ func main() {
 	appspaceFiles.Reset()
 
 	avatars := &appspaceops.Avatars{
-		Config: runtimeConfig,
-	}
+		Config:                runtimeConfig,
+		AppspaceLocation2Path: appspaceLocation2Path}
 
 	appspaceInfoModel := &appspacemetadb.InfoModel{
 		AppspaceMetaDB: appspaceMetaDb}
@@ -294,13 +294,14 @@ func main() {
 		SandboxManager: devSandboxManager}
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceUsersModelV0: appspaceUsersModelV0,
-		V0AppRoutes:          v0AppRoutes,
-		SandboxProxy:         sandboxProxy,
-		Authenticator:        devAuth,
-		RouteHitEvents:       routeHitEvents,
-		AppLocation2Path:     appLocation2Path,
-		Config:               runtimeConfig}
+		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		V0AppRoutes:           v0AppRoutes,
+		SandboxProxy:          sandboxProxy,
+		Authenticator:         devAuth,
+		RouteHitEvents:        routeHitEvents,
+		Config:                runtimeConfig,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path}
 	appspaceRouterV0.Init()
 
 	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{

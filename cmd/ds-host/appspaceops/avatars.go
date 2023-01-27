@@ -29,8 +29,10 @@ import (
 // Also will trigger notifications of changes so appspace app can regenerate whatever it needs.
 
 type Avatars struct {
-	Config *domain.RuntimeConfig `checkinject:"required"`
-	// Would like location 2 path but for appspaces?
+	Config                *domain.RuntimeConfig `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Avatar(string, string) string
+	}
 }
 
 // Let's say user uploads an avatar for thier dropid:
@@ -94,7 +96,7 @@ func (a *Avatars) makeImage(img io.Reader) ([]byte, error) {
 
 func (a *Avatars) imageToFile(loc string, proxyID domain.ProxyID, img []byte) (string, error) {
 	fn := fmt.Sprintf("%s-%s.jpg", proxyID, randomString(6))
-	fp := filepath.Join(a.Config.Exec.AppspacesPath, loc, "data", "avatars", fn)
+	fp := filepath.Join(a.AppspaceLocation2Path.Avatar(loc, fn))
 
 	err := ioutil.WriteFile(fp, img, 0644) // TODO omg permissions!
 	if err != nil {
@@ -106,7 +108,7 @@ func (a *Avatars) imageToFile(loc string, proxyID domain.ProxyID, img []byte) (s
 }
 
 func (a *Avatars) Remove(locationKey string, fn string) error {
-	err := os.Remove(filepath.Join(a.Config.Exec.AppspacesPath, locationKey, "data", "avatars", fn))
+	err := os.Remove(a.AppspaceLocation2Path.Avatar(locationKey, fn))
 	if err != nil {
 		a.getLogger("removeFile").Error(err)
 		return err
@@ -122,7 +124,7 @@ func (a *Avatars) getLogger(note string) *record.DsLogger {
 	return r
 }
 
-////////////
+// //////////
 // random string stuff
 // TODO CRYPTO: this should be using crypto package
 const chars61 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

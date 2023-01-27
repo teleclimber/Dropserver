@@ -42,6 +42,9 @@ func (s *AppspaceLocation2Path) Files(locationKey string) string {
 func (s *AppspaceLocation2Path) Avatars(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "data", "avatars")
 }
+func (s *AppspaceLocation2Path) Avatar(locationKey string, avatar string) string {
+	return filepath.Join(s.Base(locationKey), "data", "avatars", avatar)
+}
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
 }

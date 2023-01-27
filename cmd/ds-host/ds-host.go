@@ -394,8 +394,8 @@ func main() {
 	}
 
 	appspaceAvatars := &appspaceops.Avatars{
-		Config: runtimeConfig,
-	}
+		Config:                runtimeConfig,
+		AppspaceLocation2Path: appspaceLocation2Path}
 
 	var certificateManager *certificatemanager.CertficateManager
 	if runtimeConfig.ManageTLSCertificates.Enable {
@@ -445,9 +445,10 @@ func main() {
 		AppLogger: appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
-		AppspaceUsersModelV0: appspaceUsersModelV0,
-		Avatars:              appspaceAvatars,
-		Config:               runtimeConfig,
+		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		Avatars:               appspaceAvatars,
+		Config:                runtimeConfig,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
 		Config:             runtimeConfig,
@@ -545,13 +546,14 @@ func main() {
 	}
 
 	v0appspaceRouter := &appspacerouter.V0{
-		V0AppRoutes:          v0AppRoutes,
-		AppspaceUsersModelV0: appspaceUsersModelV0,
-		SandboxProxy:         sandboxProxy,
-		Authenticator:        authenticator,
-		V0TokenManager:       v0tokenManager,
-		Config:               runtimeConfig,
-		AppLocation2Path:     appLocation2Path}
+		V0AppRoutes:           v0AppRoutes,
+		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		SandboxProxy:          sandboxProxy,
+		Authenticator:         authenticator,
+		V0TokenManager:        v0tokenManager,
+		Config:                runtimeConfig,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path}
 	v0appspaceRouter.Init()
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{

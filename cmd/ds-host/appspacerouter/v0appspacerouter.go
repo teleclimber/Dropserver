@@ -36,10 +36,14 @@ type V0 struct {
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
 	} `checkinject:"optional"`
+	Config           *domain.RuntimeConfig `checkinject:"required"`
 	AppLocation2Path interface {
 		Files(string) string
 	} `checkinject:"required"`
-	Config *domain.RuntimeConfig `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Files(string) string
+		Avatars(string) string
+	} `checkinject:"required"`
 
 	mux *chi.Mux
 }
@@ -308,14 +312,14 @@ func (arV0 *V0) getConfigPath(r *http.Request) (string, error) {
 			panic("v0appspaceRouter getFilePath: expected an appspace")
 		}
 		p = strings.TrimPrefix(p, "@appspace/")
-		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "files") // TODO
+		root = arV0.AppspaceLocation2Path.Files(appspace.LocationKey)
 	} else if strings.HasPrefix(p, "@avatars/") {
 		appspace, ok := domain.CtxAppspaceData(ctx)
 		if !ok {
 			panic("v0appspaceRouter getFilePath: expected an appspace")
 		}
 		p = strings.TrimPrefix(p, "@avatars/")
-		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars") //TODO
+		root = arV0.AppspaceLocation2Path.Avatars(appspace.LocationKey)
 	} else if strings.HasPrefix(p, "@app/") {
 		appVersion, ok := domain.CtxAppVersionData(ctx)
 		if !ok {
