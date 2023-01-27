@@ -298,7 +298,7 @@ func TestGetConfigPath(t *testing.T) {
 		LocationKey: "app-version-123",
 	}
 	v0 := &V0{
-		Location2Path: &l2p{appFiles: "/data-dir/apps-path"},
+		AppLocation2Path: &l2p{appFiles: "/data-dir/apps-path"},
 	}
 
 	cases := []struct {
@@ -414,7 +414,7 @@ func TestServeFile(t *testing.T) {
 		}}
 
 	v0 := &V0{
-		Location2Path: &l2p{appFiles: dir},
+		AppLocation2Path: &l2p{appFiles: dir},
 	}
 
 	p := filepath.Join(dir, "app-version-123", "app", "static-files", "css")
@@ -460,7 +460,7 @@ func TestServeFileOverlapPath(t *testing.T) {
 	}
 
 	v0 := &V0{
-		Location2Path: &l2p{appFiles: dir},
+		AppLocation2Path: &l2p{appFiles: dir},
 		//Config: config,
 	}
 
@@ -488,6 +488,6 @@ type l2p struct {
 	appFiles string
 }
 
-func (l *l2p) AppFiles(loc string) string {
+func (l *l2p) Files(loc string) string {
 	return filepath.Join(l.appFiles, loc, "app")
 }

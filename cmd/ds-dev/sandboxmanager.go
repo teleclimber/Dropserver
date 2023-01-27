@@ -34,9 +34,15 @@ type DevSandboxManager struct {
 	SandboxStatusEvents interface {
 		Send(SandboxStatus)
 	} `checkinject:"required"`
-	Location2Path interface {
-		AppMeta(string) string
-		AppFiles(string) string
+	AppLocation2Path interface {
+		Meta(string) string
+		Files(string) string
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Base(string) string
+		Data(string) string
+		Files(string) string
+		Avatars(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 
@@ -86,7 +92,8 @@ func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace
 	s.SandboxRuns = m.SandboxRuns
 	s.Services = m.Services.Get(appspace, 0)
 	s.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
-	s.Location2Path = m.Location2Path
+	s.AppLocation2Path = m.AppLocation2Path
+	s.AppspaceLocation2Path = m.AppspaceLocation2Path
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
 	s.SetImportMapExtras(m.importMapExtras)
@@ -122,7 +129,7 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 	s := sandbox.NewSandbox(m.getNextID(), opAppInit, ownerID, appVersion, nil)
 	s.SandboxRuns = m.SandboxRuns
 	s.Logger = m.AppLogger.Get("")
-	s.Location2Path = m.Location2Path
+	s.AppLocation2Path = m.AppLocation2Path
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
 	s.SetImportMapExtras(m.importMapExtras)
@@ -160,7 +167,8 @@ func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace
 	s := sandbox.NewSandbox(m.getNextID(), opAppspaceMigration, ownerID, appVersion, appspace)
 	s.SandboxRuns = m.SandboxRuns
 	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
-	s.Location2Path = m.Location2Path
+	s.AppLocation2Path = m.AppLocation2Path
+	s.AppspaceLocation2Path = m.AppspaceLocation2Path
 	s.Logger = m.AppspaceLogger.Get(appspaceID)
 	s.Config = m.Config
 	s.SetInspect(m.inspect)
@@ -194,7 +202,7 @@ func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace
 	return s, nil
 }
 
-//SetInspect sets the inspect flag which makes the sandbox wait for a debugger to attach
+// SetInspect sets the inspect flag which makes the sandbox wait for a debugger to attach
 func (m *DevSandboxManager) SetInspect(inspect bool) {
 	m.inspect = inspect
 }

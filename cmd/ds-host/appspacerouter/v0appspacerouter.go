@@ -36,8 +36,8 @@ type V0 struct {
 	RouteHitEvents interface {
 		Send(*domain.AppspaceRouteHitEvent)
 	} `checkinject:"optional"`
-	Location2Path interface {
-		AppFiles(string) string
+	AppLocation2Path interface {
+		Files(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 
@@ -308,21 +308,21 @@ func (arV0 *V0) getConfigPath(r *http.Request) (string, error) {
 			panic("v0appspaceRouter getFilePath: expected an appspace")
 		}
 		p = strings.TrimPrefix(p, "@appspace/")
-		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "files")
+		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "files") // TODO
 	} else if strings.HasPrefix(p, "@avatars/") {
 		appspace, ok := domain.CtxAppspaceData(ctx)
 		if !ok {
 			panic("v0appspaceRouter getFilePath: expected an appspace")
 		}
 		p = strings.TrimPrefix(p, "@avatars/")
-		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars")
+		root = filepath.Join(arV0.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "avatars") //TODO
 	} else if strings.HasPrefix(p, "@app/") {
 		appVersion, ok := domain.CtxAppVersionData(ctx)
 		if !ok {
 			panic("v0appspaceRouter getFilePath: expected an app version")
 		}
 		p = strings.TrimPrefix(p, "@app/")
-		root = arV0.Location2Path.AppFiles(appVersion.LocationKey)
+		root = arV0.AppLocation2Path.Files(appVersion.LocationKey)
 	} else {
 		arV0.getLogger("getFilePath").Log("Path prefix not recognized: " + p) // This should be logged to appspace log, not general log
 		return "", errors.New("path prefix not recognized")

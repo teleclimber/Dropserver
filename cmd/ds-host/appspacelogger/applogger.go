@@ -11,8 +11,8 @@ import (
 // AppLogger opens and manages logs for each app-version (identified by location key.)
 // Used when running sandbox to get app routes, etc... for example.
 type AppLogger struct {
-	Location2Path interface {
-		AppMeta(string) string
+	AppLocation2Path interface {
+		Meta(string) string
 	} `checkinject:"required"`
 
 	loggersMux sync.Mutex
@@ -82,7 +82,7 @@ func (l *AppLogger) getLogger(locationKey string, open bool) (logger *Logger) { 
 	if !ok {
 		// should really check with AppFileModel that the location key exists.
 		logger = &Logger{
-			logPath: filepath.Join(l.Location2Path.AppMeta(locationKey), "log.txt")}
+			logPath: filepath.Join(l.AppLocation2Path.Meta(locationKey), "log.txt")}
 		l.loggers[locationKey] = logger
 	}
 

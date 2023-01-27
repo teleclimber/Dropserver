@@ -124,8 +124,8 @@ func TestDelete(t *testing.T) {
 	cfg.Exec.AppsPath = dir
 
 	m := AppFilesModel{
-		Location2Path: &l2p{appFiles: dir, app: dir},
-		Config:        cfg}
+		AppLocation2Path: &appl2p{appFiles: dir, app: dir},
+		Config:           cfg}
 
 	files := map[string][]byte{
 		"file1":             []byte("hello world"),
@@ -137,7 +137,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = ioutil.ReadFile(filepath.Join(m.Location2Path.AppFiles(locKey), "file1"))
+	_, err = ioutil.ReadFile(filepath.Join(m.AppLocation2Path.Files(locKey), "file1"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,14 +153,17 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-type l2p struct {
+type appl2p struct {
 	appFiles string
 	app      string
 }
 
-func (l *l2p) AppMeta(loc string) string {
+func (l *appl2p) Base(loc string) string {
 	return filepath.Join(l.app, loc)
 }
-func (l *l2p) AppFiles(loc string) string {
+func (l *appl2p) Meta(loc string) string {
+	return filepath.Join(l.app, loc)
+}
+func (l *appl2p) Files(loc string) string {
 	return filepath.Join(l.appFiles, loc, "app")
 }

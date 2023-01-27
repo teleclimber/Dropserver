@@ -105,9 +105,10 @@ func main() {
 		panic(err)
 	}
 
-	location2path := &Location2Path{
-		Config: *runtimeConfig,
-	}
+	appLocation2Path := &runtimeconfig.AppLocation2Path{
+		Config: runtimeConfig}
+	appspaceLocation2Path := &runtimeconfig.AppspaceLocation2Path{
+		Config: runtimeConfig}
 
 	dbManager := &database.Manager{
 		Config: runtimeConfig}
@@ -172,8 +173,8 @@ func main() {
 	dropIDModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{
-		Location2Path: location2path,
-		Config:        runtimeConfig}
+		AppLocation2Path: appLocation2Path,
+		Config:           runtimeConfig}
 
 	appModel := &appmodel.AppModel{
 		DB: db}
@@ -197,7 +198,7 @@ func main() {
 	sandboxRunsModel.PrepareStatements()
 
 	appLogger := &appspacelogger.AppLogger{
-		Location2Path: location2path}
+		AppLocation2Path: appLocation2Path}
 	appLogger.Init()
 
 	appspaceLogger := &appspacelogger.AppspaceLogger{
@@ -248,12 +249,13 @@ func main() {
 	}
 
 	sandboxManager := &sandbox.Manager{
-		SandboxRuns:    sandboxRunsModel,
-		CGroups:        cGroups,
-		AppLogger:      appLogger,
-		AppspaceLogger: appspaceLogger,
-		Location2Path:  location2path,
-		Config:         runtimeConfig,
+		SandboxRuns:           sandboxRunsModel,
+		CGroups:               cGroups,
+		AppLogger:             appLogger,
+		AppspaceLogger:        appspaceLogger,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path,
+		Config:                runtimeConfig,
 	}
 
 	domainController := &domaincontroller.DomainController{
@@ -549,7 +551,7 @@ func main() {
 		Authenticator:        authenticator,
 		V0TokenManager:       v0tokenManager,
 		Config:               runtimeConfig,
-		Location2Path:        location2path}
+		AppLocation2Path:     appLocation2Path}
 	v0appspaceRouter.Init()
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
@@ -608,7 +610,7 @@ func main() {
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
 		depGraph := checkinject.Collect(*server)
 		if *checkInjectOut != "" {
-			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
+			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, appLocation2Path, appspaceLocation2Path})
 		}
 		depGraph.CheckMissing()
 	}

@@ -38,9 +38,15 @@ type Manager struct {
 	Services interface {
 		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
 	} `checkinject:"required"`
-	Location2Path interface {
-		AppMeta(string) string
-		AppFiles(string) string
+	AppLocation2Path interface {
+		Meta(string) string
+		Files(string) string
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Base(string) string
+		Data(string) string
+		Files(string) string
+		Avatars(string) string
 	} `checkinject:"required"`
 
 	idMux  sync.Mutex
@@ -104,6 +110,8 @@ func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain
 	s, found := m.findAppspaceSandbox(appVersion, appspace.AppspaceID)
 	if !found {
 		newS := NewSandbox(m.getNextID(), opAppspaceRun, appspace.OwnerID, appVersion, appspace)
+		newS.AppLocation2Path = m.AppLocation2Path
+		newS.AppspaceLocation2Path = m.AppspaceLocation2Path
 		newS.Services = m.Services.Get(appspace, appVersion.APIVersion)
 		newS.Logger = m.AppspaceLogger.Open(appspace.AppspaceID)
 		newS.taskTracker.lastActive = time.Now()
@@ -155,6 +163,7 @@ func (m *Manager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	m.sandboxesMux.Lock()
 
 	s := NewSandbox(m.getNextID(), opAppInit, domain.UserID(0), appVersion, nil)
+	s.AppLocation2Path = m.AppLocation2Path
 	s.Logger = m.AppLogger.Get(appVersion.LocationKey)
 
 	m.startSandbox(s)
@@ -180,6 +189,8 @@ func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.A
 	m.sandboxesMux.Lock()
 
 	s := NewSandbox(m.getNextID(), opAppspaceMigration, appspace.OwnerID, appVersion, appspace)
+	s.AppLocation2Path = m.AppLocation2Path
+	s.AppspaceLocation2Path = m.AppspaceLocation2Path
 	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
 	s.Logger = m.AppspaceLogger.Open(appspace.AppspaceID)
 
@@ -209,7 +220,6 @@ func (m *Manager) startSandbox(s *Sandbox) {
 	// expects poolmux to be locked
 
 	s.CGroups = m.CGroups
-	s.Location2Path = m.Location2Path
 	s.Config = m.Config
 	s.SandboxRuns = m.SandboxRuns
 

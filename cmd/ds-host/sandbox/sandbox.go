@@ -140,22 +140,28 @@ type Sandbox struct {
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	}
-	Logger          interface{ Log(string, string) }
-	socketsDir      string
-	cmd             *exec.Cmd
-	twine           *twine.Twine
-	Services        domain.ReverseServiceI
-	statusMux       sync.Mutex
-	status          domain.SandboxStatus
-	statusSub       []chan domain.SandboxStatus
-	waitStatusSub   map[domain.SandboxStatus][]chan domain.SandboxStatus
-	transport       http.RoundTripper
-	taskTracker     taskTracker
-	inspect         bool
-	importMapExtras map[string]string
-	Location2Path   interface {
-		AppMeta(string) string
-		AppFiles(string) string
+	Logger           interface{ Log(string, string) }
+	socketsDir       string
+	cmd              *exec.Cmd
+	twine            *twine.Twine
+	Services         domain.ReverseServiceI
+	statusMux        sync.Mutex
+	status           domain.SandboxStatus
+	statusSub        []chan domain.SandboxStatus
+	waitStatusSub    map[domain.SandboxStatus][]chan domain.SandboxStatus
+	transport        http.RoundTripper
+	taskTracker      taskTracker
+	inspect          bool
+	importMapExtras  map[string]string
+	AppLocation2Path interface {
+		Meta(string) string
+		Files(string) string
+	}
+	AppspaceLocation2Path interface {
+		Base(string) string
+		Data(string) string
+		Files(string) string
+		Avatars(string) string
 	}
 	Config *domain.RuntimeConfig
 
@@ -287,7 +293,7 @@ func (s *Sandbox) doStart() error {
 
 	appspacePath := "/dev/null"
 	if s.appspace != nil {
-		appspacePath = s.getAppspaceDataPath()
+		appspacePath = s.AppspaceLocation2Path.Data(s.appspace.LocationKey)
 	}
 
 	// Probably need to think more about flags we pass, such as --no-remote?
@@ -316,7 +322,7 @@ func (s *Sandbox) doStart() error {
 		//"--allow-net=...",
 		s.getBootstrapFilename(),
 		s.socketsDir,
-		s.getAppFilesPath(), // while we have an import-map, these are still needed to read files without importing
+		s.AppLocation2Path.Files(s.appVersion.LocationKey), // while we have an import-map, these are still needed to read files without importing
 		appspacePath,
 	}
 
@@ -866,7 +872,7 @@ type ImportPaths struct {
 
 func (s *Sandbox) makeImportMap() ([]byte, error) {
 	bootstrapPath := s.getBootstrapFilename()
-	appPath := trailingSlash(s.getAppFilesPath())
+	appPath := trailingSlash(s.AppLocation2Path.Files(s.appVersion.LocationKey))
 	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
 	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
 
@@ -937,7 +943,7 @@ func (s *Sandbox) writeImportMap() error {
 }
 
 func (s *Sandbox) getBootstrapFilename() string {
-	return filepath.Join(s.Location2Path.AppMeta(s.appVersion.LocationKey), "bootstrap.js")
+	return filepath.Join(s.AppLocation2Path.Meta(s.appVersion.LocationKey), "bootstrap.js")
 }
 func (s *Sandbox) writeBootstrapFile() error {
 	p := s.getBootstrapFilename()
@@ -947,7 +953,7 @@ func (s *Sandbox) writeBootstrapFile() error {
 	}
 
 	str := "import '" + path.Join(s.Config.Exec.SandboxCodePath, "index.ts") + "';\n"
-	str += "import '" + path.Join(s.Location2Path.AppFiles(s.appVersion.LocationKey), "app.ts") + "';"
+	str += "import '" + path.Join(s.AppLocation2Path.Files(s.appVersion.LocationKey), "app.ts") + "';"
 
 	err := os.WriteFile(p, []byte(str), 0600)
 	if err != nil {
@@ -962,37 +968,27 @@ func (s *Sandbox) populateFilePerms() (readFiles, readWriteFiles []string) {
 	readWriteFiles = append(readWriteFiles, s.socketsDir)
 
 	// read app files:
-	readFiles = append(readFiles, s.Location2Path.AppFiles(s.appVersion.LocationKey))
+	readFiles = append(readFiles, s.AppLocation2Path.Files(s.appVersion.LocationKey))
 
 	if s.appspace == nil {
 		return
 	}
 
 	// readonly avatars dir:
-	readFiles = append(readFiles, filepath.Join(s.getAppspaceDataPath(), "avatars"))
+	readFiles = append(readFiles, s.AppspaceLocation2Path.Avatars(s.appspace.LocationKey))
 
 	// read-write appspace files:
-	readWriteFiles = append(readWriteFiles, filepath.Join(s.getAppspaceFilesPath()))
+	readWriteFiles = append(readWriteFiles, filepath.Join(s.AppspaceLocation2Path.Files(s.appspace.LocationKey)))
 
 	// TODO probably need to process / quote / check / escape these strings for problems?
 
 	return
 }
 
-// this should be taken care of by location2path
-func (s *Sandbox) getAppFilesPath() string {
-	return s.Location2Path.AppFiles(s.appVersion.LocationKey)
-}
-func (s *Sandbox) getAppspaceDataPath() string {
-	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data")
-}
-func (s *Sandbox) getAppspaceFilesPath() string {
-	return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "data", "files")
-}
 func (s *Sandbox) getImportPathFile() string {
 	if s.appspace != nil {
-		return filepath.Join(s.Config.Exec.AppspacesPath, s.appspace.LocationKey, "import-paths.json")
+		return filepath.Join(s.AppspaceLocation2Path.Base(s.appspace.LocationKey), "import-paths.json")
 	} else {
-		return filepath.Join(s.Location2Path.AppMeta(s.appVersion.LocationKey), "import-paths.json")
+		return filepath.Join(s.AppLocation2Path.Meta(s.appVersion.LocationKey), "import-paths.json")
 	}
 }

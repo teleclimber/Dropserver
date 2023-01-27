@@ -123,13 +123,16 @@ func main() {
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
 
-	location2path := &Location2Path{
+	appLocation2Path := &AppLocation2Path{
 		AppMetaDir: appMetaDir,
 		Config:     runtimeConfig}
 
+	appspaceLocation2Path := &AppspaceLocation2Path{
+		Config: runtimeConfig}
+
 	appFilesModel := &appfilesmodel.AppFilesModel{
-		Location2Path: location2path,
-		Config:        runtimeConfig,
+		AppLocation2Path: appLocation2Path,
+		Config:           runtimeConfig,
 	}
 	devAppFilesModel := &DevAppFilesModel{
 		*appFilesModel,
@@ -153,7 +156,7 @@ func main() {
 	}
 
 	appLogger := &appspacelogger.AppLogger{
-		Location2Path: location2path,
+		AppLocation2Path: appLocation2Path,
 	}
 	appLogger.Init()
 
@@ -232,13 +235,14 @@ func main() {
 	appspaceLogger.Init()
 
 	devSandboxManager := &DevSandboxManager{
-		SandboxRuns:         devSandboxRunsModel,
-		AppLogger:           appLogger,
-		AppspaceLogger:      appspaceLogger,
-		Config:              runtimeConfig,
-		AppVersionEvents:    appVersionEvents,
-		SandboxStatusEvents: sandboxStatusEvents,
-		Location2Path:       location2path,
+		SandboxRuns:           devSandboxRunsModel,
+		AppLogger:             appLogger,
+		AppspaceLogger:        appspaceLogger,
+		Config:                runtimeConfig,
+		AppVersionEvents:      appVersionEvents,
+		SandboxStatusEvents:   sandboxStatusEvents,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	devSandboxManager.Init()
 	appGetter.SandboxManager = devSandboxManager
@@ -270,7 +274,6 @@ func main() {
 		SandboxManager:    devSandboxManager}
 	devMigrationJobModel.MigrationJobController = migrationJobController
 
-	//devAppspaceStatus := &DevAppspaceStatus{}
 	appspaceStatus := &appspacestatus.AppspaceStatus{
 		AppspaceModel:        devAppspaceModel,
 		AppModel:             devAppModel,
@@ -296,7 +299,7 @@ func main() {
 		SandboxProxy:         sandboxProxy,
 		Authenticator:        devAuth,
 		RouteHitEvents:       routeHitEvents,
-		Location2Path:        location2path,
+		AppLocation2Path:     appLocation2Path,
 		Config:               runtimeConfig}
 	appspaceRouterV0.Init()
 
@@ -403,7 +406,7 @@ func main() {
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
 		depGraph := checkinject.Collect(*server)
 		if *checkInjectOut != "" {
-			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, location2path})
+			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, appLocation2Path, appspaceLocation2Path})
 		}
 		depGraph.CheckMissing()
 	}

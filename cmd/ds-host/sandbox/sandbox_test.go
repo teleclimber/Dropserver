@@ -170,16 +170,19 @@ func TestTrackMultipleTasks(t *testing.T) {
 }
 
 func TestImportMaps(t *testing.T) {
+	aLoc := "av-loc-77"
+	asLoc := "as-loc-13"
+
 	s := &Sandbox{
 		appspace: &domain.Appspace{
-			LocationKey: "as-loc-13",
+			LocationKey: asLoc,
 			AppspaceID:  domain.AppspaceID(13)},
 		appVersion: &domain.AppVersion{
-			LocationKey: "av-loc-77"},
-		Location2Path: &l2p{app: "/temp/apps-path", appFiles: "/temp/apps-path"},
-		Config:        &domain.RuntimeConfig{}}
+			LocationKey: aLoc},
+		AppLocation2Path:      &appl2p{base: "/temp/a-path"},
+		AppspaceLocation2Path: &appspacel2p{base: "/temp/as-path"},
+		Config:                &domain.RuntimeConfig{}}
 
-	s.Config.Exec.AppspacesPath = "/temp/as-path"
 	s.Config.Exec.SandboxCodePath = "/temp/sandbox-code-path"
 
 	b, err := s.makeImportMap()
@@ -321,12 +324,14 @@ func TestRunnerScriptError(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	loc := l2p{app: dir, appFiles: dir}
+	asDir := filepath.Join(dir, "appspace-loc")
+	al2p := appl2p{base: dir}
+	asl2p := appspacel2p{base: asDir}
 
-	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
-	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
+	os.MkdirAll(al2p.Files("app-loc"), 0700)
+	os.MkdirAll(asDir, 0700)
 
-	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), []byte("setTimeout(hello.world, 100);"), 0644)
+	err = os.WriteFile(filepath.Join(al2p.Files("app-loc"), "app.ts"), []byte("setTimeout(hello.world, 100);"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,16 +359,17 @@ func TestRunnerScriptError(t *testing.T) {
 	sandboxRuns.EXPECT().End(456, gomock.Any(), gomock.Any())
 
 	s := &Sandbox{
-		id:            7,
-		ownerID:       ownerID,
-		operation:     op,
-		appVersion:    &domain.AppVersion{AppID: appID, Version: version},
-		appspace:      &domain.Appspace{AppspaceID: appspaceID},
-		status:        domain.SandboxStarting,
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
-		SandboxRuns:   sandboxRuns,
-		Location2Path: &l2p{app: dir, appFiles: dir},
-		Config:        cfg}
+		id:                    7,
+		ownerID:               ownerID,
+		operation:             op,
+		appVersion:            &domain.AppVersion{AppID: appID, Version: version},
+		appspace:              &domain.Appspace{AppspaceID: appspaceID},
+		status:                domain.SandboxStarting,
+		waitStatusSub:         make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		SandboxRuns:           sandboxRuns,
+		AppLocation2Path:      &al2p,
+		AppspaceLocation2Path: &asl2p,
+		Config:                cfg}
 
 	err = s.doStart()
 	if err == nil {
@@ -391,14 +397,15 @@ func TestStart(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	loc := l2p{app: dir, appFiles: dir}
+	al2p := appl2p{base: dir}
+	asl2p := appspacel2p{base: dir}
 
-	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
+	os.MkdirAll(al2p.Files("app-loc"), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
 	// app code has to setCallback to trigger sandbox ready
 	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
+	err = os.WriteFile(filepath.Join(al2p.Files("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -440,17 +447,18 @@ func TestStart(t *testing.T) {
 		}}
 
 	s := &Sandbox{
-		ownerID:       ownerID,
-		operation:     op,
-		id:            7,
-		appspace:      appspace,
-		appVersion:    appVersion,
-		status:        domain.SandboxStarting,
-		SandboxRuns:   sandboxRuns,
-		Location2Path: &loc,
-		Config:        cfg,
-		Logger:        log,
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		ownerID:               ownerID,
+		operation:             op,
+		id:                    7,
+		appspace:              appspace,
+		appVersion:            appVersion,
+		status:                domain.SandboxStarting,
+		SandboxRuns:           sandboxRuns,
+		Config:                cfg,
+		AppLocation2Path:      &al2p,
+		AppspaceLocation2Path: &asl2p,
+		Logger:                log,
+		waitStatusSub:         make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.doStart()
 	if err != nil {
@@ -481,14 +489,14 @@ func TestStartAppOnly(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	loc := l2p{app: dir, appFiles: dir}
+	al2p := appl2p{base: dir}
 
-	os.MkdirAll(loc.AppFiles("app-loc"), 0700)
+	os.MkdirAll(al2p.Files("app-loc"), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
 	// app code has to setCallback to trigger sandbox ready
 	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = os.WriteFile(filepath.Join(loc.AppFiles("app-loc"), "app.ts"), app_code, 0600)
+	err = os.WriteFile(filepath.Join(al2p.Files("app-loc"), "app.ts"), app_code, 0600)
 	if err != nil {
 		t.Error(err)
 	}
@@ -520,15 +528,15 @@ func TestStartAppOnly(t *testing.T) {
 		LocationKey: "app-loc"}
 
 	s := &Sandbox{
-		ownerID:       ownerID,
-		operation:     op,
-		id:            7,
-		appVersion:    appVersion,
-		status:        domain.SandboxStarting,
-		SandboxRuns:   sandboxRuns,
-		Location2Path: &loc,
-		Config:        cfg,
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		ownerID:          ownerID,
+		operation:        op,
+		id:               7,
+		appVersion:       appVersion,
+		status:           domain.SandboxStarting,
+		SandboxRuns:      sandboxRuns,
+		Config:           cfg,
+		AppLocation2Path: &al2p,
+		waitStatusSub:    make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
 	err = s.doStart()
 	if err != nil {
@@ -557,10 +565,10 @@ func __TestExecFn(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	loc := l2p{app: dir, appFiles: dir}
+	al2p := appl2p{base: dir}
 	appLocation := "app-loc"
 
-	os.MkdirAll(loc.AppFiles(appLocation), 0700)
+	os.MkdirAll(al2p.Files(appLocation), 0700)
 	os.MkdirAll(filepath.Join(dir, "appspace-loc"), 0700)
 
 	cfg := &domain.RuntimeConfig{}
@@ -574,7 +582,7 @@ func __TestExecFn(t *testing.T) {
 		AppspaceID:  domain.AppspaceID(13),
 		LocationKey: "appspace-loc"}
 
-	scriptPath := path.Join(loc.AppFiles(appLocation), "app.ts")
+	scriptPath := path.Join(al2p.Files(appLocation), "app.ts")
 
 	err = os.WriteFile(scriptPath, []byte("export function abc() { console.log('hello workd'); }"), 0644)
 	if err != nil {
@@ -591,7 +599,6 @@ func __TestExecFn(t *testing.T) {
 		appspace:      appspace,
 		appVersion:    appVersion,
 		status:        domain.SandboxStarting,
-		Location2Path: &loc,
 		Config:        cfg,
 		Logger:        log,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
@@ -660,7 +667,6 @@ func __TestExecForbiddenImport(t *testing.T) {
 		appspace:      appspace,
 		appVersion:    appVersion,
 		status:        domain.SandboxStarting,
-		Location2Path: &l2p{app: dir, appFiles: dir},
 		Config:        cfg,
 		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
 
@@ -705,14 +711,40 @@ func (l *testLogger2) Log(source string, message string) {
 }
 
 // l2p Location2Path standin
-type l2p struct {
-	appFiles string
-	app      string
+type appl2p struct {
+	base string
 }
 
-func (l *l2p) AppMeta(loc string) string {
-	return filepath.Join(l.app, loc)
+func (l *appl2p) Base(loc string) string {
+	return filepath.Join(l.base, loc)
 }
-func (l *l2p) AppFiles(loc string) string {
-	return filepath.Join(l.appFiles, loc, "app")
+func (l *appl2p) Meta(loc string) string {
+	return filepath.Join(l.base, loc)
+}
+func (l *appl2p) Files(loc string) string {
+	return filepath.Join(l.base, loc, "app")
+}
+func (l *appl2p) ImportMap(loc string) string {
+	return filepath.Join(l.base, loc, "import-map.json")
+}
+
+// l2p Location2Path standin
+type appspacel2p struct {
+	base string
+}
+
+func (l *appspacel2p) Base(loc string) string {
+	return filepath.Join(l.base, loc)
+}
+func (l *appspacel2p) Files(loc string) string {
+	return filepath.Join(l.base, loc, "app")
+}
+func (l *appspacel2p) Data(loc string) string {
+	return filepath.Join(l.base, loc, "app")
+}
+func (l *appspacel2p) Avatars(loc string) string {
+	return filepath.Join(l.base, loc, "avatars")
+}
+func (l *appspacel2p) ImportMap(loc string) string {
+	return filepath.Join(l.base, loc, "import-map.json")
 }

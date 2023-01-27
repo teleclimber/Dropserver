@@ -1,4 +1,4 @@
-package main
+package runtimeconfig
 
 import (
 	"path/filepath"
@@ -7,23 +7,19 @@ import (
 )
 
 type AppLocation2Path struct {
-	AppMetaDir string
-	Config     *domain.RuntimeConfig `checkinject:"required"`
+	Config *domain.RuntimeConfig
 }
 
-// App return the app files directory as well
-// though it could return a temporary directory
-func (l *AppLocation2Path) Meta(locationKey string) string { // this is now Base, but now I see Meta has meaning in ds-dev?
-	return l.AppMetaDir
+// App returns the path to the App's generated files
+func (l *AppLocation2Path) Base(locationKey string) string { // should this be Base?
+	checkAppLocationKey(locationKey)
+	return filepath.Join(l.Config.Exec.AppsPath, locationKey)
 }
-
-func (l *AppLocation2Path) Base(locationKey string) string { // unsure if this should be apps dir or meta?
-	return l.Config.Exec.AppsPath
+func (l *AppLocation2Path) Meta(locationKey string) string {
+	return l.Base(locationKey)
 }
-
-// AppFiles in ds-dev returns the path of the app
 func (l *AppLocation2Path) Files(locationKey string) string {
-	return l.Config.Exec.AppsPath
+	return filepath.Join(l.Meta(locationKey), "app")
 }
 
 type AppspaceLocation2Path struct {
@@ -31,6 +27,7 @@ type AppspaceLocation2Path struct {
 }
 
 func (s *AppspaceLocation2Path) Base(locationKey string) string {
+	checkAppLocationKey(locationKey)
 	return filepath.Join(s.Config.Exec.AppspacesPath, locationKey)
 }
 func (s *AppspaceLocation2Path) Data(locationKey string) string {
@@ -44,4 +41,10 @@ func (s *AppspaceLocation2Path) Avatars(locationKey string) string {
 }
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
+}
+
+func checkAppLocationKey(loc string) {
+	if loc == "" {
+		panic("Trying to get location with empty location key.")
+	}
 }
