@@ -3,7 +3,6 @@ package userroutes
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -17,13 +16,15 @@ type BackupFile struct {
 }
 
 type AppspaceBackupRoutes struct {
-	Config             *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceFilesModel interface {
 		GetBackups(locationKey string) ([]string, error)
 		DeleteBackup(locationKey string, filename string) error
 	} `checkinject:"required"`
 	BackupAppspace interface {
 		CreateBackup(appspaceID domain.AppspaceID) (string, error)
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Backup(string, string) string
 	} `checkinject:"required"`
 }
 
@@ -84,15 +85,13 @@ func (e *AppspaceBackupRoutes) downloadArchive(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	fullPath := filepath.Join(e.Config.Exec.AppspacesPath, appspace.LocationKey, "backups", archive)
-
 	splitDomain := strings.SplitN(appspace.DomainName, ".", 2)
 	downloadFileName := splitDomain[0] + "-" + archive
 
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", downloadFileName))
 
-	http.ServeFile(w, r, fullPath)
+	http.ServeFile(w, r, e.AppspaceLocation2Path.Backup(appspace.LocationKey, archive))
 }
 
 func (e *AppspaceBackupRoutes) deleteArchive(w http.ResponseWriter, r *http.Request) {

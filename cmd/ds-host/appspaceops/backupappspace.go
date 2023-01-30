@@ -19,7 +19,6 @@ import (
 var fileDateFormat = "2006-01-02_1504"
 
 type BackupAppspace struct {
-	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
@@ -40,6 +39,11 @@ type BackupAppspace struct {
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
 		Close(appspaceID domain.AppspaceID)
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Data(string) string
+		Backups(string) string
+		Backup(string, string) string
 	} `checkinject:"required"`
 }
 
@@ -136,15 +140,14 @@ func (e *BackupAppspace) createZip(appspaceID domain.AppspaceID) (string, error)
 		return "", err
 	}
 
-	locationDir := filepath.Join(e.Config.Exec.AppspacesPath, appspace.LocationKey)
-	dataDir := filepath.Join(locationDir, "data")
-	backupsDir := filepath.Join(locationDir, "backups")
+	dataDir := e.AppspaceLocation2Path.Data(appspace.LocationKey)
+	backupsDir := e.AppspaceLocation2Path.Backups(appspace.LocationKey)
 	zipFile, err := e.getZipFilename(backupsDir)
 	if err != nil {
 		return "", err
 	}
 
-	err = zipfns.Zip(dataDir, filepath.Join(backupsDir, zipFile))
+	err = zipfns.Zip(dataDir, e.AppspaceLocation2Path.Backup(appspace.LocationKey, zipFile))
 	if err != nil {
 		e.getLogger("createZip, zipfns.Zip").Error(err)
 		return "", err

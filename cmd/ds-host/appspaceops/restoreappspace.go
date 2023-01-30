@@ -25,7 +25,6 @@ type tokenData struct {
 
 // RestoreBackup replaces an appspace's data files
 type RestoreAppspace struct {
-	Config    *domain.RuntimeConfig `checkinject:"required"`
 	InfoModel interface {
 		GetAppspaceMetaInfo(dataPath string) (domain.AppspaceMetaInfo, error)
 	} `checkinject:"required"`
@@ -50,6 +49,9 @@ type RestoreAppspace struct {
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
 		Close(appspaceID domain.AppspaceID)
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Backup(string, string) string
 	} `checkinject:"required"`
 
 	tokensMux sync.Mutex
@@ -113,9 +115,8 @@ func (r *RestoreAppspace) PrepareBackup(appspaceID domain.AppspaceID, backupFile
 		r.getLogger("PrepareBackup, validator.AppspaceBackupFile").Error(err)
 		return "", err
 	}
-	zipFile := filepath.Join(r.Config.Exec.AppspacesPath, appspace.LocationKey, "backups", backupFile)
 
-	err = r.unzipFile(tok, zipFile)
+	err = r.unzipFile(tok, r.AppspaceLocation2Path.Backup(appspace.LocationKey, backupFile))
 	if err != nil {
 		return "", err
 	}
@@ -325,7 +326,7 @@ func (r *RestoreAppspace) getLogger(note string) *record.DsLogger {
 
 // probably need a DeleteAll so that temp stuff is not preserved between restarts?
 
-////////////
+// //////////
 // random string
 const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
 

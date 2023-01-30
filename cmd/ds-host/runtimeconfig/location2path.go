@@ -43,6 +43,13 @@ func (s *AppspaceLocation2Path) Avatar(locationKey string, avatar string) string
 	checkNotEmpty(avatar, "avatar")
 	return filepath.Join(s.Base(locationKey), "data", "avatars", avatar)
 }
+func (s *AppspaceLocation2Path) Backups(locationKey string) string {
+	return filepath.Join(s.Base(locationKey), "backups")
+}
+func (s *AppspaceLocation2Path) Backup(locationKey string, backupFile string) string {
+	checkNotEmpty(backupFile, "backup file")
+	return filepath.Join(s.Backups(locationKey), backupFile)
+}
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
 }

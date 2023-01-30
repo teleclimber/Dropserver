@@ -270,23 +270,23 @@ func main() {
 		AppspaceLogger: appspaceLogger,
 	}
 	backupAppspace := &appspaceops.BackupAppspace{
-		Config:         runtimeConfig,
-		AppspaceModel:  appspaceModel,
-		SandboxManager: sandboxManager,
-		AppspaceStatus: nil,
-		AppspaceMetaDB: appspaceMetaDb,
-		AppspaceDB:     appspaceDB,
-		AppspaceLogger: appspaceLogger,
+		AppspaceModel:         appspaceModel,
+		SandboxManager:        sandboxManager,
+		AppspaceStatus:        nil,
+		AppspaceMetaDB:        appspaceMetaDb,
+		AppspaceDB:            appspaceDB,
+		AppspaceLogger:        appspaceLogger,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	restoreAppspace := &appspaceops.RestoreAppspace{
-		Config:             runtimeConfig,
-		InfoModel:          appspaceInfoModel,
-		AppspaceModel:      appspaceModel,
-		AppspaceFilesModel: appspaceFilesModel,
-		AppspaceStatus:     nil,
-		AppspaceMetaDB:     appspaceMetaDb,
-		AppspaceDB:         appspaceDB,
-		AppspaceLogger:     appspaceLogger,
+		InfoModel:             appspaceInfoModel,
+		AppspaceModel:         appspaceModel,
+		AppspaceFilesModel:    appspaceFilesModel,
+		AppspaceStatus:        nil,
+		AppspaceMetaDB:        appspaceMetaDb,
+		AppspaceDB:            appspaceDB,
+		AppspaceLogger:        appspaceLogger,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	restoreAppspace.Init()
 
@@ -451,9 +451,9 @@ func main() {
 		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
-		Config:             runtimeConfig,
-		AppspaceFilesModel: appspaceFilesModel,
-		BackupAppspace:     backupAppspace,
+		AppspaceFilesModel:    appspaceFilesModel,
+		BackupAppspace:        backupAppspace,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	restoreAppspaceRoutes := &userroutes.AppspaceRestoreRoutes{
 		RestoreAppspace: restoreAppspace,
