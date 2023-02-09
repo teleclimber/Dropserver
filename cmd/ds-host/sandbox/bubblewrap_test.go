@@ -298,7 +298,7 @@ func getDenoAbsPath() (string, error) {
 // getBwrapMappedPaths tests for the existence of common lib and others paths
 // and returns those that exist.
 func getBwrapMappedPaths() []string {
-	paths := []string{"/lib", "/usr/lib", "/lib64", "/etc"} // some combination of these paths work on arch and ubuntu
+	paths := []string{"/lib", "/usr/lib", "/lib64", "/etc", "/run"} // some combination of these paths work on arch and ubuntu
 	ret := []string{}
 	for _, p := range paths {
 		_, err := os.Stat(p)
@@ -308,5 +308,6 @@ func getBwrapMappedPaths() []string {
 			panic(err)
 		}
 	}
+	fmt.Println("getBwrapMappedPaths result:", ret)
 	return ret
 }
