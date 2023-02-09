@@ -165,7 +165,7 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		if err != nil {
 			panic(err)
 		}
-		avatar, err = u.Avatars.Save("", proxyID, f)
+		avatar, err = u.Avatars.Save(appspaceLocationKey, proxyID, f)
 		if err != nil {
 			panic(err)
 		}
@@ -207,7 +207,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 			m.SendError(err.Error())
 			panic(err)
 		}
-		avatar, err = u.Avatars.Save("", incomingUser.ProxyID, f)
+		avatar, err = u.Avatars.Save(appspaceLocationKey, incomingUser.ProxyID, f)
 		if err != nil {
 			m.SendError(err.Error())
 			panic(err)
@@ -215,7 +215,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 	}
 	// remove old avatar
 	if user.Avatar != "" && user.Avatar != incomingUser.Avatar {
-		err = u.Avatars.Remove("", user.Avatar)
+		err = u.Avatars.Remove(appspaceLocationKey, user.Avatar)
 		if err != nil {
 			m.SendError(err.Error())
 			panic(err)
@@ -246,7 +246,7 @@ func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	}
 
 	if user.Avatar != "" {
-		err = u.Avatars.Remove("", user.Avatar)
+		err = u.Avatars.Remove(appspaceLocationKey, user.Avatar)
 		if err != nil {
 			m.SendError(err.Error())
 			panic(err)

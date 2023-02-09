@@ -127,6 +127,7 @@ func getPassingDefault() *domain.RuntimeConfig {
 	rtc.DataDir = "/a/b/c"
 	rtc.ExternalAccess.Domain = "local.dropserver.develop"
 	rtc.Sandbox.SocketsDir = "/d/e/f"
+	rtc.Sandbox.DenoPath = "/path/to/deno"
 	rtc.Server.NoTLS = true
 	return rtc
 }

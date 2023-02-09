@@ -57,12 +57,15 @@ type RuntimeConfig struct {
 		DisableOCSPStapling bool   `json:"disable-ocsp-stapling"` // default false
 	} `json:"manage-certificates"`
 	Sandbox struct {
-		SocketsDir  string `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
-		Num         int    `json:"num"`
-		UseCGroups  bool   `json:"use-cgroups"`
-		CGroupMount string `json:"cgroup-mount"`
+		DenoPath      string   `json:"deno-path"`   // explicitly set path to Deno
+		SocketsDir    string   `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
+		UseBubblewrap bool     `json:"use-bubblewrap"`
+		BwrapMapPaths []string `json:"bwrap-map-paths"` // for bwrap to be able to run Deno
+		UseCGroups    bool     `json:"use-cgroups"`
+		CGroupMount   string   `json:"cgroup-mount"`
 		// MemoryBytesMb is the memory.high value for the cgroup that is parent of all sandboxe cgroups
 		MemoryHighMb int `json:"memory-high-mb"`
+		Num          int `json:"num"`
 	} `json:"sandbox"`
 	Log        string `json:"log"`
 	Prometheus struct {

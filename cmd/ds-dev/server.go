@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -19,9 +18,12 @@ import (
 
 // Server struct sets all parameters about the server
 type Server struct {
-	Config               *domain.RuntimeConfig `checkinject:"required"`
-	DropserverDevHandler *DropserverDevServer  `checkinject:"required"`
-	AppspaceRouter       http.Handler          `checkinject:"required"`
+	Config                *domain.RuntimeConfig `checkinject:"required"`
+	DropserverDevHandler  *DropserverDevServer  `checkinject:"required"`
+	AppspaceRouter        http.Handler          `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Avatars(string) string
+	} `checkinject:"required"`
 }
 
 // Start starts up the server so it listens for connections
@@ -42,7 +44,8 @@ func (s *Server) Start() { //return a server type
 
 		r.Get("/avatar/baked-in", s.getAvatarList)
 		r.Handle("/avatar/baked-in/*", http.StripPrefix("/dropserver-dev/avatar/baked-in/", http.FileServer(http.FS(avatarsSubFS))))
-		r.Handle("/avatar/appspace/*", http.StripPrefix("/dropserver-dev/avatar/appspace/", http.FileServer(http.Dir(filepath.Join(s.Config.Exec.AppspacesPath, "data", "avatars")))))
+		appspaceAvatarsDir := s.AppspaceLocation2Path.Avatars(appspaceLocationKey)
+		r.Handle("/avatar/appspace/*", http.StripPrefix("/dropserver-dev/avatar/appspace/", http.FileServer(http.Dir(appspaceAvatarsDir))))
 
 		// For app index, ensure there is a trailing slash with RedirectNoSlashes
 		// The frontend makes use of relative paths for subsequent requests,

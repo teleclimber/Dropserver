@@ -24,6 +24,8 @@ jobs:
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.x
+    - name: Install bubblewrap
+      run: sudo apt-get install -y bubblewrap
 
     - name: Download frontend-ds-host
       uses: actions/download-artifact@v2

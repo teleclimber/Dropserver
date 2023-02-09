@@ -27,10 +27,12 @@ var configDefault = []byte(`{
 		"issuer-endpoint": "https://acme-v02.api.letsencrypt.org/directory"
 	},
 	"sandbox": {
-		"num": 3,
+		"use-bubblewrap" : true,
+		"bwrap-map-paths": ["/usr/lib", "/etc", "/lib64"],
 		"use-cgroups": true,
 		"cgroup-mount": "/sys/fs/cgroup",
-		"memory-high-mb": 512
+		"memory-high-mb": 512,
+		"num": 3
 	}
 }`)
 
@@ -51,7 +53,10 @@ func Load(configFile string) *domain.RuntimeConfig {
 	}
 
 	validateConfig(rtc)
-	checkDataDir(rtc.DataDir)
+	checkDirExists(rtc.DataDir, "data")
+	for _, p := range rtc.Sandbox.BwrapMapPaths {
+		checkDirExists(p, "bwrap-map-paths")
+	}
 	setExec(rtc)
 
 	return rtc
@@ -155,19 +160,29 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 
 	// Sandbox:
-	if rtc.Sandbox.Num == 0 {
-		panic("you need at least one sandbox")
+	if rtc.Sandbox.UseBubblewrap && rtc.Sandbox.DenoPath == "" {
+		panic("deno-path can not be blank when using bubblewrap")
 	}
 	if rtc.Sandbox.SocketsDir == "" {
 		panic("sockets dir can not be blank")
 	}
+	for i, op := range rtc.Sandbox.BwrapMapPaths {
+		p := filepath.Clean(op)
+		if !filepath.IsAbs(p) {
+			panic(fmt.Sprintf("bwrap-map-paths invalid: %s", op))
+		}
+		rtc.Sandbox.BwrapMapPaths[i] = p
+	}
+	if rtc.Sandbox.Num == 0 {
+		panic("you need at least one sandbox")
+	}
 }
 
-func checkDataDir(dir string) {
+func checkDirExists(dir string, name string) {
 	_, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			panic("data directory does not exist: " + dir)
+			panic(fmt.Sprintf("%s directory does not exist: %s", name, dir))
 		} else {
 			panic(err)
 		}

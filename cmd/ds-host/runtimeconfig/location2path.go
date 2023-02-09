@@ -21,6 +21,9 @@ func (l *AppLocation2Path) Meta(locationKey string) string {
 func (l *AppLocation2Path) Files(locationKey string) string {
 	return filepath.Join(l.Meta(locationKey), "app")
 }
+func (s *AppLocation2Path) DenoDir(locationKey string) string {
+	return filepath.Join(s.Meta(locationKey), "deno-dir")
+}
 
 type AppspaceLocation2Path struct {
 	Config *domain.RuntimeConfig

@@ -18,6 +18,8 @@ func GetConfig(appPath string, tempDir string) *domain.RuntimeConfig {
 	rtc.ExternalAccess.Domain = "localhost"
 	rtc.ExternalAccess.Port = 3003
 
+	rtc.Sandbox.SocketsDir = filepath.Join(tempDir, "sockets")
+
 	rtc.Exec.PortString = ":3003"
 
 	if !filepath.IsAbs(appPath) {
@@ -31,7 +33,6 @@ func GetConfig(appPath string, tempDir string) *domain.RuntimeConfig {
 
 	rtc.Exec.SandboxCodePath = filepath.Join(tempDir, "sandbox-code")
 	rtc.Exec.AppspacesPath = filepath.Join(tempDir, "appspace")
-	rtc.Sandbox.SocketsDir = filepath.Join(tempDir, "sockets")
 
 	return rtc
 }

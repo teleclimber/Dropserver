@@ -25,12 +25,16 @@ func (l *AppLocation2Path) Base(locationKey string) string { // unsure if this s
 func (l *AppLocation2Path) Files(locationKey string) string {
 	return l.Config.Exec.AppsPath
 }
+func (s *AppLocation2Path) DenoDir(locationKey string) string {
+	return filepath.Join(s.Meta(locationKey), "deno-dir")
+}
 
 type AppspaceLocation2Path struct {
 	Config *domain.RuntimeConfig
 }
 
 func (s *AppspaceLocation2Path) Base(locationKey string) string {
+	checkNotEmpty(locationKey, "appspace base")
 	return filepath.Join(s.Config.Exec.AppspacesPath, locationKey)
 }
 func (s *AppspaceLocation2Path) Data(locationKey string) string {
@@ -47,4 +51,10 @@ func (s *AppspaceLocation2Path) Avatar(locationKey string, avatar string) string
 }
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
+}
+
+func checkNotEmpty(loc string, desc string) {
+	if loc == "" {
+		panic("checkNotEmpty: " + desc)
+	}
 }

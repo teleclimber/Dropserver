@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -115,6 +114,11 @@ type runDBIDData struct {
 	ok bool
 }
 
+type BwrapStatusJsonI interface {
+	GetFile() *os.File
+	WaitPid() (int, bool)
+}
+
 // local sandbox service:
 const sandboxService = 11
 
@@ -141,7 +145,6 @@ type Sandbox struct {
 		RemoveCGroup(string) error
 	}
 	Logger           interface{ Log(string, string) }
-	socketsDir       string
 	cmd              *exec.Cmd
 	twine            *twine.Twine
 	Services         domain.ReverseServiceI
@@ -152,19 +155,21 @@ type Sandbox struct {
 	transport        http.RoundTripper
 	taskTracker      taskTracker
 	inspect          bool
-	importMapExtras  map[string]string
 	AppLocation2Path interface {
 		Meta(string) string
 		Files(string) string
+		DenoDir(string) string
 	}
 	AppspaceLocation2Path interface {
 		Base(string) string
 		Data(string) string
 		Files(string) string
 		Avatars(string) string
+		DenoDir(string) string
 	}
 	Config *domain.RuntimeConfig
 
+	paths  *paths
 	cGroup string
 }
 
@@ -177,7 +182,8 @@ func NewSandbox(id int, operation string, ownerID domain.UserID, appVersion *dom
 		appspace:      appspace,
 		status:        domain.SandboxPrepared,
 		statusSub:     make([]chan domain.SandboxStatus, 0),
-		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
+		waitStatusSub: make(map[domain.SandboxStatus][]chan domain.SandboxStatus),
+		paths:         &paths{}}
 
 	return s
 }
@@ -205,7 +211,7 @@ func (s *Sandbox) SetInspect(inspect bool) {
 
 // SetImportMap sets items to include in the generated import map
 func (s *Sandbox) SetImportMapExtras(extras map[string]string) {
-	s.importMapExtras = extras
+	s.paths.importMapExtras = extras
 }
 
 // Start sets the status to starting
@@ -215,6 +221,7 @@ func (s *Sandbox) Start() {
 	go func() {
 		err := s.doStart()
 		if err != nil {
+			s.getLogger("doStart Error").Error(err)
 			s.Kill()
 			return
 		}
@@ -260,7 +267,9 @@ func (s *Sandbox) doStart() error {
 		logger.AddNote(fmt.Sprintf("os.MkdirTemp() dir: %v", s.Config.Sandbox.SocketsDir)).Error(err)
 		return err
 	}
-	s.socketsDir = socketsDir
+	s.paths.sockets = socketsDir
+
+	s.createPaths()
 
 	err = s.writeImportMap()
 	if err != nil {
@@ -270,6 +279,11 @@ func (s *Sandbox) doStart() error {
 	// here write a file that imports the sandbox code and the app code
 	// This should be done at install time of the app
 	err = s.writeBootstrapFile()
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(s.paths.hostPath("deno-dir"), 0755)
 	if err != nil {
 		return err
 	}
@@ -291,11 +305,6 @@ func (s *Sandbox) doStart() error {
 		return err // return user-centered error
 	}
 
-	appspacePath := "/dev/null"
-	if s.appspace != nil {
-		appspacePath = s.AppspaceLocation2Path.Data(s.appspace.LocationKey)
-	}
-
 	// Probably need to think more about flags we pass, such as --no-remote?
 	denoArgs := make([]string, 0, 10)
 	denoArgs = append(denoArgs, "run", "--unstable")
@@ -303,33 +312,67 @@ func (s *Sandbox) doStart() error {
 		denoArgs = append(denoArgs, "--inspect-brk")
 	}
 
-	readFiles, readWriteFiles := s.populateFilePerms()
-	if len(readFiles) == 0 || len(readWriteFiles) == 0 {
-		// "--allow-read=" could be interpreted by Deno as allowing all reads!
-		panic("sandbox readFiles or readWriteFiles are empty")
-	}
-
 	typeCheck := "--no-check"
 	if s.operation == opAppInit {
 		typeCheck = "--check"
 	}
 
+	// We have to pass an appspace data dir to the sandbox runner even in app-only mode
+	// due to a quirk in how we read args there
+	appspaceData := "/dev/null"
+	if s.appspace != nil {
+		appspaceData = s.paths.sandboxPath("appspace-data")
+	}
+
 	runArgs := []string{
 		typeCheck,
-		"--importmap=" + s.getImportPathFile(),
-		"--allow-read=" + strings.Join(append(readFiles, readWriteFiles...), ","),
-		"--allow-write=" + strings.Join(readWriteFiles, ","),
-		//"--allow-net=...",
-		s.getBootstrapFilename(),
-		s.socketsDir,
-		s.AppLocation2Path.Files(s.appVersion.LocationKey), // while we have an import-map, these are still needed to read files without importing
-		appspacePath,
+		"--import-map=" + s.paths.sandboxPath("import-map"),
+		"--allow-read=" + s.paths.denoAllowRead(),
+		"--allow-write=" + s.paths.denoAllowWrite(),
+		s.paths.sandboxPath("bootstrap"),
+		s.paths.sandboxPath("sockets"),
+		s.paths.sandboxPath("app-files"),
+		appspaceData,
 	}
 
 	denoArgs = append(denoArgs, runArgs...)
-	s.cmd = exec.Command("deno", denoArgs...)
 
-	// Note that ultimately we need to stick this in a Cgroup
+	var bwrapStatus BwrapStatusJsonI
+	if s.Config.Sandbox.UseBubblewrap {
+		bwrapStatus, err = NewBwrapJsonStatus(s.Config.Sandbox.SocketsDir)
+		if err != nil {
+			logger.AddNote("NewBwrapJsonStatus()").Error(err)
+			return err // user centered error
+		}
+
+		// --hostname?
+		bwrapArgs := []string{
+			"--clearenv",
+			"--setenv", "DENO_DIR", s.paths.sandboxPath("deno-dir"),
+			"--setenv", "NO_COLOR", "true",
+			//"--unshare-all", "--share-net", // temporary
+			"--unshare-user-try",
+			"--unshare-ipc",
+			//"--unshare-pid",	// can't unshare pid for now
+			"--unshare-uts",
+			"--unshare-cgroup-try",
+			"--proc", "/proc",
+			"--die-with-parent",
+			"--new-session", // to protect against TIOCSTI
+			"--json-status-fd", "3",
+		}
+		for _, p := range s.Config.Sandbox.BwrapMapPaths {
+			bwrapArgs = append(bwrapArgs, "--ro-bind", p, p)
+		}
+		bwrapArgs = append(bwrapArgs, s.paths.getBwrapPathMaps()...)
+		bwrapArgs = append(bwrapArgs, s.paths.sandboxPath("deno"))
+		bwrapArgs = append(bwrapArgs, denoArgs...)
+
+		s.cmd = exec.Command("bwrap", bwrapArgs...)
+		s.cmd.ExtraFiles = []*os.File{bwrapStatus.GetFile()}
+	} else {
+		s.cmd = exec.Command(s.paths.sandboxPath("deno"), denoArgs...)
+	}
 
 	stdout, err := s.cmd.StdoutPipe()
 	if err != nil {
@@ -359,6 +402,16 @@ func (s *Sandbox) doStart() error {
 		err = s.CGroups.AddPid(s.cGroup, s.cmd.Process.Pid)
 		if err != nil {
 			return err
+		}
+		if s.Config.Sandbox.UseBubblewrap {
+			pid, ok := bwrapStatus.WaitPid() //TODO I really don't like waiting here. This could delay the sandbox starting up.
+			if !ok {
+				return errors.New("failed to get pid from bwrap")
+			}
+			err = s.CGroups.AddPid(s.cGroup, pid)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -425,8 +478,12 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser, runDBIDCh 
 
 	err := s.cmd.Wait()
 	if err != nil {
-		// TODO check error type (see Wait comment)
-		s.getLogger("monitor(), s.cmd.Wait()").Error(err)
+		l := s.getLogger("monitor(), s.cmd.Wait()")
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			l.AddNote(fmt.Sprintf("Exit Status: %d", exiterr.ExitCode())).Error(exiterr)
+		} else {
+			l.AddNote("cmd.Wait").Error(err)
+		}
 		s.Kill()
 		// Here we should kill off reverse listener?
 		// This is where we want to log things for the benefit of the dropapp user.
@@ -576,10 +633,10 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 	s.twine.Stop()
 
 	// Not sure if we can do this now, or have to wait til dead...
-	err := os.RemoveAll(s.socketsDir)
+	err := os.RemoveAll(s.paths.hostPath("sockets"))
 	if err != nil {
 		// might ignore err?
-		s.getLogger("Stop(), os.RemoveAll(s.socketsDir)").Error(err)
+		s.getLogger("Stop(), os.RemoveAll(sockets dir)").Error(err)
 	}
 
 	cGroupData := s.collectRunData()
@@ -761,7 +818,7 @@ func (s *Sandbox) GetTransport() http.RoundTripper {
 	if s.transport == nil {
 		s.transport = &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", filepath.Join(s.socketsDir, "server.sock"))
+				return net.Dial("unix", filepath.Join(s.paths.hostPath("sockets"), "server.sock"))
 			},
 		}
 	}
@@ -865,95 +922,54 @@ func (s *Sandbox) log(logString string) {
 	}
 }
 
+func (s *Sandbox) createPaths() {
+	s.paths.appLoc = s.appVersion.LocationKey
+	if s.appspace != nil {
+		s.paths.appspaceLoc = s.appspace.LocationKey
+	}
+	s.paths.Config = s.Config
+	s.paths.AppLocation2Path = s.AppLocation2Path
+	s.paths.AppspaceLocation2Path = s.AppspaceLocation2Path
+	s.paths.init()
+}
+
 // ImportPaths defines a type for creating imopsts.json for Deno
 type ImportPaths struct {
 	Imports map[string]string `json:"imports"`
 }
 
-func (s *Sandbox) makeImportMap() ([]byte, error) {
-	bootstrapPath := s.getBootstrapFilename()
-	appPath := trailingSlash(s.AppLocation2Path.Files(s.appVersion.LocationKey))
-	dropserverPath := trailingSlash(s.Config.Exec.SandboxCodePath)
-	// TODO: check that none of these paths are "/" as this can defeat protection against forbidden imports.
-
-	im := ImportPaths{
-		Imports: map[string]string{
-			"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
-			"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
-			bootstrapPath:  bootstrapPath,
-			appPath:        appPath,
-			dropserverPath: dropserverPath,
-
-			// // TODO DELETE EXTERMELY TEMPORARY
-			// "https://deno.land/x/dropserver_lib_support/":         "/Users/ollie/Documents/Code/dropserver_lib_support/",
-			// "/Users/ollie/Documents/Code/dropserver_lib_support/": "/Users/ollie/Documents/Code/dropserver_lib_support/",
-			// "https://deno.land/x/dropserver_app/":                 "/Users/ollie/Documents/Code/dropserver_app/",
-			// "/Users/ollie/Documents/Code/dropserver_app/":         "/Users/ollie/Documents/Code/dropserver_app/",
-			// "https://deno.land/x/twine@0.1.0/":        "/Users/ollie/Documents/Code/twine-deno/",
-			// "/Users/ollie/Documents/Code/twine-deno/": "/Users/ollie/Documents/Code/twine-deno/",
-		}}
-
-	if s.appspace != nil {
-		appspacePath := trailingSlash(s.getAppspaceFilesPath())
-		im = ImportPaths{
-			Imports: map[string]string{
-				"/":            "/dev/null/", // Defeat imports from outside the app dir. See:
-				"./":           "./",         // https://github.com/denoland/deno/issues/6294#issuecomment-663256029
-				bootstrapPath:  bootstrapPath,
-				appPath:        appPath,
-				appspacePath:   appspacePath,
-				dropserverPath: dropserverPath,
-			}}
-	}
-
-	if s.importMapExtras != nil {
-		for k, v := range s.importMapExtras {
-			im.Imports[k] = v
-		}
-	}
-
-	j, err := json.Marshal(im)
-	if err != nil {
-		s.getLogger("makeImportMap()").Error(err)
-		return nil, err
-	}
-
-	return j, nil
-}
-func trailingSlash(p string) string {
-	if strings.HasSuffix(p, string(os.PathSeparator)) {
-		return p
-	}
-	return p + string(os.PathSeparator)
-}
-
 func (s *Sandbox) writeImportMap() error {
-	data, err := s.makeImportMap()
+	// I'd like to only write the import map if it's not written.
+	// BUT! this means that if anything changes in ds-host
+	// or the admin turns on bubblewrap for ex, all the import maps are broken
+	// So can't do that until we're smarter about it.
+
+	im := s.paths.denoImportMap()
+
+	data, err := json.Marshal(im)
 	if err != nil {
+		s.getLogger("writeImportMap()").Error(err)
 		return err
 	}
 
-	err = os.WriteFile(s.getImportPathFile(), data, 0600)
+	p := s.paths.hostPath("import-map")
+	err = os.WriteFile(p, data, 0600)
 	if err != nil {
-		s.getLogger("writeImportMap()").AddNote("os.WriteFile file: " + s.getImportPathFile()).Error(err)
+		s.getLogger("writeImportMap()").AddNote("os.WriteFile file: " + p).Error(err)
 		return err
 	}
 
 	return nil
 }
 
-func (s *Sandbox) getBootstrapFilename() string {
-	return filepath.Join(s.AppLocation2Path.Meta(s.appVersion.LocationKey), "bootstrap.js")
-}
-func (s *Sandbox) writeBootstrapFile() error {
-	p := s.getBootstrapFilename()
-	if _, err := os.Stat(p); !errors.Is(err, os.ErrNotExist) {
-		s.getLogger("writeBootstrapFile()").Debug("Skipping writing bootstrap js file")
-		return nil
-	}
+func (s *Sandbox) writeBootstrapFile() error { // divide this into two: getting the contenst o fo the file and writing it to disk
+	p := s.paths.hostPath("bootstrap")
 
-	str := "import '" + path.Join(s.Config.Exec.SandboxCodePath, "index.ts") + "';\n"
-	str += "import '" + path.Join(s.AppLocation2Path.Files(s.appVersion.LocationKey), "app.ts") + "';"
+	// Same as import map, we have to write on every sb invocation until we have a mechanism for
+	// removing this file on config change.
+
+	str := "import '" + path.Join(s.paths.sandboxPath("sandbox-runner"), "index.ts") + "';\n"
+	str += "import '" + path.Join(s.paths.sandboxPath("app-files"), "app.ts") + "';"
 
 	err := os.WriteFile(p, []byte(str), 0600)
 	if err != nil {
@@ -961,34 +977,4 @@ func (s *Sandbox) writeBootstrapFile() error {
 		return err
 	}
 	return nil
-}
-
-func (s *Sandbox) populateFilePerms() (readFiles, readWriteFiles []string) {
-	// sandbox runner and socket:
-	readWriteFiles = append(readWriteFiles, s.socketsDir)
-
-	// read app files:
-	readFiles = append(readFiles, s.AppLocation2Path.Files(s.appVersion.LocationKey))
-
-	if s.appspace == nil {
-		return
-	}
-
-	// readonly avatars dir:
-	readFiles = append(readFiles, s.AppspaceLocation2Path.Avatars(s.appspace.LocationKey))
-
-	// read-write appspace files:
-	readWriteFiles = append(readWriteFiles, filepath.Join(s.AppspaceLocation2Path.Files(s.appspace.LocationKey)))
-
-	// TODO probably need to process / quote / check / escape these strings for problems?
-
-	return
-}
-
-func (s *Sandbox) getImportPathFile() string {
-	if s.appspace != nil {
-		return filepath.Join(s.AppspaceLocation2Path.Base(s.appspace.LocationKey), "import-paths.json")
-	} else {
-		return filepath.Join(s.AppLocation2Path.Meta(s.appVersion.LocationKey), "import-paths.json")
-	}
 }

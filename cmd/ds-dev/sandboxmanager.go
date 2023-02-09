@@ -37,12 +37,14 @@ type DevSandboxManager struct {
 	AppLocation2Path interface {
 		Meta(string) string
 		Files(string) string
+		DenoDir(string) string
 	} `checkinject:"required"`
 	AppspaceLocation2Path interface {
 		Base(string) string
 		Data(string) string
 		Files(string) string
 		Avatars(string) string
+		DenoDir(string) string
 	} `checkinject:"required"`
 	Config *domain.RuntimeConfig `checkinject:"required"`
 

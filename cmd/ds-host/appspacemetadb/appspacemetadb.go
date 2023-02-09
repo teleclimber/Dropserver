@@ -148,7 +148,11 @@ func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID,
 		return
 	}
 
-	appspacePath := filepath.Join(mdb.Config.Exec.AppspacesPath, appspace.LocationKey, "data")
+	if appspace.LocationKey == "" {
+		panic("appspace location key empty")
+	}
+
+	appspacePath := filepath.Join(mdb.Config.Exec.AppspacesPath, appspace.LocationKey, "data") //TODO asl2p
 	dbFile := filepath.Join(appspacePath, "appspace-meta.db")
 	dsn := "file:" + dbFile + "?mode=rw"
 

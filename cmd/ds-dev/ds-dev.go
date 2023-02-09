@@ -60,6 +60,7 @@ var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data t
 const ownerID = domain.UserID(7)
 const appID = domain.AppID(11)
 const appspaceID = domain.AppspaceID(15)
+const appspaceLocationKey = "as12345"
 
 func main() {
 	fmt.Println("ds-dev version: " + cmd_version)
@@ -193,9 +194,8 @@ func main() {
 		AppspaceMetaDb:      appspaceMetaDb,
 		AppspaceFilesEvents: appspaceFilesEvents,
 		sourceDir:           appspaceSourceDir,
-		destDir:             runtimeConfig.Exec.AppspacesPath,
+		destDir:             filepath.Join(runtimeConfig.Exec.AppspacesPath, appspaceLocationKey),
 	}
-	appspaceFiles.Reset()
 
 	avatars := &appspaceops.Avatars{
 		Config:                runtimeConfig,
@@ -225,7 +225,7 @@ func main() {
 		AppVersion:  devAppModel.Ver.Version,
 		DomainName:  "",
 		Created:     time.Now(),
-		LocationKey: "",
+		LocationKey: appspaceLocationKey,
 		Paused:      false}
 
 	appspaceLogger := &appspacelogger.AppspaceLogger{
@@ -252,6 +252,8 @@ func main() {
 		AppWatcher:     devAppWatcher,
 	}
 	importMapExtras.Init(*importMapFlag)
+
+	appspaceFiles.Reset()
 
 	// We can start files watcher after import map extras have been registered.
 	devAppWatcher.Start()
@@ -399,9 +401,10 @@ func main() {
 
 	// Create server.
 	server := &Server{
-		Config:               runtimeConfig,
-		DropserverDevHandler: dsDevHandler,
-		AppspaceRouter:       appspaceRouter}
+		Config:                runtimeConfig,
+		DropserverDevHandler:  dsDevHandler,
+		AppspaceRouter:        appspaceRouter,
+		AppspaceLocation2Path: appspaceLocation2Path}
 
 	// experimental:
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
