@@ -84,7 +84,7 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 	}
 	cfg.Sandbox.DenoPath = deno
 	cfg.Sandbox.UseBubblewrap = true
-	cfg.Sandbox.BwrapMapPaths = []string{"/usr/lib", "/etc", "/lib64"}
+	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
@@ -177,7 +177,7 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	}
 	cfg.Sandbox.DenoPath = deno
 	cfg.Sandbox.UseBubblewrap = true
-	cfg.Sandbox.BwrapMapPaths = []string{"/usr/lib", "/etc", "/lib64"}
+	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dir, "appspaces")
 
@@ -293,4 +293,20 @@ func getDenoAbsPath() (string, error) {
 	}
 	fmt.Println("deno abs path:", fname)
 	return fname, nil
+}
+
+// getBwrapMappedPaths tests for the existence of common lib and others paths
+// and returns those that exist.
+func getBwrapMappedPaths() []string {
+	paths := []string{"/lib", "/usr/lib", "/lib64", "/etc"} // some combination of these paths work on arch and ubuntu
+	ret := []string{}
+	for _, p := range paths {
+		_, err := os.Stat(p)
+		if err == nil {
+			ret = append(ret, p)
+		} else if !os.IsNotExist(err) {
+			panic(err)
+		}
+	}
+	return ret
 }
