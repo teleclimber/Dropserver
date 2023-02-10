@@ -26,6 +26,9 @@ type DeleteAppspace struct {
 	SandboxManager interface {
 		StopAppspace(domain.AppspaceID)
 	} `checkinject:"required"`
+	AppspaceLogger interface {
+		Forget(domain.AppspaceID)
+	} `checkinject:"required"`
 }
 
 // Delete permanently deletes all data associated with an appspace
@@ -55,6 +58,8 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 	if err != nil {
 		return err
 	}
+
+	d.AppspaceLogger.Forget(appspace.AppspaceID)
 
 	// then delete the files
 	err = d.AppspaceFilesModel.DeleteLocation(appspace.LocationKey)

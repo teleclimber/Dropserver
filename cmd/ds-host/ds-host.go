@@ -318,6 +318,7 @@ func main() {
 		DomainController:   domainController,
 		MigrationJobModel:  migrationJobModel,
 		SandboxManager:     sandboxManager,
+		AppspaceLogger:     appspaceLogger,
 	}
 
 	appGetter := &appops.AppGetter{

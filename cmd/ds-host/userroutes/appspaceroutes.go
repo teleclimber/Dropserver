@@ -322,6 +322,7 @@ func (a *AppspaceRoutes) getLog(w http.ResponseWriter, r *http.Request) {
 	logger := a.AppspaceLogger.Open(appspace.AppspaceID)
 	if logger == nil {
 		writeJSON(w, domain.LogChunk{})
+		return
 	}
 	chunk, err := logger.GetLastBytes(4 * 1024)
 	if err != nil {
