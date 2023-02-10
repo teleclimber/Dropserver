@@ -18,8 +18,7 @@ type Server struct {
 	CertificateManager interface {
 		GetTLSConfig() *tls.Config
 		GetHTTPChallengeHandler(handler http.Handler) http.Handler
-	} `checkinject:"required"`
-	// admin routes, user routes, auth routes....
+	} // not required
 	UserRoutes     http.Handler `checkinject:"required"`
 	AppspaceRouter http.Handler `checkinject:"required"`
 
