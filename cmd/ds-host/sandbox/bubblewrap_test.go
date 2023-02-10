@@ -77,14 +77,10 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	deno, err := getDenoAbsPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Sandbox.DenoPath = deno
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
+	cfg.Exec.DenoFullPath = getDenoAbsPath()
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
@@ -170,16 +166,12 @@ func TestStartAppspaceBwrap(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	deno, err := getDenoAbsPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Sandbox.DenoPath = deno
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 	cfg.Exec.AppspacesPath = filepath.Join(dir, "appspaces")
+	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.DenoFullPath = getDenoAbsPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 	asl2p := &runtimeconfig.AppspaceLocation2Path{Config: cfg}
@@ -282,17 +274,17 @@ func handleStd(rc io.ReadCloser, source string) {
 	}
 }
 
-func getDenoAbsPath() (string, error) {
+func getDenoAbsPath() string {
 	fname, err := exec.LookPath("deno")
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 	fname, err = filepath.Abs(fname)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 	fmt.Println("deno abs path:", fname)
-	return fname, nil
+	return fname
 }
 
 // getBwrapMappedPaths tests for the existence of common lib and others paths

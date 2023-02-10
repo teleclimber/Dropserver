@@ -57,7 +57,6 @@ type RuntimeConfig struct {
 		DisableOCSPStapling bool   `json:"disable-ocsp-stapling"` // default false
 	} `json:"manage-certificates"`
 	Sandbox struct {
-		DenoPath      string   `json:"deno-path"`   // explicitly set path to Deno
 		SocketsDir    string   `json:"sockets-dir"` // do we really need this? could we not put it in DataDir/sockets?
 		UseBubblewrap bool     `json:"use-bubblewrap"`
 		BwrapMapPaths []string `json:"bwrap-map-paths"` // for bwrap to be able to run Deno
@@ -77,6 +76,7 @@ type RuntimeConfig struct {
 	Exec struct {
 		PortString       string
 		UserRoutesDomain string
+		DenoFullPath     string
 		SandboxCodePath  string
 		AppsPath         string
 		AppspacesPath    string

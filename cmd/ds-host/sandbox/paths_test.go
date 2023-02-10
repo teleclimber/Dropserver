@@ -111,7 +111,8 @@ func TestAppspaceDenoAllow(t *testing.T) {
 
 func TestAppBwrapMaps(t *testing.T) {
 	c := &domain.RuntimeConfig{}
-	c.Sandbox.DenoPath = "/path/to/deno"
+	c.Sandbox.UseBubblewrap = true
+	c.Exec.DenoFullPath = "/path/to/deno"
 	c.Exec.AppsPath = "/app-f1les-base"
 	c.Exec.SandboxCodePath = "/sandb0x-runner"
 	p := &paths{
@@ -140,7 +141,8 @@ func TestAppBwrapMaps(t *testing.T) {
 
 func TestAppspaceBwrapMaps(t *testing.T) {
 	c := &domain.RuntimeConfig{}
-	c.Sandbox.DenoPath = "/path/to/deno"
+	c.Sandbox.UseBubblewrap = true
+	c.Exec.DenoFullPath = "/path/to/deno"
 	c.Exec.AppsPath = "/app-f1les-base"
 	c.Exec.AppspacesPath = "/appspace-f1les-base"
 	c.Exec.SandboxCodePath = "/sandb0x-runner"

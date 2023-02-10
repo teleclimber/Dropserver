@@ -59,8 +59,8 @@ func (p *paths) init() {
 	p.pDatasMap = make(map[string]pathData)
 
 	deno := "deno"
-	if p.Config.Sandbox.DenoPath != "" {
-		deno = p.Config.Sandbox.DenoPath
+	if p.Config.Sandbox.UseBubblewrap {
+		deno = p.Config.Exec.DenoFullPath
 	}
 
 	p.add("deno", pathData{

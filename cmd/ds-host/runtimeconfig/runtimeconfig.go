@@ -6,10 +6,12 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // default config values.
@@ -160,9 +162,6 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 
 	// Sandbox:
-	if rtc.Sandbox.UseBubblewrap && rtc.Sandbox.DenoPath == "" {
-		panic("deno-path can not be blank when using bubblewrap")
-	}
 	if rtc.Sandbox.SocketsDir == "" {
 		panic("sockets dir can not be blank")
 	}
@@ -197,6 +196,13 @@ func setExec(rtc *domain.RuntimeConfig) {
 		rtc.Exec.PortString = fmt.Sprintf(":%d", port)
 	}
 
+	deno, err := getDenoAbsPath()
+	if err != nil && rtc.Sandbox.UseBubblewrap {
+		getLogger("setExec, getDenoAbsPath, Error getting deno absolute path:").Error(err)
+		panic("error getting deno absolute path: " + err.Error())
+	}
+	rtc.Exec.DenoFullPath = deno
+
 	// set up runtime paths
 	rtc.Exec.SandboxCodePath = filepath.Join(rtc.DataDir, "sandbox-code")
 
@@ -210,4 +216,25 @@ func setExec(rtc *domain.RuntimeConfig) {
 	if rtc.ExternalAccess.Subdomain != "" {
 		rtc.Exec.UserRoutesDomain = rtc.ExternalAccess.Subdomain + "." + rtc.ExternalAccess.Domain
 	}
+}
+
+func getDenoAbsPath() (string, error) {
+	fname, err := exec.LookPath("deno")
+	if err != nil {
+		return "", err
+	}
+	fname, err = filepath.Abs(fname)
+	if err != nil {
+		return "", err
+	}
+	getLogger("getDenoAbsPath").Log("Found deno abs path: " + fname)
+	return fname, nil
+}
+
+func getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("runtimeconfig")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
