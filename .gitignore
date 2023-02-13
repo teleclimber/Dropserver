@@ -42,6 +42,7 @@ pnpm-debug.log*
 # Editor directories and files
 .idea
 .vscode
+.VSCodeCounter
 *.suo
 *.ntvs*
 *.njsproj
