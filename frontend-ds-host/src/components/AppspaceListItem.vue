@@ -1,76 +1,59 @@
-<template>
-	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-		<div class="px-4 py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between">
-			<div>
-				<h3 class="text-2xl leading-6 font-medium text-gray-900">
-					{{appspace.domain_name}}
-				</h3>
-				<p class="mt-1 max-w-2xl text-sm text-gray-500">
-					{{app_version.app_name}} v. {{app_version.version}}
-					<span v-if="appspace.upgrade" class="bg-blue-200 text-blue-600 px-2">Upgrade available: {{appspace.upgrade.version}}</span>
-				</p>
-			</div>
-			<div>
-				<div v-if="appspace.paused">
-					Paused
-				</div>
-				<!-- div v-else class="">
-					<span class="text-green-700 bg-green-200 px-2">
-						<svg class="inline align-bottom w-7 h-7 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-							<path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-						</svg>
-						<span>Ready</span>
-					</span>
-				</!-->
-			</div>
-		</div>
-		<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
-			<a :href="enter_link" class="text-blue-700 text-lg underline hover:text-blue-500">{{display_link}}</a>
-		</div>
-		<div class="px-4 py-5 sm:px-6 flex justify-end border-t border-gray-200">
-			<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn btn-blue">Manage</router-link>
-		</div>
-	</div>
-</template>
-
-<script lang="ts">
-import { defineComponent, PropType, ref } from 'vue';
+<script setup lang="ts">
+import { ref, watchEffect } from 'vue';
+import { useAppsStore } from '@/stores/apps';
 
 import type {Appspace} from '../models/appspaces';
 import {AppVersionCollector } from '../models/app_versions';
 
-export default defineComponent({
-	name: 'AppspaceListItem',
-	components: {
-	},
-	props: {
-		appspace: {
-			type: Object as PropType<Appspace>,
-			required: true
-		}
-	},
-	setup(props) {
-		// this will bomb if appspace is not loaded yet.
-		if( !props.appspace.loaded ) console.error("appspace not loaded yet.");
-		const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
+const props = defineProps<{
+	appspace: Appspace
+}>();
 
-		const protocol = props.appspace.no_tls ? 'http' : 'https';
-		const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
+if( !props.appspace.loaded ) console.error("appspace not loaded yet.");
+const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
 
-		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name))
+const protocol = props.appspace.no_tls ? 'http' : 'https';
+const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
 
-		return {
-			display_link,
-			enter_link,
-			app_version
-		}
+const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name));
+
+const appsStore = useAppsStore();
+appsStore.fetchForOwner();
+const app_name = ref('');
+
+watchEffect( () => {
+	if( appsStore.isLoaded ) {
+		const app = appsStore.apps.get(props.appspace.app_id);
+		if( app === undefined ) return;
+		app_name.value = app.value.name;
 	}
-	
 });
 
-// Here I would like to load all kinds of things, like app version, potential upgrade, ...
-// But tehre may be many list items being created at the same time, so a request per is bad
-// Need to batch requests.
-// If there was a global AppVerionsCollection, then I could "ask" for it, 
-//  ..and it would automatically load a bunch at a time.
 </script>
+
+<template>
+	<div class="bg-white overflow-hidden border-b border-b-gray-300 px-4 py-4 ">
+		<h3 class="text-xl md:text-2xl font-medium text-gray-900">
+			{{appspace.domain_name}}
+		</h3>
+		<p><a :href="enter_link" class="text-blue-700 underline hover:text-blue-500 overflow-hidden text-ellipsis">{{ display_link }}</a></p>
+		<p class="mt-4">
+			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app_name}}</router-link> 
+			<span class="bg-green-200 rounded-full px-2 ml-2 text-sm">{{app_version.version}}</span>
+			<span v-if="appspace.upgrade" class="bg-blue-200 text-blue-600 px-2">
+				Upgrade available: {{appspace.upgrade.version}}
+			</span>
+		</p>
+		<p>Owner DropID: {{ appspace.dropid }}</p>
+		<div class="pt-4 flex justify-end items-baseline">
+			<span v-if="appspace.paused" class="mr-2 bg-pink-200 text-pink-800 px-2 text-xs font-bold uppercase">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block">
+					<path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+				</svg>
+
+				Paused
+			</span>
+			<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn">Manage appspace</router-link>
+		</div>
+	</div>
+</template>
