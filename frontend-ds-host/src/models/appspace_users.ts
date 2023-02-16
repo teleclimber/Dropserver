@@ -1,4 +1,4 @@
-import {get, post, patch} from '../controllers/userapi';
+import {get, postForm, patchForm} from '../controllers/userapi';
 
 // type AppspaceUser struct {
 // 	AppspaceID  AppspaceID         `db:"appspace_id" json:"appspace_id"`
@@ -85,13 +85,12 @@ export type PostAppspaceUser = {
 // ^^ we really need to merge those types or something...
 
 export async function saveNewUser(appspace_id:number, data :PostAppspaceUser, avatarData:Blob|null ) {
-	const resp_data = await post('/appspace/'+appspace_id+'/user', getFormData(data, avatarData));
+	const resp_data = await postForm('/appspace/'+appspace_id+'/user', getFormData(data, avatarData));
 }
 
 export async function updateUserMeta(appspace_id:number, proxy_id:string, data:PostAppspaceUser, avatarData:Blob|null) {
-	const resp_data = await patch('/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
+	const resp_data = await patchForm('/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
 }
-
 
 function getFormData(data:PostAppspaceUser, avatarData:Blob|null) :FormData {
 	const formData = new FormData();

@@ -51,22 +51,20 @@ const options = {
 // Maybe we don't need any of this, 
 // Just export ax and have models consume directly (I think path prefix can be set in Axios)
 export async function get(path :string) :Promise<any> {	// string for now, we can get more fany with a getter object later.
-
 	const resp = await ax.get( path_prefix + path );
-
 	return resp.data;
 }
 
 export async function patch(path:string, data:any) :Promise<any> {
-
 	const resp = await ax.patch( path_prefix + path, data, options );
-
+	return resp.data;
+}
+export async function patchForm(path:string, data:FormData) :Promise<any> {
+	const resp = await ax.patch( path_prefix + path, data );
 	return resp.data;
 }
 
-
 export async function post(path:string, data:any) :Promise<any> {
-
 	let resp:AxiosResponse;
 	try {
 		resp = await ax.post( path_prefix + path, data, options );
@@ -75,13 +73,21 @@ export async function post(path:string, data:any) :Promise<any> {
 		console.error(e);
 		return;
 	}
-
+	return resp.data;
+}
+export async function postForm(path:string, data:FormData) :Promise<any> {
+	let resp:AxiosResponse;
+	try {
+		resp = await ax.post( path_prefix + path, data );
+	}
+	catch(e) {
+		console.error(e);
+		return;
+	}
 	return resp.data;
 }
 
 export async function del(path :string) :Promise<any> {	// string for now, we can get more fany with a getter object later.
-
 	const resp = await ax.delete( path_prefix + path );
-
 	return resp.data;
 }

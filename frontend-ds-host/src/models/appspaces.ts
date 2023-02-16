@@ -140,11 +140,7 @@ export type AppspaceRestoreData = {
 export async function uploadRestoreZip(appspace_id:number, zipFile :File) :Promise<AppspaceRestoreData> {	//return token
 	const formData = new FormData();
 	formData.append("zip", zipFile);
-	const resp = await ax.post('/api/appspace/'+appspace_id+'/restore/upload', formData, {
-		headers: {
-			'Content-Type': 'multipart/form-data'
-		}
-	});
+	const resp = await ax.postForm('/api/appspace/'+appspace_id+'/restore/upload', formData);
 
 	const ret :AppspaceRestoreData = {
 		loaded: true,

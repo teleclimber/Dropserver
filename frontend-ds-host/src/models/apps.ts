@@ -1,6 +1,5 @@
-import {reactive} from 'vue';
 import axios from 'axios';
-import {ax, get, post, del} from '../controllers/userapi';
+import {ax, get, post, postForm, del} from '../controllers/userapi';
 import type {AxiosResponse, AxiosError} from 'axios';
 
 import twineClient from '../twine-services/twine_client';
@@ -103,7 +102,7 @@ export async function uploadNewApplication(selected_files: SelectedFile[]): Prom
 		form_data.append( 'app_dir', sf.file, sf.rel_path );
 	});
 
-	const resp_data = await post('/application', form_data);
+	const resp_data = await postForm('/application', form_data);
 	const resp = <UploadResp>resp_data;
 
 	return resp.app_get_key;
@@ -126,7 +125,7 @@ export async function uploadNewAppVersion(app_id:number, selected_files: Selecte
 		form_data.append( 'app_dir', sf.file, sf.rel_path );
 	});
 
-	const resp_data = await post('/application/'+app_id+'/version', form_data);
+	const resp_data = await postForm('/application/'+app_id+'/version', form_data);
 	const resp = <UploadResp>resp_data;
 
 	return resp.app_get_key;
