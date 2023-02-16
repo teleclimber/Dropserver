@@ -29,6 +29,9 @@ watchEffect( () => {
 	}
 });
 
+const version_classes = ref(['bg-green-200', 'text-green-800']);
+if( props.appspace.upgrade ) version_classes.value = ['bg-orange-200', 'text-orange-800']
+
 </script>
 
 <template>
@@ -39,8 +42,8 @@ watchEffect( () => {
 		<p><a :href="enter_link" class="text-blue-700 underline hover:text-blue-500 overflow-hidden text-ellipsis">{{ display_link }}</a></p>
 		<p class="mt-4">
 			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app_name}}</router-link> 
-			<span class="bg-green-200 rounded-full px-2 ml-2 text-sm">{{app_version.version}}</span>
-			<span v-if="appspace.upgrade" class="bg-blue-200 text-blue-600 px-2">
+			<span class="text-sm font-medium rounded-full px-2 ml-2 " :class="version_classes">{{app_version.version}}</span>
+			<span v-if="appspace.upgrade" class="bg-green-200 text-green-800 rounded-full ml-2 px-2 text-sm">
 				Upgrade available: {{appspace.upgrade.version}}
 			</span>
 		</p>

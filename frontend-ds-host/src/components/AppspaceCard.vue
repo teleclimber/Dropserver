@@ -22,8 +22,8 @@ const is_local = ref(true);
 const domain_strong = ref('');
 const domain = ref('');
 const app_name = ref('');
-const app_v = ref('');
 const users :ShallowRef<User[]> = shallowRef([]);
+const paused = ref(false);
 const enter_link = ref('');
 
 const appsStore = useAppsStore();
@@ -39,8 +39,6 @@ if( props.local_appspace ) {
 	else {
 		domain_strong.value = a.domain_name
 	}
-
-	app_v.value = a.app_version;
 
 	watchEffect( () => {
 		if( appsStore.isLoaded ) {
@@ -62,6 +60,7 @@ if( props.local_appspace ) {
 		});
 	});
 
+	paused.value = a.paused;
 	enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(a.domain_name)
 }
 else if( props.remote_appspace ) {
@@ -76,12 +75,13 @@ else throw new Error("got neither local nor remote appspace");
 
 <template>
 	<div class="mb-6 grid grid-cols-1 md:grid-cols-3 justify-items-stretch border-t-2 w-full box-border">
-		<a :href="enter_link" class="p-4 pt-3 bg-white md:col-span-2 w-full hover:bg-yellow-50">
+		<a :href="enter_link" class="p-4 pt-3 md:col-span-2 w-full"
+			:class="{'hover:bg-yellow-50':!paused, 'bg-gray-50':paused, 'bg-white': !paused}">
 			<h1 class="text-xl overflow-x-hidden text-ellipsis max-w-full box-border">
 				<span class="font-bold">{{ domain_strong }}</span>
 				<span class="text-gray-500" v-if="domain !== ''">.{{ domain }}</span>
 			</h1>
-			<h4 v-if="is_local" class="overflow-x-hidden text-ellipsis text-gray-600">{{ app_name }} v{{ app_v }}</h4>
+			<h4 v-if="is_local" class="overflow-x-hidden text-ellipsis text-gray-600">{{ app_name }}</h4>
 			<h4 v-else class="flex items-center text-gray-600">
 				Remote appspace
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 ml-1 ">
@@ -90,10 +90,16 @@ else throw new Error("got neither local nor remote appspace");
 				</svg>
 			</h4>
 			<div class="flex justify-end">
-				<span class="btn">Enter Appspace</span>
+				<span v-if="paused" class="mr-2 bg-pink-200 text-pink-800 px-2 text-xs font-bold uppercase">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block">
+						<path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
+					</svg>
+					Paused
+				</span>
+				<span class="btn" :class="{'text-gray-400': paused}">Enter Appspace</span>
 			</div>
 		</a>
-		<div class="py-1 px-4 flex flex-row items-start bg-gray-50">
+		<div class="py-2 px-4 flex flex-row items-start bg-gray-50">
 			<div v-for="u in users" class="flex items-center my-1 mr-3 rounded-full text-gray-700">
 				<div class="w-7 h-7 rounded-full bg-gray-300  flex justify-center content-center text-gray-400">
 					<img v-if="u.avatar_url" :src="u.avatar_url" class="rounded-full bg-clip-border"/>
