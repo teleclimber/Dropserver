@@ -1,12 +1,7 @@
 import { ref, shallowRef, ShallowRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import {get, post, del} from '../controllers/userapi';
-
-enum LoadState {
-	NotLoaded = 0,
-	Loading = 1,
-	Loaded = 2
-}
+import { LoadState } from './types';
 
 interface AppVersion {
 	app_id: number,

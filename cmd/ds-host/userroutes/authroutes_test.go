@@ -14,7 +14,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
@@ -277,7 +276,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(domain.User{}, usermodel.ErrEmailExists)
+	userModel.EXPECT().Create(email, password).Return(domain.User{}, domain.ErrEmailExists)
 
 	a := &AuthRoutes{
 		SetupKey:      sk,

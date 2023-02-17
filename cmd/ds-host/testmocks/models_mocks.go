@@ -248,6 +248,20 @@ func (mr *MockUserModelMockRecorder) MakeAdmin(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeAdmin", reflect.TypeOf((*MockUserModel)(nil).MakeAdmin), arg0)
 }
 
+// UpdateEmail mocks base method
+func (m *MockUserModel) UpdateEmail(arg0 domain.UserID, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEmail", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateEmail indicates an expected call of UpdateEmail
+func (mr *MockUserModelMockRecorder) UpdateEmail(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEmail", reflect.TypeOf((*MockUserModel)(nil).UpdateEmail), arg0, arg1)
+}
+
 // UpdatePassword mocks base method
 func (m *MockUserModel) UpdatePassword(arg0 domain.UserID, arg1 string) error {
 	m.ctrl.T.Helper()

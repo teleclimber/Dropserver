@@ -1,23 +1,52 @@
+<script setup lang="ts">
+import { ref, reactive } from 'vue';
+
+import { useAuthUserStore} from '@/stores/auth_user';
+
+import {DomainNames} from '../models/domainnames';
+import {DropIDs} from '../models/dropids';
+
+import DropIDFull from '../components/DropIDFull.vue';
+import ViewWrap from '../components/ViewWrap.vue';
+import MessageSad from '../components/ui/MessageSad.vue';
+import DataDef from '../components/ui/DataDef.vue';
+import ChangeEmail from '@/components/user/ChangeEmail.vue';
+
+const authUserStore = useAuthUserStore();
+authUserStore.fetch();
+
+const show_change_email = ref(false);
+
+function openChangeEmail() {
+	// check if other things aren't open first...
+	show_change_email.value = true; 
+}
+
+const domains = reactive( new DomainNames);
+domains.fetchForOwner();
+
+const dropids = reactive(new DropIDs);
+dropids.fetchForOwner();
+
+</script>
+
 <template>
 	<ViewWrap>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Account</h3>
-				<p class="mt-1 max-w-2xl text-sm text-gray-500">Use this email and password to log in to this DropServer account. Do not share these credentials.</p>
+				<p class="mt-1 max-w-2xl text-sm text-gray-500">Use this email and password to log in to this Dropserver account. Do not share these credentials.</p>
 			</div>
 			<div class="py-5">
 				<DataDef field="Email:">
-					<div v-if="show_change_email">
-						<input type="text" ref="email_input" v-model="email" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-						<div class="flex justify-between pt-2">
-							<button class="btn-blue" @click="cancelChangeEmail">Cancel</button>
-							<button class="btn-blue" @click="saveChangeEmail">Save</button>
-						</div>
+					<ChangeEmail v-if="show_change_email" @close="show_change_email = false"></ChangeEmail>
+					<div v-else class="flex justify-between">
+						<span>{{authUserStore.email || '...'}}</span>
+						<button class="btn" @click="openChangeEmail">Change</button>
 					</div>
-					<div v-else class="flex justify-between">{{user.email}} <button class="btn" @click="openChangeEmail">Change</button></div>
 				</DataDef>
 				<DataDef field="Password:">
-					<p>Not implemented...</p>
+					<p>********</p>
 				</DataDef>
 			</div>
 		</div>
@@ -54,66 +83,3 @@
 		</div>
 	</ViewWrap>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref, Ref, reactive, nextTick } from 'vue';
-
-import user from '../models/user';
-import {DomainNames} from '../models/domainnames';
-import {DropIDs} from '../models/dropids';
-
-import DropIDFull from '../components/DropIDFull.vue';
-import ViewWrap from '../components/ViewWrap.vue';
-import MessageSad from '../components/ui/MessageSad.vue';
-import DataDef from '../components/ui/DataDef.vue';
-
-
-export default defineComponent({
-	name: 'User',
-	components: {
-		ViewWrap,
-		DataDef,
-		MessageSad,
-		DropIDFull
-	},
-	setup() {
-
-		const show_change_email = ref(false);
-		const email_input :Ref<HTMLInputElement|null> = ref(null);
-		const email = ref("");
-
-		function openChangeEmail() {
-			show_change_email.value = true; 
-			email.value = user.email;
-			nextTick( () => {
-				if( email_input.value === null ) return;
-				email_input.value.focus();
-			});
-		}
-		function cancelChangeEmail() {
-			show_change_email.value = false;
-		}
-		function saveChangeEmail() {
-			// TODO
-		}
-
-		const domains = reactive( new DomainNames);
-		domains.fetchForOwner();
-
-		const dropids = reactive(new DropIDs);
-		dropids.fetchForOwner();
-
-		return {
-			user,
-			show_change_email,
-			openChangeEmail,
-			cancelChangeEmail,
-			saveChangeEmail,
-			email_input,
-			email,
-			domains,
-			dropids
-		}
-	}
-});
-</script>

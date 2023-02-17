@@ -87,6 +87,93 @@ func TestUserData(t *testing.T) {
 	}
 }
 
+func TestChangeEmail(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	uid := domain.UserID(1)
+
+	um := testmocks.NewMockUserModel(mockCtrl)
+	um.EXPECT().UpdateEmail(uid, "uvw@xyz.com").Return(nil)
+
+	u := UserRoutes{
+		UserModel: um}
+
+	rr := httptest.NewRecorder()
+
+	jsonStr := []byte(`{"email":"uvw@xyz.com"}`)
+	req, err := http.NewRequest("GET", "/", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
+	req.Header.Set("Content-Type", "application/json")
+
+	u.changeUserEmail(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusNoContent)
+	}
+}
+
+func TestChangeInvalidEmail(t *testing.T) {
+	uid := domain.UserID(1)
+
+	u := UserRoutes{}
+
+	rr := httptest.NewRecorder()
+
+	jsonStr := []byte(`{"email":"uvw@xyz"}`)
+	req, err := http.NewRequest("GET", "/", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
+	req.Header.Set("Content-Type", "application/json")
+
+	u.changeUserEmail(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
+	}
+	body := rr.Body.String()
+	if body != "Email not valid" {
+		t.Error("expected Email not valid, but got: " + body)
+	}
+}
+
+func TestChangeEmailInUse(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	uid := domain.UserID(1)
+
+	um := testmocks.NewMockUserModel(mockCtrl)
+	um.EXPECT().UpdateEmail(uid, "uvw@xyz.com").Return(domain.ErrEmailExists)
+
+	u := UserRoutes{UserModel: um}
+
+	rr := httptest.NewRecorder()
+
+	jsonStr := []byte(`{"email":"uvw@xyz.com"}`)
+	req, err := http.NewRequest("GET", "/", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), uid))
+	req.Header.Set("Content-Type", "application/json")
+
+	u.changeUserEmail(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("wrong status code: got %v want %v", rr.Code, http.StatusOK)
+	}
+	body := rr.Body.String()
+	if body != "Email already in use" {
+		t.Error("expected Email already in use, but got: " + body)
+	}
+}
+
 func TestChangePassword(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

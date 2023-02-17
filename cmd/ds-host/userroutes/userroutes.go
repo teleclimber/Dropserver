@@ -66,6 +66,7 @@ type UserRoutes struct {
 	AppGetterTwine       domain.TwineService  `checkinject:"required"`
 	UserModel            interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
+		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
@@ -106,6 +107,7 @@ func (u *UserRoutes) Init() {
 			r.Mount("/admin", u.AdminRoutes.subRouter())
 
 			r.Get("/user/", u.getUserData)
+			r.Patch("/user/email/", u.changeUserEmail)
 			r.Patch("/user/password/", u.changeUserPassword)
 
 			r.Mount("/domainname", u.DomainRoutes.subRouter())
@@ -222,6 +224,52 @@ func (u *UserRoutes) getUserData(w http.ResponseWriter, r *http.Request) {
 		IsAdmin: isAdmin}
 
 	writeJSON(w, userData)
+}
+
+type PatchUserEmailReq struct {
+	Email string `json:"email"`
+}
+
+func (u *UserRoutes) changeUserEmail(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		u.getLogger("getUserData").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var data PatchUserEmailReq
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = validator.Email(data.Email)
+	if err != nil {
+		w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
+		w.Write([]byte("Email not valid"))
+		return
+	}
+
+	err = u.UserModel.UpdateEmail(userID, data.Email)
+	if err != nil {
+		if err == domain.ErrEmailExists {
+			w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
+			w.Write([]byte("Email already in use"))
+		} else {
+			httpInternalServerError(w)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent) // Status no Content means action took place, nothing to say in response.
 }
 
 func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) {

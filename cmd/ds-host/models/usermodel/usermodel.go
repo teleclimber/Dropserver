@@ -10,13 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
-
-// ErrEmailExists is self-explanatory
-var ErrEmailExists = errors.New("Email exists")
-
-// ErrBadAuth is returned when a user name / passwordcombintaion is incorrect
-var ErrBadAuth = errors.New("Authentication incorrect")
 
 // UserModel represents the model for app
 type UserModel struct {
@@ -28,6 +23,7 @@ type UserModel struct {
 		selectEmail     *sqlx.Stmt
 		selectAll       *sqlx.Stmt
 		insertUser      *sqlx.Stmt
+		updateEmail     *sqlx.Stmt
 		updatePassword  *sqlx.Stmt
 		getPassword     *sqlx.Stmt
 		selectAdmin     *sqlx.Stmt
@@ -70,6 +66,8 @@ func (m *UserModel) PrepareStatements() {
 	m.stmt.insertUser = p.exec(`INSERT INTO users 
 		("email", "password") VALUES (?, ?)`)
 
+	m.stmt.updateEmail = p.exec(`UPDATE users SET email = ? WHERE user_id = ?`)
+
 	m.stmt.updatePassword = p.exec(`UPDATE users SET password = ? WHERE user_id = ?`)
 
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
@@ -92,7 +90,7 @@ func (m *UserModel) Create(email, password string) (domain.User, error) {
 	// like blank or nearly blank emails and passwords.
 	// with the understanding that these should be checked before calling this method
 	if len(email) < 4 || len(email) > 200 {
-		return user, errors.New("Email invalid length")
+		return user, errors.New("email invalid length")
 	}
 
 	if err := m.validatePassword(password); err != nil {
@@ -104,12 +102,12 @@ func (m *UserModel) Create(email, password string) (domain.User, error) {
 		return user, err
 	}
 
-	email = strings.ToLower(email)
+	email = validator.NormalizeEmail(email)
 
 	r, err := m.stmt.insertUser.Exec(email, hash)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: users.email" {
-			return user, ErrEmailExists
+			return user, domain.ErrEmailExists
 		}
 		m.getLogger("Create(), insertUser").Error(err)
 		return user, err
@@ -134,6 +132,19 @@ func (m *UserModel) Create(email, password string) (domain.User, error) {
 	}
 
 	return user, nil
+}
+
+func (m *UserModel) UpdateEmail(userID domain.UserID, email string) error {
+	email = validator.NormalizeEmail(email)
+
+	_, err := m.stmt.updateEmail.Exec(email, userID)
+	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: users.email" {
+			return domain.ErrEmailExists
+		}
+		return err
+	}
+	return nil
 }
 
 // UpdatePassword updates the password for the user.
@@ -221,7 +232,7 @@ func (m *UserModel) GetFromEmailPassword(email, password string) (domain.User, e
 
 	err = bcrypt.CompareHashAndPassword(hash, []byte(password))
 	if err != nil {
-		return user, ErrBadAuth
+		return user, domain.ErrBadAuth
 	}
 
 	return user, nil

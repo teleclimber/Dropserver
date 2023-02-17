@@ -18,6 +18,7 @@ type CookieModel interface {
 
 type UserModel interface {
 	Create(email, password string) (domain.User, error)
+	UpdateEmail(userID domain.UserID, email string) error
 	UpdatePassword(userID domain.UserID, password string) error
 	GetFromID(userID domain.UserID) (domain.User, error)
 	GetFromEmail(email string) (domain.User, error)

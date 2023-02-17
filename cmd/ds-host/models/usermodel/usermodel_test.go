@@ -145,7 +145,7 @@ func TestCreateDupe(t *testing.T) {
 	_, err = userModel.Create("Bob@Foo.com", "moresauce")
 	if err == nil {
 		t.Error("should have errored")
-	} else if err != ErrEmailExists {
+	} else if err != domain.ErrEmailExists {
 		t.Error("wrong error", err)
 	}
 }
@@ -188,7 +188,7 @@ func TestPassword(t *testing.T) {
 		err   error
 	}{
 		{"bOb@foO.cOm", "secretsauce", true, nil},
-		{"bOb@foO.cOm", "secretSauce", false, ErrBadAuth},
+		{"bOb@foO.cOm", "secretSauce", false, domain.ErrBadAuth},
 		{"bOb@bar.cOm", "secretsauce", false, sql.ErrNoRows},
 	}
 
@@ -210,6 +210,53 @@ func TestPassword(t *testing.T) {
 		}
 	}
 
+}
+
+func TestUpdateEmail(t *testing.T) {
+	userModel := initBobModel()
+	defer userModel.DB.Handle.Close()
+
+	bob, err := userModel.GetFromEmail("bob@foo.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = userModel.UpdateEmail(bob.UserID, "bob@bar.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	bob2, err := userModel.GetFromEmail("bob@bar.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if bob.UserID != bob2.UserID {
+		t.Error("got wrong user id")
+	}
+}
+
+func TestUpdateEmailDupe(t *testing.T) {
+	userModel := initBobModel()
+	defer userModel.DB.Handle.Close()
+
+	_, err := userModel.Create("alice@wonder.land", "whiterabbit")
+	if err != nil {
+		t.Error(err)
+	}
+
+	bob, err := userModel.GetFromEmail("bob@foo.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = userModel.UpdateEmail(bob.UserID, "alice@wonder.land")
+	if err == nil {
+		t.Error("expected error because of dupe email")
+	}
+	if err != domain.ErrEmailExists {
+		t.Error(err)
+	}
 }
 
 func TestUpdatePassword(t *testing.T) {
@@ -255,7 +302,7 @@ func initBobModel() *UserModel {
 	return userModel
 }
 
-///////// admin
+// /////// admin
 func TestIsAdmin(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 

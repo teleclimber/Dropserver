@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -125,7 +124,7 @@ func (a *AuthRoutes) postLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.UserModel.GetFromEmailPassword(email, password)
 	if err != nil {
-		if err == usermodel.ErrBadAuth || err == sql.ErrNoRows {
+		if err == domain.ErrBadAuth || err == sql.ErrNoRows {
 			a.Views.Login(w, invalidLoginMessage)
 		} else {
 			returnError(w, err)
@@ -201,7 +200,7 @@ func (a *AuthRoutes) postSignup(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.UserModel.Create(email, password)
 	if err != nil {
-		if err == usermodel.ErrEmailExists {
+		if err == domain.ErrEmailExists {
 			viewData.Message = "Account already exists with that email"
 			a.Views.Signup(w, viewData)
 		} else {

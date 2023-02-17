@@ -8,6 +8,12 @@ var ErrNoRowsAffected = errors.New("no rows affected")
 // ErrNoRowsInResultSet indicates that no rows were found in db
 var ErrNoRowsInResultSet = errors.New("no rows in result set")
 
+// ErrEmailExists is returned when a user email already exists
+var ErrEmailExists = errors.New("email exists")
+
+// ErrBadAuth is returned when a user name / passwordcombintaion is incorrect
+var ErrBadAuth = errors.New("authentication incorrect")
+
 // ErrAppspaceLockedClosed the operation could not beperformed because the
 // appspace is currently closed
 var ErrAppspaceLockedClosed = errors.New("appspace is locked closed")
