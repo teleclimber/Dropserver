@@ -50,6 +50,17 @@ export const useAuthUserStore = defineStore('authuser', () => {
 		else throw new Error("got unexpected response status "+resp.status);
 	}
 
+	async function changePassword(old_pw:string, new_pw:string) :Promise<string> {
+		if( !is_loaded.value ) throw new Error("trying to change password while user is not even loaded.");
+		const resp = await ax.patch('/api/user/password/', {old:old_pw, new:new_pw});
+		if( resp.status === 200 ) {
+			if( typeof resp.data !== 'string' ) throw new Error("expected a string response");
+			return resp.data;
+		}
+		else if( resp.status === 204 ) return '';	// "No content" means "Perfect, No Notes"
+		else throw new Error("got unexpected response status "+resp.status);
+	}
+
 	return {
 		fetch,
 		load_state,
@@ -59,7 +70,8 @@ export const useAuthUserStore = defineStore('authuser', () => {
 		email,
 		is_admin,
 		setUnauthorized,
-		changeEmail
+		changeEmail,
+		changePassword
 	}
 
 });

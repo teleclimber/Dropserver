@@ -41,16 +41,26 @@ async function saveClicked() {
 
 <template>
 <div class="rounded border border-yellow-200 p-3 bg-yellow-100">
-	<input type="text" ref="email_input" v-model="email" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-	<div class="bg-yellow-50 rounded px-2 mt-2">
-		<p v-if="invalid" class="text-yellow-800 font-medium">{{ invalid }}</p>
-		<p v-else-if="save_rejected" class="text-yellow-800 font-medium">{{ save_rejected }}</p>
-		<p v-else>&nbsp;</p>
-	</div>
-
-	<div class="flex justify-between pt-2">
-		<button class="btn" @click="$emit('close')">Cancel</button>
-		<button class="btn-blue" @click="saveClicked" :disabled="!!invalid || saving || !!save_rejected">Save</button>
-	</div>
+	<form @submit.prevent="saveClicked" @keyup.esc="$emit('close')">
+		<input 
+			type="text"
+			ref="email_input"
+			name="email"
+			v-model="email"
+			class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+		<div class="bg-yellow-50 rounded px-2 mt-2">
+			<p v-if="invalid" class="text-yellow-800 font-medium">{{ invalid }}</p>
+			<p v-else-if="save_rejected" class="text-yellow-800 font-medium">{{ save_rejected }}</p>
+			<p v-else>&nbsp;</p>
+		</div>
+		<div class="flex justify-between pt-2">
+			<input type="button" class="btn" @click="$emit('close')" value="Cancel" />
+			<input
+				type="submit"
+				class="btn-blue"
+				:disabled="!!invalid || saving || !!save_rejected"
+				value="Save" />
+		</div>
+	</form>
 </div>
 </template>

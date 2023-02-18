@@ -1,7 +1,11 @@
 module.exports = {
   content: ['./public/**/*.html', './src/**/*.vue'],
   theme: {
-    extend: {},
+    extend: {
+      gridTemplateColumns: {
+        'labin': 'min-content auto' // label-input
+      }
+    },
   },
   variants: {
     extend: {},

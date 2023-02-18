@@ -289,6 +289,10 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, resp)
 }
 
+type PostAppspacePauseReq struct {
+	Pause bool `json:"pause"`
+}
+
 func (a *AppspaceRoutes) changeAppspacePause(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 

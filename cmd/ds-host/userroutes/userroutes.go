@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -233,20 +232,15 @@ type PatchUserEmailReq struct {
 func (u *UserRoutes) changeUserEmail(w http.ResponseWriter, r *http.Request) {
 	userID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
-		u.getLogger("getUserData").Error(errors.New("no auth user id"))
+		u.getLogger("changeUserEmail").Error(errors.New("no auth user id"))
 		httpInternalServerError(w)
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var data PatchUserEmailReq
-	err = json.Unmarshal(body, &data)
+	err := readJSON(r, &data)
 	if err != nil {
+		u.getLogger("changeUserEmail").AddNote("readJson").Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -272,36 +266,32 @@ func (u *UserRoutes) changeUserEmail(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent) // Status no Content means action took place, nothing to say in response.
 }
 
+type PatchPasswordReq struct {
+	Old string `json:"old"`
+	New string `json:"new"`
+}
+
 func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) {
 	userID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
-		u.getLogger("getUserData").Error(errors.New("no auth user id"))
+		u.getLogger("changeUserPassword").Error(errors.New("no auth user id"))
 		httpInternalServerError(w)
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var data PatchPasswordReq
-	err = json.Unmarshal(body, &data)
+	err := readJSON(r, &data)
 	if err != nil {
+		u.getLogger("changeUserPassword").AddNote("readJson").Error(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	dsErr := validator.Password(data.Old)
-	if dsErr != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	dsErr = validator.Password(data.New)
-	if dsErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	err = validator.Password(data.New)
+	if err != nil {
+		u.getLogger("changeUserPassword").AddNote("validator.Password(data.New)").Error(err)
+		w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
+		w.Write([]byte("New password invalid"))
 		return
 	}
 
@@ -313,7 +303,8 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 
 	_, err = u.UserModel.GetFromEmailPassword(user.Email, data.Old)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
+		w.Write([]byte("Old password incorrect"))
 		return
 	}
 
@@ -323,7 +314,7 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK) // TODO send no content.
 }
 
 const appspaceStatusService = 11

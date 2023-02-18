@@ -11,15 +11,21 @@ import ViewWrap from '../components/ViewWrap.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import ChangeEmail from '@/components/user/ChangeEmail.vue';
+import ChangePassword from '@/components/user/ChangePassword.vue';
 
 const authUserStore = useAuthUserStore();
 authUserStore.fetch();
 
 const show_change_email = ref(false);
+const show_change_pw = ref(false);
 
 function openChangeEmail() {
-	// check if other things aren't open first...
+	if( show_change_pw.value ) return;
 	show_change_email.value = true; 
+}
+function openChangePw() {
+	if( show_change_email.value ) return;
+	show_change_pw.value = true;
 }
 
 const domains = reactive( new DomainNames);
@@ -39,14 +45,19 @@ dropids.fetchForOwner();
 			</div>
 			<div class="py-5">
 				<DataDef field="Email:">
-					<ChangeEmail v-if="show_change_email" @close="show_change_email = false"></ChangeEmail>
+					<ChangeEmail v-if="show_change_email" @close="show_change_email=false"></ChangeEmail>
 					<div v-else class="flex justify-between">
 						<span>{{authUserStore.email || '...'}}</span>
 						<button class="btn" @click="openChangeEmail">Change</button>
 					</div>
 				</DataDef>
 				<DataDef field="Password:">
-					<p>********</p>
+					<ChangePassword v-if="show_change_pw" @close="show_change_pw=false"></ChangePassword>
+					<div v-else class="flex justify-between">
+						<span>********</span>
+						<button class="btn" @click="openChangePw">Change</button>
+					</div>
+					
 				</DataDef>
 			</div>
 		</div>
