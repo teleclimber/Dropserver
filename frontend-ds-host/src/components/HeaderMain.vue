@@ -16,18 +16,18 @@
 		</h1>
 
 		<div class="justify-self-end self-center pr-4 md:pr-6 flex-initial ">
-			<div class="w-8 h-8 md:w-12 md:h-12 rounded-full bg-blue-100 border-2 border-blue-300 flex justify-center content-center cursor-pointer hover:bg-blue-200" @click="openUserMenu">
-				<span v-if="user.loaded" class="text-xl md:text-4xl text-blue-500">{{user.email.substr(0, 1)}}</span>
+			<div class="w-8 h-8 md:w-12 md:h-12 rounded-full bg-blue-100 border-2 border-blue-300 text-blue-400 flex justify-center items-end cursor-pointer hover:bg-blue-200" @click="openUserMenu">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 md:w-10 md:h-10">
+					<path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
+				</svg>
 			</div>
 		</div>
 	</header>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent } from 'vue';
 import {useRoute} from 'vue-router';
-
-import user from '../models/user';
 
 import {openNav, openUserMenu, page_title} from '../controllers/nav';
 
@@ -70,7 +70,6 @@ export default defineComponent({
 			return route.name;	// default
 		}
 		return {
-			user,
 			getHead,
 			openNav,
 			openUserMenu,

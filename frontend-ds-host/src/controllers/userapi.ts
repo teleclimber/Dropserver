@@ -1,4 +1,5 @@
 import {reactive } from 'vue';
+import { useAuthUserStore } from '@/stores/auth_user';
 import axios from 'axios';
 import type {AxiosResponse} from 'axios';
 
@@ -17,16 +18,16 @@ class ReqErrStack_ {
 }
 export const ReqErrStack = reactive(new ReqErrStack_);
 
-
-import user from '../models/user';
-
 export const ax = axios.create();
 ax.interceptors.response.use(function (response) {
 		return response;
 	}, function (error) {
 		if( error.response && error.response.status >= 400 ) {
 			const resp = error.response;
-			if( resp.status == 401 ) user.setUnauthorized();
+			if( resp.status == 401 ) {
+				const authUserStore = useAuthUserStore();
+				authUserStore.setUnauthorized();
+			}
 			else if( resp.status != 404 ) {
 				ReqErrStack.push({method:resp.config.method, path:resp.config.url, code: resp.status, message: resp.data});
 			}

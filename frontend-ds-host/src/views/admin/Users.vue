@@ -8,15 +8,15 @@
 		</p>
 		<p v-for="inv in invitations.asArray" :key="inv.email">{{inv.email}}</p>
 
-		<h2>Users: ({{admin_users.users.size}})</h2>
-		<p v-for="user in admin_users.asArray" :key="user.user_id">{{user.user_id}} {{user.email}} {{user.is_admin ? "admin" : ""}}</p>
+		<h2>Users: ({{users_store.users.size}})</h2>
+		<p v-for="[_, user] in users_store.users" :key="user.value.user_id">{{user.value.user_id}} {{user.value.email}} {{user.value.is_admin ? "admin" : ""}}</p>
 	</ViewWrap>
 </template>
 
 <script lang="ts">
 import { defineComponent, reactive, ref, Ref, nextTick } from 'vue';
+import { useAdminAllUsersStore } from '@/stores/admin/all_users';
 
-import {AdminUsers} from '../../models/user';
 import {AdminInvitations} from '../../models/admin_invitations';
 
 import ViewWrap from '../../components/ViewWrap.vue';
@@ -27,8 +27,8 @@ export default defineComponent({
 		ViewWrap
 	},
 	setup() {
-		const admin_users = reactive(new AdminUsers);
-		admin_users.fetch();
+		const users_store = useAdminAllUsersStore();
+		users_store.fetch();
 
 		const invitations = reactive(new AdminInvitations);
 		invitations.fetch();
@@ -52,7 +52,7 @@ export default defineComponent({
 		}
 
 		return {
-			admin_users,
+			users_store,
 			invitations,
 			showInvite,
 			cancelInvite,

@@ -32,8 +32,6 @@
 import { defineComponent, watch, computed } from 'vue';
 import {useRoute} from 'vue-router';
 
-import user from '../models/user';
-
 import {nav_open, closeNav} from '../controllers/nav';
 
 import DropserverLogo from './DropserverLogo.vue';
@@ -66,7 +64,6 @@ export default defineComponent({
 
 		return {
 			nav_open, closeNav,
-			user,
 			in_admin,
 			active_section
 		};

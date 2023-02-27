@@ -1,9 +1,9 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import {ax, get, post, del} from '../controllers/userapi';
+import {ax, get} from '../controllers/userapi';
 import { LoadState } from './types';
 
-export const useAuthUserStore = defineStore('authuser', () => {
+export const useAuthUserStore = defineStore('authenticated-user', () => {
 	const load_state = ref(LoadState.NotLoaded);
 	const is_loaded = computed( () => load_state.value === LoadState.Loaded );
 

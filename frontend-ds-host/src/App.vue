@@ -7,7 +7,7 @@
 		</div>
 	</div>
 	<UserDropDownMenu v-if="user_menu_open"></UserDropDownMenu>
-	<UserLoggedOutOverlay v-if="!user.logged_in"></UserLoggedOutOverlay>
+	<UserLoggedOutOverlay v-if="!authUserStore.logged_in"></UserLoggedOutOverlay>
 	<ReqErrorOverlay></ReqErrorOverlay>
 </template>
 
@@ -22,7 +22,7 @@ import UserLoggedOutOverlay from './components/UserLoggedOutOverlay.vue';
 import ReqErrorOverlay from './components/RequestErrorOverlay.vue';
 
 import { user_menu_open } from './controllers/nav';
-import user from './models/user';
+import { useAuthUserStore } from "./stores/auth_user";
 
 export default defineComponent({
 	name: "App",
@@ -34,9 +34,10 @@ export default defineComponent({
 		ReqErrorOverlay
 	},
 	setup() {
+		const authUserStore = useAuthUserStore();
 		return {
 			user_menu_open,
-			user
+			authUserStore
 		}
 	}
 });

@@ -9,24 +9,3 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-import {useRoute} from 'vue-router';
-
-import user from '../models/user';
-
-export default defineComponent({
-	name: 'UserLoggedOutOverlay',
-	components: {
-		
-	},
-	setup() {
-		
-		return {
-			user,
-		}
-	}
-
-});
-</script>
