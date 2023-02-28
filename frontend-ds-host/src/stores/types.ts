@@ -3,3 +3,9 @@ export enum LoadState {
 	Loading = 1,
 	Loaded = 2
 }
+
+export interface UserForAdmin {
+	user_id: number,
+	email: string,
+	is_admin: boolean
+}

@@ -37,6 +37,9 @@ func TestGetAllEmpty(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if invites == nil {
+		t.Error("invites is nil, should be empty")
+	}
 	if len(invites) != 0 {
 		t.Error("invites not empty")
 	}

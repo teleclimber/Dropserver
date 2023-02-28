@@ -39,7 +39,7 @@ func (m *UserInvitationModel) PrepareStatements() {
 
 // GetAll returns all invitations
 func (m *UserInvitationModel) GetAll() ([]domain.UserInvitation, error) {
-	var invites []domain.UserInvitation
+	invites := make([]domain.UserInvitation, 0)
 
 	err := m.stmt.getAll.Select(&invites)
 	if err != nil {
@@ -70,14 +70,11 @@ func (m *UserInvitationModel) Get(email string) (domain.UserInvitation, error) {
 func (m *UserInvitationModel) Create(email string) error {
 	email = normalizeEmail(email)
 
-	if len(email) < 4 || len(email) > 200 {
+	if len(email) < 3 || len(email) > 200 {
 		msg := fmt.Sprintf("UserInvitationModel: email has unreasonable length: %d chars", len(email))
 		m.getLogger("Create()").Log(msg)
 		return errors.New("email has unreasonable length")
 	}
-
-	// should we not normalize emails?
-	// I think we do this in
 
 	_, err := m.stmt.create.Exec(email)
 	if err != nil {

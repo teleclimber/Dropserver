@@ -159,7 +159,8 @@ func (a *AdminRoutes) postInvitation(w http.ResponseWriter, r *http.Request) {
 
 	err = validator.Email(reqData.Email)
 	if err != nil {
-		http.Error(w, "email validation error", http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
+		w.Write([]byte("Email not valid"))
 		return
 	}
 
@@ -169,7 +170,7 @@ func (a *AdminRoutes) postInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *AdminRoutes) deleteInvitation(w http.ResponseWriter, r *http.Request) {
