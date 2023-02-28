@@ -1,13 +1,9 @@
 import { ref, computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 import {ax} from '@/controllers/userapi';
-import { LoadState } from '../types';
+import { LoadState, AdminInvite } from '../types';
 
-interface Invite {
-	email: string
-}
-
-function inviteFromRaw(raw:any) :Invite {
+function inviteFromRaw(raw:any) :AdminInvite {
 	return {
 		email: raw.email+"",
 	};
@@ -17,7 +13,7 @@ export const useAdminUserInvitesStore = defineStore('admin-user-invites', () => 
 	const load_state = ref(LoadState.NotLoaded);
 	const is_loaded = computed( () => load_state.value === LoadState.Loaded );
 
-	const invites : Array<Invite> = reactive([]);
+	const invites : Array<AdminInvite> = reactive([]);
 	
 	async function fetch() {
 		if( load_state.value === LoadState.NotLoaded ) {
@@ -45,5 +41,11 @@ export const useAdminUserInvitesStore = defineStore('admin-user-invites', () => 
 		else throw new Error("got unexpected response status "+resp.status);
 	}
 
-	return {is_loaded, fetch, invites, createInvitation}
+	async function deleteInvitation(email:string) {
+		await ax.delete('/api/admin/invitation/'+encodeURIComponent(email));
+		const i = invites.findIndex( inv => inv.email === email );
+		if( i >=0 ) invites.splice(i, 1);
+	}
+
+	return {is_loaded, fetch, invites, createInvitation, deleteInvitation}
 });

@@ -176,8 +176,6 @@ func (a *AdminRoutes) postInvitation(w http.ResponseWriter, r *http.Request) {
 func (a *AdminRoutes) deleteInvitation(w http.ResponseWriter, r *http.Request) {
 	email := chi.URLParam(r, "email")
 
-	// TODO validate and normalize email
-
 	err := a.UserInvitationModel.Delete(email)
 	if err != nil {
 		returnError(w, err)
