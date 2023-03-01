@@ -128,3 +128,24 @@ func TestInsert(t *testing.T) {
 		t.Error("invites not empty")
 	}
 }
+
+func TestDeleteNoRows(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &UserInvitationModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	err := model.Delete("abc@def.com")
+	if err == nil {
+		t.Error("expected error")
+	}
+	if err != domain.ErrNoRowsAffected {
+		t.Error("expected error to be No rows Affected, got ", err)
+	}
+}

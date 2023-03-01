@@ -89,10 +89,18 @@ func (m *UserInvitationModel) Create(email string) error {
 func (m *UserInvitationModel) Delete(email string) error {
 	email = normalizeEmail(email)
 
-	_, err := m.stmt.delete.Exec(email)
+	result, err := m.stmt.delete.Exec(email)
 	if err != nil {
 		m.getLogger("Delete").Error(err)
 		return err
+	}
+	numRows, err := result.RowsAffected()
+	if err != nil {
+		m.getLogger("Delete").Error(err)
+		return err
+	}
+	if numRows != 1 {
+		return domain.ErrNoRowsAffected
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -174,13 +175,20 @@ func (a *AdminRoutes) postInvitation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AdminRoutes) deleteInvitation(w http.ResponseWriter, r *http.Request) {
-	email := chi.URLParam(r, "email")
-
-	err := a.UserInvitationModel.Delete(email)
+	email, err := url.QueryUnescape(chi.URLParam(r, "email"))
 	if err != nil {
-		returnError(w, err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	err = a.UserInvitationModel.Delete(email)
+	if err != nil {
+		if err == domain.ErrNoRowsAffected {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			returnError(w, err)
+		}
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
