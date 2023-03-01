@@ -54,7 +54,7 @@ import (
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
-var cmd_version = "unspecified"
+var cmd_version = ""
 
 var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
@@ -65,8 +65,6 @@ var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown for
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 func main() {
-	fmt.Println("ds-host version: " + cmd_version)
-
 	flag.Parse()
 
 	// serve pprof routes if DEBUG is on
@@ -81,11 +79,18 @@ func main() {
 
 	runtimeConfig := runtimeconfig.Load(*configFlag)
 
+	if cmd_version == "" {
+		cmd_version = "unspecified"
+	}
+	runtimeConfig.Exec.CmdVersion = cmd_version
+
 	record.InitDsLogger()
 	err := record.SetLogOutput(runtimeConfig.Log)
 	if err != nil {
 		panic(err)
 	}
+
+	record.NewDsLogger().Log("ds-host version: " + cmd_version)
 
 	if runtimeConfig.Prometheus.Enable {
 		record.ExposePromMetrics(*runtimeConfig)

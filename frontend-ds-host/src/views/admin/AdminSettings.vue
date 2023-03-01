@@ -40,7 +40,7 @@ async function formSubmitted() {
 				<h3 class="text-lg leading-6 font-medium text-gray-900">New User Registration:</h3>
 			</div>
 			<div v-if="show_change" class="p-4 sm:px-6">
-				<form @submit.prevent="formSubmitted" @keyup.esc="$emit('close')">
+				<form @submit.prevent="formSubmitted" @keyup.esc="show_change = false">
 					<label 
 						class="flex items-center px-4 py-2 rounded " 
 						:class="{'bg-red-100': reg_open_input === 'open'}">

@@ -105,6 +105,8 @@ func (u *UserRoutes) Init() {
 		r.Route("/api", func(r chi.Router) {
 			r.Mount("/admin", u.AdminRoutes.subRouter())
 
+			r.Get("/instance/", u.getInstanceData)
+
 			r.Get("/user/", u.getUserData)
 			r.Patch("/user/email/", u.changeUserEmail)
 			r.Patch("/user/password/", u.changeUserPassword)
@@ -192,6 +194,17 @@ func (u *UserRoutes) serveAppIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(htmlBytes)
+}
+
+type InstanceData struct {
+	DsHostVersion string `json:"ds_host_version"`
+}
+
+func (u *UserRoutes) getInstanceData(w http.ResponseWriter, r *http.Request) {
+	data := InstanceData{
+		DsHostVersion: u.Config.Exec.CmdVersion,
+	}
+	writeJSON(w, data)
 }
 
 // UserData is single user

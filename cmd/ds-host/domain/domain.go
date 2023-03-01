@@ -74,6 +74,7 @@ type RuntimeConfig struct {
 	// Exec contains values determined at runtime
 	// These are not settable via json.
 	Exec struct {
+		CmdVersion       string
 		PortString       string
 		UserRoutesDomain string
 		DenoFullPath     string
