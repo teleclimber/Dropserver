@@ -1,8 +1,44 @@
+<script setup lang="ts">
+import { watch, computed } from 'vue';
+import {useRoute} from 'vue-router';
+
+import {nav_open, closeNav} from '../controllers/nav';
+
+import DropserverLogo from './DropserverLogo.vue';
+import NavItem from './NavItem.vue';
+
+const path2section = [
+	{section: "appspaces",		paths: ["/appspace", "/new-appspace", "/remote-appspace", "/new-remote-appspace"]},
+	{section: "apps", 			paths: ["/app", "/new-app"]},
+	{section: "contacts",		paths: ["/contact"]},
+	{section: "admin-users",	paths: ["/admin/users"]},
+	{section: "admin-settings", paths: ["/admin/settings"]},
+	{section: "admin-home", 	paths: ["/admin"]},
+];
+
+const route = useRoute();
+watch( () => route.name, () => {
+	closeNav();
+});
+
+const in_admin = computed( () => {
+	return route.path.startsWith('/admin');
+});
+
+const active_section = computed( () => {
+	const p = route.path;
+	const s = path2section.find( sec => sec.paths.find( pre => p.startsWith(pre)) );
+	if( s ) return s.section;
+	return '';
+});
+</script>
+
 <style scoped>
 	aside {
 		grid-area: nav;
 	}
 </style>
+
 <template>
 	<aside class="fixed md:relative block md:block w-screen md:w-auto z-10 h-screen md:shadow-xl bg-gray-800" :class="{hidden:!nav_open}">
 		<div class="flex justify-between">
@@ -15,9 +51,9 @@
 		</div>
 		<nav>
 			<ul v-if="in_admin" class="">
-				<NavItem to="/admin">Admin Home</NavItem>
-				<NavItem to="/admin/users">Users</NavItem>
-				<NavItem to="/admin/settings">Settings</NavItem>
+				<NavItem to="/admin" :active="active_section === 'admin-home'">Admin Home</NavItem>
+				<NavItem to="/admin/users" :active="active_section === 'admin-users'">Users</NavItem>
+				<NavItem to="/admin/settings" :active="active_section === 'admin-settings'">Settings</NavItem>
 			</ul>
 			<ul v-else class="">
 				<NavItem to="/appspace" :active="active_section === 'appspaces'">Appspaces</NavItem>
@@ -27,46 +63,3 @@
 		</nav>
 	</aside>
 </template>
-
-<script lang="ts">
-import { defineComponent, watch, computed } from 'vue';
-import {useRoute} from 'vue-router';
-
-import {nav_open, closeNav} from '../controllers/nav';
-
-import DropserverLogo from './DropserverLogo.vue';
-import NavItem from './NavItem.vue';
-
-export default defineComponent({
-	name: 'NavMain',
-	components: {
-		NavItem,
-		DropserverLogo
-	},
-	setup() {
-		const route = useRoute();
-		watch( () => route.name, () => {
-			closeNav();
-		});
-
-		const in_admin = computed( () => {
-			return route.path.startsWith('/admin');
-		});
-
-		const active_section = computed( () => {
-			const p = route.path;
-			if( p.startsWith("/appspace") || p.startsWith("/new-appspace")) return "appspaces";
-			if( p.startsWith("/remote-appspace") || p.startsWith("/new-remote-appspace")) return "appspaces";
-			if( p.startsWith("/app") || p.startsWith("/new-app")) return "apps";
-			if( p.startsWith('/contact') ) return 'contacts';
-			return '';
-		});
-
-		return {
-			nav_open, closeNav,
-			in_admin,
-			active_section
-		};
-	}
-});
-</script>
