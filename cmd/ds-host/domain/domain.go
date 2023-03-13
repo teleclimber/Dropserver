@@ -78,6 +78,7 @@ type RuntimeConfig struct {
 		PortString       string
 		UserRoutesDomain string
 		DenoFullPath     string
+		DenoVersion      string
 		SandboxCodePath  string
 		AppsPath         string
 		AppspacesPath    string

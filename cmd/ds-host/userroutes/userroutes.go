@@ -198,11 +198,13 @@ func (u *UserRoutes) serveAppIndex(w http.ResponseWriter, r *http.Request) {
 
 type InstanceData struct {
 	DsHostVersion string `json:"ds_host_version"`
+	DenoVersion   string `json:"deno_version"`
 }
 
 func (u *UserRoutes) getInstanceData(w http.ResponseWriter, r *http.Request) {
 	data := InstanceData{
 		DsHostVersion: u.Config.Exec.CmdVersion,
+		DenoVersion:   u.Config.Exec.DenoVersion,
 	}
 	writeJSON(w, data)
 }

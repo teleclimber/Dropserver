@@ -2,6 +2,7 @@ package runtimeconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -203,6 +204,15 @@ func setExec(rtc *domain.RuntimeConfig) {
 	}
 	rtc.Exec.DenoFullPath = deno
 
+	if deno == "" {
+		deno = "deno"
+	}
+	denoVer, err := getDenoVersion(deno)
+	if err != nil {
+		getLogger("setExec, getDenoVersion, Error getting deno version:").Error(err)
+	}
+	rtc.Exec.DenoVersion = denoVer
+
 	// set up runtime paths
 	rtc.Exec.SandboxCodePath = filepath.Join(rtc.DataDir, "sandbox-code")
 
@@ -229,6 +239,21 @@ func getDenoAbsPath() (string, error) {
 	}
 	getLogger("getDenoAbsPath").Log("Found deno abs path: " + fname)
 	return fname, nil
+}
+
+func getDenoVersion(denoFullPath string) (string, error) {
+	out, err := exec.Command(denoFullPath, "--version").Output()
+	if err != nil {
+		return "", err
+	}
+	pieces := strings.Split(string(out), " (")
+	if !strings.HasPrefix(pieces[0], "deno ") {
+		err = errors.New("unexpected format of deno version string: " + string(out))
+		return "", err
+	}
+	pieces = strings.Split(pieces[0], " ")
+
+	return pieces[1], nil
 }
 
 func getLogger(note string) *record.DsLogger {

@@ -8,12 +8,14 @@ export const useInstanceMetaStore = defineStore('instance-meta', () => {
 	const is_loaded = computed( () => load_state.value === LoadState.Loaded );
 
 	const ds_host_version = ref("");
+	const deno_version = ref("");
 
 	async function loadData() {
 		const resp_data = await ax.get('/api/instance/');
 		ds_host_version.value = (resp_data.data as any).ds_host_version;
+		deno_version.value = (resp_data.data as any).deno_version;
 		load_state.value = LoadState.Loaded;
 	}
 
-	return {is_loaded, loadData, ds_host_version};
+	return {is_loaded, loadData, ds_host_version, deno_version};
 });
