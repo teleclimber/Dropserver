@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { defineProps } from 'vue';
-
 import type {UserForAdmin} from '@/stores/types';
 
 const props = defineProps<{

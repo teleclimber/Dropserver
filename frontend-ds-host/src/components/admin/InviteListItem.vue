@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineProps, ref } from 'vue';
+import { ref } from 'vue';
 import type {AdminInvite} from '@/stores/types';
 import { useAdminUserInvitesStore } from '@/stores/admin/user_invitations';
 
