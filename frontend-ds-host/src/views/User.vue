@@ -2,9 +2,9 @@
 import { ref, reactive } from 'vue';
 
 import { useAuthUserStore} from '@/stores/auth_user';
+import { useDropIDsStore } from '@/stores/dropids';
 
 import {DomainNames} from '../models/domainnames';
-import {DropIDs} from '../models/dropids';
 
 import DropIDFull from '../components/DropIDFull.vue';
 import ViewWrap from '../components/ViewWrap.vue';
@@ -31,8 +31,8 @@ function openChangePw() {
 const domains = reactive( new DomainNames);
 domains.fetchForOwner();
 
-const dropids = reactive(new DropIDs);
-dropids.fetchForOwner();
+const dropIDStore = useDropIDsStore();
+dropIDStore.loadData();
 
 </script>
 
@@ -78,18 +78,20 @@ dropids.fetchForOwner();
 			</div>
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
+			<div class="px-4 py-5 sm:px-6 flex justify-between">
 				<div>
 					<h3 class="text-lg leading-6 font-medium text-gray-900">DropIDs</h3>
-					<p class="mt-1 max-w-2xl text-sm text-gray-500">Share your DropID with friends to join their appspace.</p>
+					<p class="mt-1 max-w-2xl text-sm text-gray-500">DropIDs are used to join an Appspaces.</p>
 				</div>
 				<div>
-					<router-link to="/dropid-new" class="btn">New DropID</router-link>
+					<router-link to="/dropid-new" class="btn whitespace-nowrap">New DropID</router-link>
 				</div>
 			</div>
-			<div class="px-4 py-5 sm:px-6 ">
-				<DropIDFull v-for="d in dropids.dropids" :key="d.handle+'@@'+d.domain_name" :dropid="d"></DropIDFull>
-				<MessageSad v-if="dropids.loaded && dropids.dropids.length === 0" head="No DropIDs">Create a DropID to interact with other people's DropServers.</MessageSad>
+			<div class=" ">
+				<DropIDFull v-for="[_, dropid] in dropIDStore.dropids" :key="dropid.value.compound_id" :dropid="dropid.value"></DropIDFull>
+				<MessageSad v-if="dropIDStore.is_loaded && dropIDStore.dropids.size === 0" head="No DropIDs">
+					Create a DropID to create or join appspaces.
+				</MessageSad>
 			</div>
 		</div>
 	</ViewWrap>

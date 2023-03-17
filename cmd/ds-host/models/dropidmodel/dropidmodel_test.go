@@ -1,7 +1,6 @@
 package dropidmodel
 
 import (
-	"database/sql"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -30,7 +29,7 @@ func TestGetFromNonExistentID(t *testing.T) {
 	if err == nil {
 		t.Error("Expected an error")
 	}
-	if err != sql.ErrNoRows {
+	if err != domain.ErrNoRowsInResultSet {
 		t.Error(err)
 	}
 }
@@ -83,7 +82,12 @@ func TestUpdate(t *testing.T) {
 
 	cmp.DisplayName = "Oscar"
 
-	d, err = dropIDModel.Update(cmp.UserID, cmp.Handle, cmp.Domain, cmp.DisplayName)
+	err = dropIDModel.Update(cmp.UserID, cmp.Handle, cmp.Domain, cmp.DisplayName)
+	if err != nil {
+		t.Error(err)
+	}
+
+	d, err = dropIDModel.Get(cmp.Handle, cmp.Domain)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,7 +143,7 @@ func TestDelete(t *testing.T) {
 	if err == nil {
 		t.Error("expected error")
 	}
-	if err != sql.ErrNoRows {
+	if err != domain.ErrNoRowsInResultSet {
 		t.Error("expected error to be no rows")
 	}
 }

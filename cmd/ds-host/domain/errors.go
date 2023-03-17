@@ -8,6 +8,10 @@ var ErrNoRowsAffected = errors.New("no rows affected")
 // ErrNoRowsInResultSet indicates that no rows were found in db
 var ErrNoRowsInResultSet = errors.New("no rows in result set")
 
+// ErrUniqueConstraintViolation indicates that a unique constraint
+// such as an index or primary key was violated
+var ErrUniqueConstraintViolation = errors.New("unique constraint violation")
+
 // ErrEmailExists is returned when a user email already exists
 var ErrEmailExists = errors.New("email exists")
 

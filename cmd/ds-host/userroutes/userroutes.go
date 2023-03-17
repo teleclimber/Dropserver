@@ -30,7 +30,7 @@ func returnError(res http.ResponseWriter, err error) {
 	case errForbidden:
 		http.Error(res, "forbidden", http.StatusForbidden)
 	default:
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		http.Error(res, "internal server error", http.StatusInternalServerError)
 	}
 }
 

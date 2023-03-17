@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -49,5 +50,21 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 }
 
 func httpInternalServerError(w http.ResponseWriter) {
+	writeServerError(w)
+}
+
+func writeServerError(w http.ResponseWriter) {
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+}
+
+func writeOK(w http.ResponseWriter) {
+	http.Error(w, http.StatusText(http.StatusOK), http.StatusOK)
+}
+
+func writeBadRequest(w http.ResponseWriter, valName string, errStr string) {
+	http.Error(w, fmt.Sprintf("Bad Request: %s: %s", valName, errStr), http.StatusBadRequest)
+}
+
+func writeNotFound(w http.ResponseWriter) {
+	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }

@@ -15,3 +15,13 @@ export interface UserForAdmin {
 	email: string,
 	is_admin: boolean
 }
+
+// UserDropID is a dropid of a local user
+export interface UserDropID {
+	user_id: number,
+	handle: string,
+	domain_name: string,
+	compound_id: string,
+	display_name: string,
+	created_dt: Date
+}

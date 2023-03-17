@@ -264,7 +264,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 	dropIDHandle, dropIDDomain := validator.SplitDropID(dropIDStr)
 	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == domain.ErrNoRowsInResultSet {
 			http.Error(w, "DropID not found", http.StatusGone)
 		} else {
 			returnError(w, err)

@@ -1,5 +1,5 @@
 <template>
-	<div class="px-2 py-2 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+	<div class="px-4 sm:px-6 py-2 sm:grid sm:grid-cols-3 sm:gap-4 items-baseline">
 		<dt class="font-medium text-gray-500 ">
 			{{field}}
 		</dt>

@@ -31,9 +31,9 @@
 			"nav view";
 	}
 	.ds-header-phone {
-		grid-template-columns: 4rem 1fr 1fr;
+		grid-template-columns: 4rem 1fr 4rem;
 	}
 	.ds-header-full {
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: 1fr 6rem;
 	}
 }

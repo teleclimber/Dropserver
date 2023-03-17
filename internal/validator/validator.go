@@ -74,9 +74,11 @@ func DropIDFull(dropID string) error {
 }
 
 // DropIDHandle validates a handle
-// It assumes there is a handle (although that may not be that helpful?)
 func DropIDHandle(handle string) error {
-	return goVal.Var(handle, "min=1,max=30,alphanum") // super restrictive for now
+	if handle == "" {
+		return nil
+	}
+	return goVal.Var(handle, "min=0,max=30,alphanum")
 }
 
 // UserProxyID validates an appspace user proxy id
@@ -86,7 +88,7 @@ func UserProxyID(p string) error {
 	return goVal.Var(p, "min=8,max=10,alphanum")
 }
 
-// DisplayName validates a user's display name
+// DisplayName validates an aappspace user's or DropID display name
 func DisplayName(dn string) error {
 	// can't start / end with spaces
 	// min lenght, max lengh.

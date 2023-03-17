@@ -57,6 +57,9 @@ func (m *DropIDModel) Create(userID domain.UserID, handle string, dom string, di
 
 	_, err := m.stmt.createDropID.Exec(userID, strings.ToLower(handle), strings.ToLower(dom), displayName)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return domain.DropID{}, domain.ErrUniqueConstraintViolation
+		}
 		logger.AddNote("insert").Error(err)
 		return domain.DropID{}, err
 	}
@@ -65,16 +68,21 @@ func (m *DropIDModel) Create(userID domain.UserID, handle string, dom string, di
 }
 
 // Update a DropID
-func (m *DropIDModel) Update(userID domain.UserID, handle string, dom string, displayName string) (domain.DropID, error) {
-	logger := m.getLogger("Update()").UserID(userID)
-
-	_, err := m.stmt.updateDropID.Exec(displayName, userID, strings.ToLower(handle), strings.ToLower(dom))
+func (m *DropIDModel) Update(userID domain.UserID, handle string, dom string, displayName string) error {
+	result, err := m.stmt.updateDropID.Exec(displayName, userID, strings.ToLower(handle), strings.ToLower(dom))
 	if err != nil {
-		logger.AddNote("update").Error(err)
-		return domain.DropID{}, err
+		m.getLogger("Update").AddNote("Exec").Error(err)
+		return err
 	}
-
-	return m.Get(handle, dom)
+	num, err := result.RowsAffected()
+	if err != nil {
+		m.getLogger("Update").AddNote("RowsAffected").Error(err)
+		return err
+	}
+	if num == 0 {
+		return domain.ErrNoRowsAffected
+	}
+	return nil
 }
 
 // Get returns the DropID if found.
@@ -83,10 +91,12 @@ func (m *DropIDModel) Get(handle string, dom string) (domain.DropID, error) {
 	var dropID domain.DropID
 	err := m.stmt.getDropID.QueryRowx(strings.ToLower(handle), strings.ToLower(dom)).StructScan(&dropID)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if err == sql.ErrNoRows {
+			return domain.DropID{}, domain.ErrNoRowsInResultSet
+		} else {
 			m.getLogger("Get()").Error(err)
+			return domain.DropID{}, err
 		}
-		return domain.DropID{}, err
 	}
 
 	return dropID, nil

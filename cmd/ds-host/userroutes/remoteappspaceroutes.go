@@ -140,12 +140,16 @@ func (a *RemoteAppspaceRoutes) postNew(w http.ResponseWriter, r *http.Request) {
 
 	// check user drop id exists
 	handle, dom := validator.SplitDropID(userDropID)
-	_, err = a.DropIDModel.Get(handle, dom)
+	dropID, err := a.DropIDModel.Get(handle, dom)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == domain.ErrNoRowsInResultSet {
 			err = errors.New("user DropID does not exist")
 		}
 		returnError(w, err)
+		return
+	}
+	if dropID.UserID != userID {
+		returnError(w, errors.New("DropID user does not match authenticated user"))
 		return
 	}
 

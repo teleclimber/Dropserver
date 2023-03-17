@@ -135,6 +135,27 @@ func TestDBName(t *testing.T) {
 	}
 }
 
+func TestDropID(t *testing.T) {
+	cases := []struct {
+		b   string
+		err bool
+	}{
+		{"", false},
+		{"abc", false},
+		{"abc/def", true},
+		{"abcdé", true},
+	}
+
+	for _, c := range cases {
+		err := DropIDHandle(c.b)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
+			t.Error("should have gotten error")
+		}
+	}
+}
+
 func TestAppspaceAvatarFilename(t *testing.T) {
 	cases := []struct {
 		b   string
