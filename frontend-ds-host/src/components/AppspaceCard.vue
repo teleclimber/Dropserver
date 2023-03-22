@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {ref, watchEffect, isReactive, shallowRef, ShallowRef} from 'vue';
-import {Appspace} from '@/models/appspaces';
-import {RemoteAppspace} from '@/models/remote_appspaces';
-import {useAppsStore} from '@/stores/apps';
+
+import type { Appspace, RemoteAppspace } from '@/stores/types';
+import { useAppsStore } from '@/stores/apps';
 
 import { AppspaceUsers } from '@/models/appspace_users';
 
@@ -49,7 +49,7 @@ if( props.local_appspace ) {
 	});
 
 	const a_users = new AppspaceUsers;
-	a_users.fetchForAppspace(a.id).then(()=> {
+	a_users.fetchForAppspace(a.appspace_id).then(()=> {
 		users.value = a_users.au.map( u => {
 			return {
 				proxy_id: u.proxy_id,

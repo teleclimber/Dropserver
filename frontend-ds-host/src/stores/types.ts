@@ -59,3 +59,12 @@ export interface Appspace {
 	app_version: string,
 	upgrade_version: string|undefined
 }
+
+export interface RemoteAppspace {
+	domain_name: string,
+	owner_dropid: string,
+	user_dropid: string,
+	no_tls: boolean,
+	port_string: string,
+	created_dt: Date
+}

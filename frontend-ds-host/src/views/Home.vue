@@ -1,28 +1,24 @@
 <script setup lang="ts">
-import {reactive, onMounted, computed} from 'vue';
+import { computed } from 'vue';
 import { useDropIDsStore } from '@/stores/dropids';
-import { Appspace, Appspaces } from '@/models/appspaces';
-import {RemoteAppspaces, RemoteAppspace} from '@/models/remote_appspaces';
+
+import { useAppspacesStore } from '@/stores/appspaces';
+import { useRemoteAppspacesStore } from '@/stores/remote_appspaces';
+import type { Appspace, RemoteAppspace } from '@/stores/types';
 
 import ViewWrap from '@/components/ViewWrap.vue';
 import BigLoader from '@/components/ui/BigLoader.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
 import AppspaceCard from '@/components/AppspaceCard.vue';
 
+const appspacesStore = useAppspacesStore();
+appspacesStore.loadData();
+
+const remoteAppspacesStore = useRemoteAppspacesStore();
+remoteAppspacesStore.loadData();
+
 const dropIDStore = useDropIDsStore();
 dropIDStore.loadData();
-
-const no_dropids = computed( () => {
-	return dropIDStore.is_loaded && dropIDStore.dropids.size === 0;
-});
-
-const appspaces = reactive( new Appspaces );
-const remote_appspaces = reactive( new RemoteAppspaces );
-
-onMounted( async () => {
-	appspaces.fetchForOwner();
-	remote_appspaces.fetchForOwner();
-});
 
 interface CardData {
 	local:boolean,
@@ -32,21 +28,21 @@ interface CardData {
 }
 const asCards = computed( () => {
 	const ret :CardData[] = [];
-	if( appspaces.loaded ) {
-		appspaces.as.forEach( (a, id) => {
+	if( appspacesStore.is_loaded ) {
+		appspacesStore.appspaces.forEach( (a, id) => {
 			ret.push({
 				local: true,
-				sort_string: a.domain_name,
-				local_appspace: a
+				sort_string: a.value.domain_name,
+				local_appspace: a.value
 			});
 		});
 	}
-	if( remote_appspaces.loaded ) {
-		remote_appspaces.remotes.forEach( (a) => {
+	if( remoteAppspacesStore.is_loaded ) {
+		remoteAppspacesStore.appspaces.forEach( (a) => {
 			ret.push({
 				local: false,
-				sort_string: a.domain_name,
-				remote_appspace: a
+				sort_string: a.value.domain_name,
+				remote_appspace: a.value
 			});
 		});
 	}
@@ -60,7 +56,7 @@ const asCards = computed( () => {
 
 <template>
 	<ViewWrap>
-		<BigLoader v-if="!appspaces.loaded || !remote_appspaces.loaded || !dropIDStore.is_loaded"></BigLoader>
+		<BigLoader v-if="!appspacesStore.is_loaded || !remoteAppspacesStore.is_loaded || !dropIDStore.is_loaded"></BigLoader>
 		<template v-else>
 			<div class="bg-blue-100 py-5 flex mx-4 sm:mx-0 my-6 sm:rounded-xl shadow"
 				v-if="dropIDStore.is_loaded && dropIDStore.dropids.size === 0">
@@ -89,7 +85,7 @@ const asCards = computed( () => {
 				:remote_appspace="a.remote_appspace"></AppspaceCard>
 
 			<MessageSad head="No Appspaces"
-				v-if="appspaces.asArray.length === 0 && remote_appspaces.asArray.length === 0" 
+				v-if="appspacesStore.appspaces.size === 0 && remoteAppspacesStore.appspaces.size === 0" 
 				class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
 				There are no appspaces in this account. Create or join one!
 			</MessageSad>

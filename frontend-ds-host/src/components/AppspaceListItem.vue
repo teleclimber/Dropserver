@@ -2,14 +2,13 @@
 import { ref, watchEffect } from 'vue';
 import { useAppsStore } from '@/stores/apps';
 
-import type {Appspace} from '../models/appspaces';
+import type { Appspace } from '@/stores/types';
 import {AppVersionCollector } from '../models/app_versions';
 
 const props = defineProps<{
 	appspace: Appspace
 }>();
 
-if( !props.appspace.loaded ) console.error("appspace not loaded yet.");
 const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
 
 const protocol = props.appspace.no_tls ? 'http' : 'https';
@@ -30,7 +29,7 @@ watchEffect( () => {
 });
 
 const version_classes = ref(['bg-green-200', 'text-green-800']);
-if( props.appspace.upgrade ) version_classes.value = ['bg-orange-200', 'text-orange-800']
+if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', 'text-orange-800']
 
 </script>
 
@@ -43,8 +42,8 @@ if( props.appspace.upgrade ) version_classes.value = ['bg-orange-200', 'text-ora
 		<p class="mt-4">
 			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app_name}}</router-link> 
 			<span class="text-sm font-medium rounded-full px-2 ml-2 " :class="version_classes">{{app_version.version}}</span>
-			<span v-if="appspace.upgrade" class="bg-green-200 text-green-800 rounded-full ml-2 px-2 text-sm">
-				Upgrade available: {{appspace.upgrade.version}}
+			<span v-if="appspace.upgrade_version" class="bg-green-200 text-green-800 rounded-full ml-2 px-2 text-sm">
+				Upgrade available: {{appspace.upgrade_version}}
 			</span>
 		</p>
 		<p>Owner DropID: {{ appspace.dropid }}</p>
@@ -56,7 +55,7 @@ if( props.appspace.upgrade ) version_classes.value = ['bg-orange-200', 'text-ora
 
 				Paused
 			</span>
-			<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn">Manage appspace</router-link>
+			<router-link :to="{name: 'manage-appspace', params:{id:appspace.appspace_id}}" class="btn">Manage appspace</router-link>
 		</div>
 	</div>
 </template>

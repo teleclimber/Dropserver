@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import type {RemoteAppspace} from '../models/remote_appspaces';
+import type { RemoteAppspace } from '@/stores/types';
 
 const props = defineProps<{
 	remote_appspace: RemoteAppspace
