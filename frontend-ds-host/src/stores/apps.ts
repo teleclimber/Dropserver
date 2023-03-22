@@ -1,23 +1,12 @@
 import { ref, shallowRef, ShallowRef, computed } from 'vue';
 import { defineStore } from 'pinia';
-import {get, post, del} from '../controllers/userapi';
-import { LoadState } from './types';
+import axios from 'axios';
+import { ax } from '../controllers/userapi';
+import type {AxiosResponse, AxiosError} from 'axios';
 
-interface AppVersion {
-	app_id: number,
-	version: string,
-	app_name: string,	// unused?
-	api_version: number,	
-	schema: number,
-	created_dt: Date
-}
-
-interface App {
-	app_id: number,
-	name: string,
-	created_dt: Date,
-	versions: AppVersion[]
-}
+import twineClient from '../twine-services/twine_client';
+import {SentMessageI} from 'twine-web';
+import { LoadState, App, AppVersion, SelectedFile } from './types';
 
 function appVersionFromRaw(raw:any) {
 	return {
@@ -45,20 +34,24 @@ function appFromRaw(raw:any) :App {
 	}
 }
 
+export type UploadResp = {
+	app_get_key: string
+}
+
 export const useAppsStore = defineStore('apps', () => {
 	const load_state = ref(LoadState.NotLoaded);
 
 	const apps : ShallowRef<Map<number,ShallowRef<App>>> = shallowRef(new Map());
 
-	const isLoaded = computed( () => {
+	const is_loaded = computed( () => {
 		return load_state.value === LoadState.Loaded;
 	});
 
-	async function fetchForOwner() {
+	async function loadData() {
 		if( load_state.value === LoadState.NotLoaded ) {
 			load_state.value = LoadState.Loading;
-			const resp_data = await get('/application');
-			resp_data.apps.forEach( (raw:any) => {
+			const resp = await ax.get('/api/application');
+			resp.data.apps.forEach( (raw:any) => {
 				const app = appFromRaw(raw);
 				apps.value.set(app.app_id, shallowRef(app));
 			});
@@ -66,5 +59,184 @@ export const useAppsStore = defineStore('apps', () => {
 		}
 	}
 
-	return {isLoaded, fetchForOwner, apps}
+	function getApp(app_id: number) :ShallowRef<App> | undefined {
+		return apps.value.get(app_id);
+	}
+	function mustGetApp(app_id: number) :ShallowRef<App> {
+		const app = getApp(app_id);
+		if( app === undefined ) throw new Error("could not et app: "+app_id);
+		return app;
+	}
+
+	// upload new application sends the files to backend for temporary storage.
+	async function uploadNewApplication(selected_files: SelectedFile[]): Promise<string> {
+		const form_data = new FormData();
+		selected_files.forEach((sf)=> {
+			form_data.append( 'app_dir', sf.file, sf.rel_path );
+		});
+
+		const resp = await ax.post('/api/application', form_data);
+		const data = <UploadResp>resp.data;
+
+		return data.app_get_key;
+	}
+
+	async function commitNewApplication(key:string): Promise<number> {
+		const resp = await ax.post('/api/application/in-process/'+key, undefined);
+		// mark local data as stale now
+		// Other options: route could return app data, or we could manually load it here.
+		load_state.value = LoadState.NotLoaded;
+		return resp.data.app_id;
+	}
+
+	async function uploadNewAppVersion(app_id:number, selected_files: SelectedFile[]): Promise<string> {
+		const form_data = new FormData();
+		selected_files.forEach((sf)=> {
+			form_data.append( 'app_dir', sf.file, sf.rel_path );
+		});
+
+		const resp = await ax.post('/api/application/'+app_id+'/version', form_data);
+		const data = <UploadResp>resp.data;
+
+		return data.app_get_key;
+	}
+
+	async function deleteAppVersion(app_id: number, version:string) {
+		const app = mustGetApp(app_id);
+		await ax.delete('/api/application/'+app_id+'/version/'+version);
+
+		const v_index = app.value.versions.findIndex( v => v.version === version );
+		const v = app.value.versions[v_index];
+		if( v === undefined ) throw new Error("did not find the version");
+		app.value.versions.splice(v_index, 0);
+		app.value = Object.assign({}, app.value);
+	}
+	
+	async function deleteApp(app_id: number) {
+		await ax.delete('/api/application/'+app_id);
+		apps.value.delete(app_id);
+		apps.value = new Map(apps.value);
+	}
+
+	return {is_loaded, loadData, apps, getApp, mustGetApp, deleteAppVersion, deleteApp, uploadNewApplication, commitNewApplication, uploadNewAppVersion};
 });
+
+
+// NewAppVersionResp is returned by the server when it reads the contents of a new app code
+// (whether it's a new version or an all new app).
+// It returns any errors / problems found in the files, and the app version data if passable.
+export type AppGetMeta = {
+	key: string, // key is used to commit the uploaded files to their "destination" (new app, new app version)
+	schema: number,
+	prev_version: string,
+	next_version: string,
+	errors: string[],	// maybe array of strings?
+	version_metadata?: VersionMetadata
+}
+type VersionMetadata = {
+	name :string,
+	version :string,
+	api_version :number,
+	schema :number,
+	migrations :number[],
+}
+
+// type InProcessResp struct {
+//     LastEvent domain.AppGetEvent `json:"last_event"`
+//     Meta      domain.AppGetMeta  `json:"meta"`
+// }
+// type AppGetEvent struct {
+//     Key   AppGetKey `json:"key"`
+//     Done  bool      `json:"done"`
+//     Error bool      `json:"error"`
+//     Step  string    `json:"step"`
+// }
+type AppGetEvent = {
+	key: string,
+	done: boolean,
+	error: boolean,
+	step: string
+}
+type InProcessResp = {
+	last_event: AppGetEvent,
+	meta: AppGetMeta
+}
+export class AppGetter {
+	key = ref("");
+	not_found = ref(false);
+	last_event :ShallowRef<AppGetEvent | undefined> = shallowRef();
+	meta :ShallowRef<AppGetMeta | undefined> = shallowRef();
+
+	private subMessage :SentMessageI|undefined;
+
+	async updateKey(key :string) {
+		this.key.value = key;
+
+		await this.loadInProcess();
+
+		if( this.done ) return;
+
+		const payload = new TextEncoder().encode(key);
+
+		await twineClient.ready();
+		this.subMessage = await twineClient.twine.send(13, 11, payload);
+
+		for await (const m of this.subMessage.incomingMessages()) {
+			switch (m.command) {
+				case 11:	//event
+					this.last_event.value = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+					m.sendOK();
+					if(this.last_event.value.done && this.meta.value === undefined ) {
+						this.loadInProcess();
+						this.unsubscribeKey();
+					}
+					break;
+			
+				default:
+					m.sendError("What is this command?");
+					throw new Error("what is this command? "+m.command);
+			}
+		}
+	}
+	async loadInProcess() {
+		let resp :AxiosResponse|undefined;
+		try {
+			resp = await ax.get('/api/application/in-process/'+this.key.value);
+		}
+		catch(error: any | AxiosError) {
+			if( axios.isAxiosError(error) && error.response && error.response.status == 404 ) {
+				this.not_found.value = true;
+				return;
+			}
+			throw error;
+		}
+		if( resp?.data === undefined ) return;
+		const data = <InProcessResp>resp.data;
+		this.last_event.value = data.last_event;
+		if( this.last_event.value.done ) this.meta.value = data.meta;
+	}
+	async unsubscribeKey() {
+		if( !this.subMessage ) return;
+		const m = this.subMessage;
+		this.subMessage = undefined;
+		await m.refSendBlock(13, undefined);
+	}
+
+	get done() :boolean {
+		if( this.meta.value ) return true;
+		else return !!this.last_event.value?.done;
+	}
+	get canCommit() :boolean {
+		return !!this.meta.value && this.meta.value.errors.length === 0;
+	}
+
+	async cancel() {
+		if( this.not_found ) return;
+		try {
+			await ax.delete('/api/application/in-process/'+this.key.value);
+		}
+		catch(e) {
+			// no-op. Whatever the error, don't hold up the frontend UI because of it.
+		}
+	}
+}

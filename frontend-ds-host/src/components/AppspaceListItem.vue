@@ -18,11 +18,11 @@ const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspac
 const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name));
 
 const appsStore = useAppsStore();
-appsStore.fetchForOwner();
+appsStore.loadData();
 const app_name = ref('');
 
 watchEffect( () => {
-	if( appsStore.isLoaded ) {
+	if( appsStore.is_loaded ) {
 		const app = appsStore.apps.get(props.appspace.app_id);
 		if( app === undefined ) return;
 		app_name.value = app.value.name;

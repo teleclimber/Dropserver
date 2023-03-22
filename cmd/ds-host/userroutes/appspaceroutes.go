@@ -14,16 +14,16 @@ import (
 
 // AppspaceMeta is
 type AppspaceMeta struct {
-	AppspaceID int            `json:"appspace_id"`
-	AppID      int            `json:"app_id"`
-	AppVersion domain.Version `json:"app_version"`
-	DomainName string         `json:"domain_name"`
-	NoTLS      bool           `json:"no_tls"`
-	PortString string         `json:"port_string"`
-	DropID     string         `json:"dropid"`
-	Created    time.Time      `json:"created_dt"`
-	Paused     bool           `json:"paused"`
-	Upgrade    *VersionMeta   `json:"upgrade,omitempty"`
+	AppspaceID     int            `json:"appspace_id"`
+	AppID          int            `json:"app_id"`
+	AppVersion     domain.Version `json:"app_version"`
+	DomainName     string         `json:"domain_name"`
+	NoTLS          bool           `json:"no_tls"`
+	PortString     string         `json:"port_string"`
+	DropID         string         `json:"dropid"`
+	Created        time.Time      `json:"created_dt"`
+	Paused         bool           `json:"paused"`
+	UpgradeVersion domain.Version `json:"upgrade_version,omitempty"`
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -132,8 +132,7 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ok {
-		upgradeMeta := makeVersionMeta(upgrade)
-		respData.Upgrade = &upgradeMeta
+		respData.UpgradeVersion = upgrade.Version
 	}
 
 	writeJSON(w, respData)
@@ -198,8 +197,7 @@ func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if ok {
-			upgradeMeta := makeVersionMeta(upgrade)
-			appspaceMeta.Upgrade = &upgradeMeta
+			appspaceMeta.UpgradeVersion = upgrade.Version
 		}
 		respData = append(respData, appspaceMeta)
 	}

@@ -27,7 +27,7 @@ const paused = ref(false);
 const enter_link = ref('');
 
 const appsStore = useAppsStore();
-appsStore.fetchForOwner();
+appsStore.loadData();
 
 if( props.local_appspace ) {
 	const a = props.local_appspace;
@@ -41,7 +41,7 @@ if( props.local_appspace ) {
 	}
 
 	watchEffect( () => {
-		if( appsStore.isLoaded ) {
+		if( appsStore.is_loaded ) {
 			const app = appsStore.apps.get(a.app_id);
 			if( app === undefined ) return;
 			app_name.value = app.value.name;

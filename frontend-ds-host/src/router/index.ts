@@ -89,12 +89,26 @@ const routes: Array<RouteRecordRaw> = [
 	},{
 		path: '/app/:id/new-version',
 		name: 'new-app-version',
-		component: NewAppVersion
+		component: NewApp,
+		props: route => {
+			const p = route.params.id;
+			if( Array.isArray(p) ) throw new Error("id can not be an array");
+			return {
+				app_id: parseInt(route.params.id as string)
+			}
+		}
 	},{
 		path: '/app/:id/new-version/:app_get_key',
 		name: 'new-app-version-in-process',
-		component: NewAppVersionInProcess,
-		props:true
+		component: NewAppInProcess,
+		props: route => {
+			const p = route.params.id;
+			if( Array.isArray(p) ) throw new Error("id can not be an array");
+			return {
+				app_id: parseInt(route.params.id as string),
+				app_get_key: route.params.app_get_key
+			}
+		}
 	},{
 		path: '/new-app',
 		name: 'new-app',
