@@ -173,7 +173,7 @@ func validateSubdomains(sub string) error {
 	return nil
 }
 
-var labelChars = regexp.MustCompile(`^[a-z0-9-]*$`).MatchString
+var labelChars = regexp.MustCompile(`^[a-zA-Z0-9-]*$`).MatchString
 
 func validateDomainLabel(label string) error {
 	if label == "" {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -38,7 +39,7 @@ func (m *AppspaceModel) PrepareStatements() {
 	m.stmt.selectID = p.Prep(`SELECT * FROM appspaces WHERE appspace_id = ?`)
 
 	//get from domain
-	m.stmt.selectDomain = p.Prep(`SELECT * FROM appspaces WHERE domain_name = ?`)
+	m.stmt.selectDomain = p.Prep(`SELECT * FROM appspaces WHERE LOWER(domain_name) = ?`)
 
 	// get all for an owner
 	m.stmt.selectOwner = p.Prep(`SELECT * FROM appspaces WHERE owner_id = ?`)
@@ -88,7 +89,7 @@ func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspac
 func (m *AppspaceModel) GetFromDomain(dom string) (*domain.Appspace, error) {
 	var appspace domain.Appspace
 
-	err := m.stmt.selectDomain.QueryRowx(dom).StructScan(&appspace)
+	err := m.stmt.selectDomain.QueryRowx(strings.ToLower(dom)).StructScan(&appspace)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

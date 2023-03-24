@@ -127,7 +127,7 @@ func TestGetFromSubdomain(t *testing.T) {
 		OwnerID:     domain.UserID(7),
 		AppID:       domain.AppID(11),
 		AppVersion:  domain.Version("0.0.1"),
-		DomainName:  "test-appspace",
+		DomainName:  "test-appSPACE",
 		LocationKey: "as123",
 	}
 
@@ -136,7 +136,7 @@ func TestGetFromSubdomain(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = model.GetFromDomain("test-appspace")
+	_, err = model.GetFromDomain("TEST-appspace")
 	if err != nil {
 		t.Error(err)
 	}

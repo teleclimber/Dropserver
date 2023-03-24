@@ -14,6 +14,7 @@ func TestValidateLabel(t *testing.T) {
 		{"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl", false},
 		{"abc-def", true},
 		{"-def", false},
+		{"aBc", true},
 	}
 
 	for _, c := range cases {
