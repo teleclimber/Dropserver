@@ -3,6 +3,14 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { LoadState, Appspace } from './types';
 
+type NewAppspaceData = {
+	app_id:number,
+	app_version:string,
+	domain_name: string,
+	subdomain: string,
+	dropid: string
+}
+
 function appspaceFromRaw(raw:any) :Appspace {
 	return {
 		appspace_id: Number(raw.appspace_id),
@@ -57,5 +65,11 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		return resp;
 	}
 
-	return {is_loaded, loadData, appspaces, getAppspacesForApp, getAppspacesForAppVersion }
+	async function createAppspace(data:NewAppspaceData) :Promise<number> {
+		load_state.value = LoadState.NotLoaded;
+		const resp = await ax.post('/api/appspace', data);
+		return Number(resp.data.appspace_id);
+	}
+
+	return {is_loaded, loadData, appspaces, getAppspacesForApp, getAppspacesForAppVersion, createAppspace }
 });

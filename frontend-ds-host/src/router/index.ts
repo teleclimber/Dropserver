@@ -67,7 +67,19 @@ const routes: Array<RouteRecordRaw> = [
 	},{
 		path: '/new-appspace/',
 		name: 'new-appspace',
-		component: NewAppspace
+		component: NewAppspace,
+		props: route => {
+			let app_id;
+			const a = route.query['app_id'];
+			if( Array.isArray(a) ) throw new Error("app_id can not be an array");
+			if( a ) app_id = parseInt(a as string);
+			let v = '';
+			if( route.query['version'] && !Array.isArray(route.query['version']) ) v = route.query['version'];
+			return {
+				app_id,
+				version: v
+			};
+		}
 	},{
 		path: '/remote-appspace/:domain',
 		name: 'manage-remote-appspace',

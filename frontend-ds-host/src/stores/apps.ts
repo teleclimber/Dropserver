@@ -55,6 +55,7 @@ export const useAppsStore = defineStore('apps', () => {
 				const app = appFromRaw(raw);
 				apps.value.set(app.app_id, shallowRef(app));
 			});
+			apps.value = new Map(apps.value);
 			load_state.value = LoadState.Loaded;
 		}
 	}

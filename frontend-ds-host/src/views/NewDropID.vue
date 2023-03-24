@@ -20,8 +20,8 @@ domain_names.fetchForOwner();
 
 const domain_input : Ref<HTMLInputElement|undefined> = ref();
 watch( domain_names, () => {
-	if( domain_names.loaded && domain_names.domains.length !== 0 && domain_name.value === '') {
-		domain_name.value = domain_names.domains[0].domain_name;
+	if( domain_names.loaded && domain_names.for_dropid.length !== 0 && domain_name.value === '') {
+		domain_name.value = domain_names.for_dropid[0].domain_name;
 	}
 });
 
