@@ -68,3 +68,15 @@ export interface RemoteAppspace {
 	port_string: string,
 	created_dt: Date
 }
+
+export interface AppspaceUser {
+	appspace_id: number,
+	proxy_id: string,
+	auth_type: string,
+	auth_id: string,
+	display_name: string,
+	avatar: string,
+	//permissions = raw.permissions;
+	created_dt: Date,
+	last_seen: Date | undefined
+}

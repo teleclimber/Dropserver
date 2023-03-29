@@ -1,4 +1,6 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
+import type { RouteLocationNormalized, RouteRecordRaw} from 'vue-router';
+
 import Home from '../views/Home.vue';
 import User from '../views/User.vue';
 
@@ -14,8 +16,6 @@ import ManageRemoteAppspace from '../views/ManageRemoteAppspace.vue';
 
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
-import NewAppVersion from '../views/NewAppVersion.vue';
-import NewAppVersionInProcess from '../views/NewAppVersionInProcess.vue';
 import NewApp from '../views/NewApp.vue';
 import NewAppInProcess from '../views/NewAppInProcess.vue';
 
@@ -44,9 +44,14 @@ const routes: Array<RouteRecordRaw> = [
 		name: 'appspaces',
 		component: Appspaces
 	},{
-		path: '/appspace/:id',
+		path: '/appspace/:appspace_id',
 		name: 'manage-appspace',
-		component: ManageAppspace
+		component: ManageAppspace,
+		props: route => {
+			return {
+				appspace_id: appspaceIdParam(route)
+			}
+		}
 	},{
 		path: '/appspace/:id/migrate',
 		name: 'migrate-appspace',
@@ -57,13 +62,24 @@ const routes: Array<RouteRecordRaw> = [
 		component: RestoreAppspace,
 		props: true
 	},{
-		path: '/appspace/:id/new-user',
+		path: '/appspace/:appspace_id/new-user',
 		name: 'appspace-new-user',
-		component: ManageAppspaceUser
+		component: ManageAppspaceUser,
+		props: route => {
+			return {
+				appspace_id: appspaceIdParam(route)
+			}
+		}
 	},{
-		path: '/appspace/:id/user/:proxy_id',
+		path: '/appspace/:appspace_id/user/:proxy_id',
 		name: 'appspace-user',
-		component: ManageAppspaceUser
+		component: ManageAppspaceUser,
+		props: route => {
+			return {
+				appspace_id: appspaceIdParam(route),
+				proxy_id: proxyIdParam(route)
+			}
+		}
 	},{
 		path: '/new-appspace/',
 		name: 'new-appspace',
@@ -164,6 +180,17 @@ const routes: Array<RouteRecordRaw> = [
 		component: AdminSettings
 	}
 ];
+
+function appspaceIdParam(route:RouteLocationNormalized) :number {
+	const p = route.params.appspace_id;
+	if( Array.isArray(p) ) throw new Error("id can not be an array");
+	return parseInt(p as string);
+}
+function proxyIdParam(route:RouteLocationNormalized) :string {
+	const p = route.params.proxy_id;
+	if( Array.isArray(p) ) throw new Error("proxy id can not be an array");
+	return p+'';
+}
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),

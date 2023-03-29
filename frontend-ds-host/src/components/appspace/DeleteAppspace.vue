@@ -1,3 +1,38 @@
+<script lang="ts" setup>
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+
+import { useAppspacesStore } from '@/stores/appspaces';
+import type { Appspace } from '../../stores/types';
+
+import DataDef from '../../components/ui/DataDef.vue';
+
+const props = defineProps<{
+	appspace: Appspace
+}>();
+
+const router = useRouter();
+
+const appspacesStore = useAppspacesStore();
+
+const domain_check = ref("");
+
+const domain_checked = computed(() => {
+	return domain_check.value.toLowerCase() === props.appspace.domain_name.toLowerCase();
+});
+
+const deleting = ref(false);
+
+async function del() {
+	if( !domain_checked.value) return;
+
+	deleting.value = true;
+	await appspacesStore.deleteAppspace(props.appspace.appspace_id);
+
+	router.push({name: 'appspaces'});
+}
+</script>
+
 <template>
 	<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-yellow-200">
@@ -18,50 +53,3 @@
 	</div>
 </template>
 
-
-<script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, PropType } from 'vue';
-import router from '../../router/index';
-import type {Appspace} from '../../models/appspaces';
-
-import DataDef from '../../components/ui/DataDef.vue';
-
-export default defineComponent({
-	name: 'DeleteAppspace',
-	components: {
-		DataDef
-	},
-	props: {
-		appspace: {
-			type: Object as PropType<Appspace>,
-			required: true
-		}
-	},
-	setup(props) {
-
-		const domain_check = ref("");
-
-		const domain_checked = computed(() => {
-			return domain_check.value.toLowerCase() === props.appspace.domain_name;
-		});
-
-		const deleting = ref(false);
-
-		async function del() {
-			if( !domain_checked.value) return;
-
-			deleting.value = true;
-			await props.appspace.del();
-
-			router.push({name: 'appspaces'});
-		}
-
-		return {
-			domain_check,
-			domain_checked,
-			deleting,
-			del
-		}
-	}
-});
-</script>

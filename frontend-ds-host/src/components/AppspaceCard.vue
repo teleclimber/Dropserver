@@ -1,28 +1,21 @@
 <script setup lang="ts">
-import {ref, watchEffect, isReactive, shallowRef, ShallowRef} from 'vue';
+import {ref, watchEffect, computed} from 'vue';
 
 import type { Appspace, RemoteAppspace } from '@/stores/types';
 import { useAppsStore } from '@/stores/apps';
-
-import { AppspaceUsers } from '@/models/appspace_users';
+import { useAppspaceUsersStore, getAvatarUrl } from '@/stores/appspace_users';
 
 const props = defineProps<{
 	local_appspace?: Appspace,
 	remote_appspace?: RemoteAppspace
 }>();
 
-interface User {
-	proxy_id: string,
-	display_name: string,
-	avatar_url: string,
-	is_owner: boolean
-}
+const appspaceUsersStore = useAppspaceUsersStore();
 
 const is_local = ref(true);
 const domain_strong = ref('');
 const domain = ref('');
 const app_name = ref('');
-const users :ShallowRef<User[]> = shallowRef([]);
 const paused = ref(false);
 const enter_link = ref('');
 
@@ -48,18 +41,8 @@ if( props.local_appspace ) {
 		}
 	});
 
-	const a_users = new AppspaceUsers;
-	a_users.fetchForAppspace(a.appspace_id).then(()=> {
-		users.value = a_users.au.map( u => {
-			return {
-				proxy_id: u.proxy_id,
-				display_name: u.display_name,
-				avatar_url: u.avatarURL,
-				is_owner: u.auth_id === a.dropid
-			};
-		});
-	});
-
+	appspaceUsersStore.loadData(a.appspace_id);
+	
 	paused.value = a.paused;
 	enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(a.domain_name)
 }
@@ -70,6 +53,22 @@ else if( props.remote_appspace ) {
 	enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(a.domain_name);
 }
 else throw new Error("got neither local nor remote appspace");
+
+const users = computed( () => {
+	if( !props.local_appspace ) return;
+	const users = appspaceUsersStore.getUsers(props.local_appspace.appspace_id);
+	if( !users ) return;
+	const owner_dropid = props.local_appspace ? props.local_appspace.dropid : "";
+	return users.value.map( sru => {
+		const u = sru.value;
+		return {
+			proxy_id: u.proxy_id,
+			display_name: u.display_name,
+			avatar_url: getAvatarUrl(u),
+			is_owner: u.auth_id === owner_dropid
+		};
+	});
+});
 
 </script>
 

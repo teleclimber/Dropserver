@@ -1,223 +1,149 @@
-<template>
-	<ViewWrap>
-		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">
-					{{ proxy_id ? "Manage Appspace User" : "New Appspace User" }}
-				</h3>
-				<div class="flex items-stretch">
-					<router-link class="btn" :to="{name:'manage-appspace', params:{id:appspace.id}}">back to appspace</router-link>
-				</div>
-			</div>
-			<div v-if="proxy_id && !change_id" class="px-4 py-5 sm:px-6 border-b border-gray-200 ">
-				<div class="flex justify-between">
-					<div class="text-lg font-bold">{{user.auth_id}}</div>
-					<div><button class="btn" @click.stop.prevent="change_id = true">Change ID</button></div>
-				</div>
-				<div>
-					<p>[see in contacts / add to contacts]</p>
-				</div>
-			</div>
-			<div v-else class="border-b border-gray-200">
-				<div v-if="proxy_id" class="px-4 py-5 sm:px-6 bg-yellow-100">
-					<div class="flex justify-between">
-						<h4 class="font-bold text-gray-900">Change the authentication id</h4>
-						<button @click.stop.prevent="change_id = false">
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-							</svg>
-						</button>
-					</div>
-					<p>You can change the way a user signs in to this appspace.</p>
-				</div>
-				<DataDef field="Add Using:">
-					<select v-model="add_using" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-						<option value="contact">Pick From Contacts</option>
-						<option value="dropid">Enter DropID</option>
-						<option value="email">Enter Email</option>
-					</select>
-				</DataDef>
-				<DataDef v-if="add_using === 'contact'" field="Contact:">
-					<select v-model="contact_id" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-						<option value="contact">Pick From Contacts</option>
-					</select>
-				</DataDef>
-				<DataDef v-if="add_using === 'dropid'" field="DropID:">
-					<input type="text" v-model="drop_id" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-				</DataDef>
-				<DataDef v-if="add_using === 'email'" field="Email:">
-					<input type="text" v-model="email" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-				</DataDef>
-			</div>
-			<div class="py-5 border-b border-gray-200">
-				<h3 class="px-4 sm:px-6 font-bold text-gray-900">Set or Override User Display:</h3>
-				<DataDef field="Display Name:">
-					<input type="text" v-model="display_name" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-				</DataDef>
-				<DataDef field="Avatar:">
-					<Avatar :current="user.avatarURL" @changed="avatarChanged"></Avatar>
-				</DataDef>
-			</div>
-			<div class="py-5 border-b border-gray-200">
-				<DataDef field="Permissions:">
-					[Permisssions to be implemented]
-				</DataDef>
-			</div>
-			<div class="py-5 px-4 sm:px-6 flex items-baseline justify-between">
-				<router-link class="btn" :to="{name:'manage-appspace', params:{id:appspace.id}}">back to appspace</router-link>
-				<button class="btn-blue" @click="save">Save</button>
-			</div>
-		</div>
+<script lang="ts" setup>
+import { ref, Ref, reactive, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
+import { useRouter } from 'vue-router';
 
-		<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg">
-			<div class="px-4 py-5 sm:px-6 border-b border-yellow-200">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">Delete or Block User</h3>
-				<p class="mt-1 max-w-2xl text-sm text-gray-700">
-					Delete to completely eliminate the user, Block to prevent further access.
-				</p>
-			</div>
-			<div class="px-4 py-5 sm:px-6">
-				<p>Not implemented </p>
-			</div>
-		</div>
-	</ViewWrap>
-</template>
+import { setTitle } from '../controllers/nav';
 
-<script lang="ts">
-import {useRoute} from 'vue-router';
-import router from '../router/index';
-import { defineComponent, ref, Ref, reactive, computed, onMounted, onUnmounted, PropType } from 'vue';
+import { useAppspacesStore } from '@/stores/appspaces';
+import { useAppspaceUsersStore, AvatarState, getAvatarUrl } from '@/stores/appspace_users';
 
-import {setTitle} from '../controllers/nav';
-
-import {Appspace} from '../models/appspaces';
-import {AppspaceUser, AvatarState, saveNewUser, updateUserMeta} from '../models/appspace_users';
+// import {Appspace} from '../models/appspaces';
+// import {AppspaceUser, AvatarState, saveNewUser, updateUserMeta} from '../models/appspace_users';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import Avatar from '../components/ui/Avatar.vue';
 
-export default defineComponent({
-	name: 'ManageAppspaceUser',
-	components: {
-		ViewWrap,
-		DataDef,
-		Avatar
-	},
-	setup() {
-		const route = useRoute();
-		const appspace = reactive( new Appspace );
-		const user = reactive( new AppspaceUser );
+const props = defineProps<{
+	appspace_id: number,
+	proxy_id?: string
+}>();
 
-		const proxy_id :Ref<string|undefined> = ref("");
+const router = useRouter();
 
-		const add_using = ref("contact");	// TODO as these values are set by user, we should check they are legit (can'thave dupe dropids as appspace users)
-		const contact_id = ref(0);
-		const drop_id = ref("");
-		const email = ref("");
-
-		const display_name = ref("");
-
-		const change_id = ref(false);
-
-		onMounted( async () => {
-			const appspace_id = Number(route.params.id);
-			await appspace.fetch(appspace_id);
-			setTitle(appspace.domain_name);
-			
-			const route_proxy_id = route.params.proxy_id;
-			if( Array.isArray(route_proxy_id) ) return;
-			if( !route_proxy_id ) return;
-			proxy_id.value = route_proxy_id;
-
-			await user.fetch(appspace_id, proxy_id.value);
-			// fill in variables
-			add_using.value = user.auth_type;
-			if( user.auth_type === 'contact' ) contact_id.value = Number(user.auth_id);
-			if( user.auth_type === 'email' ) email.value = user.auth_id;
-			if( user.auth_type === 'dropid' ) drop_id.value = user.auth_id;
-			
-			display_name.value = user.display_name;
-			// permissions...
-		});
-		onUnmounted( async () => {
-			setTitle("");
-		});
-
-		let avatar_state = AvatarState.Preserve;
-		let avatar :Blob|null = null;
-
-		async function avatarChanged(ev:any) {
-			if( ev ) {
-				avatar = ev;
-				avatar_state = AvatarState.Replace;
-			}
-			else {
-				avatar = null;
-				avatar_state = AvatarState.Delete;
-			}
-		}
-
-		async function save() {
-			if( display_name.value.trim() === "" ) {
-				alert("please enter a display name");
-				return;
-			}
-
-			let auth_type = "";
-			let auth_id = "";
-			if( !proxy_id.value || change_id.value ) {
-				if( add_using.value === 'contact' ) {
-					// handle taht
-				}
-				else if( add_using.value === 'email' ) {
-					auth_type = 'email';
-					// validate email
-					auth_id = email.value;
-				}
-				else if( add_using.value === 'dropid' ) {
-					auth_type = 'dropid';
-					//validate dropid
-					auth_id = drop_id.value;
-				}
-				else throw new Error("what is this add using? "+add_using.value);
-			}
-
-			if( proxy_id.value ) {
-				// update 
-				await updateUserMeta(appspace.id, proxy_id.value, {
-					auth_type,
-					auth_id,
-					display_name: display_name.value,
-					permissions: [],
-					avatar: avatar_state
-				}, avatar);
-			}
-			else {
-				await saveNewUser(appspace.id, {
-					auth_type,
-					auth_id,
-					display_name: display_name.value,
-					permissions: [],
-					avatar: avatar_state
-				}, avatar);
-			}
-			router.push({name: 'manage-appspace', params:{id: appspace.id}});
-		}
-
-		return {
-			appspace,
-			proxy_id,
-			change_id,
-			user,
-			add_using,
-			contact_id,
-			drop_id,
-			email,
-			display_name,
-			avatarChanged, save,
-		}
-	}
-
+const appspacesStore = useAppspacesStore();
+appspacesStore.loadData();
+const appspace = computed( () => {
+	if( appspacesStore.is_loaded ) return appspacesStore.mustGetAppspace(props.appspace_id).value;
 });
+watchEffect( () => {
+	if( appspace.value ) setTitle(appspace.value.domain_name);
+});
+
+const appspaceUsersStore = useAppspaceUsersStore();
+appspaceUsersStore.loadData(props.appspace_id);
+
+const user = computed( () => {
+	if( props.proxy_id === undefined || !appspaceUsersStore.isLoaded(props.appspace_id) ) return;
+	const u = appspaceUsersStore.getUser(props.appspace_id, props.proxy_id );
+	if( u ) return u.value;
+});
+
+const drop_id_input :Ref<HTMLInputElement|undefined> = ref();
+onMounted( () => {
+	if( drop_id_input.value === undefined ) return;
+	drop_id_input.value.focus();
+});
+
+const drop_id = ref("");
+const display_name = ref("");
+
+watchEffect( () => {
+	if( user.value === undefined ) return;
+	drop_id.value = user.value.auth_id;	// assumes authid is dropid
+	display_name.value = user.value.display_name;
+	// avatar?
+});
+
+let avatar_state = AvatarState.Preserve;
+let avatar :Blob|null = null;
+
+async function avatarChanged(ev:any) {
+	if( ev ) {
+		avatar = ev;
+		avatar_state = AvatarState.Replace;
+	}
+	else {
+		avatar = null;
+		avatar_state = AvatarState.Delete;
+	}
+}
+
+const invalid = computed( () => {
+	if( display_name.value.trim() === "" ) return "display name can not be empty";
+	if( display_name.value.length > 29 ) return "display name is too long";
+	if( !props.proxy_id ) {
+		if( drop_id.value.trim().length < 3 ) return "dropID is too short";
+		if( drop_id.value.trim().length > 200 ) return "dropID is too long";
+		// TODO check for dupes can'thave dupe dropids as appspace users
+	}
+	return "";
+});
+
+async function save() {
+	if( invalid.value !== "" ) return;
+
+	if( props.proxy_id ) {
+		let auth_id = ""; 
+		if( drop_id.value !== user.value?.auth_id ) auth_id = drop_id.value;
+		await appspaceUsersStore.updateUserMeta(props.appspace_id, props.proxy_id, {
+			auth_type: "dropid",
+			auth_id,
+			display_name: display_name.value,
+			permissions: [],
+			avatar: avatar_state
+		}, avatar);
+	}
+	else {
+		await appspaceUsersStore.addNewUser(props.appspace_id, {
+			auth_type: "dropid",
+			auth_id: drop_id.value,
+			display_name: display_name.value,
+			permissions: [],
+			avatar: avatar_state
+		}, avatar);
+	}
+	router.push({name: 'manage-appspace', params:{appspace_id: props.appspace_id}});
+}
+
+function cancel() {
+	router.back();
+}
+
+onUnmounted( async () => {
+	setTitle("");
+});
+
 </script>
+<template>
+	<ViewWrap>
+		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<form @submit.prevent="save" @keyup.esc="cancel">
+				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">
+						{{ proxy_id ? "Manage Appspace User" : "New Appspace User" }}
+					</h3>
+				</div>
+				<div class="border-b border-gray-200 py-6">
+					<DataDef field="DropID:">
+						<input ref="drop_id_input" type="text" v-model="drop_id" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+					</DataDef>
+					<DataDef field="Display Name:">
+						<input type="text" v-model="display_name" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+					</DataDef>
+					<DataDef field="Avatar:">
+						<Avatar :current="user ? getAvatarUrl(user) : ''" @changed="avatarChanged"></Avatar>
+					</DataDef>
+				</div>
+				<div class="py-5 px-4 sm:px-6 flex items-baseline justify-between">
+					<input type="button" class="btn" @click="cancel" value="Cancel" />
+					<input
+						type="submit"
+						class="btn-blue"
+						:disabled="!!invalid "
+						value="Save" />
+				</div>
+			</form>
+		</div>
+	</ViewWrap>
+</template>

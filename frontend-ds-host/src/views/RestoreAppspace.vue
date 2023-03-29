@@ -156,7 +156,7 @@ export default defineComponent({
 			step.value = "restoring";
 			await commitRestore(appspace.id, restore_data.value.token);
 			// assuming everythign went well, go back to manage appspace page
-			router.push({name: 'manage-appspace', params:{id:appspace.id}});
+			router.push({name: 'manage-appspace', params:{appspace_id:appspace.id}});
 		}
 
 		function backToStart() {
@@ -169,7 +169,7 @@ export default defineComponent({
 			};
 		}
 		function cancel() {
-			router.push({name: 'manage-appspace', params:{id:appspace.id}});
+			router.push({name: 'manage-appspace', params:{appspace_id:appspace.id}});
 		}
 
 		return {

@@ -47,7 +47,7 @@ const appspaces = computed( () => {
 			<div class="px-4 sm:px-6">
 				<div v-for="a in appspaces">
 					{{ a.value.domain_name }} ({{ a.value.app_version }})
-					<router-link :to="{name: 'manage-appspace', params:{id:a.value.appspace_id}}" class="btn">Manage</router-link>
+					<router-link :to="{name: 'manage-appspace', params:{appspace_id:a.value.appspace_id}}" class="btn">Manage</router-link>
 				</div>
 				<div v-if="appspaces.length === 0" class="bg-red-50 px-4 py-1 rounded">
 					No appspaces for this app.

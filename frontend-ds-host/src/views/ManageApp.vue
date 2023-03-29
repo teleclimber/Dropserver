@@ -106,7 +106,7 @@ async function delApp() {
 							<li v-for="appspace in app_appspaces" :key="'appspace-'+appspace.appspace_id">
 								<span class="text-xl">{{appspace.domain_name}}</span>
 								({{appspace.app_version}})
-								<router-link :to="{name: 'manage-appspace', params:{id:appspace.appspace_id}}" class="btn">Manage</router-link>
+								<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage</router-link>
 							</li>
 						</ul>
 						<div class="flex justify-end pt-3 ">

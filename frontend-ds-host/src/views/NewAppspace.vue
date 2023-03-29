@@ -161,7 +161,7 @@ async function create() {
 		subdomain: subdomain.value,
 		dropid: dropid.value
 	});
-	router.replace({name: 'manage-appspace', params:{id: appspace_id+''}});
+	router.replace({name: 'manage-appspace', params:{appspace_id: appspace_id+''}});
 }
 
 function cancel() {

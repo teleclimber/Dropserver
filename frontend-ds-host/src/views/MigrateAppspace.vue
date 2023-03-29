@@ -4,7 +4,7 @@
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Change Application Version</h3>
 				<div>
-					<router-link :to="{name: 'manage-appspace', params:{id:appspace.id}}" class="btn">Close</router-link>
+					<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.id}}" class="btn">Close</router-link>
 				</div>
 			</div>
 

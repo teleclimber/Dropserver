@@ -1,37 +1,13 @@
-<template>
-	<div class="p-2">
-		<h4 class="uppercase text-sm">{{name}}:</h4>
-		<div>
-			<span class="font-bold">{{val_h.val}}</span> {{val_h.unit}}
-		</div>
-	</div>
-</template>
+<script lang="ts" setup>
+import { computed, } from 'vue';
 
-<script lang="ts">
-import { defineComponent, computed, } from 'vue';
+const props = defineProps<{
+	name: string,
+	val: number,
+	unit: string
+}>();
 
-export default defineComponent({
-	props: {
-		name: {
-			type: String,
-			required: true
-		},
-		val: {
-			type: Number,
-			required: true
-		},
-		unit: {
-			type: String,
-			required: true
-		}
-	},
-	setup(props) {
-		const val_h = computed( () => humanValues(props.val, props.unit) );
-		return {
-			val_h
-		}
-	}
-});
+const val_h = computed( () => humanValues(props.val, props.unit) );
 
 function humanValues(val:number, unit:string) :{val:string, unit:string} {
 	if( unit === 'bytes' ) {
@@ -69,3 +45,12 @@ function humanValues(val:number, unit:string) :{val:string, unit:string} {
 	return {val: new Intl.NumberFormat(undefined, {maximumSignificantDigits: 3}).format(val), unit};
 }
 </script>
+
+<template>
+	<div class="p-2">
+		<h4 class="uppercase text-sm">{{name}}:</h4>
+		<div>
+			<span class="font-bold">{{val_h.val}}</span> {{val_h.unit}}
+		</div>
+	</div>
+</template>

@@ -48,6 +48,15 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		}
 	}
 
+	function getAppspace(appspace_id:number) {
+		return appspaces.value.get(appspace_id);
+	}
+	function mustGetAppspace(appspace_id:number) {
+		const a = getAppspace(appspace_id);
+		if( !a ) throw new Error("appspace not found "+appspace_id);
+		return a;
+	}
+
 	function getAppspacesForApp(app_id:number) :ShallowRef<Appspace>[] {
 		if( !is_loaded.value ) return [];
 		const resp :ShallowRef<Appspace>[] = [];
@@ -71,5 +80,30 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		return Number(resp.data.appspace_id);
 	}
 
-	return {is_loaded, loadData, appspaces, getAppspacesForApp, getAppspacesForAppVersion, createAppspace }
+	async function setPause(appspace_id: number, pause :boolean) {
+		const a = mustGetAppspace(appspace_id);
+		const data = await ax.post('/api/appspace/'+appspace_id+'/pause', {pause});
+		// check that it returned OK!
+		a.value.paused = pause;
+	}
+
+	async function deleteAppspace(appspace_id: number) {
+		mustGetAppspace(appspace_id);	 //throws is appspace not found.
+		await ax.delete('/api/appspace/'+appspace_id);
+		appspaces.value.delete(appspace_id);
+		appspaces.value = new Map(appspaces.value);
+	}
+
+	return {
+		is_loaded,
+		loadData,
+		appspaces,
+		getAppspace,
+		mustGetAppspace,
+		getAppspacesForApp,
+		getAppspacesForAppVersion,
+		createAppspace,
+		setPause,
+		deleteAppspace
+	}
 });

@@ -1,3 +1,28 @@
+<script lang="ts" setup>
+import { ref, reactive } from 'vue';
+
+import {AppspaceBackups} from '../../models/appspace_backups';
+
+const props = defineProps<{
+	appspace_id: number
+}>();
+
+const appspaceBackups = reactive(new AppspaceBackups(props.appspace_id));
+appspaceBackups.fetchForAppspace();
+
+const backing_up_now = ref(false);
+async function backupNow() {
+	backing_up_now.value = true;
+	await appspaceBackups.backupNow();
+	backing_up_now.value = false;
+}
+async function del(filename: string) {
+	if( confirm("Delete "+filename+"?") ) {
+		await appspaceBackups.delete(filename);
+	}
+}
+</script>
+
 <template>
 	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
@@ -37,44 +62,3 @@
 </template>
 
 
-<script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, PropType } from 'vue';
-
-import {AppspaceBackups} from '../../models/appspace_backups';
-
-
-export default defineComponent({
-	name: 'ManageBackups',
-	components: {
-	},
-	props: {
-		appspace_id: {
-			type: Number,
-			required: true
-		}
-	},
-	setup(props) {
-
-		const appspaceBackups = reactive(new AppspaceBackups(props.appspace_id));
-		appspaceBackups.fetchForAppspace();
-
-		const backing_up_now = ref(false);
-		async function backupNow() {
-			backing_up_now.value = true;
-			await appspaceBackups.backupNow();
-			backing_up_now.value = false;
-		}
-		async function del(filename: string) {
-			if( confirm("Delete "+filename+"?") ) {
-				await appspaceBackups.delete(filename);
-			}
-		}
-		return {
-			appspaceBackups,
-			backing_up_now,
-			backupNow,
-			del
-		}
-	}
-});
-</script>

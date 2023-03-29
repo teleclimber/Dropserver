@@ -1,3 +1,12 @@
+<script lang="ts" setup>
+import type {AppspaceStatus} from '../twine-services/appspace_status';
+
+defineProps<{
+	status: AppspaceStatus
+}>();
+
+</script>
+
 <template>
 	<div>
 		<div v-if="status.as_string === 'problem'" class="bg-orange-300 py-1 px-2">Problem</div>
@@ -34,22 +43,3 @@
 	</div>
 </template>
 
-<script lang="ts">
-import { defineComponent, PropType } from 'vue';
-
-import type {AppspaceStatus} from '../twine-services/appspace_status';
-
-export default defineComponent({
-	name: 'AppspaceStatusVisualizer',
-	components: {
-		
-	},
-	props: {
-		status: {
-			type: Object as PropType<AppspaceStatus>,
-			required: true
-		}
-	}
-	
-});
-</script>

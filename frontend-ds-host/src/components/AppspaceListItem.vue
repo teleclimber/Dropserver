@@ -55,7 +55,7 @@ if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', '
 
 				Paused
 			</span>
-			<router-link :to="{name: 'manage-appspace', params:{id:appspace.appspace_id}}" class="btn">Manage appspace</router-link>
+			<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage appspace</router-link>
 		</div>
 	</div>
 </template>
