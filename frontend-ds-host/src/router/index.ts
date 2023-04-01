@@ -53,9 +53,20 @@ const routes: Array<RouteRecordRaw> = [
 			}
 		}
 	},{
-		path: '/appspace/:id/migrate',
+		path: '/appspace/:appspace_id/migrate',
 		name: 'migrate-appspace',
-		component: MigrateAppspace
+		component: MigrateAppspace,
+		props: route => {
+			let v = '';
+			if( route.query['to_version'] && !Array.isArray(route.query['to_version']) ) v = route.query['to_version'];
+			let j = undefined;
+			if( route.query['job_id'] && !Array.isArray(route.query['job_id']) ) j = Number(route.query['job_id']);
+			return {
+				appspace_id: appspaceIdParam(route),
+				to_version: v,
+				job_id: j
+			}
+		}
 	},{
 		path: '/appspace/:appspace_id/restore',
 		name: 'restore-appspace',

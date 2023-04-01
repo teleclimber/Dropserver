@@ -1,35 +1,29 @@
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue';
-import { useAppsStore } from '@/stores/apps';
+import { ref, computed } from 'vue';
 
+import { useAppsStore } from '@/stores/apps';
 import type { Appspace } from '@/stores/types';
-import {AppVersionCollector } from '../models/app_versions';
 
 const props = defineProps<{
 	appspace: Appspace
 }>();
 
-const app_version = AppVersionCollector.get(props.appspace.app_id, props.appspace.app_version);
+const appsStore = useAppsStore();
+appsStore.loadData();
+
+const app = computed( () => {
+	const a = appsStore.apps.get(props.appspace.app_id);
+	if( a === undefined ) return undefined;
+	return a.value;
+});
 
 const protocol = props.appspace.no_tls ? 'http' : 'https';
 const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
 
 const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name));
 
-const appsStore = useAppsStore();
-appsStore.loadData();
-const app_name = ref('');
-
-watchEffect( () => {
-	if( appsStore.is_loaded ) {
-		const app = appsStore.apps.get(props.appspace.app_id);
-		if( app === undefined ) return;
-		app_name.value = app.value.name;
-	}
-});
-
 const version_classes = ref(['bg-green-200', 'text-green-800']);
-if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', 'text-orange-800']
+if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', 'text-orange-800'];
 
 </script>
 
@@ -40,8 +34,8 @@ if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', '
 		</h3>
 		<p><a :href="enter_link" class="text-blue-700 underline hover:text-blue-500 overflow-hidden text-ellipsis">{{ display_link }}</a></p>
 		<p class="mt-4">
-			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app_name}}</router-link> 
-			<span class="text-sm font-medium rounded-full px-2 ml-2 " :class="version_classes">{{app_version.version}}</span>
+			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app?.name}}</router-link> 
+			<span class="text-sm font-medium rounded-full px-2 ml-2 " :class="version_classes">{{appspace.app_version}}</span>
 			<span v-if="appspace.upgrade_version" class="bg-green-200 text-green-800 rounded-full ml-2 px-2 text-sm">
 				Upgrade available: {{appspace.upgrade_version}}
 			</span>

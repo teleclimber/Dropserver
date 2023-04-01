@@ -1,3 +1,9 @@
+<script lang="ts" setup>
+defineProps<{
+	head: string
+}>();
+</script>
+
 <template>
 	<div class="bg-yellow-100 py-5 flex">
 		<div class="w-12 sm:w-16 flex flex-shrink-0 justify-center">
@@ -12,15 +18,3 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-export default defineComponent({
-  name: 'MessageProcessing',
-  components: {
-    
-  },
-  props: ['head']
-});
-</script>

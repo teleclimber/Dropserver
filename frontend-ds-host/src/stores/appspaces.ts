@@ -22,7 +22,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 		paused: !!raw.paused,
 		app_id: Number(raw.app_id),
 		app_version: raw.app_version+'',
-		upgrade_version: raw.uprade_version ? raw.upgrade_version+'' : undefined
+		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined
 	}
 }
 
@@ -45,6 +45,18 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 				appspaces.value.set(as.appspace_id, shallowRef(as));
 			});
 			load_state.value = LoadState.Loaded;
+		}
+	}
+	async function loadAppspace(appspace_id:number) {
+		const resp = await ax.get('/api/appspace/'+appspace_id);
+		const as_in = appspaceFromRaw(resp.data);
+		const as_ex = appspaces.value.get(appspace_id);
+		if( as_ex === undefined ) {
+			appspaces.value.set(appspace_id, shallowRef(as_in));
+			appspaces.value = new Map(appspaces.value);
+		}
+		else {
+			as_ex.value = as_in;
 		}
 	}
 
@@ -97,6 +109,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 	return {
 		is_loaded,
 		loadData,
+		loadAppspace,
 		appspaces,
 		getAppspace,
 		mustGetAppspace,

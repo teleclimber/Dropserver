@@ -1,3 +1,12 @@
+<script lang="ts" setup>
+import type { AppVersion } from '../stores/types';
+
+defineProps<{
+	app_version: AppVersion
+}>();
+
+</script>
+
 <template>
 	<div class="grid grid-cols-4 items-center justify-center border border-gray-200 rounded-md">
 		<span class="bg-gray-200 text-center">version</span>
@@ -10,23 +19,3 @@
 		<div>details...</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, PropType } from 'vue';
-
-import type {AppVersion} from '../models/app_versions';
-
-export default defineComponent({
-	name: 'VersionDetails',
-	components: {
-		
-	},
-	props: {
-		app_version: {
-			type: Object as PropType<AppVersion>,
-			required: true
-		}
-	}
-	
-});
-</script>

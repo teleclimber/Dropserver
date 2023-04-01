@@ -35,6 +35,10 @@ else watch( appspace, () => {
 	if( appspace.value ) setTitle(appspace.value.domain_name);
 });
 
+onMounted( () => {
+	appspacesStore.loadAppspace(props.appspace_id);
+});
+
 const appsStore = useAppsStore();
 appsStore.loadData();
 const app = computed( () => {
@@ -112,18 +116,18 @@ onUnmounted( async () => {
 
 					<DataDef field="App Version:">
 						{{app_version ? app_version.version : "..."}}
-						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}" class="btn">
+						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}" class="btn">
 							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
 							</svg>
 							{{appspace.upgrade_version}} available
 						</router-link>
-						<router-link v-else :to="{name: 'migrate-appspace', params:{id:appspace.appspace_id}}" class="btn">Show other versions</router-link>
+						<router-link v-else :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">change version</router-link>
 					</DataDef>
 
 					<DataDef field="Data Schema:">
 						{{app_version ? app_version.schema : "..."}}
-						<router-link v-if="app_version && app_version.schema !== status.appspace_schema" :to="{name: 'migrate-appspace', params:{id:appspace.appspace_id}, query:{to_version:appspace.app_version}}" class="btn">
+						<router-link v-if="app_version && app_version.schema !== status.appspace_schema" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.app_version}}" class="btn">
 							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
 							</svg>

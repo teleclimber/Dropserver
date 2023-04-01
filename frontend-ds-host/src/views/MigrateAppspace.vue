@@ -1,27 +1,128 @@
+<script lang="ts" setup>
+import { computed, onMounted, onUnmounted, watch } from 'vue';
+
+import { useAppspacesStore } from '@/stores/appspaces';
+import { useAppsStore } from '@/stores/apps';
+import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
+import type { AppspaceMigrationJob } from '@/stores/types';
+
+import { setTitle } from '../controllers/nav';
+
+import ViewWrap from '../components/ViewWrap.vue';
+import VersionDetails from '../components/VersionDetails.vue';
+import PickVersion from '../components/PickAppVersion.vue';
+import MessageProcessing from '@/components/ui/MessageProcessing.vue';
+import { useRouter } from 'vue-router';
+
+const props = defineProps<{
+	appspace_id: number,
+	to_version: string,
+	job_id?: number
+}>();
+
+const router = useRouter();
+
+const appspacesStore = useAppspacesStore();
+appspacesStore.loadData();
+
+const appsStore = useAppsStore();
+appsStore.loadData();
+
+const migrationJobsStore = useAppspaceMigrationJobsStore();
+migrationJobsStore.loadData(props.appspace_id);
+watch( () => migrationJobsStore.isLoaded(props.appspace_id), () => {
+	migrationJobsStore.connect(props.appspace_id);
+} );
+
+onMounted( () => {
+	if( migrationJobsStore.isLoaded(props.appspace_id) ) migrationJobsStore.connect(props.appspace_id);
+	appspacesStore.loadAppspace(props.appspace_id);
+});
+
+const appspace = computed( () => {
+	if( !appspacesStore.is_loaded ) return;
+	return appspacesStore.mustGetAppspace(props.appspace_id).value;
+});
+
+const app = computed( () => {
+	if( appspace.value === undefined || !appsStore.is_loaded ) return;
+	return appsStore.mustGetApp(appspace.value.app_id).value;
+});
+
+const cur_app_version = computed( () => {
+	if( app.value === undefined ) return;
+	return app.value.versions.find( v => appspace.value?.app_version === v.version );
+});
+
+const to_app_version = computed( () => {
+	if( app.value === undefined || props.to_version === '' ) return;
+	return app.value.versions.find( v => props.to_version === v.version);
+});
+
+const running_migration_job = computed( () => {
+	let job : AppspaceMigrationJob|undefined;
+	const jobs = migrationJobsStore.getJobs(props.appspace_id);
+	if( jobs === undefined ) return;
+	jobs.value.forEach( j => {
+		if( !j.value.finished ) job = j.value;
+	});
+	console.log('current m job', job);
+	return job;
+});
+watch( running_migration_job, (new_job, old_job) => {
+	// if running job becomes undefined it means it finished. So reload appspace.
+	if( old_job !== undefined && new_job === undefined ) appspacesStore.loadAppspace(props.appspace_id);
+});
+const migration_job = computed( () => {
+	if( props.job_id === undefined ) return;
+	const jobs = migrationJobsStore.getJobs(props.appspace_id);
+	if( jobs === undefined ) return;
+	const job = jobs.value.get(props.job_id);
+	if( job === undefined ) return;
+	return job.value;
+});
+
+const show_all_versions = computed( () => {
+	return !props.to_version;
+});
+
+const ok_to_migrate = computed( () => {
+	return cur_app_version.value && to_app_version.value 
+		&& cur_app_version.value.version !== to_app_version.value.version
+		&& running_migration_job.value === undefined
+		&& migration_job.value === undefined;
+});
+
+async function migrate() {
+	if( !ok_to_migrate.value ) return;
+	const job = await migrationJobsStore.createMigrationJob(props.appspace_id, props.to_version);
+	router.replace({name:'migrate-appspace', query:{job_id:job.value.job_id} });
+}
+
+onUnmounted( () => {
+	setTitle("");
+	migrationJobsStore.disconnect(props.appspace_id);
+});
+
+</script>
+
 <template>
 	<ViewWrap>
+
+		<MessageProcessing head="Migration Ongoing" v-if="running_migration_job && migration_job?.job_id !== running_migration_job.job_id">
+			A migration to version {{  running_migration_job.to_version }} is ongoing.
+			<router-link :to="{name:'migrate-appspace', query:{job_id:running_migration_job.job_id}}">Click here for details</router-link>.
+		</MessageProcessing>
+
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Change Application Version</h3>
-				<div>
-					<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.id}}" class="btn">Close</router-link>
-				</div>
 			</div>
 
-
 			<div v-if="migration_job" class="px-4 py-5 sm:px-6">
-				<div v-if="migration_job.finished === null" class="bg-yellow-100 py-5 flex rounded-xl">
-					<div class="w-12 sm:w-16 flex justify-center">
-						<svg class="w-8 h-8 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-						</svg>
-					</div>
-					<div>
-						<h3 class="text-yellow-600 text-lg font-medium">Migration Job Running</h3>
-						<p>Migrating to version {{ migration_job.to_version }}.</p>
-						<!-- need a cancel button -->
-					</div>
-				</div>
+				<MessageProcessing v-if="migration_job.finished === null" head="Migration Job Running">
+					<p>Migrating to version {{ migration_job.to_version }}.</p>
+				</MessageProcessing>
 				<div v-else-if="migration_job.finished && migration_job.error" class="bg-red-100 py-5 flex rounded-xl">
 					<div class="w-12 sm:w-16 flex justify-center">
 						<svg class="w-8 h-8 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,160 +146,40 @@
 					</div>
 				</div>
 			</div>
+			
 			<div v-else>
 				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
 					<div class="font-medium text-gray-500">Current Version:</div>
-					<VersionDetails :app_version="cur_app_version" class="col-span-3"></VersionDetails>
+					<VersionDetails v-if="cur_app_version" :app_version="cur_app_version" class="col-span-3"></VersionDetails>
+				</div>
+				<div class="px-4 py-5 sm:px-6 sm:grid grid-cols-4" v-if="show_all_versions">
+					<div class="font-medium text-gray-500">
+						Choose a version:
+					</div>
+					<PickVersion 
+						v-if="app && appspace"
+						:appspace_id="appspace_id"
+						:versions="app.versions"
+						:current="appspace.app_version"
+						class="col-span-3"
+					></PickVersion>
 				</div>
 				<div v-if="to_version" class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
 					<div class="font-medium text-gray-500">Selected Version:</div>
-					<VersionDetails :app_version="to_app_version" class="col-span-3"></VersionDetails>
+					<VersionDetails v-if="to_app_version" :app_version="to_app_version" class="col-span-3"></VersionDetails>
 					<p v-if="!show_all_versions" class="flex justify-end col-span-4 py-1">
-						<button @click="showAllVersions(true)" class="btn">Choose different version</button>
+						<router-link class="btn" :to="{name:'migrate-appspace',params:{appspace_id:appspace_id}}" :replace="true">Choose different version</router-link>
 					</p>
 				</div>
-			</div>
-
-			<div v-if="to_version && !show_all_versions && !migration_job" class="border-t border-gray-200 px-4 py-5 sm:px-6">
-				<p v-if="cur_app_version.schema !== to_app_version.schema">
+				<p v-if="cur_app_version && to_app_version && cur_app_version.schema !== to_app_version.schema" class="px-4 py-5 sm:px-6">
 					This version change requires migrating your data from schema {{cur_app_version.schema}} to {{to_app_version.schema}}.
 				</p>
-				<p>[Optionally schedule migration]</p>
-				<p class="pt-5 flex justify-end">
-					<button @click="migrate()" class="btn btn-blue">Start Migration</button>
-				</p>
 			</div>
 
-			<!-- use PickVersion here -->
-			<div class="px-4 py-5 sm:px-6 sm:grid grid-cols-4" v-if="show_all_versions">
-				<div class="font-medium text-gray-500">
-					Choose a version:
-				</div>
-				<PickVersion :versions="app.versions" :current="appspace.app_version" class="col-span-3" @version="pickVersion" @close="showAllVersions(false)"></PickVersion>
-				<p v-if="!app.loaded">Loading application versions</p>
+			<div class="border-t px-4 md:px-6 py-5 flex justify-between items-baseline">
+				<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace_id}}" class="btn">back to appspace</router-link>
+				<button @click="migrate()" class="btn btn-blue" :disabled="!ok_to_migrate">Start Migration</button>
 			</div>
 		</div>
 	</ViewWrap>
 </template>
-
-<script lang="ts">
-import {useRoute} from 'vue-router';
-import { defineComponent, ref, Ref, reactive, computed, onUnmounted, watchEffect, isReactive } from 'vue';
-import router from '../router';
-
-import { Appspace } from '../models/appspaces';
-import { App } from '../models/apps';
-import { AppVersion, AppVersionCollector } from '../models/app_versions';
-import { MigrationJob, MigrationJobs, createMigrationJob } from '../models/migration_jobs';
-import {setTitle} from '../controllers/nav';
-
-import { AppspaceStatus } from '../twine-services/appspace_status';
-
-import ViewWrap from '../components/ViewWrap.vue';
-import VersionDetails from '../components/VersionDetails.vue';
-import PickVersion from '../components/PickAppVersion.vue';
-
-export default defineComponent({
-	name: 'MigrateAppspace',
-	components: {
-		ViewWrap,
-		VersionDetails,
-		PickVersion
-	},
-	setup(props) {
-		const to_version :Ref<string|undefined> = ref(undefined);
-
-		const route = useRoute();
-		const appspace = reactive(new Appspace);
-		const cur_app_version = ref(new AppVersion);
-		const to_app_version = ref(new AppVersion);
-
-		const sticky_job_id :Ref<number|undefined> = ref(undefined);
-		const migration_jobs = reactive(new MigrationJobs);
-		watchEffect( () => {
-			if( sticky_job_id.value !== undefined ) return;
-			migration_jobs.jobs.forEach( j => {
-				if( j.finished === null ) sticky_job_id.value = j.job_id;
-			});
-		})
-		const migration_job = computed(() => {
-			let job : MigrationJob|undefined;
-			if( sticky_job_id.value !== undefined ) {
-				job = migration_jobs.jobs.get(sticky_job_id.value);
-			}
-			return job;
-		});
-
-		const status = reactive(new AppspaceStatus);
-
-		const app = reactive(new App);
-		const show_all_versions = ref(false);
-
-		function showAllVersions(show:boolean) {
-			show_all_versions.value = show;
-			if( show && !app.loaded ) {
-				app.fetch(appspace.app_id);
-			}
-		}
-		function pickVersion(version:string) {
-			show_all_versions.value = false;
-			router.push({name: 'migrate-appspace', params:{id:appspace.id}, query:{to_version:version}});
-		}
-
-		watchEffect( async () => {
-			sticky_job_id.value = undefined;
-
-			const appspace_id = Number(route.params.id);
-			if( isNaN(appspace_id) ) return;
-
-			await appspace.fetch(appspace_id);
-						
-			status.connectStatus(appspace_id);
-
-			setTitle(appspace.domain_name);
-
-			to_version.value = typeof route.query.to_version == 'string' && route.query.to_version !== appspace.app_version ? route.query.to_version : undefined; 
-			if( to_version.value ) {
-				to_app_version.value = AppVersionCollector.get(appspace.app_id, to_version.value);
-			}
-		
-			showAllVersions(!to_version.value);
-
-			await migration_jobs.disconnect();
-			migration_jobs.connect(appspace_id);
-		});
-
-		watchEffect( () => {
-			if( appspace.loaded ) cur_app_version.value = AppVersionCollector.get(appspace.app_id, appspace.app_version);
-		});
-
-		onUnmounted( () => {
-			setTitle("");
-		});
-
-		async function migrate() {
-			if(!to_version.value) return;
-			createMigrationJob(appspace.id, to_version.value);
-		}
-
-		onUnmounted( async () => {
-			status.disconnect();
-			migration_jobs.disconnect();
-		});
-
-		return {
-			appspace,
-			cur_app_version,
-			to_app_version,
-			to_version,
-			show_all_versions,
-			showAllVersions,
-			pickVersion,
-			app,
-			migrate,
-			migration_job,
-		}
-	}
-});
-
-</script>

@@ -80,3 +80,15 @@ export interface AppspaceUser {
 	created_dt: Date,
 	last_seen: Date | undefined
 }
+
+export interface AppspaceMigrationJob {
+	job_id: number,
+	owner_id: number,
+	appspace_id: number,
+	to_version: string,
+	created: Date,
+	started: null | Date,
+	finished: null | Date,
+	priority: boolean,
+	error: string | null
+}
