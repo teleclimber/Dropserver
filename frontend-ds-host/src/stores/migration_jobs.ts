@@ -53,6 +53,13 @@ export const useAppspaceMigrationJobsStore = defineStore('appspace-migration-job
 			load_state.set(appspace_id, LoadState.Loaded);
 		}
 	}
+	async function reloadData(appspace_id: number) {
+		const l = load_state.get(appspace_id);
+		if( l === LoadState.Loading ) return;	// its' already loading so don't reload
+		await disconnect(appspace_id);
+		load_state.delete(appspace_id);
+		await loadData(appspace_id);
+	}
 
 	function connected(appspace_id:number) :boolean {
 		return connections.has(appspace_id);
@@ -121,5 +128,5 @@ export const useAppspaceMigrationJobsStore = defineStore('appspace-migration-job
 		return job;
 	}
 
-	return { isLoaded, loadData, createMigrationJob, getJobs, mustGetJobs, connect, disconnect };
+	return { isLoaded, loadData, reloadData, createMigrationJob, getJobs, mustGetJobs, connect, disconnect };
 });

@@ -3,6 +3,7 @@ import { ref, Ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
+import { useAppspaceUsersStore } from '@/stores/appspace_users';
 
 import { fetchAppspaceSummary } from '../models/usage';
 import type {SandboxSums} from '../models/usage';
@@ -20,6 +21,7 @@ import DeleteAppspace from '../components/appspace/DeleteAppspace.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import UsageSummaryValue from '../components/UsageSummaryValue.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
+import MessageSad from '@/components/ui/MessageSad.vue';
 
 const props = defineProps<{
 	appspace_id: number
@@ -51,6 +53,18 @@ const app_version = computed( () => {
 
 const status = reactive(new AppspaceStatus) as AppspaceStatus;
 status.connectStatus(props.appspace_id);
+
+const appspaceUsersStore = useAppspaceUsersStore();
+
+watch( () => status.temp_paused, (p, old_p) => {
+	// Reload appspace after a temp_paused period finishes.
+	// This is a hack to get the app version of the appspace (and other data)
+	// updated after a migration job finishes.
+	if( old_p && !p ) {
+		appspacesStore.loadAppspace(props.appspace_id);
+		appspaceUsersStore.reloadData(props.appspace_id);
+	}
+});
 
 const display_link = computed( () => {
 	if( appspace.value ) {
@@ -84,6 +98,10 @@ async function togglePause() {
 	pausing.value = false;
 }
 
+const data_schema_mismatch = computed( ()=> {
+	return !!app_version.value && app_version.value.schema !== status.appspace_schema;
+});
+
 onUnmounted( async () => {
 	status.disconnect();
 	setTitle("");
@@ -103,7 +121,7 @@ onUnmounted( async () => {
 						</button>
 					</div>
 				</div>
-				<div class="px-4 py-5 sm:px-6">
+				<div class="my-5">
 					<DataDef field="Appsace Address:">
 						<a :href="enter_link" class="text-blue-700 underline hover:text-blue-500">{{display_link}}</a>
 					</DataDef>
@@ -126,17 +144,33 @@ onUnmounted( async () => {
 					</DataDef>
 
 					<DataDef field="Data Schema:">
-						{{app_version ? app_version.schema : "..."}}
-						<router-link v-if="app_version && app_version.schema !== status.appspace_schema" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.app_version}}" class="btn">
-							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
-							</svg>
-							migrate!
-						</router-link>
+						<div v-if="data_schema_mismatch" class="data-schema-grid grid gap-x-4">
+							<p>App version {{ app_version?.version }}:</p>
+							<span class="font-bold">{{ app_version?.schema }}</span>
+							<p>Appspace Data:</p>
+							<span class="flex items-center">
+								<span class="font-bold">{{ status.appspace_schema }}</span>
+								<router-link :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{migrate_only:'true'}}" class="ml-4 btn flex items-center">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+										<path fill-rule="evenodd" d="M2.24 6.8a.75.75 0 001.06-.04l1.95-2.1v8.59a.75.75 0 001.5 0V4.66l1.95 2.1a.75.75 0 101.1-1.02l-3.25-3.5a.75.75 0 00-1.1 0L2.2 5.74a.75.75 0 00.04 1.06zm8 6.4a.75.75 0 00-.04 1.06l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75a.75.75 0 00-1.5 0v8.59l-1.95-2.1a.75.75 0 00-1.06-.04z" clip-rule="evenodd" />
+									</svg>
+
+									migrate data
+								</router-link>
+							</span>
+						</div>
+						<template v-else>
+							{{ status.appspace_schema }}
+						</template>
 					</DataDef>
 
+					<MessageSad head="Data Schema Mismatch" v-if="data_schema_mismatch" class="my-4 md:rounded-xl md:mx-6">
+						<p>The application expects the data saved in the appspace to have a schema version of {{ app_version?.schema }}.
+						However the schema of the appspace is currently {{ status.appspace_schema }}.</p>
+						<p>Hit the "Migrate" link to bring the appspace data to the correct schema for the application,
+							or change the app version to match the data schema.</p>
+					</MessageSad>
 				</div>
-				
 			</div>
 
 			<ManageAppspaceUsers :appspace_id="appspace_id"></ManageAppspaceUsers>
@@ -178,3 +212,8 @@ onUnmounted( async () => {
 
 	</ViewWrap>
 </template>
+<style scoped>
+.data-schema-grid {
+	grid-template-columns: auto 1fr;
+}
+</style>

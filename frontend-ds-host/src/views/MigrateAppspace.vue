@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch, reactive } from 'vue';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
@@ -7,16 +7,20 @@ import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
 import type { AppspaceMigrationJob } from '@/stores/types';
 
 import { setTitle } from '../controllers/nav';
+import { AppspaceStatus } from '../twine-services/appspace_status';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import VersionDetails from '../components/VersionDetails.vue';
 import PickVersion from '../components/PickAppVersion.vue';
 import MessageProcessing from '@/components/ui/MessageProcessing.vue';
 import { useRouter } from 'vue-router';
+import DataDef from '@/components/ui/DataDef.vue';
+import UnderConstruction from '@/components/ui/UnderConstruction.vue';
 
 const props = defineProps<{
 	appspace_id: number,
 	to_version: string,
+	migrate_only: boolean,
 	job_id?: number
 }>();
 
@@ -29,15 +33,18 @@ const appsStore = useAppsStore();
 appsStore.loadData();
 
 const migrationJobsStore = useAppspaceMigrationJobsStore();
-migrationJobsStore.loadData(props.appspace_id);
 watch( () => migrationJobsStore.isLoaded(props.appspace_id), () => {
+	if( !migrationJobsStore.isLoaded(props.appspace_id) ) return;
 	migrationJobsStore.connect(props.appspace_id);
-} );
+});
 
 onMounted( () => {
-	if( migrationJobsStore.isLoaded(props.appspace_id) ) migrationJobsStore.connect(props.appspace_id);
+	migrationJobsStore.reloadData(props.appspace_id);
 	appspacesStore.loadAppspace(props.appspace_id);
 });
+
+const status = reactive(new AppspaceStatus) as AppspaceStatus;
+status.connectStatus(props.appspace_id);
 
 const appspace = computed( () => {
 	if( !appspacesStore.is_loaded ) return;
@@ -52,6 +59,13 @@ const app = computed( () => {
 const cur_app_version = computed( () => {
 	if( app.value === undefined ) return;
 	return app.value.versions.find( v => appspace.value?.app_version === v.version );
+});
+
+const data_schema_mismatch = computed( ()=> {
+	return !!cur_app_version.value && cur_app_version.value.schema !== status.appspace_schema;
+});
+const show_migrate_only = computed( () => {
+	return data_schema_mismatch.value && props.migrate_only;
 });
 
 const to_app_version = computed( () => {
@@ -83,10 +97,11 @@ const migration_job = computed( () => {
 });
 
 const show_all_versions = computed( () => {
-	return !props.to_version;
+	return !props.to_version && !props.migrate_only;
 });
 
 const ok_to_migrate = computed( () => {
+	if( show_migrate_only ) return true;
 	return cur_app_version.value && to_app_version.value 
 		&& cur_app_version.value.version !== to_app_version.value.version
 		&& running_migration_job.value === undefined
@@ -94,8 +109,9 @@ const ok_to_migrate = computed( () => {
 });
 
 async function migrate() {
-	if( !ok_to_migrate.value ) return;
-	const job = await migrationJobsStore.createMigrationJob(props.appspace_id, props.to_version);
+	if( !ok_to_migrate.value || appspace.value === undefined ) return;
+	const to_version = show_migrate_only.value ? appspace.value.app_version : props.to_version;
+	const job = await migrationJobsStore.createMigrationJob(props.appspace_id, to_version);
 	router.replace({name:'migrate-appspace', query:{job_id:job.value.job_id} });
 }
 
@@ -110,17 +126,18 @@ onUnmounted( () => {
 	<ViewWrap>
 
 		<MessageProcessing head="Migration Ongoing" v-if="running_migration_job && migration_job?.job_id !== running_migration_job.job_id">
-			A migration to version {{  running_migration_job.to_version }} is ongoing.
-			<router-link :to="{name:'migrate-appspace', query:{job_id:running_migration_job.job_id}}">Click here for details</router-link>.
+			A migration is ongoing.
+			<router-link :to="{name:'migrate-appspace', query:{job_id:running_migration_job.job_id}}" class="btn">show details</router-link>.
 		</MessageProcessing>
 
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">Change Application Version</h3>
+				<h3 class="text-lg leading-6 font-medium text-gray-900">{{ migrate_only ? 'Migrate Appspace Data' : 'Change Application Version' }}</h3>
 			</div>
 
 			<div v-if="migration_job" class="px-4 py-5 sm:px-6">
 				<MessageProcessing v-if="migration_job.finished === null" head="Migration Job Running">
+					<!-- get wording correct for migration versus app version change.-->
 					<p>Migrating to version {{ migration_job.to_version }}.</p>
 				</MessageProcessing>
 				<div v-else-if="migration_job.finished && migration_job.error" class="bg-red-100 py-5 flex rounded-xl">
@@ -147,15 +164,21 @@ onUnmounted( () => {
 				</div>
 			</div>
 			
+			<div v-else-if="show_migrate_only" class="px-4 py-5 sm:px-6">
+				Migrate appspace data from schema {{ status.appspace_schema }} to {{ cur_app_version?.schema }}.
+				<UnderConstruction 
+					head="This Might Not Work"
+					class="my-5">
+					Dropserver doesn't handle data schema mismatches correctly.
+					You can try running this migration, but it may fail.
+					If so, your data will be reverted back.
+				</UnderConstruction>
+			</div>
 			<div v-else>
-				<div class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
-					<div class="font-medium text-gray-500">Current Version:</div>
+				<DataDef field="Current Version:">
 					<VersionDetails v-if="cur_app_version" :app_version="cur_app_version" class="col-span-3"></VersionDetails>
-				</div>
-				<div class="px-4 py-5 sm:px-6 sm:grid grid-cols-4" v-if="show_all_versions">
-					<div class="font-medium text-gray-500">
-						Choose a version:
-					</div>
+				</DataDef>
+				<DataDef v-if="show_all_versions" field="Choose a Version:">
 					<PickVersion 
 						v-if="app && appspace"
 						:appspace_id="appspace_id"
@@ -163,22 +186,31 @@ onUnmounted( () => {
 						:current="appspace.app_version"
 						class="col-span-3"
 					></PickVersion>
-				</div>
-				<div v-if="to_version" class="px-4 py-5 sm:px-6 sm:grid sm:grid-cols-4">
-					<div class="font-medium text-gray-500">Selected Version:</div>
+				</DataDef>
+				<DataDef v-if="to_version" field="Selected Version:">
 					<VersionDetails v-if="to_app_version" :app_version="to_app_version" class="col-span-3"></VersionDetails>
 					<p v-if="!show_all_versions" class="flex justify-end col-span-4 py-1">
 						<router-link class="btn" :to="{name:'migrate-appspace',params:{appspace_id:appspace_id}}" :replace="true">Choose different version</router-link>
 					</p>
-				</div>
-				<p v-if="cur_app_version && to_app_version && cur_app_version.schema !== to_app_version.schema" class="px-4 py-5 sm:px-6">
-					This version change requires migrating your data from schema {{cur_app_version.schema}} to {{to_app_version.schema}}.
+				</DataDef>
+
+				<UnderConstruction 
+					v-if="data_schema_mismatch && to_app_version && status.appspace_schema !== to_app_version?.schema" 
+					head="This Might Not Work"
+					class="my-5">
+					Dropserver doesn't handle data schema mismatches correctly.
+					You can try running this migration, but it may fail.
+					If so, your data will be reverted back.
+				</UnderConstruction>
+				
+				<p v-if="to_app_version && status.appspace_schema !== to_app_version.schema" class="px-4 py-5 sm:px-6">
+					This version change requires migrating your data from schema {{status.appspace_schema}} to {{to_app_version.schema}}.
 				</p>
 			</div>
 
 			<div class="border-t px-4 md:px-6 py-5 flex justify-between items-baseline">
 				<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace_id}}" class="btn">back to appspace</router-link>
-				<button @click="migrate()" class="btn btn-blue" :disabled="!ok_to_migrate">Start Migration</button>
+				<button @click="migrate()" class="btn btn-blue" :disabled="!ok_to_migrate" v-if="!migration_job">Start Migration</button>
 			</div>
 		</div>
 	</ViewWrap>

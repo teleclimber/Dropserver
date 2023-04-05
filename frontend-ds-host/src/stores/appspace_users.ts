@@ -56,6 +56,12 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 			load_state.set(appspace_id, LoadState.Loaded);
 		}
 	}
+	async function reloadData(appspace_id: number) {
+		const l = load_state.get(appspace_id);
+		if( l === LoadState.Loading ) return;	// its' already loading so don't reload
+		load_state.delete(appspace_id);
+		loadData(appspace_id);
+	}
 
 	function getUsers(appspace_id: number) {
 		if( isLoaded(appspace_id) ) return appspace_users.value.get(appspace_id);
@@ -95,6 +101,7 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 	return { 
 		isLoaded,
 		loadData,
+		reloadData,
 		getUsers,
 		mustGetUsers,
 		getUser,

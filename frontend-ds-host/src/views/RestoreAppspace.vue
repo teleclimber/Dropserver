@@ -1,3 +1,135 @@
+<script lang="ts" setup>
+import { ref, Ref, reactive, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { ax } from '../controllers/userapi';
+
+import { useAppspacesStore } from '@/stores/appspaces';
+
+import { AppspaceBackups } from '../models/appspace_backups';
+
+import ViewWrap from '../components/ViewWrap.vue';
+import DataDef from '../components/ui/DataDef.vue';
+import MessageSad from '../components/ui/MessageSad.vue';
+
+const props = defineProps<{
+	appspace_id: number
+}>();
+
+const router = useRouter();
+
+const appspacesStore = useAppspacesStore();
+appspacesStore.loadData();
+
+const upload_input_elem :Ref<HTMLInputElement|undefined> = ref();
+
+const selected = ref("");
+
+const step = ref("start");	// start, processing, confirm, progress
+
+type AppspaceRestoreData = {
+	loaded: boolean,
+	err: {missing_files:string[], zip_files:string[]} | null,
+	token: string,
+	schema: number,
+	//ds_api :number,
+	// other stuff later
+}
+
+const restore_data :Ref<AppspaceRestoreData> = ref({
+	loaded: false,
+	err: null,
+	token:"",
+	schema: 0
+});
+
+const appspaceBackups = reactive(new AppspaceBackups(props.appspace_id));
+appspaceBackups.fetchForAppspace();
+
+function fileSelected() {
+	if( upload_input_elem.value === null ) return;
+	selected.value = 'upload';
+}
+
+const ok_to_next_step = computed( () => {
+	if( selected.value === undefined ) return false;
+	if( selected.value === "upload" ) {
+		if( upload_input_elem.value === undefined ) return false;
+		const files = upload_input_elem.value.files as FileList;
+		if( files.length === 0 ) return false;
+	}
+	return true;
+});
+
+async function toProcessingStep() {
+	if( !ok_to_next_step.value ) return;
+	if( selected.value === "upload" ) {
+		if( upload_input_elem.value === undefined ) return;
+		const files = upload_input_elem.value.files as FileList;
+		if( files.length === 0 ) return;
+		step.value = "processing";
+		restore_data.value = await uploadRestoreZip(props.appspace_id, files[0]);
+		console.log("restore_data.err", restore_data.value.err);
+	}
+	else {
+		// send that filename
+		step.value = "processing";
+		restore_data.value = await selectRestoreBackup(props.appspace_id, selected.value);
+	}
+}
+
+async function commit() {
+	if( !restore_data.value.loaded ) return;
+	step.value = "restoring";
+	await commitRestore(props.appspace_id, restore_data.value.token);
+	appspacesStore.loadAppspace(props.appspace_id);
+	// assuming everythign went well, go back to manage appspace page
+	router.push({name: 'manage-appspace', params:{appspace_id:props.appspace_id}});
+}
+
+function backToStart() {
+	step.value = "start";
+	restore_data.value = {
+		loaded: false,
+		err: null,
+		token:"",
+		schema: 0
+	};
+}
+function cancel() {
+	router.push({name: 'manage-appspace', params:{appspace_id:props.appspace_id}});
+}
+
+async function uploadRestoreZip(appspace_id:number, zipFile :File) :Promise<AppspaceRestoreData> {	//return token
+	const formData = new FormData();
+	formData.append("zip", zipFile);
+	const resp = await ax.postForm('/api/appspace/'+appspace_id+'/restore/upload', formData);
+
+	const ret :AppspaceRestoreData = {
+		loaded: true,
+		err: resp.data.err || null,
+		schema: Number(resp.data.schema),
+		token:resp.data.token +''
+	}
+	return ret;
+}
+
+async function selectRestoreBackup(appspace_id:number, backup_file: string) :Promise<AppspaceRestoreData> {
+	const resp = await ax.post('/api/appspace/'+appspace_id+'/restore/', {backup_file});
+	const ret :AppspaceRestoreData = {
+		loaded: true,
+		err: resp.data.err || null,
+		schema: Number(resp.data.schema),
+		token:resp.data.token +''
+	}
+	return ret;
+}
+
+async function commitRestore(appspace_id:number, token: string) {
+	await ax.post('/api/appspace/'+appspace_id+'/restore/'+token);
+}
+
+</script>
+
 <template>
 	<ViewWrap>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -8,28 +140,32 @@
 				</div>
 			</div>
 
-			<div v-if="step === 'start'">
-				<form ref="form_elem">
+			<form v-if="step === 'start'" @submit.prevent="toProcessingStep" @keyup.esc="cancel">
+				<div>
 					<label v-for="file in appspaceBackups.files" :key="file.name" class="px-4 py-3 sm:px-6 border-b border-gray-200 flex items-baseline">
-						<input type="radio" class="mr-4" name="select_backup" :value="file.name" />
+						<input type="radio" class="mr-4" name="select_backup" :value="file.name" v-model="selected" />
 						<div class="flex-grow">{{file.name}}</div>
 						
-						<div class="px-4">[size]</div>
+						<div class="px-4">&nbsp;</div>
 						
 					</label>
 					<div v-if="appspaceBackups.files.length === 0" class="px-4 py-3 sm:px-6 border-b border-gray-200">No backup files. Please upload one</div>
 					<label class="px-4 py-3 sm:px-6 border-b border-gray-200 flex items-baseline">
-						<input type="radio" class="mr-4" name="select_backup" value="upload" />
+						<input type="radio" class="mr-4" name="select_backup" value="upload" v-model="selected" />
 						<span class="mr-2">Upload:</span>
 						<input type="file" name="backup_file" ref="upload_input_elem" @input="fileSelected" @changed="fileSelected" accept=".zip"/>
 					</label>
-				</form>
 
-				<div class="px-4 py-5 sm:px-6 flex justify-between items-baseline">
-					<a href="#" @click="cancel" class="btn">cancel</a>
-					<button @click="toProcessingStep()" class="btn btn-blue">Next</button>
+					<div class="px-4 py-5 sm:px-6 flex justify-between items-baseline">
+						<input type="button" class="btn" @click="cancel" value="Cancel" />
+						<input
+							type="submit"
+							class="btn-blue"
+							:disabled="!ok_to_next_step"
+							value="Next" />
+					</div>
 				</div>
-			</div>
+			</form>
 
 			<div v-else-if="step === 'processing' && !restore_data.loaded" class="px-4 py-3 sm:px-6 italic">
 				Please wait...
@@ -67,119 +203,3 @@
 		</div>
 	</ViewWrap>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref, Ref, reactive, computed, onUnmounted, watchEffect, isReactive } from 'vue';
-import router from '../router';
-
-import { Appspace, uploadRestoreZip, selectRestoreBackup, commitRestore } from '../models/appspaces';
-import type { AppspaceRestoreData } from '../models/appspaces';
-import {AppspaceBackups} from '../models/appspace_backups';
-
-import {setTitle} from '../controllers/nav';
-
-import ViewWrap from '../components/ViewWrap.vue';
-import DataDef from '../components/ui/DataDef.vue';
-import MessageSad from '../components/ui/MessageSad.vue';
-
-export default defineComponent({
-	name: 'RestoreAppspace',
-	components: {
-		ViewWrap,
-		DataDef,
-		MessageSad,
-	},
-	props: {
-		appspace_id: {
-			type: Number,
-			required: true
-		}
-	},
-	setup(props) {
-		const upload_input_elem :Ref<HTMLInputElement|null> = ref(null);
-		const form_elem :Ref<HTMLFormElement|null> = ref(null);
-
-		const step = ref("start");	// start, processing, confirm, progress
-
-		const restore_data :Ref<AppspaceRestoreData> = ref({
-			loaded: false,
-			err: null,
-			token:"",
-			schema: 0
-		});
-
-		const appspace = reactive(new Appspace);
-		appspace.fetch(props.appspace_id);
-
-		watchEffect( () => {
-			setTitle(appspace.domain_name);
-		});
-		onUnmounted( () => {
-			setTitle("");
-		});
-
-		const appspaceBackups = reactive(new AppspaceBackups(props.appspace_id));
-		appspaceBackups.fetchForAppspace();
-
-		function fileSelected() {
-			if( upload_input_elem.value === null ) return;
-
-			if( form_elem.value === null ) return;
-			const radio_elem = form_elem.value.querySelector('input[name="select_backup"][value="upload"]');
-			if( !radio_elem ) return;
-			(radio_elem as HTMLInputElement).checked = true;
-		}
-
-		async function toProcessingStep() {
-			if( form_elem.value === null ) return;
-			const sel_elem = form_elem.value.querySelector('input[name="select_backup"]:checked');
-			if( sel_elem === null ) return;
-			const selected_file = (sel_elem as HTMLInputElement).value;
-			if( !selected_file ) return;
-			if( selected_file === "upload" ) {
-				if( upload_input_elem.value === null ) return;
-				const files = upload_input_elem.value.files as FileList;
-				if( files.length === 0 ) return;
-				step.value = "processing";
-				restore_data.value = await uploadRestoreZip(appspace.id, files[0]);
-				console.log("restore_data.err", restore_data.value.err);
-			}
-			else {
-				// send that filename
-				step.value = "processing";
-				restore_data.value = await selectRestoreBackup(appspace.id, selected_file);
-			}
-		}
-
-		async function commit() {
-			if( !restore_data.value.loaded ) return;
-			step.value = "restoring";
-			await commitRestore(appspace.id, restore_data.value.token);
-			// assuming everythign went well, go back to manage appspace page
-			router.push({name: 'manage-appspace', params:{appspace_id:appspace.id}});
-		}
-
-		function backToStart() {
-			step.value = "start";
-			restore_data.value = {
-				loaded: false,
-				err: null,
-				token:"",
-				schema: 0
-			};
-		}
-		function cancel() {
-			router.push({name: 'manage-appspace', params:{appspace_id:appspace.id}});
-		}
-
-		return {
-			form_elem, upload_input_elem, fileSelected,
-			step, toProcessingStep, commit, backToStart, cancel,
-			restore_data,
-			appspace,
-			appspaceBackups,
-		}
-	}
-});
-
-</script>

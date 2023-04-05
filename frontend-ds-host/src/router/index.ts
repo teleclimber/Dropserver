@@ -64,6 +64,7 @@ const routes: Array<RouteRecordRaw> = [
 			return {
 				appspace_id: appspaceIdParam(route),
 				to_version: v,
+				migrate_only: !!route.query['migrate_only'],
 				job_id: j
 			}
 		}
@@ -71,7 +72,11 @@ const routes: Array<RouteRecordRaw> = [
 		path: '/appspace/:appspace_id/restore',
 		name: 'restore-appspace',
 		component: RestoreAppspace,
-		props: true
+		props: route => {
+			return {
+				appspace_id: appspaceIdParam(route)
+			}
+		}
 	},{
 		path: '/appspace/:appspace_id/new-user',
 		name: 'appspace-new-user',

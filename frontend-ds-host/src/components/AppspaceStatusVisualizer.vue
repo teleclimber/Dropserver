@@ -10,13 +10,13 @@ defineProps<{
 <template>
 	<div>
 		<div v-if="status.as_string === 'problem'" class="bg-orange-300 py-1 px-2">Problem</div>
-		<div v-if="status.as_string === 'migrating'" class="bg-yellow-400 py-1">
+		<div v-if="status.as_string === 'migrating'" class="bg-yellow-400 py-1 px-2">
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
 			</svg>
 			Migrating
 		</div>
-		<div v-if="status.as_string === 'migrate'" class="bg-yellow-400 py-1">
+		<div v-if="status.as_string === 'migrate'" class="bg-yellow-400 py-1 px-2">
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 				<path d="M5 12a1 1 0 102 0V6.414l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L5 6.414V12zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" />
 			</svg>
@@ -34,7 +34,7 @@ defineProps<{
 			</svg>
 			Paused
 		</div>
-		<div v-if="status.as_string === 'busy'" class="bg-pink-200 text-pink-800 py-1">
+		<div v-if="status.as_string === 'busy'" class="bg-pink-200 text-pink-800 py-1 px-2">
 			<svg class="inline w-6 h-6 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 				<path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
 			</svg>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 
 import { useAppspaceUsersStore } from '@/stores/appspace_users';
 
@@ -11,9 +11,12 @@ const props = defineProps<{
 
 const appspaceUsersStore = useAppspaceUsersStore();
 appspaceUsersStore.loadData(props.appspace_id);
+onMounted( () => {
+	appspaceUsersStore.reloadData(props.appspace_id);
+});
 const appspace_users = computed( () => {
 	if( appspaceUsersStore.isLoaded(props.appspace_id) ) return appspaceUsersStore.mustGetUsers(props.appspace_id).value;
-})
+});
 
 </script>
 
