@@ -27,9 +27,11 @@ const props = defineProps<{
 }>();
 
 const appspacesStore = useAppspacesStore();
-appspacesStore.loadData();
+appspacesStore.loadAppspace(props.appspace_id);
 const appspace = computed( () => {
-	if( appspacesStore.is_loaded ) return appspacesStore.mustGetAppspace(props.appspace_id).value;
+	const a = appspacesStore.getAppspace(props.appspace_id);
+	if( a === undefined ) return;
+	return a.value;
 });
 
 onMounted( () => {

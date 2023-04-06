@@ -185,6 +185,9 @@ function cancel() {
 					</div>
 				</div>
 				<div class="py-5 ">
+					<MessageSad head="No Apps" v-if="appsStore.apps.size === 0" class="mb-4 md:mx-4 md:rounded-lg">
+						You do not have any apps. Click "Upload new application" above.
+					</MessageSad>
 					<DataDef field="Choose Application:">
 						<select ref="app_pick_elem" v-model="app_pick" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 							<option :value="undefined">Pick Application</option>

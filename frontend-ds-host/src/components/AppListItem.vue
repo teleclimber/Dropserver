@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 
-import type { App } from '../stores/types';
+import type { App } from '@/stores/types';
 import { useAppspacesStore } from '@/stores/appspaces';
+
+import DataDef from './ui/DataDef.vue';
 
 const props = defineProps<{
 	app: App
@@ -35,30 +37,18 @@ const appspaces = computed( () => {
 			</div>
 		</div>
 		<div class="border-t border-gray-200">
-			<div class="px-4 py-5 sm:px-6">
-				
-				<p class="mt-1 max-w-2xl ">
-					{{ app.versions.length }} versions, latest: {{latest_version}}
-				</p>
-			</div>
-
-			<h4 class="px-4 sm:px-6 text-xl font-medium">Appspaces:</h4>
-
-			<div class="px-4 sm:px-6">
+			<DataDef field="Versions:">
+				{{ app.versions.length }}, latest: {{latest_version}}
+			</DataDef>
+			<DataDef field="Appspaces:" v-if="appspaces.length !== 0">
 				<div v-for="a in appspaces">
-					{{ a.value.domain_name }} ({{ a.value.app_version }})
-					<router-link :to="{name: 'manage-appspace', params:{appspace_id:a.value.appspace_id}}" class="btn">Manage</router-link>
-				</div>
-				<div v-if="appspaces.length === 0" class="bg-red-50 px-4 py-1 rounded">
-					No appspaces for this app.
-				</div>
-
-			</div>
-			
-			<div class="flex justify-end py-5 px-4 sm:px-6">
+						{{ a.value.domain_name }} ({{ a.value.app_version }})
+						<router-link :to="{name: 'manage-appspace', params:{appspace_id:a.value.appspace_id}}" class="btn">Manage</router-link>
+					</div>
+			</DataDef>
+			<div class="flex justify-end my-5 px-4 sm:px-6">
 				<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}" class="btn">Create Appspace</router-link>
 			</div>
-
 		</div>
 	</div>
 </template>

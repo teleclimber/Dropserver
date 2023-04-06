@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ComputedRef, ref, reactive, watch, onUnmounted, computed } from 'vue';
+import { ComputedRef, ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAppsStore } from '@/stores/apps';
@@ -8,6 +8,8 @@ import { Appspace } from '@/stores/types'
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
+import DataDef from '@/components/ui/DataDef.vue';
+import MessageSad from '@/components/ui/MessageSad.vue';
 
 const router = useRouter();
 
@@ -83,33 +85,9 @@ async function delApp() {
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Application</h3>
 				</div>
-				<div class="px-4 py-2 sm:px-6">
-					<p>Name: {{app.name}}</p>
-				</div>
-				<div class="px-4 sm:px-6">
-					<p>Created: {{app.created_dt.toLocaleString()}}</p>
-				</div>
-				<div class="px-4 py-5 sm:px-6">
-					<h4 class="text-xl font-medium">Appspaces:</h4>
-					<template v-if="app_appspaces.length !== 0">
-						<ul >
-							<li v-for="appspace in app_appspaces" :key="'appspace-'+appspace.appspace_id">
-								<span class="text-xl">{{appspace.domain_name}}</span>
-								({{appspace.app_version}})
-								<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage</router-link>
-							</li>
-						</ul>
-						<div class="flex justify-end pt-3 ">
-							<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}" class="btn">Create Appspace</router-link>
-						</div>
-					</template>
-					<div v-else class="bg-red-50 px-4 py-2 rounded flex justify-between items-baseline">
-						<p class="">App not used by any appspaces.</p>
-						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
-							class="btn whitespace-nowrap ">
-							Create Appspace
-						</router-link>
-					</div>
+				<div class="my-5">
+					<DataDef field="Name:">{{ app.name }}</DataDef>
+					<DataDef field="Created:">{{ app.created_dt.toLocaleString() }}</DataDef>
 				</div>
 			</div>
 
@@ -117,7 +95,7 @@ async function delApp() {
 				<div class="px-4 py-5 sm:px-6 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Versions</h3>
 					<div >
-						<router-link :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn btn-blue">Upload New Version</router-link>
+						<router-link :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn">Upload New Version</router-link>
 					</div>
 				</div>
 
@@ -157,6 +135,39 @@ async function delApp() {
 					</li>
 				</ul>
 
+			</div>
+
+
+			<div class="md:mb-6 my-6 bg-white shadow sm:rounded-lg">
+				<div class="px-4 py-5 sm:px-6 flex justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Appspaces</h3>
+					<div >
+						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
+							class="btn whitespace-nowrap ">
+							Create Appspace
+						</router-link>
+					</div>
+				</div>
+
+				<ul class="border-t border-b border-gray-200 divide-y divide-gray-200">
+					<li v-for="appspace in app_appspaces" 
+						:key="'appspace-'+appspace.appspace_id"
+						class="py-2 px-4 md:px-6 flex flex-wrap items-baseline w-auto">
+						<span class="mr-1 font-medium flex-shrink overflow-hidden text-ellipsis">{{appspace.domain_name}}</span>
+						<span class="mr-1">({{appspace.app_version}})</span>
+						<span class="flex-grow text-right">
+							<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage</router-link>
+						</span>
+					</li>
+				</ul>
+
+				<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="md:my-5 md:mx-6 md:rounded-lg">
+					There are no appspaces using this app. 
+					<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
+							class="btn whitespace-nowrap ">
+							Create one!
+						</router-link>
+				</MessageSad>
 			</div>
 
 			<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg flex justify-between">
