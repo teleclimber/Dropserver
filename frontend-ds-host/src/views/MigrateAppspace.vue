@@ -6,7 +6,6 @@ import { useAppsStore } from '@/stores/apps';
 import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
 import type { AppspaceMigrationJob } from '@/stores/types';
 
-import { setTitle } from '../controllers/nav';
 import { AppspaceStatus } from '../twine-services/appspace_status';
 
 import ViewWrap from '../components/ViewWrap.vue';
@@ -116,7 +115,6 @@ async function migrate() {
 }
 
 onUnmounted( () => {
-	setTitle("");
 	migrationJobsStore.disconnect(props.appspace_id);
 });
 

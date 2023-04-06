@@ -34,15 +34,24 @@ const routes: Array<RouteRecordRaw> = [
 	{
 		path: '/',
 		name: 'home',
-		component: Home
+		component: Home,
+		meta: {
+			title: "Home"
+		}
 	},{
 		path: '/user',
 		name: 'user',
-		component: User
+		component: User,
+		meta: {
+			title: "User"
+		}
 	},{
 		path: '/appspace',
 		name: 'appspaces',
-		component: Appspaces
+		component: Appspaces,
+		meta: {
+			title: "Appspaces"
+		}
 	},{
 		path: '/appspace/:appspace_id',
 		name: 'manage-appspace',
@@ -51,6 +60,9 @@ const routes: Array<RouteRecordRaw> = [
 			return {
 				appspace_id: appspaceIdParam(route)
 			}
+		},
+		meta: {
+			title: "Manage Appspace"
 		}
 	},{
 		path: '/appspace/:appspace_id/migrate',
@@ -67,6 +79,9 @@ const routes: Array<RouteRecordRaw> = [
 				migrate_only: !!route.query['migrate_only'],
 				job_id: j
 			}
+		},
+		meta: {
+			title: "Migrate Appspace"
 		}
 	},{
 		path: '/appspace/:appspace_id/restore',
@@ -76,6 +91,9 @@ const routes: Array<RouteRecordRaw> = [
 			return {
 				appspace_id: appspaceIdParam(route)
 			}
+		},
+		meta: {
+			title: "Restore Appspace"
 		}
 	},{
 		path: '/appspace/:appspace_id/new-user',
@@ -85,6 +103,9 @@ const routes: Array<RouteRecordRaw> = [
 			return {
 				appspace_id: appspaceIdParam(route)
 			}
+		},
+		meta: {
+			title: "Add Appspace User"
 		}
 	},{
 		path: '/appspace/:appspace_id/user/:proxy_id',
@@ -95,6 +116,9 @@ const routes: Array<RouteRecordRaw> = [
 				appspace_id: appspaceIdParam(route),
 				proxy_id: proxyIdParam(route)
 			}
+		},
+		meta: {
+			title: "Edit Appspace User"
 		}
 	},{
 		path: '/new-appspace/',
@@ -111,69 +135,105 @@ const routes: Array<RouteRecordRaw> = [
 				app_id,
 				version: v
 			};
+		},
+		meta: {
+			title: "New Appspace"
 		}
 	},{
 		path: '/remote-appspace/:domain',
 		name: 'manage-remote-appspace',
 		component: ManageRemoteAppspace,
-		props: true
+		props: true,
+		meta: {
+			title: "Manage Remote Appspace"
+		}
 	},{
 		path: '/new-remote-appspace/',
 		name: 'new-remote-appspace',
-		component: NewRemoteAppspace
+		component: NewRemoteAppspace,
+		meta: {
+			title: "New Remote Appspace"
+		}
 	},{
 		path: '/app',
 		name: 'apps',
-		component: Apps
+		component: Apps,
+		meta: {
+			title: "Apps"
+		}
 	},{
 		path: '/app/:id',
 		name: 'manage-app',
 		component: ManageApp,
-		props: true
+		props: route => {
+			return {
+				app_id: appIdParam(route)
+			}
+		},
+		meta: {
+			title: "Manage App"
+		}
 	},{
 		path: '/app/:id/new-version',
 		name: 'new-app-version',
 		component: NewApp,
 		props: route => {
-			const p = route.params.id;
-			if( Array.isArray(p) ) throw new Error("id can not be an array");
 			return {
-				app_id: parseInt(route.params.id as string)
+				app_id: appIdParam(route)
 			}
+		},
+		meta: {
+			title: "New App Version"
 		}
 	},{
 		path: '/app/:id/new-version/:app_get_key',
 		name: 'new-app-version-in-process',
 		component: NewAppInProcess,
 		props: route => {
-			const p = route.params.id;
-			if( Array.isArray(p) ) throw new Error("id can not be an array");
 			return {
-				app_id: parseInt(route.params.id as string),
+				app_id: appIdParam(route),
 				app_get_key: route.params.app_get_key
 			}
+		},
+		meta: {
+			title: "Processing App Version"
 		}
 	},{
 		path: '/new-app',
 		name: 'new-app',
-		component: NewApp
+		component: NewApp,
+		meta: {
+			title: "New App"
+		}
 	},{
 		path: '/new-app/:app_get_key',
 		name: 'new-app-in-process',
 		component: NewAppInProcess,
-		props: true
+		props: true,
+		meta: {
+			title: "Processing New App"
+		}
 	},{
 		path: '/contact',
 		name: 'contacts',
-		component: Contacts
+		component: Contacts,
+		meta: {
+			title: "Contacts"
+		}
 	},{
 		path: '/contact/:contact_id',
 		name: 'manage-contact',
-		component: ManageContact
+		component: ManageContact,
+		meta: {
+			title: "Edit Contact"
+		}
 	},{
 		path: '/contact-new',
 		name: 'new-contact',
-		component: NewContact
+		component: NewContact,
+		meta: {
+			title: "New Contact"
+		}
 	},{
 		path: '/dropid-new',
 		name: 'new-dropid',
@@ -181,24 +241,41 @@ const routes: Array<RouteRecordRaw> = [
 	},{
 		path: '/dropid',
 		name: 'dropid',
-		component: ManageDropID
+		component: ManageDropID,
+		meta: {
+			title: "Manage DropID"
+		}
 	},{
 		path: '/admin',
 		name: 'admin',
-		component: AdminHome
+		component: AdminHome,
+		meta: {
+			title: "Admin - Home"
+		}
 	},{
 		path: '/admin/users',
 		name: 'admin-users',
-		component: Users
+		component: Users,
+		meta: {
+			title: "Admin - Users"
+		}
 	},{
 		path: '/admin/settings',
 		name: 'admin-settings',
-		component: AdminSettings
+		component: AdminSettings,
+		meta: {
+			title: "Admin - Settings"
+		}
 	}
 ];
 
-function appspaceIdParam(route:RouteLocationNormalized) :number {
+export function appspaceIdParam(route:RouteLocationNormalized) :number {
 	const p = route.params.appspace_id;
+	if( Array.isArray(p) ) throw new Error("id can not be an array");
+	return parseInt(p as string);
+}
+export function appIdParam(route:RouteLocationNormalized) :number {
+	const p = route.params.id;
 	if( Array.isArray(p) ) throw new Error("id can not be an array");
 	return parseInt(p as string);
 }
@@ -211,6 +288,17 @@ function proxyIdParam(route:RouteLocationNormalized) :string {
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
 	routes
+});
+
+router.beforeEach((to, _, next) => {
+	let title = '';
+	const rt = to.meta.title
+	if( typeof rt === 'string' ) {
+		title = rt + ' - ';
+	}
+	title += 'Dropserver';
+	document.title = title;
+	next();
 });
 
 export default router;

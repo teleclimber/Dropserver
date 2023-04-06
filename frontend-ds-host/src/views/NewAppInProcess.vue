@@ -1,8 +1,6 @@
 <script lang="ts" setup>
-import { Ref, ref, reactive, onMounted, onUnmounted, watch, watchEffect, computed } from 'vue';
-import type { WatchStopHandle } from 'vue';
+import { Ref, ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { setTitle } from '@/controllers/nav';
 
 import { useAppsStore, AppGetter } from '@/stores/apps';
 import { LiveLog } from '../models/log';
@@ -29,19 +27,6 @@ const app = computed( () => {
 	const a = appsStore.getApp(props.app_id);
 	if( a === undefined ) return;
 	return a.value;
-});
-
-let stopSetTitle :WatchStopHandle | undefined;
-onMounted( () => {
-	stopSetTitle = watchEffect( () => {
-		if( !app.value ) return;
-		setTitle(app.value.name);
-	});
-});
-
-onUnmounted( () => {
-	if( stopSetTitle) stopSetTitle();
-	setTitle("");
 });
 
 const desc_str = computed( () => props.app_id === undefined ? 'App' : 'Version' );
@@ -113,7 +98,8 @@ async function doCommit() {
 
 async function startOver() {
 	await appGetter.cancel();
-	router.push({name: 'new-app'});
+	if( props.app_id === undefined ) router.push({name: 'new-app'});
+	else router.push( {name:'new-app-version', params:{id:props.app_id}});
 }
 
 onUnmounted( () => {

@@ -1,14 +1,8 @@
 <script lang="ts" setup>
-import { ref, Ref, reactive, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
+import { ref, Ref, computed, onMounted, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { setTitle } from '../controllers/nav';
-
-import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppspaceUsersStore, AvatarState, getAvatarUrl } from '@/stores/appspace_users';
-
-// import {Appspace} from '../models/appspaces';
-// import {AppspaceUser, AvatarState, saveNewUser, updateUserMeta} from '../models/appspace_users';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
@@ -20,15 +14,6 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
-
-const appspacesStore = useAppspacesStore();
-appspacesStore.loadData();
-const appspace = computed( () => {
-	if( appspacesStore.is_loaded ) return appspacesStore.mustGetAppspace(props.appspace_id).value;
-});
-watchEffect( () => {
-	if( appspace.value ) setTitle(appspace.value.domain_name);
-});
 
 const appspaceUsersStore = useAppspaceUsersStore();
 appspaceUsersStore.loadData(props.appspace_id);
@@ -109,10 +94,6 @@ async function save() {
 function cancel() {
 	router.back();
 }
-
-onUnmounted( async () => {
-	setTitle("");
-});
 
 </script>
 <template>

@@ -1,8 +1,6 @@
 <script lang="ts" setup>
-import { Ref, ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue';
+import { Ref, ref, reactive, watch, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-
-import {setTitle, unsetTitle} from '../controllers/nav';
 
 import {DomainNames} from '../models/domainnames';
 import {useDropIDsStore} from '../stores/dropids';
@@ -34,11 +32,7 @@ const ok_classes = ['bg-green-50', 'text-green-700'];
 const bad_classes = ['bg-red-50', 'text-red-700'];
 
 onMounted( () => {
-	setTitle("Create DropID");
 	if( domain_input.value ) domain_input.value.focus();
-});
-onUnmounted( () => {
-	unsetTitle();
 });
 
 const checked = reactive({

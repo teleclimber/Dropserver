@@ -28,10 +28,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, reactive } from 'vue';
 import {useRoute} from 'vue-router';
-
-import {setTitle} from '../controllers/nav';
 
 import {RemoteAppspace} from '../models/remote_appspaces';
 
@@ -60,12 +58,7 @@ export default defineComponent({
 			const protocol = remote_appspace.no_tls ? 'http' : 'https';
 			display_link.value = protocol+'://'+remote_appspace.domain_name+remote_appspace.port_string;
 		});
-		setTitle(props.domain);	// should really come from remote_appspace after it's loaded
 	
-		onUnmounted( async () => {
-			setTitle("");
-		});
-
 		return {
 			remote_appspace,
 			enter_link, display_link

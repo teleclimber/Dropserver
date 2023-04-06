@@ -8,7 +8,6 @@ import { useAppspaceUsersStore } from '@/stores/appspace_users';
 import { fetchAppspaceSummary } from '../models/usage';
 import type {SandboxSums} from '../models/usage';
 import { LiveLog } from '../models/log';
-import {setTitle} from '../controllers/nav';
 
 import { AppspaceStatus } from '../twine-services/appspace_status';
 
@@ -31,10 +30,6 @@ const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 const appspace = computed( () => {
 	if( appspacesStore.is_loaded ) return appspacesStore.mustGetAppspace(props.appspace_id).value;
-});
-if( appspace.value ) setTitle(appspace.value.domain_name);
-else watch( appspace, () => {
-	if( appspace.value ) setTitle(appspace.value.domain_name);
 });
 
 onMounted( () => {
@@ -104,7 +99,6 @@ const data_schema_mismatch = computed( ()=> {
 
 onUnmounted( async () => {
 	status.disconnect();
-	setTitle("");
 });
 
 </script>

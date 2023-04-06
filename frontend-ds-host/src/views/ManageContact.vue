@@ -32,10 +32,9 @@
 
 <script lang="ts">
 import {useRoute} from 'vue-router';
-import { defineComponent , onMounted, onUnmounted, reactive } from 'vue';
+import { defineComponent , onMounted, reactive } from 'vue';
 
 import {Contact} from '../models/contacts';
-import {setTitle, unsetTitle} from '../controllers/nav';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
@@ -56,13 +55,7 @@ export default defineComponent({
 		onMounted( async () => {
 			const contact_id = Number(route.params.contact_id);
 			await contact.fetch(contact_id);
-
-			setTitle(contact.name);
 		});
-		onUnmounted( () => {
-			unsetTitle();
-		});
-
 		return {contact}
 	}
 });

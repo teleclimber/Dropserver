@@ -1,8 +1,6 @@
 <script lang="ts" setup>
-import { ShallowRef, Ref, ref, watchEffect, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ShallowRef, Ref, ref, watchEffect, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-
-import { setTitle, unsetTitle } from '../controllers/nav';
 
 import { useDropIDsStore } from '@/stores/dropids';
 import { UserDropID } from '@/stores/types';
@@ -43,13 +41,6 @@ watchEffect( () => {
 		dropid.value = d.value;
 		display_name.value = d.value.display_name;
 	}
-});
-
-onMounted( () => {
-	setTitle("Manage DropID");
-});
-onUnmounted( () => {
-	unsetTitle();
 });
 
 async function save() {

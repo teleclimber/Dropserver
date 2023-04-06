@@ -1,8 +1,33 @@
-<style scoped>
-	header {
-		grid-area: header;
+<script lang="ts" setup>
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+
+import { appspaceIdParam, appIdParam } from '../router/index';
+
+import { useAppspacesStore } from '@/stores/appspaces';
+import { useAppsStore } from '@/stores/apps';
+
+import { openNav, openUserMenu } from '../controllers/nav';
+
+const route = useRoute();
+
+const appspacesStore = useAppspacesStore();
+const appsStore = useAppsStore();
+
+const head = computed( () => {
+	if( route.path.startsWith('/appspace/') ) {
+		const appspace_id = appspaceIdParam(route);
+		const appspace = appspacesStore.getAppspace(appspace_id);
+		if( appspace !== undefined ) return appspace.value.domain_name;
 	}
-</style>
+	if( route.path.startsWith('/app/') ) {
+		const app_id = appIdParam(route);
+		const app = appsStore.getApp(app_id);
+		if( app !== undefined ) return app.value.name;
+	}
+	return route.meta.title;
+});
+</script>
 
 <template>
 	<header class="fixed w-full md:w-auto md:relative border-b bg-white grid ds-header-phone md:ds-header-full">
@@ -12,7 +37,7 @@
 			</svg>
 		</a>
 		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800 flex-no-wrap whitespace-nowrap overflow-hidden overflow-ellipsis">
-			{{ page_title ? page_title : getHead()}}
+			{{ head }}
 		</h1>
 
 		<div class="justify-self-end self-center pr-4 md:pr-6 flex-initial ">
@@ -25,56 +50,8 @@
 	</header>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import {useRoute} from 'vue-router';
-
-import {openNav, openUserMenu, page_title} from '../controllers/nav';
-
-export default defineComponent({
-	name: 'HeaderMain',
-	components: {
-		
-	},
-	setup() {
-		const route = useRoute();
-		function getHead() {
-			switch(route.name) {
-				case "home": return "Home";
-				case "user": return "User Settings";
-
-				case "apps": return "Apps";
-				case "manage-app": return "Manage App";
-				case "new-app": return "New Application";	// upload or get from URL
-				case "new-app-in-process": return "New Application";
-
-				case "new-app-version": return "Upload New Version";	// New versions are only for manually uploaded apps
-				case "new-app-version-in-process": return "Upload New Version";
-				
-				case "appspaces": return "Appspaces";
-				case "new-appspace": return "New Appspace";
-				case "manage-appspace": return "Manage Appspace";	// this should actually reflect the appspace name, or something like that.
-				case "migrate-appspace": return "Migrate Appspace";
-				case "restore-appspace": return "Restore Appspace";
-
-				case "new-remote-appspace": return "Join Appspace";
-				case "manage-remote-appspace": return "Manage Remote Appspace";	// this gets overridden by remote address
-
-				case 'contacts': return "Contacts";
-				case 'new-contact': return "Add Contact";
-
-				case "admin": return "Instance Dashboard";
-				case "admin-users": return "Instance Users";
-				case "admin-settings": return "Instance Settings";
-			}
-			return route.name;	// default
-		}
-		return {
-			getHead,
-			openNav,
-			openUserMenu,
-			page_title
-		}
+<style scoped>
+	header {
+		grid-area: header;
 	}
-});
-</script>
+</style>

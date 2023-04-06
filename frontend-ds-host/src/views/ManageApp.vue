@@ -8,15 +8,12 @@ import { Appspace } from '@/stores/types'
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
-import { setTitle } from '@/controllers/nav';
 
 const router = useRouter();
 
 const props = defineProps<{
-	id: string
+	app_id: number
 }>();
-
-const app_id = Number(props.id);
 
 const appsStore = useAppsStore();
 appsStore.loadData();
@@ -26,16 +23,9 @@ appspacesStore.loadData();
 
 const app = computed( () => {
 	if( !appsStore.is_loaded ) return undefined;
-	const a = appsStore.getApp(Number(props.id));
+	const a = appsStore.getApp(Number(props.app_id));
 	if( a ) return a.value;
 	return undefined;
-});
-
-watch( app, () => {
-	if( app.value ) setTitle(app.value.name);
-});
-onUnmounted( () => {
-	setTitle("");
 });
 
 const app_appspaces :ComputedRef<Appspace[]> = computed( () => {
@@ -67,7 +57,7 @@ async function deleteVersion(version:string) {
 	}
 
 	deleting_versions.add(version);
-	await appsStore.deleteAppVersion(app_id, version);
+	await appsStore.deleteAppVersion(props.app_id, version);
 }
 
 const delete_app_ok = computed( () => {
@@ -80,7 +70,7 @@ const deleting_app = ref(false);
 
 async function delApp() {
 	deleting_app.value = true;
-	await appsStore.deleteApp(app_id);
+	await appsStore.deleteApp(props.app_id);
 	router.push({name: 'apps'});
 }
 
