@@ -58,7 +58,6 @@ export class AppspaceStatus {
 					if( raw.appspace_id != this.appspace_id ) break;
 					this.updateFromRaw(raw);
 					this.loaded = true;
-					console.log("status updated", this.appspace_id);
 					m.sendOK();
 					break;
 			
