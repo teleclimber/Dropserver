@@ -161,13 +161,15 @@ async function delApp() {
 					</li>
 				</ul>
 
-				<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="md:my-5 md:mx-6 md:rounded-lg">
-					There are no appspaces using this app. 
-					<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
-							class="btn whitespace-nowrap ">
-							Create one!
-						</router-link>
-				</MessageSad>
+				<div class="md:py-5 md:px-6">
+					<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="md:rounded-lg">
+						There are no appspaces using this app. 
+						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
+								class="btn whitespace-nowrap ">
+								Create one!
+							</router-link>
+					</MessageSad>
+				</div>
 			</div>
 
 			<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg flex justify-between">

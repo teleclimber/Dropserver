@@ -96,7 +96,7 @@ async function togglePause() {
 }
 
 const data_schema_mismatch = computed( ()=> {
-	return !!app_version.value && app_version.value.schema !== status.appspace_schema;
+	return !!app_version.value && status.loaded && app_version.value.schema !== status.appspace_schema;
 });
 
 onUnmounted( async () => {

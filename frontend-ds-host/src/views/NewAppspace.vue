@@ -154,14 +154,19 @@ const ok_to_create = computed( () => {
 
 async function create() {
 	if( !ok_to_create.value ) return;
-	const appspace_id = await appspacesStore.createAppspace({
+	const new_data = await appspacesStore.createAppspace({
 		app_id: picked_app.value!.app_id,
 		app_version: version_pick.value,
 		domain_name: domain_name.value,
 		subdomain: subdomain.value,
 		dropid: dropid.value
 	});
-	router.replace({name: 'manage-appspace', params:{appspace_id: appspace_id+''}});
+
+	router.replace({
+		name: 'migrate-appspace',
+		params:{appspace_id: new_data.appspace_id+''},
+		query:{job_id:new_data.job_id, migrate_only: 'true'}
+	});
 }
 
 function cancel() {

@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import type { AppVersion } from '../stores/types';
 
+import MessageSad from '@/components/ui/MessageSad.vue';
+
 const router = useRouter();
 
 const props = defineProps<{
@@ -38,5 +40,8 @@ function pickVersion(v:string) {
 			<div class="border-t border-gray-200 flex justify-center items-center">{{ver.api_version}}</div>
 			<div class="border-t border-gray-200 flex justify-center items-center">details...</div>
 		</div>
+		<MessageSad v-if="pick_versions.length === 0" head="No Other Versions" class="col-span-4">
+			There are no other versions of this app on the system.
+		</MessageSad>
 	</div>
 </template>

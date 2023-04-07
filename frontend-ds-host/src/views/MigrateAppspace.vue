@@ -100,9 +100,9 @@ const show_all_versions = computed( () => {
 });
 
 const ok_to_migrate = computed( () => {
-	if( show_migrate_only ) return true;
-	return cur_app_version.value && to_app_version.value 
-		&& cur_app_version.value.version !== to_app_version.value.version
+	if( show_migrate_only.value ) return true;
+	return !!to_app_version.value 
+		&& cur_app_version.value?.version !== to_app_version.value.version
 		&& running_migration_job.value === undefined
 		&& migration_job.value === undefined;
 });
@@ -175,6 +175,7 @@ onUnmounted( () => {
 			<div v-else>
 				<DataDef field="Current Version:">
 					<VersionDetails v-if="cur_app_version" :app_version="cur_app_version" class="col-span-3"></VersionDetails>
+					<span v-else>(none)</span>
 				</DataDef>
 				<DataDef v-if="show_all_versions" field="Choose a Version:">
 					<PickVersion 

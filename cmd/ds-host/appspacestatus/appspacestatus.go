@@ -289,12 +289,14 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 	data.paused = appspace.Paused
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
+	// Note however that app version may be blank when appspace is initiated
+	// This results in an error, which is acceptable.
 	appVersion, err := s.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
 	if err != nil {
 		data.problem = true
 		return data
 	}
-	data.appVersionSchema = appVersion.Schema
+	data.appVersionSchema = appVersion.Schema // appVersionSchema is 0 if appVersion is empty.
 
 	// load data schema
 	// Head's up: there is a chance that the meta db isn't created yet

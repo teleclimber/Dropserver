@@ -42,7 +42,7 @@ type AppspaceRoutes struct {
 		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
-		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, error)
+		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
 	} `checkinject:"required"`
 	PauseAppspace interface {
 		Pause(appspaceID domain.AppspaceID, pause bool) error
@@ -216,6 +216,7 @@ type PostAppspaceReq struct {
 // PostAppspaceResp is the return data after creating a new appspace
 type PostAppspaceResp struct {
 	AppspaceID domain.AppspaceID `json:"appspace_id"`
+	JobID      domain.JobID      `json:"job_id"`
 }
 
 func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request) {
@@ -276,13 +277,15 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 
 	// Here we should check validity of requested domain?
 
-	appspaceID, err := a.CreateAppspace.Create(dropID, *version, reqData.DomainName, reqData.Subdomain)
+	appspaceID, jobID, err := a.CreateAppspace.Create(dropID, *version, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
 		returnError(w, err)
 	}
 
 	resp := PostAppspaceResp{
-		AppspaceID: appspaceID}
+		AppspaceID: appspaceID,
+		JobID:      jobID,
+	}
 
 	writeJSON(w, resp)
 }

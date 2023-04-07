@@ -44,6 +44,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 				const as = appspaceFromRaw(raw);
 				appspaces.value.set(as.appspace_id, shallowRef(as));
 			});
+			appspaces.value = new Map(appspaces.value);
 			load_state.value = LoadState.Loaded;
 		}
 	}
@@ -86,10 +87,13 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		return resp;
 	}
 
-	async function createAppspace(data:NewAppspaceData) :Promise<number> {
+	async function createAppspace(data:NewAppspaceData) :Promise<{appspace_id:number, job_id:number}> {
 		load_state.value = LoadState.NotLoaded;
 		const resp = await ax.post('/api/appspace', data);
-		return Number(resp.data.appspace_id);
+		return {
+			appspace_id: Number(resp.data.appspace_id),
+			job_id: Number(resp.data.job_id)
+		}
 	}
 
 	async function setPause(appspace_id: number, pause :boolean) {
