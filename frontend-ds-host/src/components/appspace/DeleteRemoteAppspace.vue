@@ -1,3 +1,25 @@
+<script lang="ts" setup>
+import { ref } from 'vue';
+import router from '../../router/index';
+
+import { useRemoteAppspacesStore } from '@/stores/remote_appspaces';
+
+const props = defineProps<{
+	domain: string
+}>();
+
+const remoteAppspaceStore = useRemoteAppspacesStore();
+
+const deleting = ref(false);
+
+async function del() {
+	deleting.value = true;
+	await remoteAppspaceStore.deleteAppspace(props.domain);
+	router.back();
+}
+
+</script>
+
 <template>
 	<div class="md:mb-6 my-6 bg-yellow-100 shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-yellow-200">
@@ -15,39 +37,3 @@
 	</div>
 </template>
 
-
-<script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, PropType } from 'vue';
-import router from '../../router/index';
-import type {RemoteAppspace} from '../../models/remote_appspaces';
-
-import DataDef from '../../components/ui/DataDef.vue';
-
-export default defineComponent({
-	name: 'DeleteRemoteAppspace',
-	components: {
-		DataDef
-	},
-	props: {
-		appspace: {
-			type: Object as PropType<RemoteAppspace>,
-			required: true
-		}
-	},
-	setup(props) {
-		const deleting = ref(false);
-
-		async function del() {
-			deleting.value = true;
-			await props.appspace.del();
-
-			router.push({name: 'appspaces'});
-		}
-
-		return {
-			deleting,
-			del
-		}
-	}
-});
-</script>

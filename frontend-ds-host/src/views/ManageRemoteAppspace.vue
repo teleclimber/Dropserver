@@ -1,3 +1,38 @@
+<script lang="ts" setup>
+import { ref, onMounted, computed } from 'vue';
+
+import { useRemoteAppspacesStore } from '@/stores/remote_appspaces';
+
+import ViewWrap from '../components/ViewWrap.vue';
+import DeleteRemoteAppspace from '../components/appspace/DeleteRemoteAppspace.vue';
+import BigLoader from '@/components/ui/BigLoader.vue';
+
+const props = defineProps<{
+	domain: string
+}>();
+
+const remoteAppspacesStore = useRemoteAppspacesStore();
+onMounted( () => {
+	remoteAppspacesStore.loadData();
+});
+
+const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.domain));
+
+const remote_appspace = computed( () => {
+	if( !remoteAppspacesStore.is_loaded ) return
+	const r = remoteAppspacesStore.get(props.domain);
+	if( r === undefined ) return;
+	return r.value;
+});
+
+const display_link = computed( () => {
+	if( remote_appspace.value === undefined ) return 'loading...';
+	const protocol = remote_appspace.value.no_tls ? 'http' : 'https';
+	return protocol+'://'+remote_appspace.value.domain_name+remote_appspace.value.port_string;
+});
+	
+</script>
+
 <template>
 	<ViewWrap>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -8,7 +43,7 @@
 					</h3>
 				</div>
 			</div>
-			<div class="px-4 py-5 sm:px-6 border-t border-gray-200">
+			<div v-if="remote_appspace" class="px-4 py-5 sm:px-6 border-t border-gray-200">
 				<p class="">Remote Appspace provided by [owner dropid].</p>
 				<p>{{remote_appspace.domain_name}}</p>
 				<a :href="enter_link" class="text-blue-700 text-lg underline hover:text-blue-500">{{display_link}}</a>
@@ -21,48 +56,9 @@
 					- ...
 				-->
 			</div>
+			<BigLoader v-else></BigLoader>
 		</div>
 
-		<DeleteRemoteAppspace :appspace="remote_appspace"></DeleteRemoteAppspace>
+		<DeleteRemoteAppspace v-if="remote_appspace" :domain="remote_appspace.domain_name"></DeleteRemoteAppspace>
 	</ViewWrap>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref, reactive } from 'vue';
-import {useRoute} from 'vue-router';
-
-import {RemoteAppspace} from '../models/remote_appspaces';
-
-import ViewWrap from '../components/ViewWrap.vue';
-import DeleteRemoteAppspace from '../components/appspace/DeleteRemoteAppspace.vue';
-
-
-export default defineComponent({
-	name: 'ManageRemoteAppspace',
-	components: {
-		ViewWrap,
-		DeleteRemoteAppspace
-	},
-	props: {
-		domain: {
-			type: String,
-			required: true
-		}
-	},
-	setup(props) {
-		const route = useRoute();
-		const display_link = ref("https:// ... loading ...");
-		const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.domain));
-		const remote_appspace = reactive(new RemoteAppspace);
-		remote_appspace.fetch(props.domain).then( () => {
-			const protocol = remote_appspace.no_tls ? 'http' : 'https';
-			display_link.value = protocol+'://'+remote_appspace.domain_name+remote_appspace.port_string;
-		});
-	
-		return {
-			remote_appspace,
-			enter_link, display_link
-		}
-	}
-});
-</script>

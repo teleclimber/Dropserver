@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useDropIDsStore } from '@/stores/dropids';
 
 import { useAppspacesStore } from '@/stores/appspaces';
@@ -16,6 +16,11 @@ appspacesStore.loadData();
 
 const remoteAppspacesStore = useRemoteAppspacesStore();
 remoteAppspacesStore.loadData();
+
+onMounted( () => {
+	appspacesStore.loadData();
+	remoteAppspacesStore.loadData();
+});
 
 const dropIDStore = useDropIDsStore();
 dropIDStore.loadData();

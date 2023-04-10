@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useRemoteAppspacesStore } from '@/stores/remote_appspaces';
 
@@ -13,6 +14,11 @@ appspacesStore.loadData();
 
 const remoteAppspacesStore = useRemoteAppspacesStore();
 remoteAppspacesStore.loadData();
+
+onMounted( () => {
+	appspacesStore.loadData();
+	remoteAppspacesStore.loadData();
+});
 
 </script>
 

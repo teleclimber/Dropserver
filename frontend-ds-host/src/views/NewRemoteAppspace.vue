@@ -1,3 +1,51 @@
+<script lang="ts" setup>
+import { ref, Ref, watchEffect, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+import { useRemoteAppspacesStore } from '@/stores/remote_appspaces';
+import type { RemoteAppspacePostResp } from '@/stores/remote_appspaces';
+import { useDropIDsStore } from '@/stores/dropids';
+import type { UserDropID } from '@/stores/types';
+
+import ViewWrap from '../components/ViewWrap.vue';
+import DataDef from '../components/ui/DataDef.vue';
+
+const router = useRouter();
+
+const remoteAppspacesStore = useRemoteAppspacesStore();
+onMounted( () => {
+	remoteAppspacesStore.loadData();
+});
+
+const dropIDsStore = useDropIDsStore();
+dropIDsStore.loadData();
+
+const dropid :Ref<UserDropID|undefined> = ref();
+
+watchEffect( () => {
+	if( dropIDsStore.dropids.size !== 0 ) {
+		dropid.value = dropIDsStore.dropids.entries().next().value[1].value;
+	}
+});
+
+const domain_name = ref("");
+
+const post_resp:Ref<RemoteAppspacePostResp|undefined> = ref()
+
+async function create() {
+	if( dropid.value === undefined ) return;
+
+	let dom = domain_name.value.trim();
+	if( dom === "" ) return;
+
+	post_resp.value = await remoteAppspacesStore.create( domain_name.value, dropid.value.compound_id );
+	if( post_resp.value.inputs_valid ) {
+		router.push({name: 'manage-remote-appspace', params:{domain: domain_name.value}});
+	}
+}
+
+</script>
+
 <template>
 	<ViewWrap>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
@@ -5,6 +53,7 @@
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Access Someone Else's Appspace</h3>
 				<p class="mt-1 max-w-2xl text-sm text-gray-500">Enter the address of the appspace and the DropID you'd like to use to identify yourself.</p>
 			</div>
+			<!-- TODO this needs to be a form -->
 			<div class="py-5">
 				<DataDef field="Appspace Address:">
 					<input type="text" v-model="domain_name" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
@@ -13,7 +62,7 @@
 				<DataDef field="Your DropID:">
 					<select v-model="dropid" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 						<option value="">Pick DropID</option>
-						<option v-for="d in dropids.dropids" :key="d.full" :value="d">{{d.full}}</option>
+						<option v-for="[_,d] in dropIDsStore.dropids" :key="d.value.compound_id" :value="d.value">{{d.value.compound_id}}</option>
 					</select>
 				</DataDef>
 				<!-- later on also override dropid's default handle and avatar -->
@@ -28,59 +77,3 @@
 		</div>
 	</ViewWrap>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref, Ref, reactive, watch, watchEffect, computed } from 'vue';
-import {useRoute} from 'vue-router';
-import router from '../router';
-
-import ViewWrap from '../components/ViewWrap.vue';
-import DataDef from '../components/ui/DataDef.vue';
-
-import { DropIDs, DropID } from '../models/dropids';
-import { createRemoteAppspace } from '../models/remote_appspaces';
-import type { RemoteAppspacePostResp } from '../models/remote_appspaces';
-
-export default defineComponent({
-	name: 'NewRemoteAppspace',
-	components: {
-		ViewWrap,
-		DataDef
-	},
-	setup() {
-		const route = useRoute();
-
-		const domain_name = ref("");
-
-		// Dropid
-		const dropid :Ref<DropID|undefined> = ref();
-		const dropids = reactive(new DropIDs);
-		dropids.fetchForOwner();
-
-		const post_resp:Ref<RemoteAppspacePostResp|undefined> = ref()
-
-		async function create() {
-			if( dropid.value === undefined ) return;
-
-			let dom = domain_name.value.trim();
-			if( dom === "" ) return;
-
-			post_resp.value = await createRemoteAppspace( domain_name.value, dropid.value.full );
-			console.log( post_resp.value );
-			if( post_resp.value.inputs_valid ) {
-				router.push({name: 'manage-remote-appspace', params:{domain: domain_name.value}});
-			}
-		}
-
-		return {
-			domain_name,
-			dropid,
-			dropids,
-			create,
-			post_resp
-		}
-
-	}
-});
-
-</script>
