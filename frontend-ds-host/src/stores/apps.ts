@@ -109,7 +109,7 @@ export const useAppsStore = defineStore('apps', () => {
 		const v_index = app.value.versions.findIndex( v => v.version === version );
 		const v = app.value.versions[v_index];
 		if( v === undefined ) throw new Error("did not find the version");
-		app.value.versions.splice(v_index, 0);
+		app.value.versions.splice(v_index, 1);
 		app.value = Object.assign({}, app.value);
 	}
 	
@@ -138,7 +138,6 @@ type VersionMetadata = {
 	name :string,
 	version :string,
 	api_version :number,
-	schema :number,
 	migrations :number[],
 }
 

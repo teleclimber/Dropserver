@@ -140,17 +140,14 @@ onUnmounted( () => {
 				New {{ desc_str }} checked and no errors were found. Review the info and click "Finish" below.
 			</MessageHappy>
 
-			<div class="px-4 py-5 sm:px-6" v-if="meta && meta.version_metadata">
-				<dl class="border border-gray-200 rounded divide-y divide-gray-200">
-					<DataDef field="App Name">{{meta.version_metadata.name}}</DataDef>
-					<DataDef field="Version">{{meta.version_metadata.version}}</DataDef>
-					<DataDef field="App Schema">{{meta.version_metadata.schema}}</DataDef>
-					<DataDef field="DropServer API">{{meta.version_metadata.api_version}}</DataDef>
-				</dl>
+			<div class="my-5" v-if="meta && meta.version_metadata">
+				<DataDef field="App Name:">{{meta.version_metadata.name}}</DataDef>
+				<DataDef field="Version:">{{meta.version_metadata.version}}</DataDef>
+				<DataDef field="Data Schema:">{{meta.schema}}</DataDef>
 			</div>
 
-			<div v-if="versions" class="md:mb-6 my-6 overflow-hidden ">
-				<div class="px-4 py-2 sm:px-6">
+			<div v-if="versions" class=" md:mx-6 my-6 overflow-hidden ">
+				<div class="mx-4 md:mx-0 py-2 ">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Existing Versions:</h3>
 				</div>
 
@@ -172,7 +169,7 @@ onUnmounted( () => {
 							</span>
 						</div>
 						<div v-if="ver.is_uploaded" class="w-0 flex-1 flex items-center">
-							<span class="ml-2 flex-1 w-0">
+							<span class="ml-2 flex-1 w-0 italic text-gray-500">
 								UPLOADED
 							</span>
 						</div>

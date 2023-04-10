@@ -61,7 +61,7 @@ const cur_app_version = computed( () => {
 });
 
 const data_schema_mismatch = computed( ()=> {
-	return !!cur_app_version.value && cur_app_version.value.schema !== status.appspace_schema;
+	return cur_app_version.value !== undefined && status.loaded && cur_app_version.value.schema !== status.appspace_schema;
 });
 const show_migrate_only = computed( () => {
 	return data_schema_mismatch.value && props.migrate_only;
