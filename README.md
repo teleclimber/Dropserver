@@ -61,27 +61,35 @@ Please see these docs on the dropserver.org website:
 
 - [Using ds-dev](https://dropserver.org/docs/ds-dev/)
 - [Run your own Dropserver with ds-host](https://dropserver.org/docs/ds-host/)
+- [Kick the tires using Docker](https://dropserver.org/docs/ds-host-docker/)
 
 # Status of the Project
 
 At this point a good chunk of the project is functional. You can upload app code, create appspaces, migrate, add users, and use the appspace with other users.
 
-However:
+### A Note About Security:
 
-- **Not secure at all** (yet). Don't use app code you don't trust. Don't put it up on the public internet unless it's completely isolated in a VM and don't put data on there you can't afford to have stolen.
-- Leaks like a sieve. Memory 📈 goroutines 📈
-- Lots of missing or half-baked functionality.
-- APIs that the apps use are going to change a lot
+Dropserver is intended to run untrusted code while being exposed to the internet. As such, the  security situation is broad and complex. While I try to be diligent about security while I work on the project there is no way for me to claim that yes "it's secure" at this stage.
+
+- Treat with caution.
+- Inspect app code before using.
+- Don't put it up on the public internet unless it's completely isolated in a VM and don't put data on that VM you can't afford to have stolen.
+
+### Please also note: 
+
+- Some goroutine and memory leaks exist.
+- Some functionality is missing or half-baked.
+- APIs that the apps use are going to change a few times before becoming stable.
 
 Code quality is variable. Some parts are OK, some are pretty shoddy. Sorry.
 
-There is decent code coverage of the Go code (for a project that is nowhere near 1.0).
+There is decent code coverage of the Go code (for a project that is not near 1.0).
 
 There is little to no test coverage for frontend code, and `denosandboxcode` coverage is sparse.
 
 # Contributing
 
-Contributions are welcome. However given the early stage of this project please start by opening an issue with your proposed contribution.
+Contributions are welcome. I prefer that you start by opening an issue with your proposed contribution.
 
 # License
 
