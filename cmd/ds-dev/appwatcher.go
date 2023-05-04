@@ -13,7 +13,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//ignorePaths is a set of paths relative to the root of the app that should be ignored
+// ignorePaths is a set of paths relative to the root of the app that should be ignored
 var ignorePaths = []string{
 	".git",
 }
@@ -65,7 +65,7 @@ func (w *DevAppWatcher) Start() {
 	go w.reprocessAppFiles()
 	go w.watch()
 }
-func (w *DevAppWatcher) reprocessAppFiles() { // This should probably be handled by app getter?
+func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be called directly, and don't call "start" if we're not watching app files.
 	ok := w.setRunning()
 	if !ok {
 		w.resetTimer()
@@ -132,18 +132,18 @@ func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
 		OwnerID: ownerID,
 		AppID:   appID,
 		Created: time.Now(),
-		Name:    results.VersionMetadata.AppName}
+		Name:    results.VersionManifest.Name}
 
 	w.DevAppModel.Ver = domain.AppVersion{
 		AppID:       appID,
-		AppName:     results.VersionMetadata.AppName,
-		Version:     results.VersionMetadata.AppVersion,
+		AppName:     results.VersionManifest.Name,
+		Version:     results.VersionManifest.Version,
 		Schema:      results.Schema,
 		Created:     time.Now(),
 		LocationKey: ""}
 
 	// Need to update appspace so that the app version is reflected
-	w.DevAppspaceModel.Appspace.AppVersion = results.VersionMetadata.AppVersion
+	w.DevAppspaceModel.Appspace.AppVersion = results.VersionManifest.Version
 
 	w.AppVersionEvents.Send("ready")
 }

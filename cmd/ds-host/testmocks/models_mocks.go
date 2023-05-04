@@ -472,19 +472,19 @@ func (mr *MockAppFilesModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppFilesModel)(nil).Delete), arg0)
 }
 
-// ReadMeta mocks base method
-func (m *MockAppFilesModel) ReadMeta(arg0 string) (*domain.AppFilesMetadata, error) {
+// ReadManifest mocks base method
+func (m *MockAppFilesModel) ReadManifest(arg0 string) (*domain.AppVersionManifest, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadMeta", arg0)
-	ret0, _ := ret[0].(*domain.AppFilesMetadata)
+	ret := m.ctrl.Call(m, "ReadManifest", arg0)
+	ret0, _ := ret[0].(*domain.AppVersionManifest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadMeta indicates an expected call of ReadMeta
-func (mr *MockAppFilesModelMockRecorder) ReadMeta(arg0 interface{}) *gomock.Call {
+// ReadManifest indicates an expected call of ReadManifest
+func (mr *MockAppFilesModelMockRecorder) ReadManifest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMeta", reflect.TypeOf((*MockAppFilesModel)(nil).ReadMeta), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadManifest", reflect.TypeOf((*MockAppFilesModel)(nil).ReadManifest), arg0)
 }
 
 // ReadRoutes mocks base method

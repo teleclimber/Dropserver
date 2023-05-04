@@ -37,7 +37,7 @@ type subscriber struct {
 type AppGetter struct {
 	AppFilesModel interface {
 		Save(*map[string][]byte) (string, error)
-		ReadMeta(string) (*domain.AppFilesMetadata, error) // this is going away or changing significantly
+		ReadManifest(string) (domain.AppVersionManifest, error)
 		WriteRoutes(string, []byte) error
 		WriteMigrations(string, []byte) error
 		Delete(string) error
@@ -155,7 +155,7 @@ func (g *AppGetter) GetLocationKey(key domain.AppGetKey) (string, bool) {
 func (g *AppGetter) processApp(keyData appGetData) {
 	meta := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0)}
 
-	err := g.readFilesMetadata(keyData, &meta)
+	err := g.readFilesManifest(keyData, &meta)
 	if err != nil {
 		// some error occurred, possibly external to
 		meta.Errors = append(meta.Errors, "internal error while reading file metadata, see log")
@@ -205,18 +205,18 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 }
 
-func (g *AppGetter) readFilesMetadata(keyData appGetData, meta *domain.AppGetMeta) error {
+func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMeta) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading metadata from app files"})
 
-	filesMetadata, err := g.AppFilesModel.ReadMeta(keyData.locationKey)
+	manifest, err := g.AppFilesModel.ReadManifest(keyData.locationKey)
 	if err != nil {
-		if err == domain.ErrAppConfigNotFound {
-			meta.Errors = append(meta.Errors, "Application config file not found")
+		if err == domain.ErrAppManifestNotFound {
+			meta.Errors = append(meta.Errors, "Application manifest file not found")
 			return nil
 		}
 		return err
 	}
-	meta.VersionMetadata = *filesMetadata
+	meta.VersionManifest = manifest
 	return nil
 }
 
@@ -451,31 +451,14 @@ func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMe
 // Bit of a misnomer? It validates app name, api version, app version, user permissions.
 // Oh wait validate "version" here means app code version.
 func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
-	fm := meta.VersionMetadata
-	if fm.AppName == "" {
+	manifest := meta.VersionManifest
+	if manifest.Name == "" {
 		meta.Errors = append(meta.Errors, "App name can not be blank")
 	}
 
-	if fm.APIVersion != 0 {
-		meta.Errors = append(meta.Errors, "Unsupported API version")
-	}
-
-	_, err := semver.New(string(fm.AppVersion))
+	_, err := semver.New(string(manifest.Version))
 	if err != nil {
 		meta.Errors = append(meta.Errors, err.Error())
-	}
-
-	for i, p := range fm.UserPermissions {
-		if p.Key == "" {
-			meta.Errors = append(meta.Errors, "Permission key can not be blank")
-		}
-		if i+1 < len(fm.UserPermissions) {
-			for _, p2 := range fm.UserPermissions[i+1:] {
-				if p.Key == p2.Key {
-					meta.Errors = append(meta.Errors, "Duplicate permission key: "+p.Key)
-				}
-			}
-		}
 	}
 
 	return nil
@@ -484,7 +467,7 @@ func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
 // validateVersionSequence ensures the candidate app version fits
 // with existing versions already on system.
 func (g *AppGetter) validateVersionSequence(appID domain.AppID, meta *domain.AppGetMeta) error {
-	ver, _ := semver.New(string(meta.VersionMetadata.AppVersion)) // already validated in validateVersion
+	ver, _ := semver.New(string(meta.VersionManifest.Version)) // already validated in validateVersion
 	schema := meta.Schema
 
 	semVersions, appErr, err := g.getVersions(appID, *ver)
@@ -577,14 +560,14 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 	appID := keyData.appID
 
 	if !keyData.hasAppID {
-		app, err := g.AppModel.Create(keyData.userID, meta.VersionMetadata.AppName)
+		app, err := g.AppModel.Create(keyData.userID, meta.VersionManifest.Name)
 		if err != nil {
 			return domain.AppID(0), domain.Version(""), err
 		}
 		appID = app.AppID
 	}
 
-	version, err := g.AppModel.CreateVersion(appID, meta.VersionMetadata.AppVersion, meta.Schema, meta.VersionMetadata.APIVersion, keyData.locationKey)
+	version, err := g.AppModel.CreateVersion(appID, meta.VersionManifest.Version, meta.Schema, 0, keyData.locationKey) // TODO this will get changed some more later
 	if err != nil {
 		return appID, domain.Version(""), err
 	}
@@ -767,7 +750,7 @@ func (g *AppGetter) getLogger(note string) *record.DsLogger {
 	return l
 }
 
-////////////
+// //////////
 // random string
 const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
 

@@ -22,6 +22,9 @@ var ErrBadAuth = errors.New("authentication incorrect")
 // appspace is currently closed
 var ErrAppspaceLockedClosed = errors.New("appspace is locked closed")
 
+// ErrAppManifestNotFound means the application manifest (dropapp.json) file was not found
+var ErrAppManifestNotFound = errors.New("App manifest dropapp.json not found")
+
 // ErrAppVersionInUse indicates the operation could not be performed
 // on the app version because something (probably an appspace)
 // depends on it

@@ -49,7 +49,7 @@ type UserInvitationModel interface {
 // AppFilesModel represents the application's files saved to disk
 type AppFilesModel interface {
 	Save(*map[string][]byte) (string, error)
-	ReadMeta(string) (*domain.AppFilesMetadata, error)
+	ReadManifest(string) (*domain.AppVersionManifest, error)
 	WriteRoutes(locationKey string, routesData []byte) error
 	ReadRoutes(locationKey string) ([]byte, error)
 	Delete(string) error

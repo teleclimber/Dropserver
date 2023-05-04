@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,6 +26,7 @@ type AppFilesModel struct {
 }
 
 // Save puts the data passed in files in an apps directory
+// Wonder if we will need to save additional files here if for ex the manifest points to a file as URL?
 func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 	logger := a.getLogger("Save()")
 	appsPath := a.Config.Exec.AppsPath
@@ -89,25 +89,28 @@ func (a *AppFilesModel) Save(files *map[string][]byte) (string, error) {
 	return locationKey, nil
 }
 
-// ReadMeta reads metadata from the files at location key
-func (a *AppFilesModel) ReadMeta(locationKey string) (*domain.AppFilesMetadata, error) {
+// ReadManifest reads metadata from the files at location key
+// this just reads the JSON file. OK.
+// In next iteration this will presumably read teh normalized JSON that was evaluated prior.
+// OR, this is the original file from the package? And we store the augmented / normalized version in the DB?
+// ^^ This is correct. The app is stored unmodified, and the normalized/processed/evaluated data is stashed in the DB.
+func (a *AppFilesModel) ReadManifest(locationKey string) (domain.AppVersionManifest, error) {
 	jsonPath := filepath.Join(a.AppLocation2Path.Files(locationKey), "dropapp.json")
-	jsonHandle, err := os.Open(jsonPath)
+	jsonBytes, err := os.ReadFile(jsonPath)
 	if err != nil {
 		// here the error might be that dropapp.json is not in app?
 		// Or it could be a more internal problem, like directory of apps not where it's expected to be.
 		// Or it could be a bad location key, like it was deleted but DB doesn't know.
 		if !a.locationKeyExists(locationKey) {
-			a.getLogger(fmt.Sprintf("ReadMeta(), location key: %v", locationKey)).Error(err)
-			return nil, errors.New("internal error reading app meta data")
+			a.getLogger(fmt.Sprintf("ReadManifest(), location key: %v", locationKey)).Error(err)
+			return domain.AppVersionManifest{}, errors.New("internal error reading app meta data")
 		}
-		return nil, domain.ErrAppConfigNotFound
+		return domain.AppVersionManifest{}, domain.ErrAppManifestNotFound // rename to app manifest
 	}
-	defer jsonHandle.Close()
 
-	meta, err := decodeAppJSON(jsonHandle)
+	meta, err := unmarshalManifest(jsonBytes)
 	if err != nil {
-		return nil, err
+		return domain.AppVersionManifest{}, err
 	}
 
 	return meta, nil
@@ -170,22 +173,15 @@ func (a *AppFilesModel) Delete(locationKey string) error {
 	return nil
 }
 
-func decodeAppJSON(r io.Reader) (*domain.AppFilesMetadata, error) {
-	var meta domain.AppFilesMetadata
-	dec := json.NewDecoder(r)
-	err := dec.Decode(&meta)
+func unmarshalManifest(b []byte) (domain.AppVersionManifest, error) {
+	var manifest domain.AppVersionManifest
+
+	err := json.Unmarshal(b, &manifest)
 	if err != nil {
-		return nil, err
+		return manifest, err
 	}
 
-	// TODO: clean up data too, like trim whitespace on strings
-	// ..could lowercap on keywords?
-
-	for i, p := range meta.UserPermissions {
-		meta.UserPermissions[i].Key = strings.TrimSpace(p.Key)
-	}
-
-	return &meta, nil
+	return manifest, nil
 }
 
 func (a *AppFilesModel) locationKeyExists(locationKey string) bool {

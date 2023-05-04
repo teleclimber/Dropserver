@@ -4,7 +4,6 @@ package domain
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -369,25 +368,93 @@ type App struct {
 
 // AppVersion represents a set of app files with a version
 type AppVersion struct {
-	AppID       AppID  `db:"app_id"`
-	AppName     string `db:"app_name"`
-	Version     Version
-	APIVersion  APIVersion `db:"api"`
-	Schema      int        `db:"schema"` // that is the schema for the app's own data
+	AppID       AppID      `db:"app_id"`
+	AppName     string     `db:"app_name"` // use Manifest?
+	Version     Version    // use manifest?
+	APIVersion  APIVersion `db:"api"`    // TODO alter somehow (or just leverage manfest in JSON column
+	Schema      int        `db:"schema"` // use manifest column?
 	Created     time.Time
 	LocationKey string `db:"location_key"`
+}
+
+// MetadataLinkedFile for when metadata references a file. used by:
+// - Icon (must be included?),
+// - Long Description (should be included),
+// - License File (either package with app or let the spdx speak for itself.)
+// - Release Notes. Does not fit, except that the notes for the current release make sense to include.
+
+type MetadataLinkedFile struct {
+	Source string // The originally specified location
+	Local  string // The location based off of app metadata dir of some sort? Empty if not loaded
+	// Should we have a retrieveal date?
+}
+
+type ManifestAuthor struct {
+	Name    string `json:"name"`
+	Role    string `json:"role"`    // short description of role, like "original author" "current maintainer and packager"
+	Address string `json:"address"` // URL to personal home page or any substitue, (or maybe email if no URL)
+}
+
+type AppVersionManifest struct {
+	// Name of the application. Optional.
+	Name string `json:"name"` // L10N? Also should have omitempty?
+	// ShortDescription is a 10-15 words used to tell prsopective users what this is does.
+	ShortDescription string `json:"short-description"` // I18N string.
+	// Version in semver format. Required.
+	Version Version `json:"version"`
+	// Main is the script that runs the app. Optional. If ommitted system will look for app.ts or app.js.
+	Main string `json:"entrypoint"`
+	// Schema is the verion of the appspace data schema.
+	// This is determined automatically by the system.
+	Schema int `json:"schema"`
+	// MigrateFrom is the earliest Schema that can be migrated to this version's Schema using this version of the app
+	MigratateFrom int `json:"migrate-from"`
+	// LibVersion is the version of the lib support.
+	// Determined automatically at packaging time (?)
+	// Required.
+	LibVersion string `json:"lib-version"`
+	// Signature of the package. Should be omitted if metadata is inside the package.
+	Signature string `json:"signature,omitempty"` // is string enough by itself?
+	// CodeState tells the system of processing needed before running the app
+	// Like remote fetch of modules and compile TS.
+	// Note that this can be determined entirely from the installer instance, so provided here for uer information purposes only?
+	CodeState string `json:"code-state"` // Unclear on actual need for this. I think it is needed, just not clrear how/where. really an enum: "remote", "ts", ""
+	// Icon is a package-relative path to an icon file to display within the installer instance UI.
+	// Optional.
+	Icon string `json:"icon"`
+
+	// Authors
+	Authors      []ManifestAuthor `json:"authors"`       // not actually a string. need a subtype for that? Or more thought?
+	Description  string           `json:"description"`   // link to markdown file? I18N??
+	ReleaseNotes string           `json:"release-notes"` // link to release notes markdown?
+	// Code, typically URL of git repo
+	Code     string `json:"repository"` // code repo
+	Homepage string `json:"homepage"`
+	Help     string `json:"help"` // URL of online help. Required so it can be shown readily.
+	// License in SPDX form
+	License string `json:"license"`
+	// LicenseFile is a package-relative path to a txt file containing the license text.
+	// Parameter is optional. If not set the system looks for /LICENSE.txt. A license file is not required.
+	LicenseFile string `json:"license-file"` // Rel path to license file within package. (might be URL too?)
+	Funding     string `json:"funding"`      // should maybe not be a string only...
+	//ReleaseDate YYYY-MM-DD of software release date. Should be set automatically by packaging code.
+	ReleaseDate string `json:"release-date"` // date of packaging.
+
+	// Size of the installed package in bytes (except that additional space will be taken up when fetching remote modules if applicable)
+	// Although maybe the actual installed size can be measured by the packaging system?
+	Size int `json:"size"`
 }
 
 type AppGetKey string
 
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
-	Key             AppGetKey        `json:"key"`
-	Schema          int              `json:"schema"`
-	PrevVersion     Version          `json:"prev_version"`
-	NextVersion     Version          `json:"next_version"`
-	Errors          []string         `json:"errors"`
-	VersionMetadata AppFilesMetadata `json:"version_metadata,omitempty"`
+	Key             AppGetKey          `json:"key"`
+	Schema          int                `json:"schema"` // TODO this is wrong. Schema goes into Manifest (after evaluation)
+	PrevVersion     Version            `json:"prev_version"`
+	NextVersion     Version            `json:"next_version"`
+	Errors          []string           `json:"errors"`
+	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
 }
 
 // AppGetEvent contains updates to an app getter process
@@ -425,7 +492,8 @@ type RemoteAppspace struct {
 // and represents the current state of the appspace's data
 type AppspaceMetaInfo struct {
 	Schema int
-	// Add more stuff like DS API, and maybe make it versioned later
+	// TODO Add more stuff, particularly about app identifier and version
+	// Or not!
 }
 
 // AppspaceUserPermission describes a permission that can be granted to
@@ -436,19 +504,6 @@ type AppspaceUserPermission struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
-
-// AppFilesMetadata containes metadata that can be gleaned from
-// reading the application files
-// This is going to evolve until it becomes data that comes from the sandbox.
-type AppFilesMetadata struct {
-	AppName         string                   `json:"name"`
-	AppVersion      Version                  `json:"version"`
-	APIVersion      APIVersion               `json:"api_version"`
-	UserPermissions []AppspaceUserPermission `json:"user_permissions"` // this should be removed.
-}
-
-// ErrAppConfigNotFound means the application config (dropapp.json) file was not found
-var ErrAppConfigNotFound = errors.New("App config json not found")
 
 // V0AppspaceDBQuery is the structure expected when Posting a DB request
 type V0AppspaceDBQuery struct {

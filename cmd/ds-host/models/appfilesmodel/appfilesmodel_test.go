@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -38,24 +37,24 @@ func TestPathInsidePath(t *testing.T) {
 func TestDecodeAppJsonError(t *testing.T) {
 	// check that passing a json does return the struct as expceted
 	// check that badly formed json returns the correct error code.
-	r := strings.NewReader(`{ "name":"blah", "version":"0.0.1 }`)
-	_, err := decodeAppJSON(r)
+	r := []byte(`{ "name":"blah", "version":"0.0.1 }`)
+	_, err := unmarshalManifest(r)
 	if err == nil {
 		t.Error("Error was nil")
 	}
 }
 
 func TestDecodeAppJSON(t *testing.T) {
-	r := strings.NewReader(`{
+	r := []byte(`{
 		"name":"blah",
 		"version":"0.0.1"
 	}`)
 
-	meta, err := decodeAppJSON(r)
+	manifest, err := unmarshalManifest(r)
 	if err != nil {
 		t.Error("got error for well formed json")
 	}
-	if meta.AppName != "blah" || meta.AppVersion != "0.0.1" {
+	if manifest.Name != "blah" || manifest.Version != "0.0.1" {
 		t.Error("got incorrect values for meta")
 	}
 }

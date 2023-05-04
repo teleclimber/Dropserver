@@ -25,53 +25,21 @@ func TestSetKey(t *testing.T) {
 	}
 }
 
-func TestValidateAppMeta(t *testing.T) {
+func TestValidateAppManifest(t *testing.T) {
 	g := &AppGetter{}
 	cases := []struct {
-		meta   domain.AppFilesMetadata
-		numErr int
+		manifest domain.AppVersionManifest
+		numErr   int
 	}{
-		{domain.AppFilesMetadata{AppName: "blah", AppVersion: "0.0.1"}, 0},
-		{domain.AppFilesMetadata{AppVersion: "0.0.1"}, 1},
-		{domain.AppFilesMetadata{AppName: "blah"}, 1},
+		{domain.AppVersionManifest{Name: "blah", Version: "0.0.1"}, 0},
+		{domain.AppVersionManifest{Version: "0.0.1"}, 1},
+		{domain.AppVersionManifest{Name: "blah"}, 1},
 	}
 
 	for _, c := range cases {
 		m := domain.AppGetMeta{
 			Errors:          make([]string, 0),
-			VersionMetadata: c.meta,
-		}
-		err := g.validateVersion(&m)
-		if err != nil {
-			t.Error(err)
-		}
-		if len(m.Errors) != c.numErr {
-			t.Log(m.Errors)
-			t.Error("Error count mismatch")
-		}
-	}
-}
-
-func TestValidateUserPermissions(t *testing.T) {
-	g := &AppGetter{}
-	cases := []struct {
-		perms  []domain.AppspaceUserPermission
-		numErr int
-	}{
-		{[]domain.AppspaceUserPermission{{Key: "abc"}}, 0},
-		{[]domain.AppspaceUserPermission{{Key: ""}}, 1},
-		{[]domain.AppspaceUserPermission{{Key: "abc"}, {Key: "abc"}}, 1},
-		{[]domain.AppspaceUserPermission{{Key: "abc"}, {Key: "def"}}, 0},
-	}
-
-	for _, c := range cases {
-		m := domain.AppGetMeta{
-			Errors: make([]string, 0),
-			VersionMetadata: domain.AppFilesMetadata{
-				AppName:         "app name",
-				AppVersion:      domain.Version("0.1.0"),
-				UserPermissions: c.perms,
-			},
+			VersionManifest: c.manifest,
 		}
 		err := g.validateVersion(&m)
 		if err != nil {
@@ -171,8 +139,8 @@ func TestValidateSequence(t *testing.T) {
 	for _, c := range cases {
 		appGetMeta := domain.AppGetMeta{
 			Schema: 1,
-			VersionMetadata: domain.AppFilesMetadata{
-				AppVersion: domain.Version("0.5.0"),
+			VersionManifest: domain.AppVersionManifest{
+				Version: domain.Version("0.5.0"),
 			},
 		}
 		appModel.EXPECT().GetVersionsForApp(appID).Return(c.appVersions, nil)
