@@ -29,29 +29,11 @@ import (
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
 var cmd_version = "unspecified"
 
-// Some lifecycle sequences:
-// For migrations:
-// - stop everything, wait until status relflects all stopped and closed
-// - copy appspace files (really? not always. only if a reset is desired.)
-// - run migration
-
-// For resetting appspace files:
-// - stop everything (including meta db files, and close them), wait for status to reflect that
-// - copy appspace files
-
-// For entering Migration mode
-// - everything should be stopped, but this is as built in migration runner/whatever.
-
-// Detect Schema mismatch:
-// - reflect "stopping -- switching to migration mode" in UI
-// - stop the appspace completely
-// - wait until fully stopped
-// - enter "migration" mode in UI: show migrate buttons, hide route hits etc...
-
 //go:embed avatars
 var avatarsFS embed.FS
 
-var appDirFlag = flag.String("app", "", "specify root directory of app code")
+var appFlag = flag.String("app", "", "specify root directory of app code or location of packaged app") // "... or URL"
+var createPackageFlag = flag.String("create-package", "", "create package and output at directory")
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
 var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with additional import mappings")
 
@@ -67,19 +49,12 @@ func main() {
 
 	flag.Parse()
 
-	if *appDirFlag == "" {
-		fmt.Println("Please specify app dir")
-		os.Exit(1)
-	}
+	appOrigin := makeAbsolute(*appFlag) // assumes this is not a URL!
+	appOriginType := ResolveAppOrigin(*appFlag)
 
-	appspaceSourceDir := *appspaceDirFlag
-	if appspaceSourceDir != "" && !filepath.IsAbs(*appspaceDirFlag) {
-		wd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-		appspaceSourceDir = filepath.Join(wd, *appspaceDirFlag)
-	}
+	appspaceSourceDir := makeAbsolute(*appspaceDirFlag)
+
+	checkFlags(appOriginType)
 
 	tempDir, err := os.MkdirTemp("", "")
 	if err != nil {
@@ -89,7 +64,15 @@ func main() {
 
 	fmt.Println("Temp dir: " + tempDir)
 
-	runtimeConfig := GetConfig(*appDirFlag, tempDir)
+	appDir := appOrigin
+	if appOriginType == Package {
+		// TODO Here we should unzip the package into temp dir
+		// .. and update the appDir to the dir of expanded files
+
+		panic("using a packaged app is not yet implemented")
+	}
+
+	runtimeConfig := GetConfig(appDir, tempDir)
 
 	// in ds-host app meta is in the folder above actual app code
 	// In ds-dev, since we read app files directly, have to stash app meta elsewhere.
@@ -148,8 +131,6 @@ func main() {
 
 	devSandboxRunsModel := &DevSandboxRunsModel{}
 
-	//devAppspaceContactModel := &DevAppspaceContactModel{}
-
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
 		AppModel:      devAppModel,
 		AppFilesModel: devAppFilesModel,
@@ -182,7 +163,29 @@ func main() {
 		DevAppProcessEvents: appProcessingEvents,
 		AppVersionEvents:    appVersionEvents,
 	}
-	devAppWatcher.AddDir(*appDirFlag)
+	if appOriginType == Directory {
+		devAppWatcher.AddDir(appOrigin)
+	}
+
+	devSandboxManager := &DevSandboxManager{
+		SandboxRuns:           devSandboxRunsModel,
+		AppLogger:             appLogger,
+		AppspaceLogger:        nil,
+		Config:                runtimeConfig,
+		AppVersionEvents:      appVersionEvents,
+		SandboxStatusEvents:   sandboxStatusEvents,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path,
+	}
+	devSandboxManager.Init()
+	appGetter.SandboxManager = devSandboxManager
+
+	if *createPackageFlag != "" {
+		packager := &AppPackager{
+			AppGetter: appGetter}
+		packager.PackageApp(appOrigin, *createPackageFlag)
+		os.Exit(0)
+	}
 
 	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
@@ -233,19 +236,7 @@ func main() {
 		//AppspaceStatus: see below
 		Config: runtimeConfig}
 	appspaceLogger.Init()
-
-	devSandboxManager := &DevSandboxManager{
-		SandboxRuns:           devSandboxRunsModel,
-		AppLogger:             appLogger,
-		AppspaceLogger:        appspaceLogger,
-		Config:                runtimeConfig,
-		AppVersionEvents:      appVersionEvents,
-		SandboxStatusEvents:   sandboxStatusEvents,
-		AppLocation2Path:      appLocation2Path,
-		AppspaceLocation2Path: appspaceLocation2Path,
-	}
-	devSandboxManager.Init()
-	appGetter.SandboxManager = devSandboxManager
+	devSandboxManager.AppspaceLogger = appspaceLogger
 
 	importMapExtras := &ImportMapExtras{
 		SandboxManager: devSandboxManager,
@@ -397,7 +388,7 @@ func main() {
 		RouteHitService:        routeHitService,
 		AppspaceLogService:     appspaceLogTwine,
 		MigrationJobService:    migrationJobTwine}
-	dsDevHandler.SetPaths(*appDirFlag, *appspaceDirFlag)
+	dsDevHandler.SetPaths(appOrigin, appspaceSourceDir)
 
 	// Create server.
 	server := &Server{
@@ -421,4 +412,27 @@ func main() {
 	server.Start()
 	// ^^ this blocks as it is. Obviously not what what we want.
 
+}
+
+func checkFlags(appOriginType AppSourceType) {
+	if *appFlag == "" {
+		fmt.Println("Please specify app")
+		os.Exit(1)
+	}
+
+	if *createPackageFlag != "" {
+		// rule out other flags:
+		if *appspaceDirFlag != "" {
+			fmt.Println("Do not specify an appspace dir when creating an app package")
+			os.Exit(1)
+		}
+		if *importMapFlag != "" {
+			fmt.Println("Do not specify import map extras when creating a package")
+			os.Exit(1)
+		}
+		if appOriginType != Directory {
+			fmt.Println("Unable to package: app should be a directory")
+			os.Exit(1)
+		}
+	}
 }
