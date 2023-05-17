@@ -207,7 +207,7 @@ func (g *AppGetter) processApp(keyData appGetData) {
 }
 
 func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMeta) error {
-	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading metadata from app files"})
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading manifest from app files"})
 
 	manifest, err := g.AppFilesModel.ReadManifest(keyData.locationKey)
 	if err != nil {
@@ -330,7 +330,7 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 		meta.Errors = append(meta.Errors, err.Error())
 	}
 	if len(schemas) > 0 {
-		meta.Schema = schemas[len(schemas)-1]
+		meta.VersionManifest.Schema = schemas[len(schemas)-1]
 	}
 
 	return migrations, nil
@@ -469,14 +469,14 @@ func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
 // with existing versions already on system.
 func (g *AppGetter) validateVersionSequence(appID domain.AppID, meta *domain.AppGetMeta) error {
 	ver, _ := semver.New(string(meta.VersionManifest.Version)) // already validated in validateVersion
-	schema := meta.Schema
+	schema := meta.VersionManifest.Schema
 
 	semVersions, appErr, err := g.getVersions(appID, *ver)
 	if err != nil {
 		return err
 	}
-	if appErr != nil {
-		meta.Errors = append(meta.Errors, appErr.Error())
+	if appErr != "" {
+		meta.Errors = append(meta.Errors, appErr)
 		return nil
 	}
 
@@ -504,11 +504,11 @@ type semverAppVersion struct {
 	appVersion *domain.AppVersion
 }
 
-func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, error, error) {
+func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, string, error) {
 
 	appVersions, err := g.AppModel.GetVersionsForApp(appID)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
 
 	semVersions := make([]semverAppVersion, len(appVersions)+1)
@@ -517,11 +517,11 @@ func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]se
 		sver, err := semver.New(string(appVersion.Version))
 		if err != nil {
 			// couldn't parse semver of existing version.
-			return nil, nil, err
+			return nil, "", err
 		}
 		cmp := sver.Compare(newVer)
 		if cmp == 0 {
-			return nil, fmt.Errorf("version %s of the app aleady exists on the system", newVer), nil
+			return nil, fmt.Sprintf("Version %s of the app aleady exists on the system", newVer), nil
 		}
 		semVersions[i+1] = semverAppVersion{semver: *sver, appVersion: appVersion}
 	}
@@ -529,7 +529,7 @@ func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]se
 	sort.Slice(semVersions, func(i, j int) bool {
 		return semVersions[i].semver.Compare(semVersions[j].semver) == -1
 	})
-	return semVersions, nil, nil
+	return semVersions, "", nil
 }
 
 func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
@@ -568,7 +568,7 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		appID = app.AppID
 	}
 
-	version, err := g.AppModel.CreateVersion(appID, meta.VersionManifest.Version, meta.Schema, 0, keyData.locationKey) // TODO this will get changed some more later
+	version, err := g.AppModel.CreateVersion(appID, meta.VersionManifest.Version, meta.VersionManifest.Schema, 0, keyData.locationKey) // TODO this will get changed some more later
 	if err != nil {
 		return appID, domain.Version(""), err
 	}

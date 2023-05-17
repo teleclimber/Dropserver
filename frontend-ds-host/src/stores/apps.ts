@@ -124,7 +124,6 @@ export const useAppsStore = defineStore('apps', () => {
 // It returns any errors / problems found in the files, and the app version data if passable.
 export type AppGetMeta = {
 	key: string, // key is used to commit the uploaded files to their "destination" (new app, new app version)
-	schema: number,
 	prev_version: string,
 	next_version: string,
 	errors: string[],	// maybe array of strings?

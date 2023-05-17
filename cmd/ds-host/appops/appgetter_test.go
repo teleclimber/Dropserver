@@ -74,7 +74,7 @@ func TestVersionSort(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if appErr != nil {
+	if appErr != "" {
 		t.Error(appErr)
 	}
 	if vers[0].appVersion.Version != domain.Version("0.2.1") {
@@ -90,7 +90,7 @@ func TestVersionSort(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if appErr == nil {
+	if appErr == "" {
 		t.Error("expected an error")
 	}
 }
@@ -138,9 +138,9 @@ func TestValidateSequence(t *testing.T) {
 
 	for _, c := range cases {
 		appGetMeta := domain.AppGetMeta{
-			Schema: 1,
 			VersionManifest: domain.AppVersionManifest{
 				Version: domain.Version("0.5.0"),
+				Schema:  1,
 			},
 		}
 		appModel.EXPECT().GetVersionsForApp(appID).Return(c.appVersions, nil)

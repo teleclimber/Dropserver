@@ -450,7 +450,6 @@ type AppGetKey string
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
 	Key             AppGetKey          `json:"key"`
-	Schema          int                `json:"schema"` // TODO this is wrong. Schema goes into Manifest (after evaluation)
 	PrevVersion     Version            `json:"prev_version"`
 	NextVersion     Version            `json:"next_version"`
 	Errors          []string           `json:"errors"`

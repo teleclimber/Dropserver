@@ -138,7 +138,7 @@ func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
 		AppID:       appID,
 		AppName:     results.VersionManifest.Name,
 		Version:     results.VersionManifest.Version,
-		Schema:      results.Schema,
+		Schema:      results.VersionManifest.Schema,
 		Created:     time.Now(),
 		LocationKey: ""}
 

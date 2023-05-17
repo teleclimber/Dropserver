@@ -61,7 +61,7 @@ const versions = computed( () => {
 		const m = meta.value.version_manifest;
 		const uv = {
 			version: m.version,
-			schema:meta.value.schema,
+			schema: m.schema,
 			is_uploaded: true,
 			created_dt: new Date
 		};
@@ -153,7 +153,7 @@ onUnmounted( () => {
 				<!-- However some of this will be very different for new version of existing app! -->
 				<DataDef field="App Name:">{{manifest.name}}</DataDef>
 				<DataDef field="Version:">{{manifest.version}}</DataDef>
-				<DataDef field="Data Schema:">{{meta?.schema}}</DataDef><!-- this should come from manifest-->
+				<DataDef field="Data Schema:">{{manifest.schema}}</DataDef><!-- this should come from manifest-->
 			</div>
 
 			<div v-if="versions" class=" md:mx-6 my-6 overflow-hidden ">
