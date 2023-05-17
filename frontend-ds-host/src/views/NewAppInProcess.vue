@@ -8,7 +8,6 @@ import { LiveLog } from '../models/log';
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
-import MessageHappy from '../components/ui/MessageHappy.vue';
 import MessageProcessing from '../components/ui/MessageProcessing.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 
@@ -35,6 +34,7 @@ const appGetter = new AppGetter;
 appGetter.updateKey(props.app_get_key);
 
 const meta = computed( () => appGetter.meta.value );
+const manifest = computed( () => meta.value?.version_manifest );
 
 const show_log = ref(false);
 const live_log = reactive(new LiveLog);
@@ -45,7 +45,6 @@ watch( () => appGetter.done, () => {
 type displayVer = {
 	version:string,
 	schema: number,
-	api_version: number,
 	is_uploaded: boolean,
 	created_dt: Date
 }
@@ -55,16 +54,14 @@ const versions = computed( () => {
 		return {
 			version: v.version,
 			schema:v.schema,
-			api_version: v.api_version,
 			is_uploaded: false,
 			created_dt: v.created_dt };
 	});
-	if( meta.value !== undefined && meta.value.version_metadata !== undefined ) {
-		const m = meta.value.version_metadata;
+	if( meta.value !== undefined && meta.value.version_manifest !== undefined ) {
+		const m = meta.value.version_manifest;
 		const uv = {
 			version: m.version,
 			schema:meta.value.schema,
-			api_version: m.api_version,
 			is_uploaded: true,
 			created_dt: new Date
 		};
@@ -101,6 +98,11 @@ async function startOver() {
 	if( props.app_id === undefined ) router.push({name: 'new-app'});
 	else router.push( {name:'new-app-version', params:{id:props.app_id}});
 }
+async function cancel() {
+	await appGetter.cancel();
+	if( props.app_id === undefined ) router.push({name: 'apps'});
+	else router.push( {name:'manage-app', params:{id:props.app_id}});
+}
 
 onUnmounted( () => {
 	appGetter.unsubscribeKey();
@@ -136,14 +138,22 @@ onUnmounted( () => {
 			<MessageSad v-if="meta && meta.errors.length" class="mx-4 sm:mx-6 my-5 rounded" head="Error">
 				<p v-for="err in meta.errors" :key="'meta-errors-'+err">{{err}}</p>
 			</MessageSad>
-			<MessageHappy v-else class="mx-4 sm:mx-6 my-5 rounded " head="Looks good!">
-				New {{ desc_str }} checked and no errors were found. Review the info and click "Finish" below.
-			</MessageHappy>
 
-			<div class="my-5" v-if="meta && meta.version_metadata">
-				<DataDef field="App Name:">{{meta.version_metadata.name}}</DataDef>
-				<DataDef field="Version:">{{meta.version_metadata.version}}</DataDef>
-				<DataDef field="Data Schema:">{{meta.schema}}</DataDef>
+			<div class="my-5" v-if="manifest">
+				<div class="px-4 sm:px-6">
+					<h2 class="text-2xl font-medium">{{manifest.name}}</h2>
+					<p v-if="manifest.short_description" class="text-gray-600 italic">{{ manifest.short_description }}</p>
+					<p>
+						Version {{manifest.version}}
+						<template v-if="manifest.release_date">(released on {{ manifest.release_date.toLocaleDateString() }})</template>
+					</p>
+				</div>
+				<!-- here present app a bit better: BIG name, icon on left, short desc below (if provided), 
+					author, version and date, all the clearly user-interesting stuff should be here, nicely presented. -->
+				<!-- However some of this will be very different for new version of existing app! -->
+				<DataDef field="App Name:">{{manifest.name}}</DataDef>
+				<DataDef field="Version:">{{manifest.version}}</DataDef>
+				<DataDef field="Data Schema:">{{meta?.schema}}</DataDef><!-- this should come from manifest-->
 			</div>
 
 			<div v-if="versions" class=" md:mx-6 my-6 overflow-hidden ">
@@ -161,11 +171,6 @@ onUnmounted( () => {
 						<div class="w-0 flex-1 flex items-center">
 							<span class="ml-2 flex-1 w-0 ">
 								{{ver.schema}}
-							</span>
-						</div>
-						<div class="w-0 flex-1 flex items-center">
-							<span class="ml-2 flex-1 w-0 ">
-								{{ver.api_version}}
 							</span>
 						</div>
 						<div v-if="ver.is_uploaded" class="w-0 flex-1 flex items-center">
@@ -195,9 +200,9 @@ onUnmounted( () => {
 				<div v-else class="border border-gray-200 bg-gray-50 text-sm italic text-gray-500 p-2 rounded" @click="show_log = !show_log">Click to show app log...</div>
 			</div>
 			
-			<form @submit.prevent="doCommit" @keyup.esc="startOver">
+			<form @submit.prevent="doCommit" @keyup.esc="cancel">
 				<div class="px-4 py-5 sm:px-6 flex justify-between">
-					<input type="button" class="btn" @click="startOver" value="Start Over" />
+					<input type="button" class="btn" @click="cancel" value="Cancel" />
 					<input
 						ref="create_button"
 						type="submit"

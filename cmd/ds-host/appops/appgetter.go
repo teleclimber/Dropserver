@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"sort"
 	"sync"
@@ -36,7 +37,8 @@ type subscriber struct {
 // And it can commit files to become an actual app version
 type AppGetter struct {
 	AppFilesModel interface {
-		Save(*map[string][]byte) (string, error)
+		SavePackage(io.Reader) (string, error)
+		ExtractPackage(locationKey string) error
 		ReadManifest(string) (domain.AppVersionManifest, error)
 		WriteRoutes(string, []byte) error
 		WriteMigrations(string, []byte) error
@@ -90,18 +92,9 @@ func (g *AppGetter) Stop() {
 	}
 }
 
-// FromRaw takes raw file data as app files
-func (g *AppGetter) FromRaw(userID domain.UserID, fileData *map[string][]byte, appIDs ...domain.AppID) (domain.AppGetKey, error) {
-	if len(*fileData) == 0 {
-		return domain.AppGetKey(""), errors.New("no files")
-	}
-	locationKey, err := g.AppFilesModel.Save(fileData)
-	if err != nil {
-		return domain.AppGetKey(""), err
-	}
-
-	g.AppLogger.Log(locationKey, "ds-host", "Reading new app version metadata")
-
+// InstallPackage extracts the package at location key and
+// begins process of extracting and verifying all data.
+func (g *AppGetter) InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error) {
 	data := appGetData{
 		userID:      userID,
 		locationKey: locationKey,
@@ -112,9 +105,17 @@ func (g *AppGetter) FromRaw(userID domain.UserID, fileData *map[string][]byte, a
 	}
 	data = g.set(data)
 
-	g.sendEvent(data, domain.AppGetEvent{Step: "Starting process"})
+	g.sendEvent(data, domain.AppGetEvent{Step: "Unpackaging app"})
 
-	go g.processApp(data)
+	go func() {
+		err := g.AppFilesModel.ExtractPackage(locationKey)
+		if err != nil {
+			g.setResults(data.key, domain.AppGetMeta{Key: data.key, Errors: []string{err.Error()}})
+			g.sendEvent(data, domain.AppGetEvent{Done: true, Error: true})
+			return
+		}
+		g.processApp(data)
+	}()
 
 	return data.key, nil
 }
@@ -157,7 +158,7 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	err := g.readFilesManifest(keyData, &meta)
 	if err != nil {
-		// some error occurred, possibly external to
+		// TODO clarify the error. "see log" is invalid for ds-dev CLI usage.
 		meta.Errors = append(meta.Errors, "internal error while reading file metadata, see log")
 		g.setResults(keyData.key, meta)
 		g.getLogger("processApp").Error(err)
@@ -458,7 +459,7 @@ func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
 
 	_, err := semver.New(string(manifest.Version))
 	if err != nil {
-		meta.Errors = append(meta.Errors, err.Error())
+		meta.Errors = append(meta.Errors, err.Error()) // TODO clarify it's a semver error
 	}
 
 	return nil
@@ -520,7 +521,7 @@ func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]se
 		}
 		cmp := sver.Compare(newVer)
 		if cmp == 0 {
-			return nil, errors.New("this version aleady exists in this app"), nil
+			return nil, fmt.Errorf("version %s of the app aleady exists on the system", newVer), nil
 		}
 		semVersions[i+1] = semverAppVersion{semver: *sver, appVersion: appVersion}
 	}

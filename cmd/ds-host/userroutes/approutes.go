@@ -48,7 +48,7 @@ type Versions struct {
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppGetter interface {
-		FromRaw(userID domain.UserID, fileData *map[string][]byte, appIDs ...domain.AppID) (domain.AppGetKey, error)
+		InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
 		GetLocationKey(key domain.AppGetKey) (string, bool)
 		GetLastEvent(key domain.AppGetKey) (domain.AppGetEvent, bool)
@@ -59,6 +59,9 @@ type ApplicationRoutes struct {
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
 		DeleteVersion(appID domain.AppID, version domain.Version) error
+	} `checkinject:"required"`
+	AppFilesModel interface {
+		SavePackage(io.Reader) (string, error)
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
@@ -220,29 +223,35 @@ type NewAppResp struct {
 // if there are no files but there is a key, then create a new app with files found at key.
 func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
-	a.handleFilesUpload(r, w, userID)
+	a.handlePackageUpload(r, w, userID)
 }
 
 func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, _ := domain.CtxAuthUserID(ctx)
 	app, _ := domain.CtxAppData(ctx)
-	a.handleFilesUpload(r, w, userID, app.AppID)
+	a.handlePackageUpload(r, w, userID, app.AppID)
 }
 
 type FilesUploadResp struct {
 	Key domain.AppGetKey `json:"app_get_key"`
 }
 
-func (a *ApplicationRoutes) handleFilesUpload(r *http.Request, w http.ResponseWriter, userID domain.UserID, appIDs ...domain.AppID) {
-	fileData, err := a.extractFiles(r)
+func (a *ApplicationRoutes) handlePackageUpload(r *http.Request, w http.ResponseWriter, userID domain.UserID, appIDs ...domain.AppID) {
+	f, _, err := r.FormFile("package")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "unable to get package file from multipart: "+err.Error(), http.StatusBadRequest)
+		return
 	}
-	if len(*fileData) == 0 {
-		http.Error(w, "no files in request", http.StatusBadRequest)
+	// if we capture the header above, we can know the original package filename and propagate as desired.
+
+	loc, err := a.AppFilesModel.SavePackage(f)
+	if err != nil {
+		http.Error(w, "unable to get package file from multipart: "+err.Error(), http.StatusBadRequest)
+		return
 	}
-	appGetKey, err := a.AppGetter.FromRaw(userID, fileData, appIDs...)
+
+	appGetKey, err := a.AppGetter.InstallPackage(userID, loc, appIDs...)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -290,6 +299,8 @@ func (a *ApplicationRoutes) extractFiles(r *http.Request) (*map[string][]byte, e
 type InProcessResp struct {
 	LastEvent domain.AppGetEvent `json:"last_event"`
 	Meta      domain.AppGetMeta  `json:"meta"`
+	// Maybe take manifest out of meta?
+	// And add a frontend version of manifest data?
 }
 
 // getInProcess returns current status of uploaded or acquired app files

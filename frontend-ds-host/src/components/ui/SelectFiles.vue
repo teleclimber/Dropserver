@@ -1,72 +1,101 @@
 <script lang="ts" setup>
-import {Ref, ref} from 'vue';
-import type { SelectedFile } from '@/stores/types';
+import {Ref, ref, computed, ShallowRef, onMounted} from 'vue';
+import { useRouter } from 'vue-router';
+import { useAppsStore } from '@/stores/apps';
 
-interface WebkitFile extends File {
-	webkitRelativePath: string;
+const props = defineProps<{
+	app_id?: number
+
+}>();
+
+const emits = defineEmits<{
+	(e:'uploading') :void
+}>();
+
+const router = useRouter();
+
+const appsStore = useAppsStore();
+appsStore.loadData();
+
+onMounted( () => {
+	focusInput();
+});
+
+const input_elem :Ref<HTMLInputElement|undefined> = ref();
+function focusInput() {
+	if( input_elem.value === undefined ) return;
+	input_elem.value.focus();
 }
-
-const emit = defineEmits<{
-  (e: 'changed', files:SelectedFile[]):void
-}>()
-
-const input_elem :Ref<HTMLInputElement|null> = ref(null);
+const selected_file :ShallowRef<File|undefined> = ref();
 function selected() {
-	if( input_elem.value === null ) return;
+	if( input_elem.value?.files?.length === 1 ){
+		selected_file.value = input_elem.value.files[0];
+	} 
+	else {
+		selected_file.value = undefined;
+	}
+	focusInput();
+}
 
+const invalid = computed( () => {
+	if( selected_file.value === undefined ) return true;
+	if( selected_file.value.type !== 'application/x-gzip' ) return true;
+	return false;
+});
+
+const uploading = ref(false);
+async function submit() {
+	if( input_elem.value === undefined ) return;
+	
 	const files = input_elem.value.files as FileList;
-	const prefix = getPrefix(files);
-	const chop_length = prefix ? prefix.length +1 : 0;
+	if( files.length !== 1 ) return;
 
-	const selected_files: SelectedFile[] = [];
+	const f = files[0];
 
-	for( let i=0; i<files.length; ++i ) {
-		// us this as an opportunity to zap .git, etc...
-		const f = files[i] as WebkitFile;
-		const rel_path = f.webkitRelativePath.substring(chop_length);
-		selected_files.push({
-			file: files[i],
-			rel_path
-		});
+	uploading.value = true;
+
+	if( props.app_id === undefined ) {
+		uploading.value = true;
+		const app_get_key = await appsStore.uploadNewApplication(f);
+		uploading.value = false;
+		router.push({name: 'new-app-in-process', params:{app_get_key}});
 	}
-
-	emit("changed", selected_files);
-}
-
-
-// path root inconsistent across browsers/OS:
-// - chrome-mac: includes selected folder
-// - chrome-win: does not -> retested: it does include it.
-// - ff-win: includes selected folder
-// - ff-mac: includes
-// - safari-mac: includes
-// - Edge/win: includes selected folder
-// test: http://jsfiddle.net/o46vgasx/2/
-// TODO: this really needs a proper test, but not clear how to set it up.
-function getPrefix(files: FileList): string {
-	let prefix = '';
-	for( let i=0; i<files.length; ++i ) {
-		const f = files[i] as WebkitFile;
-		let wrp = f.webkitRelativePath;
-		const index = wrp.indexOf('/');
-		let p;
-		if( index ) p = wrp.substring( 0, index );
-		else p = '';
-
-		if( i == 0 ) prefix = p;
-		else if( prefix !== p ) prefix = '';
+	else {
+		// upload version.
+		const app_get_key = await appsStore.uploadNewAppVersion(props.app_id, f);
+		uploading.value = false;
+		router.push({name: 'new-app-version-in-process', params:{id:props.app_id, app_get_key}});
 	}
-
-	return prefix;
 }
-
-// add support for:
-// - upload single file (zip)
-// - drop file or directory
-// - pick by url? does that belong here?
 
 </script>
 <template>
-	<input type="file" name="app_dir" ref="input_elem" webkitdirectory @input="selected" />
+	<form @submit.prevent="submit">  <!--  @keyup.esc="cancel" causes back when escaping out of file select dialog :( -->
+				
+		<div class="">
+			<input type="file"
+				accept=".tgz, .tar.gz, application/x-gzip"
+				name="app_dir"
+				ref="input_elem"
+				@input="selected"
+				class="border-4 rounded-3xl border-blue-300 border-dashed bg-blue-50  py-16 pl-4 w-full
+					outline-offset-2 outline-2 outline-blue-500" />
+		</div>
+
+		<p v-if="selected_file !== undefined && selected_file.type !== 'application/x-gzip'" 
+			class="border-2 p-1 mt-4 rounded-lg bg-red-50 border-red-400 text-red-700">
+			Incorrect file type: {{ selected_file.type }}
+		</p>
+		<p v-else class="border-2 p-1 mt-4 rounded-lg border-transparent">&nbsp;</p>
+
+		<div class="py-5 flex items-baseline justify-end">
+			<input
+				type="submit"
+				class="btn-blue"
+				:disabled="invalid"
+				value="Upload" />
+		</div>
+	
+	</form>
 </template>
 

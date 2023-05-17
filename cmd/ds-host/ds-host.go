@@ -445,10 +445,11 @@ func main() {
 		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		AppGetter: appGetter,
-		DeleteApp: deleteApp,
-		AppModel:  appModel,
-		AppLogger: appLogger}
+		AppGetter:     appGetter,
+		DeleteApp:     deleteApp,
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+		AppLogger:     appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUsersModelV0:  appspaceUsersModelV0,

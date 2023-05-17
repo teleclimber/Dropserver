@@ -70,11 +70,9 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	// upload new application sends the files to backend for temporary storage.
-	async function uploadNewApplication(selected_files: SelectedFile[]): Promise<string> {
+	async function uploadNewApplication(package_file: File): Promise<string> {
 		const form_data = new FormData();
-		selected_files.forEach((sf)=> {
-			form_data.append( 'app_dir', sf.file, sf.rel_path );
-		});
+		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application', form_data);
 		const data = <UploadResp>resp.data;
@@ -90,11 +88,9 @@ export const useAppsStore = defineStore('apps', () => {
 		return resp.data.app_id;
 	}
 
-	async function uploadNewAppVersion(app_id:number, selected_files: SelectedFile[]): Promise<string> {
+	async function uploadNewAppVersion(app_id:number, package_file: File): Promise<string> {
 		const form_data = new FormData();
-		selected_files.forEach((sf)=> {
-			form_data.append( 'app_dir', sf.file, sf.rel_path );
-		});
+		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application/'+app_id+'/version', form_data);
 		const data = <UploadResp>resp.data;
@@ -132,13 +128,32 @@ export type AppGetMeta = {
 	prev_version: string,
 	next_version: string,
 	errors: string[],	// maybe array of strings?
-	version_metadata?: VersionMetadata
+	version_manifest?: AppManifest
 }
-type VersionMetadata = {
+type AppManifest = {
 	name :string,
+	short_description: string,
 	version :string,
-	api_version :number,
-	migrations :number[],
+	release_date: Date|undefined,
+	main: string,	// do we care here?
+	schema: number,
+	migrate_from: number,
+	lib_version: string,	//semver
+	signature: string,	//later
+	code_state: string,	 // ? later
+	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
+	
+	authors: string[],	// later, 
+	description: string,	// actually a reference to a long description. Later.
+	release_notes: string,	// ref to a file or something...
+	code: string,	// URL to code repo. OK.
+	homepage: string,	//URL to home page for app
+	help: string,	// URL to help
+	license: string,	// SPDX format of license
+	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
+	funding: string,	// URL for now, but later maybe array of objects? Or...?
+
+	size: number	// bytes of what? compressed package? 
 }
 
 // type InProcessResp struct {

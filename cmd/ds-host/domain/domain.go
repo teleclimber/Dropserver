@@ -428,7 +428,7 @@ type AppVersionManifest struct {
 	Description  string           `json:"description"`   // link to markdown file? I18N??
 	ReleaseNotes string           `json:"release-notes"` // link to release notes markdown?
 	// Code, typically URL of git repo
-	Code     string `json:"repository"` // code repo
+	Code     string `json:"code"` // code repo
 	Homepage string `json:"homepage"`
 	Help     string `json:"help"` // URL of online help. Required so it can be shown readily.
 	// License in SPDX form

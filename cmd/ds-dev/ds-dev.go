@@ -66,10 +66,7 @@ func main() {
 
 	appDir := appOrigin
 	if appOriginType == Package {
-		// TODO Here we should unzip the package into temp dir
-		// .. and update the appDir to the dir of expanded files
-
-		panic("using a packaged app is not yet implemented")
+		appDir = extractPackage(appOrigin, tempDir)
 	}
 
 	runtimeConfig := GetConfig(appDir, tempDir)

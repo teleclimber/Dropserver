@@ -1,12 +1,16 @@
 package appfilesmodel
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
@@ -44,6 +48,10 @@ func TestDecodeAppJsonError(t *testing.T) {
 	}
 }
 
+func TestCreateLocation(t *testing.T) {
+	// TODO
+}
+
 func TestDecodeAppJSON(t *testing.T) {
 	r := []byte(`{
 		"name":"blah",
@@ -59,11 +67,7 @@ func TestDecodeAppJSON(t *testing.T) {
 	}
 }
 
-func TestSave(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	// create temp dir and put that in runtime config.
+func TestSavePackage(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
@@ -75,81 +79,170 @@ func TestSave(t *testing.T) {
 	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	m := AppFilesModel{
-		Config: cfg}
+		Config:           cfg,
+		AppLocation2Path: &appl2p{appFiles: cfg.Exec.AppsPath, app: cfg.Exec.AppsPath}}
 
-	// for files, create dummy data
-	// will read back to check it's there
-	files := map[string][]byte{
-		"file1":             []byte("hello world"),
-		"bar/baz/file2.txt": []byte("oink oink oink"),
-	}
+	contents := bytes.NewBuffer([]byte("hello world"))
 
-	locKey, dsErr := m.Save(&files)
-	if dsErr != nil {
-		t.Error(dsErr)
-	}
-
-	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "file1"))
+	locKey, err := m.SavePackage(contents)
 	if err != nil {
 		t.Error(err)
 	}
-	if string(dat) != "hello world" {
+	if locKey == "" {
+		t.Error("location key should not be empty")
+	}
+
+	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "package.tar.gz"))
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal([]byte("hello world"), dat) {
 		t.Error("didn't get the same file data", string(dat))
 	}
+}
 
-	dat, err = ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "app", "bar/baz/file2.txt"))
+type fileList []struct {
+	name     string
+	contents []byte
+}
+
+func TestExtractPackageLow(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
 	}
-	if string(dat) != "oink oink oink" {
-		t.Error("didn't get the same file2 data", string(dat))
+	defer os.RemoveAll(dir)
+
+	var files = fileList{
+		{"abc.txt", []byte("hello")},
+		{"deep/nested/file.txt", []byte("it's dark down here")},
 	}
 
+	err = ExtractPackageLow(createPackage(files), dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, f := range files {
+		contents, err := os.ReadFile(filepath.Join(dir, f.name))
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(f.contents, contents) {
+			t.Errorf("file contents are different: %s %s", f.contents, contents)
+		}
+	}
 }
 
-// test removal please
-func TestDelete(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	// create temp dir and put that in runtime config.
+func TestExtractBadPackage(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	var files = fileList{
+		{"/abc.txt", []byte("hello")},
+	}
+	err = ExtractPackageLow(createPackage(files), dir)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Errorf("expected error with absolute, got %s", err.Error())
+	}
+
+	files = fileList{
+		{"trick/../../abc.txt", []byte("hello")},
+	}
+	err = ExtractPackageLow(createPackage(files), dir)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "outside") {
+		t.Errorf("expected error with outside, got %s", err.Error())
+	}
+}
+
+func TestExtractPackage(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
 	}
 	defer os.RemoveAll(dir)
 
 	cfg := &domain.RuntimeConfig{}
-	cfg.Exec.AppsPath = dir
+	cfg.DataDir = dir
+	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
 
 	m := AppFilesModel{
-		AppLocation2Path: &appl2p{appFiles: dir, app: dir},
-		Config:           cfg}
+		Config:           cfg,
+		AppLocation2Path: &appl2p{appFiles: cfg.Exec.AppsPath, app: cfg.Exec.AppsPath}}
 
-	files := map[string][]byte{
-		"file1":             []byte("hello world"),
-		"bar/baz/file2.txt": []byte("oink oink oink"),
+	var files = fileList{
+		{"abc.txt", []byte("hello")},
+		{"deep/nested/file.txt", []byte("it's dark down here")},
 	}
 
-	locKey, err := m.Save(&files)
+	var buf bytes.Buffer
+	r := createPackage(files)
+	_, err = io.Copy(&buf, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc, err := m.SavePackage(&buf)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = ioutil.ReadFile(filepath.Join(m.AppLocation2Path.Files(locKey), "file1"))
+	err = m.ExtractPackage(loc)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
-	err = m.Delete(locKey)
-	if err != nil {
-		t.Fatal(err)
+	for _, f := range files {
+		contents, err := os.ReadFile(filepath.Join(m.AppLocation2Path.Files(loc), f.name))
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(f.contents, contents) {
+			t.Errorf("file contents are different: %s %s", f.contents, contents)
+		}
 	}
+}
 
-	_, err = os.Stat(filepath.Join(cfg.Exec.AppsPath, locKey))
-	if err == nil || !os.IsNotExist(err) {
-		t.Fatal("expected not exist error", err)
+func createPackage(files fileList) io.Reader {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, f := range files {
+		hdr := &tar.Header{
+			Name: f.name,
+			Mode: 0644,
+			Size: int64(len(f.contents))}
+		err := tw.WriteHeader(hdr)
+		if err != nil {
+			panic(err)
+		}
+		_, err = tw.Write(f.contents)
+		if err != nil {
+			panic(err)
+		}
 	}
+	tw.Close()
+
+	var outBuf bytes.Buffer
+	gzw := gzip.NewWriter(&outBuf)
+	// gzw.Name = name
+	// gzw.Comment = comment
+	// gzw.ModTime = modTime.Round(time.Second)
+
+	_, err := gzw.Write(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	gzw.Close()
+
+	return &outBuf
 }
 
 type appl2p struct {

@@ -1,6 +1,11 @@
 package main
 
-import "github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
+)
 
 // DevAppFilesModel embeds AppFilesModel to intercept
 // Read/Write Routes to avoid writing to disk
@@ -38,4 +43,21 @@ func (a *DevAppFilesModel) ReadMigrations(locationKey string) ([]byte, error) {
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {
 	panic("Delete should never be called!")
+}
+
+func extractPackage(packagePath, tempDir string) string {
+	appDir := filepath.Join(tempDir, "app-code")
+
+	f, err := os.Open(packagePath)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	err = appfilesmodel.ExtractPackageLow(f, appDir)
+	if err != nil {
+		panic(err)
+	}
+
+	return appDir
 }

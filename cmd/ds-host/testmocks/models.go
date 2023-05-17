@@ -1,6 +1,7 @@
 package testmocks
 
 import (
+	"io"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -48,7 +49,8 @@ type UserInvitationModel interface {
 
 // AppFilesModel represents the application's files saved to disk
 type AppFilesModel interface {
-	Save(*map[string][]byte) (string, error)
+	SavePackage(r io.Reader) (string, error)
+	ExtractPackage(locationKey string) error
 	ReadManifest(string) (*domain.AppVersionManifest, error)
 	WriteRoutes(locationKey string, routesData []byte) error
 	ReadRoutes(locationKey string) ([]byte, error)

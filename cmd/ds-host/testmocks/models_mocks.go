@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	domain "github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	nulltypes "github.com/teleclimber/DropServer/internal/nulltypes"
+	io "io"
 	reflect "reflect"
 	time "time"
 )
@@ -472,6 +473,20 @@ func (mr *MockAppFilesModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppFilesModel)(nil).Delete), arg0)
 }
 
+// ExtractPackage mocks base method
+func (m *MockAppFilesModel) ExtractPackage(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtractPackage", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExtractPackage indicates an expected call of ExtractPackage
+func (mr *MockAppFilesModelMockRecorder) ExtractPackage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractPackage", reflect.TypeOf((*MockAppFilesModel)(nil).ExtractPackage), arg0)
+}
+
 // ReadManifest mocks base method
 func (m *MockAppFilesModel) ReadManifest(arg0 string) (*domain.AppVersionManifest, error) {
 	m.ctrl.T.Helper()
@@ -502,19 +517,19 @@ func (mr *MockAppFilesModelMockRecorder) ReadRoutes(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadRoutes", reflect.TypeOf((*MockAppFilesModel)(nil).ReadRoutes), arg0)
 }
 
-// Save mocks base method
-func (m *MockAppFilesModel) Save(arg0 *map[string][]byte) (string, error) {
+// SavePackage mocks base method
+func (m *MockAppFilesModel) SavePackage(arg0 io.Reader) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0)
+	ret := m.ctrl.Call(m, "SavePackage", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Save indicates an expected call of Save
-func (mr *MockAppFilesModelMockRecorder) Save(arg0 interface{}) *gomock.Call {
+// SavePackage indicates an expected call of SavePackage
+func (mr *MockAppFilesModelMockRecorder) SavePackage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockAppFilesModel)(nil).Save), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePackage", reflect.TypeOf((*MockAppFilesModel)(nil).SavePackage), arg0)
 }
 
 // WriteRoutes mocks base method
