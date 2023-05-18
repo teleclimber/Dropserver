@@ -176,6 +176,12 @@ func TestValidateMigrationSteps(t *testing.T) {
 			schemas: nil,
 			isErr:   true,
 		}, {
+			desc: "down",
+			migrations: []domain.MigrationStep{
+				{Direction: "down", Schema: 1}},
+			schemas: nil,
+			isErr:   true,
+		}, {
 			desc: "up down",
 			migrations: []domain.MigrationStep{
 				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1}},

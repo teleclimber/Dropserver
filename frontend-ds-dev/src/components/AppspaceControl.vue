@@ -22,7 +22,7 @@
 					to
 				</span>
 				<select class="mx-1 text-lg font-mono" v-model="migrate_to_schema">
-					<option v-for="m in appData.possible_migrations" :value="m" :key="'migrate-to-schema-'+m">{{m}}</option>
+					<option v-for="m in possible_migrations" :value="m" :key="'migrate-to-schema-'+m">{{m}}</option>
 				</select>
 			</div>
 			<UiButton class="flex items-center" type="submit" :disabled="migrate_to_schema === appspaceStatus.appspace_schema" @click.stop.prevent="runMigrationClicked()">
@@ -85,7 +85,7 @@ export default defineComponent({
 			pauseAppspace(ui_paused.value);
 		}
 
-		const migrate_to_schema = ref(0);
+		const migrate_to_schema = ref(appData.schema);
 
 		function runMigrationClicked() {
 			runMigration(migrate_to_schema.value);
@@ -95,9 +95,31 @@ export default defineComponent({
 
 		const last_job = computed( () => migrationData.last_job );
 
+		const possible_migrations = computed( () => {
+			const cur_schema = appspaceStatus.appspace_schema;
+			const m = appData.migrations;
+			const ret :number[] = [];
+			let i = cur_schema;
+			// up:
+			while(true) {
+				++i;
+				if( m.find( s => s.direction === 'up' && s.schema === i) ) ret.push(i);
+				else break
+			}
+			i = cur_schema;
+			// down:
+			while(true) {
+				--i;
+				if( m.find( s => s.direction === 'down' && s.schema === i) ) ret.unshift(i);
+				else break
+			}
+			return ret;
+		});
+
 		return {
 			appspaceStatus, appData,
 			ui_paused, migrate_to_schema,
+			possible_migrations,
 			togglePause, runMigrationClicked,
 			importAndMigrate,
 			last_job,

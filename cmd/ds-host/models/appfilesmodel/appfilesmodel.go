@@ -197,24 +197,36 @@ func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return routesData, nil
 }
 
-func (a *AppFilesModel) WriteMigrations(locationKey string, routesData []byte) error {
-	migrationsFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "migrations.json")
-	err := ioutil.WriteFile(migrationsFile, routesData, 0666) // TODO: correct permissions?
+func (a *AppFilesModel) WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error {
+	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
-		a.getLogger(fmt.Sprintf("WriteMigrations(), location key: %v", locationKey)).Error(err)
+		a.getLogger("WriteEvaluatedManifest() json.Marshal").Error(err)
+		return err
+	}
+	migrationsFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "manifest.json")
+	err = ioutil.WriteFile(migrationsFile, manifestBytes, 0644)
+	if err != nil {
+		a.getLogger(fmt.Sprintf("WriteEvaluatedManifest(), location key: %v", locationKey)).Error(err)
 		return err
 	}
 	return nil
 }
 
-func (a *AppFilesModel) ReadMigrations(locationKey string) ([]byte, error) {
-	migrationsFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "migrations.json")
-	migrationsData, err := ioutil.ReadFile(migrationsFile)
+func (a *AppFilesModel) ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error) {
+	var manifest domain.AppVersionManifest
+	manifestFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "manifest.json")
+	manifestBytes, err := ioutil.ReadFile(manifestFile)
 	if err != nil {
-		a.getLogger(fmt.Sprintf("ReadMigrations(), location key: %v", locationKey)).Error(err)
-		return nil, err
+		a.getLogger(fmt.Sprintf("ReadEvaluatedManifest(), ReadFile, location key: %v", locationKey)).Error(err)
+		return manifest, err
 	}
-	return migrationsData, nil
+
+	err = json.Unmarshal(manifestBytes, &manifest)
+	if err != nil {
+		a.getLogger(fmt.Sprintf("ReadEvaluatedManifest(), json.Unmarshal, location key: %v", locationKey)).Error(err)
+		return manifest, err
+	}
+	return manifest, err
 }
 
 // should we have the equivalent for reading and writing migrations?

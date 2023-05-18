@@ -88,12 +88,6 @@
 						</div>
 					</div>
 				</div>
-				<div>Permissions:</div>
-				<label v-for="permission in appData.user_permissions" :key="permission.key">
-					<input type="checkbox" v-model="permissions[permission.key]" />
-					{{permission.name}}
-				</label>
-
 				<div class="flex justify-between mt-4">
 					<UiButton @click="closeUserModal" class="">Cancel</UiButton>
 					<UiButton type="submit" @click="saveEditUser" class="">Save</UiButton>

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 )
 
@@ -12,8 +13,8 @@ import (
 type DevAppFilesModel struct {
 	appfilesmodel.AppFilesModel `checkinject:"required"`
 
-	routesData     []byte
-	migrationsData []byte
+	routesData []byte
+	manifest   domain.AppVersionManifest
 }
 
 func (a *DevAppFilesModel) Save(files *map[string][]byte) (string, error) {
@@ -31,14 +32,12 @@ func (a *DevAppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return a.routesData, nil
 }
 
-func (a *DevAppFilesModel) WriteMigrations(locationKey string, migrationsData []byte) error {
-	a.migrationsData = migrationsData
+func (a *DevAppFilesModel) WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error {
+	a.manifest = manifest
 	return nil
 }
-
-// ReadMigrations returns the in-memory data
-func (a *DevAppFilesModel) ReadMigrations(locationKey string) ([]byte, error) {
-	return a.migrationsData, nil
+func (a *DevAppFilesModel) ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error) {
+	return a.manifest, nil
 }
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {

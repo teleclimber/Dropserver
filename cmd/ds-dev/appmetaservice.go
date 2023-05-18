@@ -11,7 +11,7 @@ import (
 type AppMetaService struct {
 	DevAppModel   *DevAppModel `checkinject:"required"`
 	AppFilesModel interface {
-		ReadMigrations(locationKey string) ([]byte, error)
+		ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error)
 	} `checkinject:"required"`
 	AppGetter interface {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
@@ -35,10 +35,10 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 	s.AppVersionEvents.Subscribe(appVersionEvent)
 	go func() {
 		for range appVersionEvent {
-			go s.sendAppData(t)
+			go s.sendManifest(t)
 		}
 	}()
-	s.sendAppData(t)
+	s.sendManifest(t)
 
 	ev, appProcessCh := s.DevAppProcessEvents.Subscribe()
 	go func() {
@@ -66,30 +66,18 @@ type AppMetaResp struct {
 	Schemas       []int                  `json:"schemas"`
 }
 
-func (s *AppMetaService) sendAppData(twine *twine.Twine) {
-	resp := AppMetaResp{
-		AppName:       s.DevAppModel.App.Name,
-		AppVersion:    s.DevAppModel.Ver.Version,
-		APIVersion:    s.DevAppModel.Ver.APIVersion,
-		SchemaVersion: s.DevAppModel.Ver.Schema}
-	migrationsBytes, err := s.AppFilesModel.ReadMigrations("")
-	if err == nil {
-		var migrations []domain.MigrationStep
-		err = json.Unmarshal(migrationsBytes, &migrations)
-		if err == nil {
-			resp.Migrations = migrations
-			schemas, _ := s.AppGetter.ValidateMigrationSteps(migrations)
-			resp.Schemas = schemas
-		}
-	}
-
-	bytes, err := json.Marshal(resp)
+func (s *AppMetaService) sendManifest(twine *twine.Twine) {
+	manifest, err := s.AppFilesModel.ReadEvaluatedManifest("")
 	if err != nil {
-		fmt.Println("sendAppData json Marshal Error: " + err.Error())
+		fmt.Println("sendManifest ReadEvaluatedManifest Error: ", err)
+	}
+	bytes, err := json.Marshal(manifest) // kind of a bummer we're parsing the json manifest and converting right back to json
+	if err != nil {
+		fmt.Println("sendManifest json Marshal Error: " + err.Error())
 	}
 	_, err = twine.SendBlock(appDataService, appDataCmd, bytes)
 	if err != nil {
-		fmt.Println("sendAppData SendBlock Error: " + err.Error())
+		fmt.Println("sendManifest SendBlock Error: " + err.Error())
 	}
 }
 

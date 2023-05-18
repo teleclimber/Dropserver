@@ -87,9 +87,11 @@ export default defineComponent({
 		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
 		
 		const migrations_str = computed( () => {
-			const m = appData.possible_migrations;
-			if( m.length === 0 ) return "n/a";
-			return `${m[0]} to ${m[m.length -1]}`;	// whatever. Migrations should have more metadata (like description) and should be listed individually
+			// Maybe sort the array of migrations, and try to craft a string that makes sense?
+			// would like to warn on missing migrations.
+			const m = appData.migrations;
+			if( m.length === 0 ) return "none";
+			return m.map( s => (s.direction === 'up' ? '🔺' : '🔻') + s.schema ).join(', ');
 		});
 
 		const p_event = computed( () => appData.last_processing_event );

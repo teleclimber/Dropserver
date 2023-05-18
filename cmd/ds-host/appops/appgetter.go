@@ -40,8 +40,8 @@ type AppGetter struct {
 		SavePackage(io.Reader) (string, error)
 		ExtractPackage(locationKey string) error
 		ReadManifest(string) (domain.AppVersionManifest, error)
+		WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error
 		WriteRoutes(string, []byte) error
-		WriteMigrations(string, []byte) error
 		Delete(string) error
 	} `checkinject:"required"`
 	AppModel interface {
@@ -200,6 +200,14 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		return
 	}
 
+	err = g.AppFilesModel.WriteEvaluatedManifest(keyData.locationKey, meta.VersionManifest)
+	if err != nil {
+		meta.Errors = append(meta.Errors, fmt.Sprintf("Error while saving mainfest file: %v", err))
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return
+	}
+
 	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
 
 	g.setResults(keyData.key, meta)
@@ -249,20 +257,9 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting migrations"})
 
-	migrations, err := g.getMigrations(keyData, meta, s)
+	err = g.getMigrations(keyData, meta, s)
 	if err != nil {
 		return err
-	}
-	if migrations != nil { // if nil, there will be an error in meta.Errors, so app version will not be valid.
-		migrationsJson, err := json.Marshal(migrations)
-		if err != nil {
-			g.getLogger("getDataFromSandbox() json.Marshal").Error(err)
-			return err
-		}
-		err = g.AppFilesModel.WriteMigrations(keyData.locationKey, migrationsJson)
-		if err != nil {
-			return err
-		}
 	}
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting routes"})
@@ -293,24 +290,24 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 	return nil
 }
 
-func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s domain.SandboxI) ([]domain.MigrationStep, error) {
+func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s domain.SandboxI) error {
 	sent, err := s.SendMessage(domain.SandboxMigrateService, 12, nil)
 	if err != nil {
 		g.getLogger("getMigrations, s.SendMessage").Error(err)
-		return nil, err
+		return err
 	}
 
 	reply, err := sent.WaitReply()
 	if err != nil {
 		// This one probaly means the sandbox crashed or some such
 		g.getLogger("getMigrations, sent.WaitReply").Error(err)
-		return nil, err
+		return err
 	}
 	err = reply.Error()
 	if err != nil {
 		// that's an error while running the code
 		meta.Errors = append(meta.Errors, err.Error())
-		return nil, nil
+		return nil
 	}
 	reply.SendOK()
 
@@ -322,7 +319,7 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 	if err != nil {
 		g.getLogger("getMigrations, json.Unmarshal").Error(err)
 		meta.Errors = append(meta.Errors, fmt.Sprintf("failed to parse json migrations data: %v", err))
-		return nil, nil
+		return nil
 	}
 
 	schemas, err := g.ValidateMigrationSteps(migrations)
@@ -332,8 +329,9 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 	if len(schemas) > 0 {
 		meta.VersionManifest.Schema = schemas[len(schemas)-1]
 	}
+	meta.VersionManifest.Migrations = migrations
 
-	return migrations, nil
+	return nil
 }
 
 func (g *AppGetter) ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error) {

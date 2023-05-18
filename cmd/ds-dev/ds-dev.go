@@ -118,7 +118,7 @@ func main() {
 	devAppFilesModel := &DevAppFilesModel{
 		*appFilesModel,
 		nil,
-		nil,
+		domain.AppVersionManifest{},
 	}
 
 	devAppModel := &DevAppModel{}

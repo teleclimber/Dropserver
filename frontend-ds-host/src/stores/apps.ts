@@ -129,6 +129,10 @@ export type AppGetMeta = {
 	errors: string[],	// maybe array of strings?
 	version_manifest?: AppManifest
 }
+type MigrationStep = {
+	direction: "up"|"down"
+	schema: number
+}
 type AppManifest = {
 	name :string,
 	short_description: string,
@@ -136,7 +140,7 @@ type AppManifest = {
 	release_date: Date|undefined,
 	main: string,	// do we care here?
 	schema: number,
-	migrate_from: number,
+	migrations: MigrationStep[],
 	lib_version: string,	//semver
 	signature: string,	//later
 	code_state: string,	 // ? later

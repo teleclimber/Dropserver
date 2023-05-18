@@ -407,8 +407,8 @@ type AppVersionManifest struct {
 	// Schema is the verion of the appspace data schema.
 	// This is determined automatically by the system.
 	Schema int `json:"schema"`
-	// MigrateFrom is the earliest Schema that can be migrated to this version's Schema using this version of the app
-	MigratateFrom int `json:"migrate-from"`
+	// Migrations is list of migrations provided by this app version
+	Migrations []MigrationStep `json:"migrations"`
 	// LibVersion is the version of the lib support.
 	// Determined automatically at packaging time (?)
 	// Required.
