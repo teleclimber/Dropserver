@@ -453,6 +453,7 @@ type AppGetMeta struct {
 	PrevVersion     Version            `json:"prev_version"`
 	NextVersion     Version            `json:"next_version"`
 	Errors          []string           `json:"errors"`
+	Warnings        map[string]string  `json:"warnings"`
 	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
 }
 
@@ -460,7 +461,7 @@ type AppGetMeta struct {
 type AppGetEvent struct {
 	Key   AppGetKey `json:"key"`
 	Done  bool      `json:"done"`
-	Error bool      `json:"error"`
+	Error bool      `json:"error"` // TODO maybe add Warning flag so that event recipeints can act accordingly? Or remove Error because every caller should just get the full dump of the process?
 	Step  string    `json:"step"`
 }
 

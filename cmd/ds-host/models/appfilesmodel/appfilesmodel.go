@@ -229,6 +229,35 @@ func (a *AppFilesModel) ReadEvaluatedManifest(locationKey string) (domain.AppVer
 	return manifest, err
 }
 
+func (a *AppFilesModel) WriteAppIconLink(locationKey string, iconPath string) error {
+	// first remove it
+	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), "app-icon")
+	os.Remove(linkPath)
+	if iconPath == "" {
+		return nil
+	}
+	iconPath = filepath.Join(a.AppLocation2Path.Files(locationKey), iconPath)
+	err := os.Link(iconPath, linkPath)
+	if err != nil {
+		a.getLogger("WriteAppIconLink, os.Link").AddNote(iconPath).AddNote(linkPath).Error(err)
+		return err
+	}
+	return nil
+}
+
+func (a *AppFilesModel) GetAppIconPath(locationKey string) string {
+	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), "app-icon")
+	_, err := os.Stat(linkPath)
+	if err == os.ErrNotExist {
+		return ""
+	}
+	if err != nil {
+		a.getLogger("GetAppIconPath, os.Stat").AddNote(linkPath).Error(err)
+		return ""
+	}
+	return linkPath
+}
+
 // should we have the equivalent for reading and writing migrations?
 
 // Delete removes the files from the system

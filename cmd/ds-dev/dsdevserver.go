@@ -33,6 +33,9 @@ type DropserverDevServer struct {
 	AppGetter   interface {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
+	AppFilesModel interface {
+		GetAppIconPath(string) string
+	} `checkinject:"required"`
 	AppspaceFiles interface {
 		Reset()
 	} `checkinject:"required"`
@@ -74,7 +77,7 @@ type DropserverDevServer struct {
 	MigrationJobService domain.TwineService2 `checkinject:"required"`
 	AppspaceLogService  domain.TwineService2 `checkinject:"required"`
 
-	appPath      string
+	appPath      string // this is app original location, not where the app files necessarily are.
 	appspacePath string
 }
 
@@ -89,6 +92,14 @@ func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Req
 
 	json.NewEncoder(res).Encode(baseData)
 
+}
+func (s *DropserverDevServer) GetAppIcon(res http.ResponseWriter, req *http.Request) {
+	p := s.AppFilesModel.GetAppIconPath("")
+	if p == "" {
+		res.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.ServeFile(res, req, p)
 }
 
 func (s *DropserverDevServer) StartLivedata(res http.ResponseWriter, req *http.Request) {

@@ -119,6 +119,7 @@ func main() {
 		*appFilesModel,
 		nil,
 		domain.AppVersionManifest{},
+		"",
 	}
 
 	devAppModel := &DevAppModel{}
@@ -140,10 +141,11 @@ func main() {
 	appLogger.Init()
 
 	appGetter := &appops.AppGetter{
-		AppFilesModel: devAppFilesModel,
-		AppModel:      devAppModel,
-		V0AppRoutes:   v0AppRoutes,
-		AppLogger:     appLogger,
+		AppFilesModel:    devAppFilesModel,
+		AppLocation2Path: appLocation2Path,
+		AppModel:         devAppModel,
+		V0AppRoutes:      v0AppRoutes,
+		AppLogger:        appLogger,
 		//SandboxManager: ,	// added below
 	}
 	appGetter.Init()
@@ -367,6 +369,7 @@ func main() {
 	dsDevHandler := &DropserverDevServer{
 		Config:                 runtimeConfig,
 		DevAppModel:            devAppModel,
+		AppFilesModel:          devAppFilesModel,
 		AppGetter:              appGetter,
 		AppspaceFiles:          appspaceFiles,
 		PauseAppspace:          pauseAppspace,

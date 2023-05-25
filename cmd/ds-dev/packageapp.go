@@ -38,11 +38,15 @@ func (p *AppPackager) PackageApp(appDir, outDir string) {
 		os.Exit(1)
 	}
 
+	if len(results.Warnings) != 0 {
+		for k, w := range results.Warnings {
+			fmt.Printf("Warning: %s: %s\n", k, w)
+		}
+	}
+
 	// Still to do:
 	// - determine entrypoint(?)
-	// - schema needs to move to Manifest
-	// - "migrate from" (determine in app getter?)
-	// - lib-version (deno info -- fun!)
+	// - lib/API version
 	// - code state? No. Later
 	// - Find License file, and get SPDX value?
 	// - release date

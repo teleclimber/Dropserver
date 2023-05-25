@@ -174,7 +174,7 @@ func (m *Manager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	s.WaitFor(domain.SandboxReady)
 
 	if s.Status() != domain.SandboxReady {
-		return nil, errors.New("failed to start sandbox")
+		return nil, errors.New("failed to start sandbox") // wonder if we could put the actual error on sandbox, and return it here.
 	}
 
 	taskCh := s.NewTask()
@@ -202,7 +202,7 @@ func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.A
 	s.WaitFor(domain.SandboxReady) // what if it never gets there?
 
 	if s.Status() != domain.SandboxReady {
-		return nil, errors.New("failed to start sandbox")
+		return nil, errors.New("failed to start sandbox") // return actual error?
 	}
 
 	taskCh := s.NewTask()

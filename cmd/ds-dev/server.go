@@ -40,6 +40,7 @@ func (s *Server) Start() { //return a server type
 	r := chi.NewRouter()
 	r.Route("/dropserver-dev", func(r chi.Router) {
 		r.Get("/base-data", s.DropserverDevHandler.GetBaseData)
+		r.Get("/app-icon", s.DropserverDevHandler.GetAppIcon)
 		r.Get("/livedata", s.DropserverDevHandler.StartLivedata)
 
 		r.Get("/avatar/baked-in", s.getAvatarList)

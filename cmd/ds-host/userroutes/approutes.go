@@ -62,6 +62,7 @@ type ApplicationRoutes struct {
 	} `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
+		GetAppIconPath(string) string
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (*domain.App, error)
@@ -95,6 +96,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Delete("/", a.delete)
 		r.Post("/version", a.postNewVersion)
 		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
+		r.With(a.appVersionCtx).Get("/version/{app-version}/app-icon", a.getAppIcon)
 		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
 	})
 
@@ -373,6 +375,15 @@ func (a *ApplicationRoutes) cancelInProcess(w http.ResponseWriter, r *http.Reque
 	a.AppGetter.Delete(appGetKey)
 }
 
+func (a *ApplicationRoutes) getAppIcon(w http.ResponseWriter, r *http.Request) {
+	appVersion, _ := domain.CtxAppVersionData(r.Context())
+	p := a.AppFilesModel.GetAppIconPath(appVersion.LocationKey)
+	if p == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, p)
+}
 func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(r.Context())
 	respData := VersionMeta{

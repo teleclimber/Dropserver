@@ -97,13 +97,15 @@ func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be 
 				w.DevAppProcessEvents.Send(AppProcessEvent{
 					Processing: false,
 					Step:       e.Step,
-					Errors:     results.Errors})
+					Errors:     results.Errors,
+					Warnings:   results.Warnings})
 			}
 		} else {
 			w.DevAppProcessEvents.Send(AppProcessEvent{
 				Processing: true,
 				Step:       e.Step,
-				Errors:     []string{}})
+				Errors:     []string{},
+				Warnings:   map[string]string{}})
 		}
 		if !reloading && e.Done {
 			reloading = true

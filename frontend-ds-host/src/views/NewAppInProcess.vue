@@ -8,6 +8,7 @@ import { LiveLog } from '../models/log';
 import ViewWrap from '../components/ViewWrap.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
+import MessageWarn from '@/components/ui/MessageWarn.vue';
 import MessageProcessing from '../components/ui/MessageProcessing.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 
@@ -138,6 +139,10 @@ onUnmounted( () => {
 			<MessageSad v-if="meta && meta.errors.length" class="mx-4 sm:mx-6 my-5 rounded" head="Error">
 				<p v-for="err in meta.errors" :key="'meta-errors-'+err">{{err}}</p>
 			</MessageSad>
+			<MessageWarn v-else-if="meta && Object.keys(meta.warnings).length" class="mx-4 sm:mx-6 my-5 rounded" head="Warning">
+				<p>App can be installed but some issues were found.
+					Please review the warnings below before continuing.</p>
+			</MessageWarn>
 
 			<div class="my-5" v-if="manifest">
 				<div class="px-4 sm:px-6">
@@ -153,7 +158,16 @@ onUnmounted( () => {
 				<!-- However some of this will be very different for new version of existing app! -->
 				<DataDef field="App Name:">{{manifest.name}}</DataDef>
 				<DataDef field="Version:">{{manifest.version}}</DataDef>
-				<DataDef field="Data Schema:">{{manifest.schema}}</DataDef><!-- this should come from manifest-->
+				<DataDef field="Data Schema:">{{manifest.schema}}</DataDef>
+				<DataDef field="Icon:">
+					{{ manifest.icon }}
+					<p v-if="meta?.warnings.icon" class="text-orange-500">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{ meta?.warnings.icon }}
+					</p>
+				</DataDef>
 			</div>
 
 			<div v-if="versions" class=" md:mx-6 my-6 overflow-hidden ">

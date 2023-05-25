@@ -8,6 +8,12 @@
 					</svg>
 					Error Processing App
 				</span>
+				<span v-else-if="!p_event.processing && Object.keys(p_event.warnings).length" class="flex items-center text-orange-500">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-1">
+							<path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd" />
+						</svg>
+					App Processed with Warnings
+				</span>
 				<span v-else-if="!p_event.processing" class="flex items-center text-green-700">
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
 						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -56,6 +62,15 @@
 				<p>Version: {{appData.version}}</p>
 				<p>Schema: {{appData.schema}}</p>
 				<p>Migrations: {{migrations_str}}</p>
+				<p>
+					App Icon: {{ appData.manifest?.icon|| "(none)" }}
+					<span v-if="p_event.warnings.icon" class="text-orange-400">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+					</span>
+					<img v-if="appData.manifest?.icon && !p_event.warnings.icon" :src="app_icon" class="border border-gray-300"/>
+				</p>
 			</div>
 			<AppRoutes></AppRoutes>
 			<!-- should also have registered migrations -->
@@ -95,12 +110,14 @@ export default defineComponent({
 		});
 
 		const p_event = computed( () => appData.last_processing_event );
+		const app_icon = ref("app-icon?"+Date.now());
 
 		onMounted( () => {
 			if( p_event.value.errors.length ) show_process_log.value = true;
 		});
 		watch( p_event, () => {
 			if( p_event.value.errors.length ) show_process_log.value = true;
+			app_icon.value = "app-icon?"+Date.now();
 		});
 
 		return {
@@ -109,7 +126,8 @@ export default defineComponent({
 			appData,
 			migrations_str,
 			appLog,
-			p_event
+			p_event,
+			app_icon
 		}
 	},
 });

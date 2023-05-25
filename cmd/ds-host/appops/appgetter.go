@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,7 +46,11 @@ type AppGetter struct {
 		ReadManifest(string) (domain.AppVersionManifest, error)
 		WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error
 		WriteRoutes(string, []byte) error
+		WriteAppIconLink(string, string) error
 		Delete(string) error
+	} `checkinject:"required"`
+	AppLocation2Path interface {
+		Files(string) string
 	} `checkinject:"required"`
 	AppModel interface {
 		Create(domain.UserID, string) (*domain.App, error)
@@ -154,57 +162,37 @@ func (g *AppGetter) GetLocationKey(key domain.AppGetKey) (string, bool) {
 }
 
 func (g *AppGetter) processApp(keyData appGetData) {
-	meta := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0)}
+	meta := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0), Warnings: make(map[string]string)}
 
 	err := g.readFilesManifest(keyData, &meta)
-	if err != nil {
-		// TODO clarify the error. "see log" is invalid for ds-dev CLI usage.
-		meta.Errors = append(meta.Errors, "internal error while reading file metadata, see log")
-		g.setResults(keyData.key, meta)
-		g.getLogger("processApp").Error(err)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
-		return
-	}
-	if len(meta.Errors) != 0 {
-		// errors in processing app meta data, probably app fault.
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+	abort := g.checkStep(keyData, meta, err, "error reading file manifest")
+	if abort {
 		return
 	}
 
 	err = g.getDataFromSandbox(keyData, &meta)
-	if err != nil {
-		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
-		return
-	}
-	if len(meta.Errors) != 0 {
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+	abort = g.checkStep(keyData, meta, err, "error getting data from sandbox")
+	if abort {
 		return
 	}
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating data"})
 
 	err = g.validateAppVersion(keyData, &meta)
-	if err != nil {
-		meta.Errors = append(meta.Errors, fmt.Sprintf("error while getting routes: %v", err))
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+	abort = g.checkStep(keyData, meta, err, "error validating app version")
+	if abort {
 		return
 	}
-	if len(meta.Errors) != 0 {
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+
+	err = g.validateAppIcon(keyData, &meta)
+	abort = g.checkStep(keyData, meta, err, "error validating app icon")
+	if abort {
 		return
 	}
 
 	err = g.AppFilesModel.WriteEvaluatedManifest(keyData.locationKey, meta.VersionManifest)
-	if err != nil {
-		meta.Errors = append(meta.Errors, fmt.Sprintf("Error while saving mainfest file: %v", err))
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+	abort = g.checkStep(keyData, meta, err, "error writing manifest file")
+	if abort {
 		return
 	}
 
@@ -212,6 +200,27 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	g.setResults(keyData.key, meta)
 	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
+}
+func (g *AppGetter) checkStep(keyData appGetData, meta domain.AppGetMeta, err error, errStr string) bool {
+	if err != nil {
+		if errStr != "" {
+			err = fmt.Errorf("%s: %w", errStr, err)
+		}
+		meta.Errors = append(meta.Errors, "internal error while processing app")
+		// Yes, it's internal error. Log or console output makes sense.
+		// Still need to let user know why it all went wrong.
+		g.setResults(keyData.key, meta)
+		g.getLogger("processApp").Error(err)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return true
+	}
+	if len(meta.Errors) != 0 {
+		// errors in processing app meta data, probably app fault.
+		g.setResults(keyData.key, meta)
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		return true
+	}
+	return false
 }
 
 func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMeta) error {
@@ -235,6 +244,7 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 
 	s, err := g.SandboxManager.ForApp(&domain.AppVersion{LocationKey: keyData.locationKey})
 	if err != nil {
+		// This could very well be an app error!
 		return err
 	}
 	defer s.Graceful()
@@ -264,12 +274,12 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting routes"})
 
-	routesData, err := g.getRoutes(keyData, s)
-	if err != nil {
+	routesData, err := g.getRoutes(keyData, s) // maybe pass meta so getRoutes can set app Errors?
+	if err != nil {                            // assume any error returned is internal and fatal.
 		return err
 	}
 
-	err = g.V0AppRoutes.ValidateRoutes(routesData)
+	err = g.V0AppRoutes.ValidateRoutes(routesData) // pass meta, assume err is internal / fatal.
 	if err != nil {
 		return err
 	}
@@ -539,6 +549,59 @@ func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
 	return 0, false
 }
 
+func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta) error {
+	// start by removing any app icon link in case this is a reprocess and it was not correctly removed
+	err := g.AppFilesModel.WriteAppIconLink(keyData.locationKey, "")
+	if err != nil {
+		return err
+	}
+
+	if meta.VersionManifest.Icon == "" {
+		return nil
+	}
+	// steps to validate:
+	// - first check that path contains no ..
+	// - Stat the file
+	// - if no exist or is dir, warn/err
+	// - get mime type, look for image
+	// - verify filename suffix is legit .png, jpb, jpeg, ....
+	// - check filesize? Warn if bigger than...?
+	p := filepath.Clean(meta.VersionManifest.Icon)
+	if strings.Contains(p, "..") {
+		meta.Errors = append(meta.Errors, "App icon path is invalid")
+		return nil
+	}
+	p = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), p)
+	mimeType, err := getFileMimeType(p)
+	if os.IsNotExist(err) {
+		meta.Warnings["icon"] = "App icon not found at path " + meta.VersionManifest.Icon
+		fmt.Println("added icon warning")
+		return nil
+	}
+	if err != nil {
+		meta.Warnings["icon"] = "Error processing app icon:  " + err.Error()
+		return nil
+	}
+	mimeTypes := []string{"image/jpeg", "image/png", "image/svg+xml", "image/webp"}
+	typeOk := false
+	for _, t := range mimeTypes {
+		if t == mimeType {
+			typeOk = true
+		}
+	}
+	if !typeOk {
+		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Use jpeg, png, svg or webp."
+		return nil
+	}
+
+	err = g.AppFilesModel.WriteAppIconLink(keyData.locationKey, meta.VersionManifest.Icon)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Commit creates either a new app and version, or just a new version
 func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, error) {
 	keyData, ok := g.get(key) // g.setCommitting
@@ -762,4 +825,27 @@ func randomKey() domain.AppGetKey {
 		b[i] = chars36[seededRand2.Intn(len(chars36))]
 	}
 	return domain.AppGetKey(string(b))
+}
+
+func getFileMimeType(p string) (string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fInfo, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if fInfo.IsDir() {
+		return "", errors.New("path is a directory")
+	}
+	byteSlice := make([]byte, 512)
+	_, err = f.Read(byteSlice)
+	if err != nil {
+		return "", fmt.Errorf("error reading bytes from file: %w", err)
+	}
+	contentType := http.DetectContentType(byteSlice)
+
+	return contentType, nil
 }

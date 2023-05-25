@@ -245,6 +245,59 @@ func createPackage(files fileList) io.Reader {
 	return &outBuf
 }
 
+func TestWriteAppIconLink(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+	cfg := &domain.RuntimeConfig{}
+	cfg.DataDir = dir
+	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
+
+	m := AppFilesModel{
+		Config:           cfg,
+		AppLocation2Path: &appl2p{appFiles: cfg.Exec.AppsPath, app: cfg.Exec.AppsPath}}
+
+	loc, err := m.createLocation()
+	if err != nil {
+		t.Error(err)
+	}
+	err = m.WriteAppIconLink(loc, "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = m.WriteAppIconLink(loc, "nonsense")
+	if err == nil {
+		t.Error("should get an error when attempting to link to a non-existing file")
+	}
+
+	err = os.MkdirAll(m.AppLocation2Path.Files(loc), 0766)
+	if err != nil {
+		t.Error(err)
+	}
+	icon := "some-icon.txt"
+	err = os.WriteFile(filepath.Join(m.AppLocation2Path.Files(loc), icon), []byte("hello"), 0644)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = m.WriteAppIconLink(loc, icon)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// for now read it directly. replace when we have reader / opener functions.
+	b, err := os.ReadFile(filepath.Join(m.AppLocation2Path.Meta(loc), "app-icon"))
+	if err != nil {
+		t.Error(err)
+	}
+	if !bytes.Equal(b, []byte("hello")) {
+		t.Error("got wrong conetent for app icon")
+	}
+}
+
 type appl2p struct {
 	appFiles string
 	app      string

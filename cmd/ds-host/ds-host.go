@@ -327,11 +327,12 @@ func main() {
 	}
 
 	appGetter := &appops.AppGetter{
-		AppFilesModel:  appFilesModel,
-		AppModel:       appModel,
-		AppLogger:      appLogger,
-		SandboxManager: sandboxManager,
-		V0AppRoutes:    v0AppRoutes,
+		AppFilesModel:    appFilesModel,
+		AppLocation2Path: appLocation2Path,
+		AppModel:         appModel,
+		AppLogger:        appLogger,
+		SandboxManager:   sandboxManager,
+		V0AppRoutes:      v0AppRoutes,
 	}
 	appGetter.Init()
 

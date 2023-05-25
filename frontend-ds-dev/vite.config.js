@@ -15,6 +15,10 @@ export default defineConfig({
 				target: 'http://localhost:3003/',
 				changeOrigin: true
 			},
+			'/dropserver-dev/app-icon': {
+				target: 'http://localhost:3003/',
+				changeOrigin: true
+			},
 			'/dropserver-dev/livedata': {
 				target: 'http://localhost:3003/',
 				ws: true,

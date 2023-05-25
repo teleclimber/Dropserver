@@ -15,9 +15,10 @@ type SandboxStatus struct {
 }
 
 type AppProcessEvent struct {
-	Processing bool     `json:"processing"`
-	Step       string   `json:"step"`
-	Errors     []string `json:"errors"`
+	Processing bool              `json:"processing"`
+	Step       string            `json:"step"`
+	Errors     []string          `json:"errors"`
+	Warnings   map[string]string `json:"warnings"`
 }
 
 // DevAppspaceUser represents a user and is intended to be independent of DS API version

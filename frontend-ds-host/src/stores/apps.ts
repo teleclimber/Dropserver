@@ -127,6 +127,7 @@ export type AppGetMeta = {
 	prev_version: string,
 	next_version: string,
 	errors: string[],	// maybe array of strings?
+	warnings: Record<string, string>,
 	version_manifest?: AppManifest
 }
 type MigrationStep = {

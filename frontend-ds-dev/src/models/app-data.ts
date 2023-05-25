@@ -3,12 +3,6 @@ import {reactive} from 'vue';
 import twineClient from './twine-client';
 import {ReceivedMessageI} from 'twine-web';
 
-type AppspaceUserPermission = {
-	key:         string,
-	name:        string,
-	description: string,
-}
-
 type MigrationStep = {
 	direction: "up"|"down"
 	schema: number
@@ -44,6 +38,7 @@ type AppProcessEvent = {
 	processing: boolean,
 	step: string
 	errors: string[],
+	warnings: Record<string,string>
 }
 
 class AppData {
@@ -51,7 +46,8 @@ class AppData {
 	last_processing_event :AppProcessEvent = {
 		processing: true,
 		step: 'waiting...',
-		errors: []
+		errors: [],
+		warnings: {}
 	};
 
 	name = "";
@@ -59,6 +55,8 @@ class AppData {
 	schema = 0;
 	migrations: MigrationStep[] = [];
     //schemas: number[] = [];
+
+	manifest :AppManifest|undefined;
 
 	_start() {
 		twineClient.registerService(13, this);
@@ -78,8 +76,8 @@ class AppData {
 	}
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
-			const new_app_data = <AppManifest>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-			Object.assign(this, new_app_data);
+			this.manifest = <AppManifest>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+			Object.assign(this, this.manifest);
 			//if( !this.schemas ) this.schemas = [];
 		}
 		catch(e) {
