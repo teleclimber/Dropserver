@@ -422,6 +422,8 @@ type AppVersionManifest struct {
 	// Icon is a package-relative path to an icon file to display within the installer instance UI.
 	// Optional.
 	Icon string `json:"icon"`
+	//AccentColor is a CSS color used to highlight the app in the UI
+	AccentColor string `json:"accent-color"`
 
 	// Authors
 	Authors      []ManifestAuthor `json:"authors"`       // not actually a string. need a subtype for that? Or more thought?

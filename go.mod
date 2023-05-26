@@ -21,6 +21,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.2 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/mazznoer/csscolorparser v0.1.3 // indirect
 	github.com/mholt/acmez v1.1.0 // indirect
 	github.com/miekg/dns v1.1.51 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646

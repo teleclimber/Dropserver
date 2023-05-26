@@ -20,7 +20,8 @@ type AppManifest = {
 	signature: string,	//later
 	code_state: string,	 // ? later
 	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
-	
+	accent_color: string,
+
 	authors: string[],	// later, 
 	description: string,	// actually a reference to a long description. Later.
 	release_notes: string,	// ref to a file or something...
@@ -32,6 +33,19 @@ type AppManifest = {
 	funding: string,	// URL for now, but later maybe array of objects? Or...?
 
 	size: number	// bytes of what? compressed package? 
+}
+
+function rawToAppManifest(raw:any) :AppManifest {
+	const ret = Object.assign({}, raw);
+	Object.keys(ret).filter( k => k.includes("-") ).forEach( k => {
+		const new_k = k.replaceAll("-", "_");
+		ret[new_k] = ret[k];
+		delete ret[k];
+	});
+	if( ret.release_date ) {
+		// handle release date. Set it to Date.
+	}
+	return ret;
 }
 
 type AppProcessEvent = {
@@ -76,7 +90,7 @@ class AppData {
 	}
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
-			this.manifest = <AppManifest>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+			this.manifest = rawToAppManifest(JSON.parse(new TextDecoder('utf-8').decode(m.payload)));
 			Object.assign(this, this.manifest);
 			//if( !this.schemas ) this.schemas = [];
 		}

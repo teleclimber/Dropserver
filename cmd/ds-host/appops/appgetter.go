@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/mazznoer/csscolorparser"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -186,6 +187,11 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	err = g.validateAppIcon(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error validating app icon")
+	if abort {
+		return
+	}
+	err = g.validateAccentColor(keyData, &meta)
+	abort = g.checkStep(keyData, meta, err, "error validating accent color")
 	if abort {
 		return
 	}
@@ -590,7 +596,7 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 		}
 	}
 	if !typeOk {
-		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Use jpeg, png, svg or webp."
+		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Jpeg, png, svg and webp are supported."
 		return nil
 	}
 
@@ -599,6 +605,20 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 		return err
 	}
 
+	return nil
+}
+
+func (g *AppGetter) validateAccentColor(keyData appGetData, meta *domain.AppGetMeta) error {
+	if meta.VersionManifest.AccentColor == "" {
+		return nil
+	}
+	c, err := csscolorparser.Parse(meta.VersionManifest.AccentColor)
+	if err != nil {
+		meta.Warnings["accent-color"] = fmt.Sprintf("Unable to parse %s: invalid CSS color.", meta.VersionManifest.AccentColor)
+		meta.VersionManifest.AccentColor = ""
+		return nil
+	}
+	meta.VersionManifest.AccentColor = c.HexString()
 	return nil
 }
 

@@ -69,7 +69,12 @@
 							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 						</svg>
 					</span>
-					<img v-if="appData.manifest?.icon && !p_event.warnings.icon" :src="app_icon" class="border border-gray-300"/>
+					<img v-if="appData.manifest?.icon && !p_event.warnings.icon" :src="app_icon" class="border border-gray-300 h-20 w-20"/>
+				</p>
+				<p class="flex items-center">
+					<span class="mr-1">Accent Color:</span>
+					<span v-if="accent_color" class="rounded inline-block h-3 w-20" :style="'background-color:'+accent_color">&nbsp;</span>
+					<span v-else class="italic text-gray-400">(none)</span>
 				</p>
 			</div>
 			<AppRoutes></AppRoutes>
@@ -112,6 +117,10 @@ export default defineComponent({
 		const p_event = computed( () => appData.last_processing_event );
 		const app_icon = ref("app-icon?"+Date.now());
 
+		const accent_color = computed( () => {
+			return appData.manifest?.accent_color;
+		});
+
 		onMounted( () => {
 			if( p_event.value.errors.length ) show_process_log.value = true;
 		});
@@ -127,7 +136,7 @@ export default defineComponent({
 			migrations_str,
 			appLog,
 			p_event,
-			app_icon
+			app_icon, accent_color
 		}
 	},
 });
