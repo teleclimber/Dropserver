@@ -92,7 +92,7 @@ func main() {
 
 	record.NewDsLogger().Log("ds-host version: " + cmd_version)
 
-	if runtimeConfig.Prometheus.Enable {
+	if runtimeConfig.Prometheus.Enable && !*migrateFlag {
 		record.ExposePromMetrics(*runtimeConfig)
 	}
 
