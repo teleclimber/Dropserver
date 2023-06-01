@@ -570,33 +570,33 @@ func (m *MockAppModel) EXPECT() *MockAppModelMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockAppModel) Create(arg0 domain.UserID, arg1 string) (*domain.App, error) {
+func (m *MockAppModel) Create(arg0 domain.UserID) (domain.AppID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(*domain.App)
+	ret := m.ctrl.Call(m, "Create", arg0)
+	ret0, _ := ret[0].(domain.AppID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create
-func (mr *MockAppModelMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAppModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppModel)(nil).Create), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppModel)(nil).Create), arg0)
 }
 
 // CreateVersion mocks base method
-func (m *MockAppModel) CreateVersion(arg0 domain.AppID, arg1 domain.Version, arg2 int, arg3 domain.APIVersion, arg4 string) (*domain.AppVersion, error) {
+func (m *MockAppModel) CreateVersion(arg0 domain.AppID, arg1 string, arg2 domain.AppVersionManifest) (domain.AppVersion, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*domain.AppVersion)
+	ret := m.ctrl.Call(m, "CreateVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(domain.AppVersion)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateVersion indicates an expected call of CreateVersion
-func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockAppModelMockRecorder) CreateVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVersion", reflect.TypeOf((*MockAppModel)(nil).CreateVersion), arg0, arg1, arg2)
 }
 
 // Delete mocks base method
@@ -643,10 +643,10 @@ func (mr *MockAppModelMockRecorder) GetForOwner(arg0 interface{}) *gomock.Call {
 }
 
 // GetFromID mocks base method
-func (m *MockAppModel) GetFromID(arg0 domain.AppID) (*domain.App, error) {
+func (m *MockAppModel) GetFromID(arg0 domain.AppID) (domain.App, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetFromID", arg0)
-	ret0, _ := ret[0].(*domain.App)
+	ret0, _ := ret[0].(domain.App)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -658,10 +658,10 @@ func (mr *MockAppModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
 }
 
 // GetVersion mocks base method
-func (m *MockAppModel) GetVersion(arg0 domain.AppID, arg1 domain.Version) (*domain.AppVersion, error) {
+func (m *MockAppModel) GetVersion(arg0 domain.AppID, arg1 domain.Version) (domain.AppVersion, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVersion", arg0, arg1)
-	ret0, _ := ret[0].(*domain.AppVersion)
+	ret0, _ := ret[0].(domain.AppVersion)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

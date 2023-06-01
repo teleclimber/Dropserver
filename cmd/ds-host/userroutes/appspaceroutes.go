@@ -33,8 +33,8 @@ type AppspaceRoutes struct {
 	AppspaceExportRoutes  subRoutes            `checkinject:"required"`
 	AppspaceRestoreRoutes subRoutes            `checkinject:"required"`
 	AppModel              interface {
-		GetFromID(domain.AppID) (*domain.App, error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetFromID(domain.AppID) (domain.App, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
@@ -231,7 +231,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 
 	app, err := a.AppModel.GetFromID(reqData.AppID)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if err != domain.ErrNoRowsInResultSet {
 			http.Error(w, "App not found", http.StatusGone)
 		} else {
 			http.Error(w, err.Error(), 500)
@@ -245,7 +245,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 
 	version, err := a.AppModel.GetVersion(app.AppID, reqData.Version)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == domain.ErrNoRowsInResultSet {
 			http.Error(w, "Version not found", http.StatusGone)
 		} else {
 			http.Error(w, "", http.StatusInternalServerError)
@@ -277,7 +277,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 
 	// Here we should check validity of requested domain?
 
-	appspaceID, jobID, err := a.CreateAppspace.Create(dropID, *version, reqData.DomainName, reqData.Subdomain)
+	appspaceID, jobID, err := a.CreateAppspace.Create(dropID, version, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
 		returnError(w, err)
 	}

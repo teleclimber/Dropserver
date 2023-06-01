@@ -10,7 +10,7 @@ type DeleteApp struct {
 	} `checkinject:"required"`
 	AppModel interface {
 		GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, error)
-		GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error)
+		GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error)
 		Delete(appID domain.AppID) error
 		DeleteVersion(domain.AppID, domain.Version) error
 	} `checkinject:"required"`

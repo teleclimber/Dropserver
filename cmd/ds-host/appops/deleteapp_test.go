@@ -20,7 +20,7 @@ func TestDeleteAppVersion(t *testing.T) {
 	asModel.EXPECT().GetForAppVersion(appID, v).Return([]*domain.Appspace{}, nil)
 
 	appModel := testmocks.NewMockAppModel(mockCtrl)
-	appModel.EXPECT().GetVersion(appID, v).Return(&domain.AppVersion{LocationKey: loc}, nil)
+	appModel.EXPECT().GetVersion(appID, v).Return(domain.AppVersion{LocationKey: loc}, nil)
 	appModel.EXPECT().DeleteVersion(appID, v).Return(nil)
 
 	afModel := testmocks.NewMockAppFilesModel(mockCtrl)

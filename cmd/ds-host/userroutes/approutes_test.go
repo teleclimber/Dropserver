@@ -2,7 +2,6 @@ package userroutes
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -26,7 +25,7 @@ func TestAppCtx(t *testing.T) {
 	appID := domain.AppID(33)
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetFromID(appID).Return(&domain.App{AppID: appID, OwnerID: uid}, nil)
+	m.EXPECT().GetFromID(appID).Return(domain.App{AppID: appID, OwnerID: uid}, nil)
 
 	a := ApplicationRoutes{
 		AppModel: m,
@@ -68,7 +67,7 @@ func TestAppCtxUnauthorized(t *testing.T) {
 	appID := domain.AppID(33)
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetFromID(appID).Return(&domain.App{AppID: appID, OwnerID: appUid}, nil)
+	m.EXPECT().GetFromID(appID).Return(domain.App{AppID: appID, OwnerID: appUid}, nil)
 
 	a := ApplicationRoutes{
 		AppModel: m,
@@ -102,7 +101,7 @@ func TestAppCtxNotFound(t *testing.T) {
 	uid := domain.UserID(7)
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetFromID(domain.AppID(123)).Return(nil, sql.ErrNoRows)
+	m.EXPECT().GetFromID(domain.AppID(123)).Return(domain.App{}, domain.ErrNoRowsInResultSet)
 
 	a := ApplicationRoutes{
 		AppModel: m,
@@ -139,7 +138,7 @@ func TestAppVersionCtx(t *testing.T) {
 	version := domain.Version("1.2.3")
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetVersion(appID, version).Return(&domain.AppVersion{Version: version}, nil)
+	m.EXPECT().GetVersion(appID, version).Return(domain.AppVersion{Version: version}, nil)
 
 	a := ApplicationRoutes{
 		AppModel: m,
@@ -181,7 +180,7 @@ func TestInvalidAppVersionCtx(t *testing.T) {
 	app := domain.App{AppID: appID, OwnerID: uid}
 
 	m := testmocks.NewMockAppModel(mockCtrl)
-	m.EXPECT().GetVersion(appID, gomock.Any()).Return(nil, sql.ErrNoRows)
+	m.EXPECT().GetVersion(appID, gomock.Any()).Return(domain.AppVersion{}, domain.ErrNoRowsInResultSet)
 
 	a := ApplicationRoutes{
 		AppModel: m,
@@ -208,7 +207,7 @@ func TestInvalidAppVersionCtx(t *testing.T) {
 	}
 }
 
-/////////////
+// ///////////
 func TestExtractFiles(t *testing.T) {
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -374,7 +373,7 @@ func (f *fakeFile) matches(b []byte) bool {
 	return true
 }
 
-////////
+// //////
 func TestDeleteVersion(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

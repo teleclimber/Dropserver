@@ -2,6 +2,7 @@ package appmodel
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -23,14 +24,15 @@ type AppModel struct {
 	// need config to select db type?
 
 	stmt struct {
-		selectID         *sqlx.Stmt
-		selectOwner      *sqlx.Stmt
-		insertApp        *sqlx.Stmt
-		deleteApp        *sqlx.Stmt
-		selectVersion    *sqlx.Stmt
-		selectAppVerions *sqlx.Stmt
-		insertVersion    *sqlx.Stmt
-		deleteVersion    *sqlx.Stmt
+		selectID              *sqlx.Stmt
+		selectOwner           *sqlx.Stmt
+		insertApp             *sqlx.Stmt
+		deleteApp             *sqlx.Stmt
+		selectVersion         *sqlx.Stmt
+		selectVersionManifest *sqlx.Stmt
+		selectAppVerions      *sqlx.Stmt
+		insertVersion         *sqlx.Stmt
+		deleteVersion         *sqlx.Stmt
 	}
 }
 
@@ -65,19 +67,31 @@ func (m *AppModel) PrepareStatements() {
 
 	// insert app:
 	m.stmt.insertApp = p.exec(`INSERT INTO apps 
-		("owner_id", "name", "created") VALUES (?, ?, datetime("now"))`)
+		("owner_id", "created") VALUES (?, datetime("now"))`)
 
 	// delete app
 	m.stmt.deleteApp = p.exec(`DELETE FROM apps WHERE app_id = ?`)
 
 	// get version
-	m.stmt.selectVersion = p.exec(`SELECT * FROM app_versions WHERE app_id = ? AND version = ?`)
+	m.stmt.selectVersion = p.exec(`SELECT 
+		app_id, version,
+		json_extract(manifest, '$.name') AS app_name,
+		json_extract(manifest, '$.schema') AS schema,
+		created, location_key
+		FROM app_versions WHERE app_id = ? AND version = ?`)
+
+	m.stmt.selectVersionManifest = p.exec(`SELECT manifest FROM app_versions WHERE app_id = ? AND version = ?`)
 
 	// get versions for app
-	m.stmt.selectAppVerions = p.exec(`SELECT * FROM app_versions WHERE app_id = ?`)
+	m.stmt.selectAppVerions = p.exec(`SELECT
+		app_id, version,
+		json_extract(manifest, '$.name') AS app_name,
+		json_extract(manifest, '$.schema') AS schema,
+		created, location_key
+		FROM app_versions WHERE app_id = ?`)
 
 	m.stmt.insertVersion = p.exec(`INSERT INTO app_versions
-		("app_id", "version", "schema", "api", "location_key", created) VALUES (?, ?, ?, ?, ?, datetime("now"))`)
+		(app_id, version, location_key, manifest, created) VALUES (?, ?, ?, json(?), datetime("now"))`)
 
 	m.stmt.deleteVersion = p.exec(`DELETE FROM app_versions WHERE app_id = ? AND version = ?`)
 
@@ -86,27 +100,22 @@ func (m *AppModel) PrepareStatements() {
 	}
 }
 
-// Additional methods:
-// - GetForUser
-// - Get versions
-// - Delete, DeleteVersion
-// Some of the other methods from nodejs impl prob belong in trusted
-
 // GetFromID gets the app using its unique ID on the system
 // It returns an error if ID is not found
-func (m *AppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
+func (m *AppModel) GetFromID(appID domain.AppID) (domain.App, error) {
 	var app domain.App
 	err := m.stmt.selectID.QueryRowx(appID).StructScan(&app)
 	if err != nil {
 		log := m.getLogger("GetFromID()").AppID(appID)
-		if err != sql.ErrNoRows {
-			log.Error(err)
-		} else {
+		if err == sql.ErrNoRows {
 			log.Debug(err.Error())
+			return app, domain.ErrNoRowsInResultSet
+		} else {
+			log.Error(err)
+			return app, err
 		}
-		return nil, err
 	}
-	return &app, nil
+	return app, nil
 }
 
 // GetForOwner returns array of application data for a given user
@@ -123,39 +132,29 @@ func (m *AppModel) GetForOwner(userID domain.UserID) ([]*domain.App, error) {
 }
 
 // Create adds an app to the database
-// This should return an unique ID, right?
-// Other arguments: owner, and possibly other things like create date
-// Should we have CreateArgs type struct to guarantee proper data passing? -> yes
-func (m *AppModel) Create(ownerID domain.UserID, name string) (*domain.App, error) {
+// Other arguments: source URL, auto-update mode (if that applies to app)
+func (m *AppModel) Create(ownerID domain.UserID) (domain.AppID, error) {
 	// location key isn't here. It's in a version.
 	// do we check name and locationKey for epty string or excess length?
 	// -> probably, yes. Or where should that actually happen?
 
-	r, err := m.stmt.insertApp.Exec(ownerID, name)
+	r, err := m.stmt.insertApp.Exec(ownerID)
 	if err != nil {
 		m.getLogger("Create(), insertApp.Exec()").UserID(ownerID).Error(err)
-		return nil, err
+		return domain.AppID(0), err
 	}
 
 	lastID, err := r.LastInsertId()
 	if err != nil {
 		m.getLogger("Create(), r.LastInsertId()").UserID(ownerID).Error(err)
-		return nil, err
+		return domain.AppID(0), err
 	}
 	if lastID >= 0xFFFFFFFF {
 		m.getLogger("Create()").Log(fmt.Sprintf("Last insert ID out of bounds: %v", lastID))
-		return nil, errors.New("Last Insert ID from DB greater than uint32")
+		return domain.AppID(0), errors.New("last Insert ID from DB greater than uint32")
 	}
 
-	appID := domain.AppID(lastID)
-
-	app, err := m.GetFromID(appID)
-	if err != nil {
-		m.getLogger("Create(), GetFromID()").Error(err)
-		return nil, err
-	}
-
-	return app, nil
+	return domain.AppID(lastID), nil
 }
 
 // Delete the app from the DB row.
@@ -180,18 +179,44 @@ func (m *AppModel) Delete(appID domain.AppID) error {
 }
 
 // GetVersion returns the version for the app
-func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
+func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error) {
 	var appVersion domain.AppVersion
-
 	err := m.stmt.selectVersion.QueryRowx(appID, version).StructScan(&appVersion)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			m.getLogger("GetVersion()").AppID(appID).AppVersion(version).Error(err)
+		if err == sql.ErrNoRows {
+			return appVersion, domain.ErrNoRowsInResultSet
 		}
-		return nil, err
+		m.getLogger("GetVersion()").AppID(appID).AppVersion(version).Error(err)
+		return appVersion, err
 	}
+	return appVersion, nil
+}
 
-	return &appVersion, nil
+func (m *AppModel) GetVersionManifestJSON(appID domain.AppID, version domain.Version) (string, error) {
+	var manifest string
+	err := m.stmt.selectVersionManifest.Get(&manifest, appID, version)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", domain.ErrNoRowsInResultSet
+		}
+		m.getLogger("GetVersionManifestJSON()").AppID(appID).AppVersion(version).Error(err)
+		return "", err
+	}
+	return manifest, nil
+}
+
+func (m *AppModel) GetVersionManifest(appID domain.AppID, version domain.Version) (domain.AppVersionManifest, error) {
+	manifestJSON, err := m.GetVersionManifestJSON(appID, version)
+	if err != nil {
+		return domain.AppVersionManifest{}, err
+	}
+	var manifest domain.AppVersionManifest
+	err = json.Unmarshal([]byte(manifestJSON), &manifest)
+	if err != nil {
+		m.getLogger("GetVersionManifest() Unmarshal").AppID(appID).AppVersion(version).Error(err)
+		return domain.AppVersionManifest{}, err
+	}
+	return manifest, nil
 }
 
 // GetVersionsForApp returns an array of versions of code for that application
@@ -223,22 +248,22 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 // has appid, version, location key, create date
 // use appid and version as primary keys
 // index on appid as well
-func (m *AppModel) CreateVersion(appID domain.AppID, version domain.Version, schema int, api domain.APIVersion, locationKey string) (*domain.AppVersion, error) {
-	// TODO: this should fail if version exists
-	// .. but that should be caught by the route first.
-
-	_, err := m.stmt.insertVersion.Exec(appID, version, schema, api, locationKey)
+func (m *AppModel) CreateVersion(appID domain.AppID, locationKey string, manifest domain.AppVersionManifest) (domain.AppVersion, error) {
+	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
-		m.getLogger("CreateVersion(), insertVersion").AppID(appID).AppVersion(version).Error(err)
-		return nil, err
+		m.getLogger("CreateVersion(), json.Marshal").AppID(appID).AppVersion(manifest.Version).Error(err)
+		return domain.AppVersion{}, err
 	}
-
-	appVersion, err := m.GetVersion(appID, version)
+	_, err = m.stmt.insertVersion.Exec(appID, manifest.Version, locationKey, manifestBytes)
 	if err != nil {
-		m.getLogger("CreateVersion(), GetVersion").AppID(appID).AppVersion(version).Error(err)
-		return nil, err
+		m.getLogger("CreateVersion(), insertVersion").AppID(appID).AppVersion(manifest.Version).Error(err)
+		return domain.AppVersion{}, err
 	}
-
+	appVersion, err := m.GetVersion(appID, manifest.Version)
+	if err != nil {
+		m.getLogger("CreateVersion(), GetVersion").AppID(appID).AppVersion(manifest.Version).Error(err)
+		return domain.AppVersion{}, err
+	}
 	return appVersion, nil
 }
 

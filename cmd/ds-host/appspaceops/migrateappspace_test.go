@@ -66,7 +66,7 @@ func TestRunJob(t *testing.T) {
 		AppVersion:  fromVersion,
 		LocationKey: "appspace-location",
 	}, nil)
-	appModel.EXPECT().GetVersion(appID, toVersion).Return(&domain.AppVersion{
+	appModel.EXPECT().GetVersion(appID, toVersion).Return(domain.AppVersion{
 		AppID:       appID,
 		Version:     toVersion,
 		Schema:      2,

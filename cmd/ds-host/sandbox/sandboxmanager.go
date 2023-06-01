@@ -187,10 +187,10 @@ func (m *Manager) ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	return s, nil
 }
 
-func (m *Manager) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
+func (m *Manager) ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
 	m.sandboxesMux.Lock()
 
-	s := NewSandbox(m.getNextID(), opAppspaceMigration, appspace.OwnerID, appVersion, appspace)
+	s := NewSandbox(m.getNextID(), opAppspaceMigration, appspace.OwnerID, &appVersion, appspace)
 	s.AppLocation2Path = m.AppLocation2Path
 	s.AppspaceLocation2Path = m.AppspaceLocation2Path
 	s.Services = m.Services.Get(appspace, appVersion.APIVersion)

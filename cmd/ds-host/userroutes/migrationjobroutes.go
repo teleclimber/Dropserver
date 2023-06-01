@@ -11,7 +11,7 @@ import (
 // MigrationJobRoutes can initiate and return appspace migration jobs
 type MigrationJobRoutes struct {
 	AppModel interface {
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)

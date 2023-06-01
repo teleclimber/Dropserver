@@ -2,7 +2,6 @@ package userroutes
 
 import (
 	"bytes"
-	"database/sql"
 	"errors"
 	"io"
 	"mime"
@@ -24,20 +23,21 @@ type GetAppsResp struct {
 
 // ApplicationMeta is an application's metadata
 type ApplicationMeta struct {
-	AppID    int           `json:"app_id"`
-	AppName  string        `json:"name"`
+	AppID int `json:"app_id"`
+	//AppName  string        `json:"name"`
 	Created  time.Time     `json:"created_dt"`
 	Versions []VersionMeta `json:"versions"`
 }
 
 // VersionMeta is for listing versions of application code
 type VersionMeta struct {
-	AppID      domain.AppID      `json:"app_id"`
-	AppName    string            `json:"app_name"`
-	Version    domain.Version    `json:"version"`
-	APIVersion domain.APIVersion `json:"api_version"`
-	Schema     int               `json:"schema"`
-	Created    time.Time         `json:"created_dt"`
+	AppID domain.AppID `json:"app_id"`
+	//AppName    string            `json:"app_name"`
+	//Version    domain.Version    `json:"version"`
+	//APIVersion domain.APIVersion `json:"api_version"`
+	//Schema     int               `json:"schema"`
+	Created  time.Time                 `json:"created_dt"`
+	Manifest domain.AppVersionManifest `json:"manifest"`
 }
 
 // Versions should be embedded in application meta?
@@ -65,9 +65,9 @@ type ApplicationRoutes struct {
 		GetAppIconPath(string) string
 	} `checkinject:"required"`
 	AppModel interface {
-		GetFromID(domain.AppID) (*domain.App, error)
+		GetFromID(domain.AppID) (domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppLogger interface {
@@ -204,7 +204,7 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 				return
 			}
 
-			respData.AppVersions[i] = makeVersionMeta(*appVersion)
+			respData.AppVersions[i] = makeVersionMeta(appVersion)
 		}
 
 		writeJSON(w, respData)
@@ -386,13 +386,11 @@ func (a *ApplicationRoutes) getAppIcon(w http.ResponseWriter, r *http.Request) {
 }
 func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(r.Context())
-	respData := VersionMeta{
-		AppID:      appVersion.AppID,
-		AppName:    appVersion.AppName,
-		Version:    appVersion.Version,
-		Schema:     appVersion.Schema,
-		APIVersion: appVersion.APIVersion,
-		Created:    appVersion.Created}
+	respData := VersionMeta{ // TODO fix up with manifest or return manifest separately
+		AppID:   appVersion.AppID,
+		Created: appVersion.Created,
+		//	Manifest: ,
+	}
 
 	writeJSON(w, respData)
 }
@@ -426,7 +424,7 @@ func (a *ApplicationRoutes) applicationCtx(next http.Handler) http.Handler {
 
 		app, err := a.AppModel.GetFromID(appID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == domain.ErrNoRowsInResultSet {
 				returnError(w, errNotFound)
 			} else {
 				returnError(w, err)
@@ -438,7 +436,7 @@ func (a *ApplicationRoutes) applicationCtx(next http.Handler) http.Handler {
 			return
 		}
 
-		r = r.WithContext(domain.CtxWithAppData(r.Context(), *app))
+		r = r.WithContext(domain.CtxWithAppData(r.Context(), app))
 
 		next.ServeHTTP(w, r)
 	})
@@ -460,7 +458,7 @@ func (a *ApplicationRoutes) appVersionCtx(next http.Handler) http.Handler {
 
 		version, err := a.AppModel.GetVersion(app.AppID, domain.Version(versionStr))
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == domain.ErrNoRowsInResultSet {
 				returnError(w, errNotFound)
 			} else {
 				returnError(w, err)
@@ -468,7 +466,7 @@ func (a *ApplicationRoutes) appVersionCtx(next http.Handler) http.Handler {
 			return
 		}
 
-		r = r.WithContext(domain.CtxWithAppVersionData(ctx, *version))
+		r = r.WithContext(domain.CtxWithAppVersionData(ctx, version))
 
 		next.ServeHTTP(w, r)
 	})
@@ -529,19 +527,19 @@ func parseAppVersionID(id string) (appID domain.AppID, version domain.Version, e
 
 func makeAppResp(app domain.App) ApplicationMeta {
 	return ApplicationMeta{
-		AppID:   int(app.AppID),
-		AppName: app.Name,
+		AppID: int(app.AppID),
+		//AppName: app.Name,
 		Created: app.Created}
 }
 
 func makeVersionMeta(appVersion domain.AppVersion) VersionMeta {
 	return VersionMeta{
-		AppID:      appVersion.AppID,
-		AppName:    appVersion.AppName,
-		Version:    appVersion.Version,
-		Schema:     appVersion.Schema,
-		APIVersion: appVersion.APIVersion,
-		Created:    appVersion.Created}
+		AppID: appVersion.AppID,
+		// AppName:    appVersion.AppName,
+		// Version:    appVersion.Version,
+		// Schema:     appVersion.Schema,
+		// APIVersion: appVersion.APIVersion,
+		Created: appVersion.Created}
 }
 
 func (a *ApplicationRoutes) getLogger(note string) *record.DsLogger {

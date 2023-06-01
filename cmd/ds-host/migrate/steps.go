@@ -42,5 +42,9 @@ var MigrationSteps []MigrationStep = []MigrationStep{{
 	name: "2203-sandboxusage",
 	up:   sandboxUsageUp,
 	down: sandboxUsageDown,
+}, {
+	name: "2305-packagedapps",
+	up:   packagedAppsUp,
+	down: packagedAppsDown,
 },
 }

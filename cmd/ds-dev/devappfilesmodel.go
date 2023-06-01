@@ -33,14 +33,6 @@ func (a *DevAppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return a.routesData, nil
 }
 
-func (a *DevAppFilesModel) WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error {
-	a.manifest = manifest
-	return nil
-}
-func (a *DevAppFilesModel) ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error) {
-	return a.manifest, nil
-}
-
 func (a *DevAppFilesModel) WriteAppIconLink(locationKey string, iconPath string) error {
 	if iconPath == "" {
 		a.appIconPath = ""

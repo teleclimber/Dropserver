@@ -1,7 +1,7 @@
 package appmodel
 
 import (
-	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -53,13 +53,9 @@ func TestCreate(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, err := appModel.Create(domain.UserID(1), "test-app")
+	_, err := appModel.Create(domain.UserID(1))
 	if err != nil {
 		t.Error(err)
-	}
-
-	if app.Name != "test-app" {
-		t.Error("input name does not match output name", app)
 	}
 }
 
@@ -75,7 +71,7 @@ func TestGetFromID(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	_, err := appModel.Create(7, "test-app")
+	_, err := appModel.Create(7)
 	if err != nil {
 		t.Error(err)
 	}
@@ -108,17 +104,17 @@ func TestGetOwner(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = appModel.Create(7, "test-app")
+	_, err = appModel.Create(7)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = appModel.Create(7, "test-app2")
+	_, err = appModel.Create(7)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = appModel.Create(11, "bad-app")
+	_, err = appModel.Create(11)
 	if err != nil {
 		t.Error(err)
 	}
@@ -145,18 +141,18 @@ func TestDelete(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, err := appModel.Create(7, "test-app")
+	appID, err := appModel.Create(7)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = appModel.Delete(app.AppID)
+	err = appModel.Delete(appID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = appModel.GetFromID(app.AppID)
-	if err != sql.ErrNoRows {
+	_, err = appModel.GetFromID(appID)
+	if err != domain.ErrNoRowsInResultSet {
 		t.Error("expecte err no rows")
 	}
 }
@@ -173,16 +169,18 @@ func TestDeleteWithVersions(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	app, err := appModel.Create(7, "test-app")
+	appID, err := appModel.Create(7)
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = appModel.CreateVersion(app.AppID, domain.Version("1.2.3"), 0, domain.APIVersion(0), "loc")
+	_, err = appModel.CreateVersion(appID, "loc", domain.AppVersionManifest{
+		Version: domain.Version("1.2.3"),
+		Schema:  0})
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = appModel.Delete(app.AppID)
+	err = appModel.Delete(appID)
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -200,7 +198,9 @@ func TestVersion(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	appVersion, err := appModel.CreateVersion(1, "0.0.1", 7, 1, "foo-location")
+	appVersion, err := appModel.CreateVersion(1, "foo-location", domain.AppVersionManifest{
+		Version: domain.Version("0.0.1"),
+		Schema:  7})
 	if err != nil {
 		t.Error(err)
 	}
@@ -211,33 +211,52 @@ func TestVersion(t *testing.T) {
 	if appVersion.Schema != 7 {
 		t.Error("input schema does not match output schema", appVersion)
 	}
-	if appVersion.APIVersion != 1 {
-		t.Error("input does not match output api version", appVersion)
-	}
 	if appVersion.LocationKey != "foo-location" {
 		t.Error("input does not match output location key", appVersion)
 	}
 
 	// just go ahead and test GetVersion here for completeness
-	appVersion, err = appModel.GetVersion(1, "0.0.1")
+	appVersionOut, err := appModel.GetVersion(1, "0.0.1")
 	if err != nil {
 		t.Error(err)
 	}
-	if appVersion.Version != "0.0.1" {
-		t.Error("input version does not match output version", appVersion)
+	if appVersionOut.Version != "0.0.1" {
+		t.Error("input version does not match output version", appVersionOut)
 	}
-	if appVersion.LocationKey != "foo-location" {
-		t.Error("input does not match output location key", appVersion)
+	if appVersionOut.LocationKey != "foo-location" {
+		t.Error("input does not match output location key", appVersionOut)
+	}
+
+	// test getting app version manifest
+	manifestStr, err := appModel.GetVersionManifestJSON(1, "0.0.1")
+	if err != nil {
+		t.Error(err)
+	}
+	if !strings.Contains(manifestStr, "\"schema\":7") {
+		t.Error("expected json to contain schema, got: " + manifestStr)
+	}
+
+	manifest, err := appModel.GetVersionManifest(1, "0.0.1")
+	if err != nil {
+		t.Error(err)
+	}
+	if manifest.Version != "0.0.1" {
+		t.Error("input version does not match manifest version", manifest)
+	}
+	if manifest.Schema != 7 {
+		t.Error("input does not match manifest schema key", manifest)
 	}
 
 	// test to make sure we get right error if no rows
 	_, err = appModel.GetVersion(1, "0.0.13")
-	if err == nil || err != sql.ErrNoRows {
+	if err == nil || err != domain.ErrNoRowsInResultSet {
 		t.Fatal("should have been no rows error", err)
 	}
 
 	// then test inserting a duplicate version
-	_, err = appModel.CreateVersion(1, "0.0.1", 7, 1, "bar-location")
+	_, err = appModel.CreateVersion(1, "bar-location", domain.AppVersionManifest{
+		Version: domain.Version("0.0.1"),
+		Schema:  7})
 	if err == nil {
 		t.Error("expected error on inserting duplicate")
 	}
@@ -269,7 +288,9 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 
 	for _, i := range ins {
-		_, err := appModel.CreateVersion(i.appID, i.version, i.schema, 1, i.location)
+		_, err := appModel.CreateVersion(i.appID, i.location, domain.AppVersionManifest{
+			Version: i.version,
+			Schema:  i.schema})
 		if err != nil {
 			t.Error(err)
 		}
@@ -310,7 +331,9 @@ func TestDeleteVersion(t *testing.T) {
 	appID := domain.AppID(7)
 	version := domain.Version("0.0.2")
 
-	_, err := appModel.CreateVersion(appID, version, 4, 1, "foobar")
+	_, err := appModel.CreateVersion(appID, "foobar", domain.AppVersionManifest{
+		Version: version,
+		Schema:  4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +344,7 @@ func TestDeleteVersion(t *testing.T) {
 	}
 
 	_, err = appModel.GetVersion(appID, version)
-	if err == nil || err != sql.ErrNoRows {
+	if err == nil || err != domain.ErrNoRowsInResultSet {
 		t.Fatal("should have been no rows error", err)
 	}
 }

@@ -8,10 +8,6 @@ import (
 )
 
 type CreateAppspace struct {
-	AppModel interface {
-		GetFromID(domain.AppID) (*domain.App, error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
-	} `checkinject:"required"`
 	AppspaceModel interface {
 		Create(domain.Appspace) (*domain.Appspace, error)
 		Delete(domain.AppspaceID) error

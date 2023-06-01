@@ -21,7 +21,7 @@ func TestLoadStatus(t *testing.T) {
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{Paused: true}, nil)
 
 	appModel := testmocks.NewMockAppModel(mockCtrl)
-	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
+	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(domain.AppVersion{Schema: 3}, nil)
 
 	appspaceInfoModel := testmocks.NewMockAppspaceInfoModel(mockCtrl)
 	appspaceInfoModel.EXPECT().GetSchema(appspaceID).Return(4, nil)
@@ -220,7 +220,7 @@ func TestMigrationEvent(t *testing.T) {
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{}, nil)
 
 	appModel := testmocks.NewMockAppModel(mockCtrl)
-	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(&domain.AppVersion{Schema: 3}, nil)
+	appModel.EXPECT().GetVersion(gomock.Any(), gomock.Any()).Return(domain.AppVersion{Schema: 3}, nil)
 
 	appspaceInfoModel := testmocks.NewMockAppspaceInfoModel(mockCtrl)
 	appspaceInfoModel.EXPECT().GetSchema(appspaceID).Return(4, nil)

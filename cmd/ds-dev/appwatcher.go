@@ -133,8 +133,7 @@ func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
 	w.DevAppModel.App = domain.App{
 		OwnerID: ownerID,
 		AppID:   appID,
-		Created: time.Now(),
-		Name:    results.VersionManifest.Name}
+		Created: time.Now()}
 
 	w.DevAppModel.Ver = domain.AppVersion{
 		AppID:       appID,
@@ -143,6 +142,8 @@ func (w *DevAppWatcher) reloadMetadata(appGetKey domain.AppGetKey) {
 		Schema:      results.VersionManifest.Schema,
 		Created:     time.Now(),
 		LocationKey: ""}
+
+	w.DevAppModel.Manifest = results.VersionManifest
 
 	// Need to update appspace so that the app version is reflected
 	w.DevAppspaceModel.Appspace.AppVersion = results.VersionManifest.Version

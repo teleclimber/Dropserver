@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -14,6 +13,7 @@ import (
 type DevAppModel struct {
 	App         domain.App
 	Ver         domain.AppVersion
+	Manifest    domain.AppVersionManifest
 	AppspaceVer struct {
 		Version domain.Version
 		Schema  int
@@ -50,35 +50,35 @@ type DevAppModel struct {
 // }
 
 // GetFromID always returns the same app
-func (m *DevAppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
-	return &m.App, nil
+func (m *DevAppModel) GetFromID(appID domain.AppID) (domain.App, error) {
+	return m.App, nil
 }
 
 // GetVersion always returns the same version
-func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
+func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error) {
 	if version == m.Ver.Version {
-		return &m.Ver, nil
+		return m.Ver, nil
 	}
 
 	ret := m.Ver
 	ret.Version = version
 	if version == m.AppspaceVer.Version {
 		ret.Schema = m.AppspaceVer.Schema
-		return &ret, nil
+		return ret, nil
 	}
 	if version == m.ToVer.Version {
 		ret.Schema = m.ToVer.Schema
-		return &ret, nil
+		return ret, nil
 	}
 
-	return nil, sql.ErrNoRows
+	return domain.AppVersion{}, domain.ErrNoRowsInResultSet
 }
 
-func (m *DevAppModel) Create(_ domain.UserID, _ string) (*domain.App, error) {
+func (m *DevAppModel) Create(_ domain.UserID) (domain.AppID, error) {
 	panic("Did not expect to use Create")
 }
 
-func (m *DevAppModel) CreateVersion(_ domain.AppID, _ domain.Version, _ int, _ domain.APIVersion, _ string) (*domain.AppVersion, error) {
+func (m *DevAppModel) CreateVersion(_ domain.AppID, _ string, _ domain.AppVersionManifest) (domain.AppVersion, error) {
 	panic("Did not expect to use CreateVersion")
 }
 
@@ -97,8 +97,8 @@ func (m *DevSingleAppModel) GetFromID(appID domain.AppID) (*domain.App, error) {
 		OwnerID: ownerID,
 	}, nil
 }
-func (m *DevSingleAppModel) GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error) {
-	return &domain.AppVersion{}, nil
+func (m *DevSingleAppModel) GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error) {
+	return domain.AppVersion{}, nil
 }
 
 // DevAppspaceModel can return an appspace struct as needed

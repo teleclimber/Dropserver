@@ -49,7 +49,7 @@ func (mr *MockSandboxManagerMockRecorder) ForApp(arg0 interface{}) *gomock.Call 
 }
 
 // ForMigration mocks base method
-func (m *MockSandboxManager) ForMigration(arg0 *domain.AppVersion, arg1 *domain.Appspace) (domain.SandboxI, error) {
+func (m *MockSandboxManager) ForMigration(arg0 domain.AppVersion, arg1 *domain.Appspace) (domain.SandboxI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForMigration", arg0, arg1)
 	ret0, _ := ret[0].(domain.SandboxI)

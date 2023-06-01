@@ -341,7 +341,6 @@ func main() {
 		DevAppModel:         devAppModel,
 		DevAppProcessEvents: appProcessingEvents,
 		AppVersionEvents:    appVersionEvents,
-		AppFilesModel:       devAppFilesModel,
 		AppGetter:           appGetter,
 	}
 	userService := &UserService{

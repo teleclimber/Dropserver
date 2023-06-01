@@ -45,7 +45,6 @@ type AppGetter struct {
 		SavePackage(io.Reader) (string, error)
 		ExtractPackage(locationKey string) error
 		ReadManifest(string) (domain.AppVersionManifest, error)
-		WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error
 		WriteRoutes(string, []byte) error
 		WriteAppIconLink(string, string) error
 		Delete(string) error
@@ -54,8 +53,8 @@ type AppGetter struct {
 		Files(string) string
 	} `checkinject:"required"`
 	AppModel interface {
-		Create(domain.UserID, string) (*domain.App, error)
-		CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
+		Create(domain.UserID) (domain.AppID, error)
+		CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppLogger interface {
@@ -192,12 +191,6 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	}
 	err = g.validateAccentColor(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error validating accent color")
-	if abort {
-		return
-	}
-
-	err = g.AppFilesModel.WriteEvaluatedManifest(keyData.locationKey, meta.VersionManifest)
-	abort = g.checkStep(keyData, meta, err, "error writing manifest file")
 	if abort {
 		return
 	}
@@ -642,14 +635,14 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 	appID := keyData.appID
 
 	if !keyData.hasAppID {
-		app, err := g.AppModel.Create(keyData.userID, meta.VersionManifest.Name)
+		aID, err := g.AppModel.Create(keyData.userID)
 		if err != nil {
 			return domain.AppID(0), domain.Version(""), err
 		}
-		appID = app.AppID
+		appID = aID
 	}
 
-	version, err := g.AppModel.CreateVersion(appID, meta.VersionManifest.Version, meta.VersionManifest.Schema, 0, keyData.locationKey) // TODO this will get changed some more later
+	version, err := g.AppModel.CreateVersion(appID, keyData.locationKey, meta.VersionManifest)
 	if err != nil {
 		return appID, domain.Version(""), err
 	}

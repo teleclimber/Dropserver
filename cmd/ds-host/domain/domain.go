@@ -362,7 +362,6 @@ type UserInvitation struct {
 type App struct {
 	OwnerID UserID `db:"owner_id"`
 	AppID   AppID  `db:"app_id"`
-	Name    string
 	Created time.Time
 }
 

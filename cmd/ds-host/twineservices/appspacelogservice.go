@@ -17,7 +17,7 @@ type AppspaceLogService struct {
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(appID domain.AppID) (*domain.App, error)
-		GetVersion(appID domain.AppID, version domain.Version) (*domain.AppVersion, error)
+		GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Get(appspaceID domain.AppspaceID) domain.LoggerI
@@ -55,7 +55,7 @@ const entrysubCmd = 13
 // incoming sub commands to 11
 const unsubscribeLogCmd = 13
 
-//HandleMessage handles incoming twine message
+// HandleMessage handles incoming twine message
 func (s *appspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case subscribeAppspaceLogCmd:
@@ -166,7 +166,7 @@ func (s *appspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.App
 		return domain.AppVersion{}, err
 	}
 
-	return *appVersion, nil
+	return appVersion, nil
 }
 
 type logService struct {

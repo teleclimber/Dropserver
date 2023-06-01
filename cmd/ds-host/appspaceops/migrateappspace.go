@@ -23,7 +23,7 @@ type MigrationJobController struct {
 		SetFinished(domain.JobID, nulltypes.NullString) error
 	} `checkinject:"required"`
 	AppModel interface {
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
@@ -48,7 +48,7 @@ type MigrationJobController struct {
 	} `checkinject:"optional"`
 	SandboxManager interface {
 		StopAppspace(domain.AppspaceID)
-		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
+		ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	} `checkinject:"required"`
 
 	runningJobs map[domain.JobID]*runningJob
@@ -348,13 +348,13 @@ func (c *MigrationJobController) getLogger(note string) *record.DsLogger {
 type runningJob struct {
 	migrationJob   *domain.MigrationJob
 	appspace       *domain.Appspace
-	useVersion     *domain.AppVersion
+	useVersion     domain.AppVersion
 	fromSchema     int
 	toSchema       int
 	curSchema      int // not sure about this one
 	migrateDown    bool
 	sandboxManager interface {
-		ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
+		ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	}
 	sandbox    domain.SandboxI
 	status     domain.MigrationJobStatus

@@ -22,8 +22,8 @@ type AppspaceRouter struct {
 		AppspaceUserProxyID(http.Handler) http.Handler
 	} `checkinject:"required"`
 	AppModel interface {
-		GetFromID(domain.AppID) (*domain.App, error)
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetFromID(domain.AppID) (domain.App, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
@@ -137,7 +137,7 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		ctx := domain.CtxWithAppData(r.Context(), *app)
+		ctx := domain.CtxWithAppData(r.Context(), app)
 
 		appVersion, err := a.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
 		if err != nil {
@@ -145,7 +145,7 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 			http.Error(w, "App Version not found", http.StatusInternalServerError)
 			return
 		}
-		ctx = domain.CtxWithAppVersionData(ctx, *appVersion)
+		ctx = domain.CtxWithAppVersionData(ctx, appVersion)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

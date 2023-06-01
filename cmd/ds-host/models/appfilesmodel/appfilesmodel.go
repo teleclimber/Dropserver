@@ -197,38 +197,6 @@ func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return routesData, nil
 }
 
-func (a *AppFilesModel) WriteEvaluatedManifest(locationKey string, manifest domain.AppVersionManifest) error {
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		a.getLogger("WriteEvaluatedManifest() json.Marshal").Error(err)
-		return err
-	}
-	migrationsFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "manifest.json")
-	err = ioutil.WriteFile(migrationsFile, manifestBytes, 0644)
-	if err != nil {
-		a.getLogger(fmt.Sprintf("WriteEvaluatedManifest(), location key: %v", locationKey)).Error(err)
-		return err
-	}
-	return nil
-}
-
-func (a *AppFilesModel) ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error) {
-	var manifest domain.AppVersionManifest
-	manifestFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "manifest.json")
-	manifestBytes, err := ioutil.ReadFile(manifestFile)
-	if err != nil {
-		a.getLogger(fmt.Sprintf("ReadEvaluatedManifest(), ReadFile, location key: %v", locationKey)).Error(err)
-		return manifest, err
-	}
-
-	err = json.Unmarshal(manifestBytes, &manifest)
-	if err != nil {
-		a.getLogger(fmt.Sprintf("ReadEvaluatedManifest(), json.Unmarshal, location key: %v", locationKey)).Error(err)
-		return manifest, err
-	}
-	return manifest, err
-}
-
 func (a *AppFilesModel) WriteAppIconLink(locationKey string, iconPath string) error {
 	// first remove it
 	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), "app-icon")
@@ -257,8 +225,6 @@ func (a *AppFilesModel) GetAppIconPath(locationKey string) string {
 	}
 	return linkPath
 }
-
-// should we have the equivalent for reading and writing migrations?
 
 // Delete removes the files from the system
 func (a *AppFilesModel) Delete(locationKey string) error {

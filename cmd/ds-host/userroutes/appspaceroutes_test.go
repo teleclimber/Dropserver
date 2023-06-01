@@ -105,7 +105,7 @@ func TestGetAppspacesForApp(t *testing.T) {
 	appID := domain.AppID(11)
 
 	am := testmocks.NewMockAppModel(mockCtrl)
-	am.EXPECT().GetFromID(appID).Return(&domain.App{OwnerID: userID}, nil)
+	am.EXPECT().GetFromID(appID).Return(domain.App{OwnerID: userID}, nil)
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
 	asm.EXPECT().GetForApp(appID).Return([]*domain.Appspace{{DomainName: "appspace.sub.domain", AppID: appID, OwnerID: userID}}, nil)
@@ -144,7 +144,7 @@ func TestGetAppspacesForAppForbidden(t *testing.T) {
 	appID := domain.AppID(11)
 
 	am := testmocks.NewMockAppModel(mockCtrl)
-	am.EXPECT().GetFromID(appID).Return(&domain.App{OwnerID: domain.UserID(13)}, nil)
+	am.EXPECT().GetFromID(appID).Return(domain.App{OwnerID: domain.UserID(13)}, nil)
 
 	a := AppspaceRoutes{
 		AppModel: am,

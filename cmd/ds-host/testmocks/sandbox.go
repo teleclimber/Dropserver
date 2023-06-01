@@ -10,7 +10,7 @@ import (
 type SandboxManager interface {
 	GetForAppspace(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, chan struct{})
 	ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
-	ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
+	ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error)
 	StopAppspace(domain.AppspaceID)
 }
 

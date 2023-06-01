@@ -9,11 +9,8 @@ import (
 )
 
 type AppMetaService struct {
-	DevAppModel   *DevAppModel `checkinject:"required"`
-	AppFilesModel interface {
-		ReadEvaluatedManifest(locationKey string) (domain.AppVersionManifest, error)
-	} `checkinject:"required"`
-	AppGetter interface {
+	DevAppModel *DevAppModel `checkinject:"required"`
+	AppGetter   interface {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
 	DevAppProcessEvents interface {
@@ -67,11 +64,7 @@ type AppMetaResp struct {
 }
 
 func (s *AppMetaService) sendManifest(twine *twine.Twine) {
-	manifest, err := s.AppFilesModel.ReadEvaluatedManifest("")
-	if err != nil {
-		fmt.Println("sendManifest ReadEvaluatedManifest Error: ", err)
-	}
-	bytes, err := json.Marshal(manifest) // kind of a bummer we're parsing the json manifest and converting right back to json
+	bytes, err := json.Marshal(s.DevAppModel.Manifest)
 	if err != nil {
 		fmt.Println("sendManifest json Marshal Error: " + err.Error())
 	}

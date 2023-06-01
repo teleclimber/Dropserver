@@ -59,13 +59,13 @@ type AppFilesModel interface {
 
 // AppModel is the interface for the app model
 type AppModel interface {
-	GetFromID(domain.AppID) (*domain.App, error)
+	GetFromID(domain.AppID) (domain.App, error)
 	GetForOwner(domain.UserID) ([]*domain.App, error)
-	Create(domain.UserID, string) (*domain.App, error)
+	Create(domain.UserID) (domain.AppID, error)
 	Delete(appID domain.AppID) error
-	GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+	GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-	CreateVersion(domain.AppID, domain.Version, int, domain.APIVersion, string) (*domain.AppVersion, error)
+	CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 	DeleteVersion(domain.AppID, domain.Version) error
 }
 

@@ -70,7 +70,7 @@ type AppspaceStatus struct {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	AppModel interface {
-		GetVersion(domain.AppID, domain.Version) (*domain.AppVersion, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
 
 	AppspaceInfoModel interface {

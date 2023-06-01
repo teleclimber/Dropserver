@@ -165,8 +165,8 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 }
 
 // Make a new migration sandbox
-func (m *DevSandboxManager) ForMigration(appVersion *domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
-	s := sandbox.NewSandbox(m.getNextID(), opAppspaceMigration, ownerID, appVersion, appspace)
+func (m *DevSandboxManager) ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
+	s := sandbox.NewSandbox(m.getNextID(), opAppspaceMigration, ownerID, &appVersion, appspace)
 	s.SandboxRuns = m.SandboxRuns
 	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
 	s.AppLocation2Path = m.AppLocation2Path

@@ -307,7 +307,6 @@ func main() {
 		MigrationJobModel: migrationJobModel}
 
 	createAppspace := &appspaceops.CreateAppspace{
-		AppModel:               appModel,
 		AppspaceModel:          appspaceModel,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceMetaDB:         appspaceMetaDb,
