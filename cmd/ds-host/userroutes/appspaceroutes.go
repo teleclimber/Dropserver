@@ -12,18 +12,19 @@ import (
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
-// AppspaceMeta is
-type AppspaceMeta struct {
-	AppspaceID     int            `json:"appspace_id"`
-	AppID          int            `json:"app_id"`
-	AppVersion     domain.Version `json:"app_version"`
-	DomainName     string         `json:"domain_name"`
-	NoTLS          bool           `json:"no_tls"`
-	PortString     string         `json:"port_string"`
-	DropID         string         `json:"dropid"`
-	Created        time.Time      `json:"created_dt"`
-	Paused         bool           `json:"paused"`
-	UpgradeVersion domain.Version `json:"upgrade_version,omitempty"`
+// AppspaceResp is
+type AppspaceResp struct {
+	AppspaceID     int                  `json:"appspace_id"`
+	AppID          int                  `json:"app_id"`
+	AppVersion     domain.Version       `json:"app_version"`
+	DomainName     string               `json:"domain_name"`
+	NoTLS          bool                 `json:"no_tls"`
+	PortString     string               `json:"port_string"`
+	DropID         string               `json:"dropid"`
+	Created        time.Time            `json:"created_dt"`
+	Paused         bool                 `json:"paused"`
+	UpgradeVersion domain.Version       `json:"upgrade_version,omitempty"`
+	AppVersionData *domain.AppVersionUI `json:"ver_data,omitempty"`
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -35,6 +36,7 @@ type AppspaceRoutes struct {
 	AppModel              interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
+		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
@@ -71,12 +73,12 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Use(mustBeAuthenticated)
 
-	r.Get("/", a.getAppspaces)
+	r.Get("/", a.getAppspaces) // return app vers for eah
 	r.Post("/", a.postNewAppspace)
 
 	r.Route("/{appspace}", func(r chi.Router) {
 		r.Use(a.appspaceCtx)
-		r.Get("/", a.getAppspace)
+		r.Get("/", a.getAppspace) // reutnr app vers UI
 		r.Delete("/", a.deleteAppspace)
 		r.Get("/log", a.getLog)
 		r.Get("/usage", a.getUsage)
@@ -134,6 +136,13 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		respData.UpgradeVersion = upgrade.Version
 	}
+	ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
+	if err == nil {
+		respData.AppVersionData = &ver
+	} else if err != domain.ErrNoRowsInResultSet {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	writeJSON(w, respData)
 }
@@ -174,7 +183,7 @@ func (a *AppspaceRoutes) getAppspacesForApp(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	respData := make([]AppspaceMeta, len(appspaces))
+	respData := make([]AppspaceResp, len(appspaces))
 	for i, appspace := range appspaces {
 		respData[i] = a.makeAppspaceMeta(*appspace)
 	}
@@ -188,18 +197,25 @@ func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	respData := make([]AppspaceMeta, 0)
+	respData := make([]AppspaceResp, 0)
 	for _, appspace := range appspaces {
-		appspaceMeta := a.makeAppspaceMeta(*appspace)
+		appspaceResp := a.makeAppspaceMeta(*appspace) // TODO
 		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if ok {
-			appspaceMeta.UpgradeVersion = upgrade.Version
+			appspaceResp.UpgradeVersion = upgrade.Version
 		}
-		respData = append(respData, appspaceMeta)
+		ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
+		if err == nil {
+			appspaceResp.AppVersionData = &ver
+		} else if err != domain.ErrNoRowsInResultSet {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		respData = append(respData, appspaceResp)
 	}
 	writeJSON(w, respData)
 }
@@ -352,8 +368,8 @@ func (a *AppspaceRoutes) getUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sums30d)
 }
 
-func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceMeta {
-	return AppspaceMeta{
+func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceResp {
+	return AppspaceResp{
 		AppspaceID: int(appspace.AppspaceID),
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,

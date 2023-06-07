@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import { ref, Ref, reactive, watch, onMounted, ComputedRef, computed } from 'vue';
+import { shallowRef, ref, Ref, reactive, watch, onMounted, ComputedRef, computed, isReactive } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
 import { useDropIDsStore } from '@/stores/dropids';
-import type { App } from '@/stores/types';
+import { App } from '@/stores/types';
 
 import { DomainNames, checkAppspaceDomain } from '../models/domainnames';
 
@@ -41,10 +41,14 @@ const picked_app :ComputedRef<App|undefined> = computed( () => {
 	return appsStore.getApp(app_pick.value)?.value;
 });
 
-const version_options = computed( () => {
-	if( picked_app.value === undefined ) return [];
-	return picked_app.value.versions.map( v => v.version );
+const version_options :Ref<string[]> = shallowRef([]);
+watch( picked_app, async () => {
+	if( picked_app.value === undefined ) return;
+	await appsStore.loadAppVersions(picked_app.value.app_id);
+	const versions = appsStore.mustGetAppVersions(picked_app.value.app_id);
+	version_options.value = versions.map( v => v.version ).reverse();
 });
+
 const version_pick :Ref<string> = ref("");
 watch( version_options, () => {
 	if( !picked_app.value ) {
@@ -55,9 +59,14 @@ watch( version_options, () => {
 		version_pick.value = props.version;
 		return;
 	}
-	version_pick.value = picked_app.value.versions[0].version;
+	if( picked_app.value.cur_ver !== undefined ) {
+		version_pick.value = picked_app.value.cur_ver;
+		return;
+	}
+	if( version_options.value?.length ) {
+		version_pick.value = version_options.value[0];
+	}
 });
-
 
 onMounted( () => {
 	setInitialAppID();
@@ -196,7 +205,7 @@ function cancel() {
 					<DataDef field="Choose Application:">
 						<select ref="app_pick_elem" v-model="app_pick" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 							<option :value="undefined">Pick Application</option>
-							<option v-for="[_, a] in appsStore.apps" :key="'app-pick-'+a.value.app_id" :value="a.value.app_id">{{a.value.name}}</option>
+							<option v-for="[_, a] in appsStore.apps" :key="'app-pick-'+a.value.app_id" :value="a.value.app_id">{{a.value.ver_data?.name}}</option>
 						</select>
 					</DataDef>
 					<DataDef field="Choose Version:">

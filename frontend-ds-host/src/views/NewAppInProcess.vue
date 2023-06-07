@@ -11,6 +11,8 @@ import MessageSad from '../components/ui/MessageSad.vue';
 import MessageWarn from '@/components/ui/MessageWarn.vue';
 import MessageProcessing from '../components/ui/MessageProcessing.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
+import { getLoadState } from '@/stores/loadable';
+import { LoadState } from '@/stores/types';
 
 const router = useRouter();
 
@@ -27,6 +29,13 @@ const app = computed( () => {
 	const a = appsStore.getApp(props.app_id);
 	if( a === undefined ) return;
 	return a.value;
+});
+const app_versions = computed( () => {
+	if( props.app_id === undefined ) return undefined;
+	appsStore.loadAppVersions(props.app_id);
+	const av = appsStore.mustGetAppVersions(props.app_id);
+	if( getLoadState(av) !== LoadState.Loaded ) return;
+	return av;
 });
 
 const desc_str = computed( () => props.app_id === undefined ? 'App' : 'Version' );
@@ -50,11 +59,11 @@ type displayVer = {
 	created_dt: Date
 }
 const versions = computed( () => {
-	if( app.value === undefined ) return;
-	const ret :displayVer[] = app.value.versions.map( v => {
+	if( app_versions.value === undefined ) return;
+	const ret :displayVer[] = app_versions.value.map( v => {
 		return {
 			version: v.version,
-			schema:v.schema,
+			schema: v.schema,
 			is_uploaded: false,
 			created_dt: v.created_dt };
 	});
@@ -146,6 +155,7 @@ onUnmounted( () => {
 
 			<div class="my-5" v-if="manifest">
 				<div class="px-4 sm:px-6">
+					<div v-if="manifest.accent_color" class="h-3" :style="'background-color:'+manifest.accent_color">&nbsp;</div>
 					<h2 class="text-2xl font-medium">{{manifest.name}}</h2>
 					<p v-if="manifest.short_description" class="text-gray-600 italic">{{ manifest.short_description }}</p>
 					<p>

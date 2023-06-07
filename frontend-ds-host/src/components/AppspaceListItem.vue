@@ -8,15 +8,6 @@ const props = defineProps<{
 	appspace: Appspace
 }>();
 
-const appsStore = useAppsStore();
-appsStore.loadData();
-
-const app = computed( () => {
-	const a = appsStore.apps.get(props.appspace.app_id);
-	if( a === undefined ) return undefined;
-	return a.value;
-});
-
 const protocol = props.appspace.no_tls ? 'http' : 'https';
 const display_link = ref(protocol+'://'+props.appspace.domain_name+props.appspace.port_string)
 
@@ -34,7 +25,9 @@ if( props.appspace.upgrade_version ) version_classes.value = ['bg-orange-200', '
 		</h3>
 		<p><a :href="enter_link" class="text-blue-700 underline hover:text-blue-500 overflow-hidden text-ellipsis">{{ display_link }}</a></p>
 		<p class="mt-4">
-			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">{{app?.name}}</router-link> 
+			<router-link :to="{name: 'manage-app', params: {id:appspace.app_id}}" class="font-medium text-blue-800 hover:underline ">
+				{{appspace.ver_data?.name}}
+			</router-link> 
 			<span class="text-sm font-medium rounded-full px-2 ml-2 " :class="version_classes">{{appspace.app_version}}</span>
 			<span v-if="appspace.upgrade_version" class="bg-green-200 text-green-800 rounded-full ml-2 px-2 text-sm">
 				Upgrade available: {{appspace.upgrade_version}}

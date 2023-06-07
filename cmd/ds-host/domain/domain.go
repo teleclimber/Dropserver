@@ -360,20 +360,41 @@ type UserInvitation struct {
 
 // App represents the data structure for an App.
 type App struct {
-	OwnerID UserID `db:"owner_id"`
-	AppID   AppID  `db:"app_id"`
-	Created time.Time
+	OwnerID UserID    `db:"owner_id" json:"owner_id"`
+	AppID   AppID     `db:"app_id" json:"app_id"`
+	Created time.Time `db:"created" json:"created_dt"`
 }
 
-// AppVersion represents a set of app files with a version
+// AppVersion represents a set of version of an app
+// This struct is meant for backend use, like starting a sandbox.
 type AppVersion struct {
-	AppID       AppID      `db:"app_id"`
-	AppName     string     `db:"app_name"` // use Manifest?
-	Version     Version    // use manifest?
-	APIVersion  APIVersion `db:"api"`    // TODO alter somehow (or just leverage manfest in JSON column
-	Schema      int        `db:"schema"` // use manifest column?
-	Created     time.Time
-	LocationKey string `db:"location_key"`
+	AppID       AppID      `db:"app_id" json:"app_id"`
+	Version     Version    `db:"version" json:"version"`
+	APIVersion  APIVersion `db:"api" json:"-"`
+	Schema      int        `db:"schema" json:"schema"` // use manifest column?
+	Created     time.Time  `db:"created" json:"created"`
+	LocationKey string     `db:"location_key" json:"-"`
+	// consider adding:
+	// - app entrypoint (required to launch sandbox?)
+	// - migrations (summarized, like up-from, down-to?, eventually requried for properly running migrations)
+	// -> maybe migrations could be a separate query, or load the whole manifest when that comes up.
+}
+
+type AppVersionUI struct {
+	AppID            AppID     `db:"app_id" json:"app_id"`
+	Name             string    `db:"name" json:"name"`
+	Version          Version   `db:"version" json:"version"`
+	Schema           int       `db:"schema" json:"schema"`
+	Created          time.Time `db:"created" json:"created_dt"`
+	ShortDescription string    `db:"short_desc" json:"short_desc"`
+	AccentColor      string    `db:"color" json:"color"`
+
+	//APIVersion       APIVersion `db:"api" json:"api"`    // TODO alter somehow (or just leverage manfest in JSON column
+	// Icon bool...
+
+	// consider adding:
+	// - author?....
+	// - ...?
 }
 
 // MetadataLinkedFile for when metadata references a file. used by:

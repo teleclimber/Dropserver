@@ -37,7 +37,7 @@ function pickVersion(v:string) {
 				</button>
 			</div>
 			<div class="border-t border-gray-200 flex justify-center items-center">{{ver.schema}}</div>
-			<div class="border-t border-gray-200 flex justify-center items-center">{{ver.api_version}}</div>
+			<div class="border-t border-gray-200 flex justify-center items-center">0...</div>
 			<div class="border-t border-gray-200 flex justify-center items-center">details...</div>
 		</div>
 		<MessageSad v-if="pick_versions.length === 0" head="No Other Versions" class="col-span-4">

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blang/semver/v4"
+	"github.com/google/go-cmp/cmp"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 )
@@ -99,7 +101,7 @@ func TestGetOwner(t *testing.T) {
 
 	appModel.PrepareStatements()
 
-	apps, err := appModel.GetForOwner(7)
+	_, err := appModel.GetForOwner(7)
 	if err != nil {
 		t.Error(err)
 	}
@@ -119,7 +121,7 @@ func TestGetOwner(t *testing.T) {
 		t.Error(err)
 	}
 
-	apps, err = appModel.GetForOwner(7)
+	apps, err := appModel.GetForOwner(7)
 	if err != nil {
 		t.Error(err)
 	}
@@ -199,8 +201,12 @@ func TestVersion(t *testing.T) {
 	appModel.PrepareStatements()
 
 	appVersion, err := appModel.CreateVersion(1, "foo-location", domain.AppVersionManifest{
-		Version: domain.Version("0.0.1"),
-		Schema:  7})
+		Name:             "Test App",
+		Version:          domain.Version("0.0.1"),
+		Schema:           7,
+		ShortDescription: "abc-123",
+		Icon:             "icon.icon",
+		AccentColor:      "#aabbcc"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -215,7 +221,7 @@ func TestVersion(t *testing.T) {
 		t.Error("input does not match output location key", appVersion)
 	}
 
-	// just go ahead and test GetVersion here for completeness
+	// test GetVersion here
 	appVersionOut, err := appModel.GetVersion(1, "0.0.1")
 	if err != nil {
 		t.Error(err)
@@ -261,6 +267,62 @@ func TestVersion(t *testing.T) {
 		t.Error("expected error on inserting duplicate")
 	}
 
+}
+
+func TestGetVersionUI(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	appVersion, err := appModel.CreateVersion(1, "loc", domain.AppVersionManifest{
+		Name:             "Test App",
+		Version:          domain.Version("0.0.1"),
+		Schema:           7,
+		ShortDescription: "abc-123",
+		Icon:             "icon.icon",
+		AccentColor:      "#aabbcc"})
+	if err != nil {
+		t.Error(err)
+	}
+
+	// then insert one with a minimal manifest (version and schema included only)
+	// to ensure that missing values in manifest don't cause errors.
+	manifest := `{"version":"0.0.2", "schema": 9}`
+	_, err = h.Exec(`INSERT INTO app_versions
+		(app_id, version, location_key, manifest, created) VALUES (?, ?, ?, json(?), datetime("now"))`,
+		1, "0.0.2", "loc2", manifest)
+	if err != nil {
+		t.Error(err)
+	}
+
+	appVersionUIOut, err := appModel.GetVersionForUI(1, "0.0.1")
+	if err != nil {
+		t.Error(err)
+	}
+	expectedVerUI := domain.AppVersionUI{
+		AppID:            1,
+		Name:             "Test App",
+		Version:          domain.Version("0.0.1"),
+		Schema:           7,
+		ShortDescription: "abc-123",
+		AccentColor:      "#aabbcc",
+		Created:          appVersion.Created, // cheat on created because it's just easier that way.
+	}
+	if !cmp.Equal(expectedVerUI, appVersionUIOut) {
+		t.Errorf("app version out unexpected: %v, %v", expectedVerUI, appVersionUIOut)
+	}
+
+	_, err = appModel.GetVersionForUI(1, "0.0.2")
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func TestGetVersionForApp(t *testing.T) {
@@ -313,6 +375,91 @@ func TestGetVersionForApp(t *testing.T) {
 	}
 	if len(vers) != 0 {
 		t.Error("Got wrong number of results: should be 0")
+	}
+}
+
+func TestSortVersions(t *testing.T) {
+	vers := []string{"0.3.0", "0.0.1", "5.1.2"}
+	pVers := make([]parsedVersion, len(vers))
+	for i, v := range vers {
+		p, _ := semver.Parse(v)
+		pVers[i] = parsedVersion{domain.Version(v), p}
+	}
+	sortVersions(pVers)
+	if pVers[0].dom != domain.Version("0.0.1") {
+		t.Log(pVers)
+		t.Error("expected 0.0.1 to be the 0-index version")
+	}
+	if pVers[2].dom != domain.Version("5.1.2") {
+		t.Log(pVers)
+		t.Error("expected 5.1.2 to be the last-index version")
+	}
+}
+
+func TestGetParsedVersions(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+	appModel.PrepareStatements()
+
+	ins := []domain.Version{"5.1.2", "0.0.1"}
+	for _, i := range ins {
+		_, err := h.Exec(`INSERT INTO app_versions (app_id, version) VALUES (1, ?)`, i)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	pVers, err := appModel.getParsedVersions(1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if pVers[0].dom != domain.Version("0.0.1") ||
+		!cmp.Equal(pVers[0].parsed, semver.Version{Major: 0, Minor: 0, Patch: 1}) {
+		t.Log(pVers)
+		t.Error("didn't get expected result")
+	}
+	if pVers[1].dom != domain.Version("5.1.2") ||
+		!cmp.Equal(pVers[1].parsed, semver.Version{Major: 5, Minor: 1, Patch: 2}) {
+		t.Log(pVers)
+		t.Error("didn't get expected result")
+	}
+}
+
+func TestGetCurrentVersion(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+	appModel.PrepareStatements()
+
+	_, err := appModel.GetCurrentVersion(1)
+	if err != domain.ErrNoRowsInResultSet {
+		t.Error("expected domain.ErroNoRowsInResultSet")
+	}
+
+	ins := []domain.Version{"5.1.2", "0.0.1"}
+	for _, i := range ins {
+		_, err := h.Exec(`INSERT INTO app_versions (app_id, version) VALUES (1, ?)`, i)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	curVer, err := appModel.GetCurrentVersion(1)
+	if err != nil {
+		t.Error(err)
+	}
+	if curVer != domain.Version("5.1.2") {
+		t.Errorf("expected 5.1.2 got %v", curVer)
 	}
 }
 

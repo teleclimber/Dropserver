@@ -15,12 +15,8 @@ const appspaceUsersStore = useAppspaceUsersStore();
 const is_local = ref(true);
 const domain_strong = ref('');
 const domain = ref('');
-const app_name = ref('');
 const paused = ref(false);
 const enter_link = ref('');
-
-const appsStore = useAppsStore();
-appsStore.loadData();
 
 if( props.local_appspace ) {
 	const a = props.local_appspace;
@@ -32,14 +28,6 @@ if( props.local_appspace ) {
 	else {
 		domain_strong.value = a.domain_name
 	}
-
-	watchEffect( () => {
-		if( appsStore.is_loaded ) {
-			const app = appsStore.apps.get(a.app_id);
-			if( app === undefined ) return;
-			app_name.value = app.value.name;
-		}
-	});
 
 	appspaceUsersStore.loadData(a.appspace_id);
 	
@@ -80,7 +68,7 @@ const users = computed( () => {
 				<span class="font-bold">{{ domain_strong }}</span>
 				<span class="text-gray-500" v-if="domain !== ''">.{{ domain }}</span>
 			</h1>
-			<h4 v-if="is_local" class="overflow-x-hidden text-ellipsis text-gray-600">{{ app_name }}</h4>
+			<h4 v-if="is_local" class="overflow-x-hidden text-ellipsis text-gray-600">{{ local_appspace?.ver_data?.name }}</h4>
 			<h4 v-else class="flex items-center text-gray-600">
 				Remote appspace
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 ml-1 ">

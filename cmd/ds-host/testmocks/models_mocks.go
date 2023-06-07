@@ -627,6 +627,21 @@ func (mr *MockAppModelMockRecorder) DeleteVersion(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVersion", reflect.TypeOf((*MockAppModel)(nil).DeleteVersion), arg0, arg1)
 }
 
+// GetCurrentVersion mocks base method
+func (m *MockAppModel) GetCurrentVersion(arg0 domain.AppID) (domain.Version, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCurrentVersion", arg0)
+	ret0, _ := ret[0].(domain.Version)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCurrentVersion indicates an expected call of GetCurrentVersion
+func (mr *MockAppModelMockRecorder) GetCurrentVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCurrentVersion", reflect.TypeOf((*MockAppModel)(nil).GetCurrentVersion), arg0)
+}
+
 // GetForOwner mocks base method
 func (m *MockAppModel) GetForOwner(arg0 domain.UserID) ([]*domain.App, error) {
 	m.ctrl.T.Helper()
@@ -670,6 +685,21 @@ func (m *MockAppModel) GetVersion(arg0 domain.AppID, arg1 domain.Version) (domai
 func (mr *MockAppModelMockRecorder) GetVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersion", reflect.TypeOf((*MockAppModel)(nil).GetVersion), arg0, arg1)
+}
+
+// GetVersionForUI mocks base method
+func (m *MockAppModel) GetVersionForUI(arg0 domain.AppID, arg1 domain.Version) (domain.AppVersionUI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVersionForUI", arg0, arg1)
+	ret0, _ := ret[0].(domain.AppVersionUI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVersionForUI indicates an expected call of GetVersionForUI
+func (mr *MockAppModelMockRecorder) GetVersionForUI(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionForUI", reflect.TypeOf((*MockAppModel)(nil).GetVersionForUI), arg0, arg1)
 }
 
 // GetVersionsForApp mocks base method

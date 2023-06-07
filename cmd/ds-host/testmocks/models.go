@@ -63,7 +63,9 @@ type AppModel interface {
 	GetForOwner(domain.UserID) ([]*domain.App, error)
 	Create(domain.UserID) (domain.AppID, error)
 	Delete(appID domain.AppID) error
+	GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 	GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
+	GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
 	GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 	DeleteVersion(domain.AppID, domain.Version) error

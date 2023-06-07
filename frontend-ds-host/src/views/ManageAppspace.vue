@@ -38,16 +38,6 @@ onMounted( () => {
 	appspacesStore.loadAppspace(props.appspace_id);
 });
 
-const appsStore = useAppsStore();
-appsStore.loadData();
-const app = computed( () => {
-	if( appsStore.is_loaded && appspace.value ) return appsStore.mustGetApp(appspace.value.app_id).value;
-});
-const app_version = computed( () => {
-	if( !appspace.value || !app.value ) return;
-	return app.value.versions.find( v => v.version === appspace.value?.app_version );
-});
-
 const status = reactive(new AppspaceStatus) as AppspaceStatus;
 status.connectStatus(props.appspace_id);
 
@@ -96,7 +86,7 @@ async function togglePause() {
 }
 
 const data_schema_mismatch = computed( ()=> {
-	return !!app_version.value && status.loaded && app_version.value.schema !== status.appspace_schema;
+	return appspace.value?.ver_data && status.loaded && appspace.value?.ver_data.schema !== status.appspace_schema;
 });
 
 onUnmounted( async () => {
@@ -126,10 +116,10 @@ onUnmounted( async () => {
 
 					<DataDef field="Created:">{{appspace.created_dt.toLocaleString()}}</DataDef>
 
-					<DataDef field="Application:">{{app ? app.name : "loading..." }}</DataDef>
+					<DataDef field="Application:">{{appspace.ver_data?.name }}</DataDef>
 
 					<DataDef field="App Version:">
-						{{app_version ? app_version.version : "..."}}
+						{{appspace.app_version}}
 						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}" class="btn">
 							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
@@ -141,8 +131,8 @@ onUnmounted( async () => {
 
 					<DataDef field="Data Schema:">
 						<div v-if="data_schema_mismatch" class="data-schema-grid grid gap-x-4">
-							<p>App version {{ app_version?.version }}:</p>
-							<span class="font-bold">{{ app_version?.schema }}</span>
+							<p>App version {{ appspace?.ver_data?.schema }}:</p>
+							<span class="font-bold">{{ appspace?.ver_data?.schema }}</span>
 							<p>Appspace Data:</p>
 							<span class="flex items-center">
 								<span class="font-bold">{{ status.appspace_schema }}</span>
@@ -161,7 +151,7 @@ onUnmounted( async () => {
 					</DataDef>
 
 					<MessageSad head="Data Schema Mismatch" v-if="data_schema_mismatch" class="my-4 md:rounded-xl md:mx-6">
-						<p>The application expects the data saved in the appspace to have a schema version of {{ app_version?.schema }}.
+						<p>The application expects the data saved in the appspace to have a schema version of {{ appspace?.ver_data?.schema }}.
 						However the schema of the appspace is currently {{ status.appspace_schema }}.</p>
 						<p>Hit the "Migrate" link to bring the appspace data to the correct schema for the application,
 							or change the app version to match the data schema.</p>

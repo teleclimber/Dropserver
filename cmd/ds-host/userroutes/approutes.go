@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -18,31 +17,18 @@ import (
 
 // GetAppsResp is
 type GetAppsResp struct {
-	Apps []ApplicationMeta `json:"apps"`
+	Apps []ApplicationResp `json:"apps"`
 }
 
-// ApplicationMeta is an application's metadata
-type ApplicationMeta struct {
-	AppID int `json:"app_id"`
-	//AppName  string        `json:"name"`
-	Created  time.Time     `json:"created_dt"`
-	Versions []VersionMeta `json:"versions"`
-}
-
-// VersionMeta is for listing versions of application code
-type VersionMeta struct {
-	AppID domain.AppID `json:"app_id"`
-	//AppName    string            `json:"app_name"`
-	//Version    domain.Version    `json:"version"`
-	//APIVersion domain.APIVersion `json:"api_version"`
-	//Schema     int               `json:"schema"`
-	Created  time.Time                 `json:"created_dt"`
-	Manifest domain.AppVersionManifest `json:"manifest"`
+type ApplicationResp struct {
+	domain.App
+	CurVer     domain.Version      `json:"cur_ver"`
+	VesionData domain.AppVersionUI `json:"ver_data"`
 }
 
 // Versions should be embedded in application meta?
 type Versions struct {
-	AppVersions []VersionMeta `json:"app_versions"`
+	AppVersions []domain.AppVersionUI `json:"app_versions"`
 }
 
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
@@ -67,7 +53,9 @@ type ApplicationRoutes struct {
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
-		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
+		GetCurrentVersion(appID domain.AppID) (domain.Version, error)
+		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error) // maybe no longer necessary?
+		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppLogger interface {
@@ -94,8 +82,10 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Use(a.applicationCtx)
 		r.Get("/", a.getApplication)
 		r.Delete("/", a.delete)
+		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
-		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
+		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion) // ?? what is this?
+		// .Get("/version/{app-version}/manifest -> return the complete manifest.
 		r.With(a.appVersionCtx).Get("/version/{app-version}/app-icon", a.getAppIcon)
 		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
 	})
@@ -106,24 +96,28 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 func (a *ApplicationRoutes) getApplication(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
 
-	appResp := makeAppResp(app)
-	appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
-	if err != nil {
+	appResp := ApplicationResp{app, "", domain.AppVersionUI{}}
+	curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
+	if err == nil {
+		appResp.CurVer = curVer
+		ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
+		if err == nil {
+			appResp.VesionData = ver
+		} else if err != domain.ErrNoRowsInResultSet {
+			httpInternalServerError(w)
+			return
+		}
+	} else if err != domain.ErrNoRowsInResultSet {
 		httpInternalServerError(w)
 		return
 	}
-	appResp.Versions = make([]VersionMeta, len(appVersions))
-	for j, appVersion := range appVersions {
-		appResp.Versions[j] = makeVersionMeta(*appVersion)
-	}
-
 	writeJSON(w, appResp)
 }
 func (a *ApplicationRoutes) getApplications(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	_, ok := query["app-version"]
+	_, ok := query["app-version"] // Possibly not used anymore.
 	if ok {
-		a.getAppVersions(w, r)
+		a.getAppVersions(w, r) // I don't think this is used anymore
 	} else {
 		a.getAllApplications(w, r)
 	}
@@ -139,23 +133,26 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 	}
 
 	respData := GetAppsResp{
-		Apps: make([]ApplicationMeta, len(apps))}
+		Apps: make([]ApplicationResp, len(apps))}
 
 	fail := false
 	for i, app := range apps {
-		appResp := makeAppResp(*app)
-		appVersions, err := a.AppModel.GetVersionsForApp(app.AppID)
+		curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
+		if err == domain.ErrNoRowsInResultSet {
+			respData.Apps[i] = ApplicationResp{*app, "", domain.AppVersionUI{}}
+			continue
+		}
 		if err != nil {
 			fail = true
 			break
 		}
-		appResp.Versions = make([]VersionMeta, len(appVersions))
-		for j, appVersion := range appVersions {
-			appResp.Versions[j] = makeVersionMeta(*appVersion)
+		ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
+		if err != nil {
+			fail = true
+			break
 		}
-		respData.Apps[i] = appResp
+		respData.Apps[i] = ApplicationResp{*app, curVer, ver}
 	}
-
 	if fail {
 		httpInternalServerError(w)
 		return
@@ -180,7 +177,7 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 	appVerionIDs, ok := query["app-version"]
 	if ok {
 		respData := Versions{
-			AppVersions: make([]VersionMeta, len(appVerionIDs))}
+			AppVersions: make([]domain.AppVersionUI, len(appVerionIDs))}
 
 		for i, id := range appVerionIDs {
 			appID, version, err := parseAppVersionID(id)
@@ -198,13 +195,13 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 				http.Error(w, "app version not owned by user", http.StatusForbidden)
 				return
 			}
-			appVersion, err := a.AppModel.GetVersion(appID, version)
+			appVersion, err := a.AppModel.GetVersionForUI(appID, version)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			respData.AppVersions[i] = makeVersionMeta(appVersion)
+			respData.AppVersions[i] = appVersion
 		}
 
 		writeJSON(w, respData)
@@ -384,15 +381,22 @@ func (a *ApplicationRoutes) getAppIcon(w http.ResponseWriter, r *http.Request) {
 	}
 	http.ServeFile(w, r, p)
 }
+
+func (a *ApplicationRoutes) getVersions(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	v, err := a.AppModel.GetVersionsForApp(app.AppID)
+	if err != nil {
+		writeServerError(w)
+	}
+	writeJSON(w, v)
+}
 func (a *ApplicationRoutes) getVersion(w http.ResponseWriter, r *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(r.Context())
-	respData := VersionMeta{ // TODO fix up with manifest or return manifest separately
-		AppID:   appVersion.AppID,
-		Created: appVersion.Created,
-		//	Manifest: ,
+	v, err := a.AppModel.GetVersionForUI(appVersion.AppID, appVersion.Version)
+	if err != nil {
+		writeServerError(w)
 	}
-
-	writeJSON(w, respData)
+	writeJSON(w, v)
 }
 
 func (a *ApplicationRoutes) deleteVersion(w http.ResponseWriter, r *http.Request) {
@@ -523,23 +527,6 @@ func parseAppVersionID(id string) (appID domain.AppID, version domain.Version, e
 	version = domain.Version(pieces[1])
 
 	return
-}
-
-func makeAppResp(app domain.App) ApplicationMeta {
-	return ApplicationMeta{
-		AppID: int(app.AppID),
-		//AppName: app.Name,
-		Created: app.Created}
-}
-
-func makeVersionMeta(appVersion domain.AppVersion) VersionMeta {
-	return VersionMeta{
-		AppID: appVersion.AppID,
-		// AppName:    appVersion.AppName,
-		// Version:    appVersion.Version,
-		// Schema:     appVersion.Schema,
-		// APIVersion: appVersion.APIVersion,
-		Created: appVersion.Created}
 }
 
 func (a *ApplicationRoutes) getLogger(note string) *record.DsLogger {

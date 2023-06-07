@@ -25,11 +25,13 @@ const props = defineProps<{
 
 const router = useRouter();
 
+// Plenty of opportunities to clean up how we load data in this component.
+// -> only load the appspace data for the appspace in question.
+
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 
 const appsStore = useAppsStore();
-appsStore.loadData();
 
 const migrationJobsStore = useAppspaceMigrationJobsStore();
 watch( () => migrationJobsStore.isLoaded(props.appspace_id), () => {
@@ -50,14 +52,18 @@ const appspace = computed( () => {
 	return appspacesStore.mustGetAppspace(props.appspace_id).value;
 });
 
-const app = computed( () => {
-	if( appspace.value === undefined || !appsStore.is_loaded ) return;
-	return appsStore.mustGetApp(appspace.value.app_id).value;
+watch( appspace, () => {
+	if( appspace.value ) appsStore.loadAppVersions(appspace.value.app_id);
+});
+
+const app_versions = computed( () => {
+	if( !appspace.value ) return;
+	return appsStore.getAppVersions(appspace.value.app_id);
 });
 
 const cur_app_version = computed( () => {
-	if( app.value === undefined ) return;
-	return app.value.versions.find( v => appspace.value?.app_version === v.version );
+	if( app_versions.value === undefined ) return;
+	return app_versions.value.find( v => appspace.value?.app_version === v.version );
 });
 
 const data_schema_mismatch = computed( ()=> {
@@ -68,8 +74,8 @@ const show_migrate_only = computed( () => {
 });
 
 const to_app_version = computed( () => {
-	if( app.value === undefined || props.to_version === '' ) return;
-	return app.value.versions.find( v => props.to_version === v.version);
+	if( app_versions.value === undefined || props.to_version === '' ) return;
+	return app_versions.value.find( v => props.to_version === v.version);
 });
 
 const running_migration_job = computed( () => {
@@ -179,9 +185,9 @@ onUnmounted( () => {
 				</DataDef>
 				<DataDef v-if="show_all_versions" field="Choose a Version:">
 					<PickVersion 
-						v-if="app && appspace"
+						v-if="app_versions && appspace"
 						:appspace_id="appspace_id"
-						:versions="app.versions"
+						:versions="app_versions"
 						:current="appspace.app_version"
 						class="col-span-3"
 					></PickVersion>

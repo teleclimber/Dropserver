@@ -15,7 +15,7 @@ defineProps<{
 		<span class="bg-gray-200">&nbsp;</span>
 		<div class="px-4 py-2 font-bold text-lg text-center">{{app_version.version}}</div>
 		<div class=" text-center">{{app_version.schema}}</div>
-		<div class=" text-center">{{app_version.api_version}}</div>
+		<div class=" text-center">0...</div>
 		<div>details...</div>
 	</div>
 </template>

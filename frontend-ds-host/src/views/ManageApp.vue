@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router';
 
 import { useAppsStore } from '@/stores/apps';
 import { useAppspacesStore } from '@/stores/appspaces';
-import { Appspace } from '@/stores/types'
+import { Appspace, LoadState } from '@/stores/types';
+import { getLoadState } from '@/stores/loadable';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
@@ -18,7 +19,8 @@ const props = defineProps<{
 }>();
 
 const appsStore = useAppsStore();
-appsStore.loadData();
+appsStore.loadData();	// TODO No, this should be loadApp, but that requires some rethink in appsStore.
+appsStore.loadAppVersions(props.app_id);
 
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
@@ -28,6 +30,9 @@ const app = computed( () => {
 	const a = appsStore.getApp(Number(props.app_id));
 	if( a ) return a.value;
 	return undefined;
+});
+const app_versions = computed( () => {
+	return appsStore.mustGetAppVersions(props.app_id);
 });
 
 const app_appspaces :ComputedRef<Appspace[]> = computed( () => {
@@ -43,10 +48,6 @@ const version_appspaces :ComputedRef<Map<string, Appspace[]>> = computed( () => 
 		ret.get(v)!.push(as);
 	});
 	return ret;
-});
-
-const latest_version = computed( () => {
-	return app.value?.versions[0].version;	// some chance there are zero versions in app??
 });
 
 const deleting_versions :Set<string> = reactive(new Set);
@@ -86,7 +87,7 @@ async function delApp() {
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Application</h3>
 				</div>
 				<div class="my-5">
-					<DataDef field="Name:">{{ app.name }}</DataDef>
+					<DataDef field="Name:">{{ app.ver_data?.name }}</DataDef>
 					<DataDef field="Created:">{{ app.created_dt.toLocaleString() }}</DataDef>
 				</div>
 			</div>
@@ -100,7 +101,7 @@ async function delApp() {
 				</div>
 
 				<ul class="border-t border-b border-gray-200 divide-y divide-gray-200">
-					<li v-for="ver in app.versions" :key="ver.version" class="px-4 sm:px-6 py-3 flex items-center justify-between text-sm">
+					<li v-for="ver in app_versions" :key="ver.version" class="px-4 sm:px-6 py-3 flex items-center justify-between text-sm">
 						<div class="w-0 flex-1 flex items-center">
 							<span class="ml-2 flex-1 w-0 font-bold">
 								{{ver.version}}
@@ -111,11 +112,7 @@ async function delApp() {
 								{{ver.schema}}
 							</span>
 						</div>
-						<div class="w-0 flex-1 flex items-center">
-							<span class="ml-2 flex-1 w-0 ">
-								{{ver.api_version}}
-							</span>
-						</div>
+					
 						<div class="w-0 flex-1 flex items-center">
 							<span class="ml-2 flex-1 w-0">
 								{{ver.created_dt.toLocaleString()}}
@@ -133,6 +130,9 @@ async function delApp() {
 						</div>
 
 					</li>
+					<div v-if="getLoadState(app_versions) !== LoadState.Loaded" class="p-4 flex justify-center items-center text-gray-500 italic">
+						Loading...
+					</div>
 				</ul>
 
 			</div>
@@ -142,7 +142,7 @@ async function delApp() {
 				<div class="px-4 py-5 sm:px-6 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Appspaces</h3>
 					<div >
-						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
+						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:app.cur_ver}}"
 							class="btn whitespace-nowrap ">
 							Create Appspace
 						</router-link>
@@ -164,7 +164,7 @@ async function delApp() {
 				<div class="md:py-5 md:px-6">
 					<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="md:rounded-lg">
 						There are no appspaces using this app. 
-						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}"
+						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:app.cur_ver}}"
 								class="btn whitespace-nowrap ">
 								Create one!
 							</router-link>

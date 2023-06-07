@@ -1,4 +1,4 @@
-import { ref, shallowRef, ShallowRef, computed } from 'vue';
+import { ref, Ref, shallowRef, ShallowRef, triggerRef, shallowReactive, computed, version, isReactive } from 'vue';
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { ax } from '../controllers/userapi';
@@ -6,31 +6,37 @@ import type {AxiosResponse, AxiosError} from 'axios';
 
 import twineClient from '../twine-services/twine_client';
 import {SentMessageI} from 'twine-web';
-import { LoadState, App, AppVersion, SelectedFile } from './types';
+import { LoadState, App, AppVersion, AppVersionUI, AppManifest } from './types';
+import { Loadable, attachLoadState, setLoadState, getLoadState } from './loadable';
 
-function appVersionFromRaw(raw:any) {
+function appVersionFromRaw(raw:any) :AppVersion {
 	return {
 		app_id: Number(raw.app_id),
-		version: raw.version+'',
-		app_name: raw.app_name+'',
-		api_version: Number(raw.api_version),
+		created_dt: new Date(raw.created),
 		schema: Number(raw.schema),
-		created_dt: new Date(raw.created_dt)
+		version: raw.version+'',
+	}
+}
+export function appVersionUIFromRaw(raw:any) :AppVersionUI {
+	return {
+		app_id: Number(raw.app_id),
+		created_dt: new Date(raw.created_dt),
+		color:raw.color ? raw.color+'' : undefined,
+		name: raw.name+'',
+		schema: Number(raw.schema),
+		short_desc: raw.short_desc+'',
+		version: raw.version+'',
 	}
 }
 function appFromRaw(raw:any) :App {
 	const app_id = Number(raw.app_id);
-	const name = raw.name + '';
 	const created_dt = new Date(raw.created_dt);
-
-	let versions = [];
-	if( Array.isArray(raw.versions) ) versions = raw.versions.reverse().map(appVersionFromRaw);
-	
+	const cur_ver = raw.cur_ver ? raw.cur_ver+'' : undefined;
 	return {
 		app_id,
-		name,
 		created_dt,
-		versions
+		cur_ver,
+		ver_data: cur_ver ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
 }
 
@@ -42,6 +48,7 @@ export const useAppsStore = defineStore('apps', () => {
 	const load_state = ref(LoadState.NotLoaded);
 
 	const apps : ShallowRef<Map<number,ShallowRef<App>>> = shallowRef(new Map());
+	const app_versions :Map<number, Loadable<AppVersion[]>> = new Map;
 
 	const is_loaded = computed( () => {
 		return load_state.value === LoadState.Loaded;
@@ -69,6 +76,27 @@ export const useAppsStore = defineStore('apps', () => {
 		return app;
 	}
 
+	// app versions:
+	function getAppVersions(app_id:number) :Loadable<AppVersion[]> | undefined {
+		return app_versions.get(app_id);
+	}
+	function mustGetAppVersions(app_id:number) :Loadable<AppVersion[]> {
+		const ret = getAppVersions(app_id);
+		if( ret === undefined ) throw new Error('no versions for app: '+app_id);
+		return ret;
+	}
+	async function loadAppVersions(app_id:number) :Promise<void> {
+		if( app_versions.has(app_id) ) return;
+		const av :Loadable<AppVersion[]> = shallowReactive(attachLoadState([], LoadState.Loading));
+		console.log("is reactive at creation:", isReactive(av));
+		app_versions.set(app_id, av);
+		const resp = await ax.get(`/api/application/${app_id}/version`);
+		resp.data.forEach( (raw:any) => {
+			av.push(appVersionFromRaw(raw));
+		});
+		setLoadState(av, LoadState.Loaded);
+	}
+
 	// upload new application sends the files to backend for temporary storage.
 	async function uploadNewApplication(package_file: File): Promise<string> {
 		const form_data = new FormData();
@@ -85,6 +113,7 @@ export const useAppsStore = defineStore('apps', () => {
 		// mark local data as stale now
 		// Other options: route could return app data, or we could manually load it here.
 		load_state.value = LoadState.NotLoaded;
+		app_versions.delete(resp.data.app_id);	// delete any versions to force reload.
 		return resp.data.app_id;
 	}
 
@@ -99,23 +128,29 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	async function deleteAppVersion(app_id: number, version:string) {
-		const app = mustGetApp(app_id);
 		await ax.delete('/api/application/'+app_id+'/version/'+version);
 
-		const v_index = app.value.versions.findIndex( v => v.version === version );
-		const v = app.value.versions[v_index];
+		const av = mustGetAppVersions(app_id);
+		if( getLoadState(av) !== LoadState.Loaded ) throw new Error("trying to delete version in not-yet loaded versions store");
+		const v_index = av.findIndex( v => v.version === version );
+		const v = av[v_index];
 		if( v === undefined ) throw new Error("did not find the version");
-		app.value.versions.splice(v_index, 1);
-		app.value = Object.assign({}, app.value);
+		av.splice(v_index, 1);
 	}
 	
 	async function deleteApp(app_id: number) {
 		await ax.delete('/api/application/'+app_id);
 		apps.value.delete(app_id);
 		apps.value = new Map(apps.value);
+		app_versions.delete(app_id);
 	}
 
-	return {is_loaded, loadData, apps, getApp, mustGetApp, deleteAppVersion, deleteApp, uploadNewApplication, commitNewApplication, uploadNewAppVersion};
+	return {
+		is_loaded, 
+		loadData, apps, getApp, mustGetApp, deleteApp,
+		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
+		uploadNewApplication, commitNewApplication, uploadNewAppVersion
+	};
 });
 
 
@@ -130,34 +165,19 @@ export type AppGetMeta = {
 	warnings: Record<string, string>,
 	version_manifest?: AppManifest
 }
-type MigrationStep = {
-	direction: "up"|"down"
-	schema: number
-}
-type AppManifest = {
-	name :string,
-	short_description: string,
-	version :string,
-	release_date: Date|undefined,
-	main: string,	// do we care here?
-	schema: number,
-	migrations: MigrationStep[],
-	lib_version: string,	//semver
-	signature: string,	//later
-	code_state: string,	 // ? later
-	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
-	
-	authors: string[],	// later, 
-	description: string,	// actually a reference to a long description. Later.
-	release_notes: string,	// ref to a file or something...
-	code: string,	// URL to code repo. OK.
-	homepage: string,	//URL to home page for app
-	help: string,	// URL to help
-	license: string,	// SPDX format of license
-	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
-	funding: string,	// URL for now, but later maybe array of objects? Or...?
 
-	size: number	// bytes of what? compressed package? 
+
+function rawToAppManifest(raw:any) :AppManifest {
+	const ret = Object.assign({}, raw);
+	Object.keys(ret).filter( k => k.includes("-") ).forEach( k => {
+		const new_k = k.replaceAll("-", "_");
+		ret[new_k] = ret[k];
+		delete ret[k];
+	});
+	if( ret.release_date ) {
+		// handle release date. Set it to Date.
+	}
+	return ret;
 }
 
 // type InProcessResp struct {
@@ -231,6 +251,7 @@ export class AppGetter {
 		}
 		if( resp?.data === undefined ) return;
 		const data = <InProcessResp>resp.data;
+		if( data.meta.version_manifest ) data.meta.version_manifest = rawToAppManifest(data.meta.version_manifest);
 		this.last_event.value = data.last_event;
 		if( this.last_event.value.done ) this.meta.value = data.meta;
 	}

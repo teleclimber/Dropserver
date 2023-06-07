@@ -23,7 +23,7 @@ const head = computed( () => {
 	if( route.path.startsWith('/app/') ) {
 		const app_id = appIdParam(route);
 		const app = appsStore.getApp(app_id);
-		if( app !== undefined ) return app.value.name;
+		if( app !== undefined && app.value.ver_data ) return app.value.ver_data.name;
 	}
 	return route.meta.title;
 });

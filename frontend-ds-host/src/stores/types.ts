@@ -26,20 +26,60 @@ export interface UserDropID {
 	created_dt: Date
 }
 
+export type AppMigrationStep = {
+	direction: "up"|"down"
+	schema: number
+}
+export type AppManifest = {
+	name :string,
+	short_description: string,
+	version :string,
+	release_date: Date|undefined,
+	main: string,	// do we care here?
+	schema: number,
+	migrations: AppMigrationStep[],
+	lib_version: string,	//semver
+	signature: string,	//later
+	code_state: string,	 // ? later
+	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
+	accent_color: string,
+
+	authors: string[],	// later, 
+	description: string,	// actually a reference to a long description. Later.
+	release_notes: string,	// ref to a file or something...
+	code: string,	// URL to code repo. OK.
+	homepage: string,	//URL to home page for app
+	help: string,	// URL to help
+	license: string,	// SPDX format of license
+	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
+	funding: string,	// URL for now, but later maybe array of objects? Or...?
+
+	size: number	// bytes of what? compressed package? 
+}
+
 export interface AppVersion {
 	app_id: number,
 	version: string,
-	app_name: string,	// unused?
-	api_version: number,	
 	schema: number,
-	created_dt: Date
+	created_dt: Date,
+}
+
+export interface AppVersionUI {
+	app_id: number,
+	version: string,
+	schema: number,
+	created_dt: Date,
+	name: string,
+	short_desc: string,
+	//icon: boolean,	// implement later
+	color: string | undefined,
 }
 
 export interface App {
 	app_id: number,
-	name: string,
 	created_dt: Date,
-	versions: AppVersion[]
+	cur_ver: string | undefined,
+	ver_data: AppVersionUI | undefined
 }
 
 export type SelectedFile = {
@@ -57,7 +97,8 @@ export interface Appspace {
 	paused: boolean,
 	app_id: number,
 	app_version: string,
-	upgrade_version: string|undefined
+	upgrade_version: string|undefined,
+	ver_data: AppVersionUI | undefined
 }
 
 export interface RemoteAppspace {

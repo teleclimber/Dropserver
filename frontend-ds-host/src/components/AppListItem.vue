@@ -10,10 +10,6 @@ const props = defineProps<{
 	app: App
 }>();
 
-const latest_version = computed( () => {
-	return props.app.versions[0].version;	// some chance there are zero versions in app??
-});
-
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 
@@ -23,9 +19,8 @@ const appspaces = computed( () => {
 
 const app_icon_error = ref(false);
 const app_icon = computed( () => {
-	if( app_icon_error.value || props.app.versions.length === 0 ) return "";
-	const v = props.app.versions[0].version;
-	return `/api/application/${props.app.app_id}/version/${v}/app-icon`;
+	if( app_icon_error.value || !props.app.cur_ver ) return "";
+	return `/api/application/${props.app.app_id}/version/${props.app.cur_ver}/app-icon`;
 });
 
 </script>
@@ -41,7 +36,7 @@ const app_icon = computed( () => {
 					</svg>
 				</div>
 				<div class="ml-4">
-					<h3 class="text-2xl leading-6 font-medium text-gray-900">{{app.name}}</h3>
+					<h3 class="text-2xl leading-6 font-medium text-gray-900">{{app.ver_data?.name}}</h3>
 					<p class="mt-1 max-w-2xl">
 						Created: {{app.created_dt.toLocaleString()}}
 					</p>
@@ -53,7 +48,7 @@ const app_icon = computed( () => {
 		</div>
 		<div class="border-t border-gray-200">
 			<DataDef field="Versions:">
-				{{ app.versions.length }}, latest: {{latest_version}}
+				latest: {{app.cur_ver}}
 			</DataDef>
 			<DataDef field="Appspaces:" v-if="appspaces.length !== 0">
 				<div v-for="a in appspaces">
@@ -62,7 +57,7 @@ const app_icon = computed( () => {
 					</div>
 			</DataDef>
 			<div class="flex justify-end my-5 px-4 sm:px-6">
-				<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:latest_version}}" class="btn">Create Appspace</router-link>
+				<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:app.cur_ver}}" class="btn">Create Appspace</router-link>
 			</div>
 		</div>
 	</div>

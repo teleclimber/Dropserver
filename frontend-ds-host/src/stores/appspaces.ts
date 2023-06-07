@@ -1,6 +1,7 @@
 import { ref, shallowRef, ShallowRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
+import { appVersionUIFromRaw } from './apps';
 import { LoadState, Appspace } from './types';
 
 type NewAppspaceData = {
@@ -22,7 +23,8 @@ function appspaceFromRaw(raw:any) :Appspace {
 		paused: !!raw.paused,
 		app_id: Number(raw.app_id),
 		app_version: raw.app_version+'',
-		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined
+		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
+		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
 }
 

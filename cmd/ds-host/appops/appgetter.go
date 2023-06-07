@@ -456,18 +456,21 @@ func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMe
 
 // validate that app version has a name
 // validate that the DS API is usabel in this version of DS
-// Bit of a misnomer? It validates app name, api version, app version, user permissions.
+// Bit of a misnomer? It validates app name, api version, app version, user permissions.// it doenst nor shoud it.
 // Oh wait validate "version" here means app code version.
 func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
 	manifest := meta.VersionManifest
 	if manifest.Name == "" {
-		meta.Errors = append(meta.Errors, "App name can not be blank")
+		meta.Errors = append(meta.Errors, "App name can not be blank") // TODO I thought we said name wasn't required?
 	}
 
-	_, err := semver.New(string(manifest.Version))
+	parsedVer, err := semver.ParseTolerant(string(manifest.Version))
 	if err != nil {
 		meta.Errors = append(meta.Errors, err.Error()) // TODO clarify it's a semver error
+		return nil
 	}
+
+	meta.VersionManifest.Version = domain.Version(parsedVer.String())
 
 	return nil
 }
