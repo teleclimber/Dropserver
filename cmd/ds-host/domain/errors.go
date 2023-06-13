@@ -12,6 +12,9 @@ var ErrNoRowsInResultSet = errors.New("no rows in result set")
 // such as an index or primary key was violated
 var ErrUniqueConstraintViolation = errors.New("unique constraint violation")
 
+// ErrStorageExceeded indicates that a storage quota has been or will be exceeded
+var ErrStorageExceeded = errors.New("storage limit reached")
+
 // ErrEmailExists is returned when a user email already exists
 var ErrEmailExists = errors.New("email exists")
 

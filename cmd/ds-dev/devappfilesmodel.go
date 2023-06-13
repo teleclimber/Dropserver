@@ -61,7 +61,7 @@ func extractPackage(packagePath, tempDir string) string {
 	}
 	defer f.Close()
 
-	err = appfilesmodel.ExtractPackageLow(f, appDir)
+	err = appfilesmodel.ExtractPackageLow(f, appDir, 1<<30)
 	if err != nil {
 		panic(err)
 	}

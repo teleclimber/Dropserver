@@ -93,7 +93,7 @@ func (a *AppFilesModel) ExtractPackage(locationKey string) error {
 		return err
 	}
 
-	err = ExtractPackageLow(packageFD, appFilesPath)
+	err = ExtractPackageLow(packageFD, appFilesPath, 1<<30) // 1Gb for now. Will hook into user-level disk quota when that gets written
 	if err != nil {
 		logger.AddNote("extractPackage").Error(err)
 		return err
@@ -101,13 +101,14 @@ func (a *AppFilesModel) ExtractPackage(locationKey string) error {
 	return nil
 }
 
-func ExtractPackageLow(r io.Reader, appFilesPath string) error {
+func ExtractPackageLow(r io.Reader, appFilesPath string, maxSize int64) error {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}
 	defer gzr.Close()
 
+	size := int64(0)
 	tr := tar.NewReader(gzr)
 	for {
 		hdr, err := tr.Next()
@@ -116,6 +117,9 @@ func ExtractPackageLow(r io.Reader, appFilesPath string) error {
 		}
 		if err != nil {
 			return err
+		}
+		if size+hdr.Size > maxSize {
+			return domain.ErrStorageExceeded
 		}
 		name := filepath.Clean(hdr.Name)
 		if filepath.IsAbs(name) {
@@ -136,10 +140,15 @@ func ExtractPackageLow(r io.Reader, appFilesPath string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create file: %s: %w", name, err)
 		}
-		_, err = io.Copy(fd, tr)
+		limitedR := limitedReader{R: tr, N: maxSize - size}
+		fSize, err := io.Copy(fd, &limitedR)
 		fd.Close()
 		if err != nil {
 			return fmt.Errorf("failed to write file: %s: %w", name, err)
+		}
+		size = size + fSize
+		if size > maxSize {
+			return domain.ErrStorageExceeded
 		}
 	}
 	return nil
@@ -287,4 +296,23 @@ func pathInsidePath(p, root string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// limitedReader is a copy of io.LimitedReader
+// except it returns domain.ErrStorageExceeded
+type limitedReader struct {
+	R io.Reader // underlying reader
+	N int64     // max bytes remaining
+}
+
+func (l *limitedReader) Read(p []byte) (n int, err error) {
+	if l.N <= 0 {
+		return 0, domain.ErrStorageExceeded
+	}
+	if int64(len(p)) > l.N {
+		p = p[0:l.N]
+	}
+	n, err = l.R.Read(p)
+	l.N -= int64(n)
+	return
 }

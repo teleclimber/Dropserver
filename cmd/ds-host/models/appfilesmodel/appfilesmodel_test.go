@@ -118,7 +118,7 @@ func TestExtractPackageLow(t *testing.T) {
 		{"deep/nested/file.txt", []byte("it's dark down here")},
 	}
 
-	err = ExtractPackageLow(createPackage(files), dir)
+	err = ExtractPackageLow(createPackage(files), dir, 1<<20)
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,7 +144,7 @@ func TestExtractBadPackage(t *testing.T) {
 	var files = fileList{
 		{"/abc.txt", []byte("hello")},
 	}
-	err = ExtractPackageLow(createPackage(files), dir)
+	err = ExtractPackageLow(createPackage(files), dir, 1<<20)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -155,12 +155,49 @@ func TestExtractBadPackage(t *testing.T) {
 	files = fileList{
 		{"trick/../../abc.txt", []byte("hello")},
 	}
-	err = ExtractPackageLow(createPackage(files), dir)
+	err = ExtractPackageLow(createPackage(files), dir, 1<<20)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "outside") {
 		t.Errorf("expected error with outside, got %s", err.Error())
+	}
+}
+
+func TestLimitedReader(t *testing.T) {
+	rb := new(bytes.Buffer)
+	rb.Write(make([]byte, 100))
+	wb := new(bytes.Buffer)
+	read, err := io.Copy(wb, &limitedReader{R: rb, N: 101})
+	if err != nil {
+		t.Error(err)
+	}
+	if read != 100 {
+		t.Errorf("expected to read 100 got %v", read)
+	}
+
+	rb.Write(make([]byte, 100))
+	read, err = io.Copy(wb, &limitedReader{R: rb, N: 50})
+	if err != domain.ErrStorageExceeded {
+		t.Errorf("expected storage exceeded error, got %v %v", read, err)
+	}
+}
+
+func TestExtractOversizePackageLow(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.RemoveAll(dir)
+
+	var files = fileList{
+		{"abc.txt", make([]byte, 100)},
+		{"def.txt", make([]byte, 100)},
+	}
+
+	err = ExtractPackageLow(createPackage(files), dir, 199)
+	if err != domain.ErrStorageExceeded {
+		t.Errorf("expected domain.ErrStorageExceeded, got %v", err)
 	}
 }
 
