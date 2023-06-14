@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // zipFiles puts all the files found at source dir into
@@ -66,7 +68,7 @@ func Zip(sourceDir, destFile string) error {
 // https://stackoverflow.com/a/24792688
 // TODO: handle symbolic links
 // TODO: come up with better permissions
-func Unzip(src, dest string) error {
+func Unzip(src, dest string, maxSize int64) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
@@ -85,10 +87,10 @@ func Unzip(src, dest string) error {
 	}
 
 	// Closure to address file descriptors issue with all the deferred .Close() methods
-	extractAndWriteFile := func(f *zip.File) error {
+	extractAndWriteFile := func(f *zip.File, max int64) (int64, error) {
 		rc, err := f.Open()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		defer func() {
 			if err := rc.Close(); err != nil {
@@ -99,48 +101,78 @@ func Unzip(src, dest string) error {
 		path := filepath.Join(dest, f.Name)
 
 		if path == dest {
-			return nil //skip the root path of the zip
+			return 0, nil //skip the root path of the zip
 		}
 
 		// Check for ZipSlip (Directory traversal)
 		if !strings.HasPrefix(path, dest+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path: %s", path)
+			return 0, fmt.Errorf("illegal file path: %s", path)
 		}
 
+		actualSize := int64(0)
 		if f.FileInfo().IsDir() {
 			err = os.MkdirAll(path, 0755)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		} else {
 			err = os.MkdirAll(filepath.Dir(path), 0755)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			defer func() {
-				if err := f.Close(); err != nil {
+				if err := destFile.Close(); err != nil {
 					panic(err)
 				}
 			}()
 
-			_, err = io.Copy(f, rc)
+			if f.FileInfo().Size() > max {
+				return 0, domain.ErrStorageExceeded
+			}
+			limitedR := limitedReader{R: rc, N: max}
+			actualSize, err = io.Copy(destFile, &limitedR)
 			if err != nil {
-				return err
+				return actualSize, err
 			}
 		}
-		return nil
+		return actualSize, nil
 	}
 
+	//maxSize := int64(1 << 30) // hard-coded to 1 gig for now.
+	size := int64(0)
 	for _, f := range r.File {
-		err := extractAndWriteFile(f)
+		s, err := extractAndWriteFile(f, maxSize-size)
 		if err != nil {
 			return err
+		}
+		size += s
+		if size > maxSize {
+			return domain.ErrStorageExceeded
 		}
 	}
 
 	return nil
+}
+
+// limitedReader is a copy of io.LimitedReader
+// except it returns domain.ErrStorageExceeded
+type limitedReader struct {
+	R io.Reader // underlying reader
+	N int64     // max bytes remaining
+}
+
+func (l *limitedReader) Read(p []byte) (n int, err error) {
+	if l.N <= 0 {
+		return 0, domain.ErrStorageExceeded
+	}
+	if int64(len(p)) > l.N {
+		p = p[0:l.N]
+	}
+	n, err = l.R.Read(p)
+	l.N -= int64(n)
+	return
 }

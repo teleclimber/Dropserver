@@ -145,11 +145,11 @@ func (r *RestoreAppspace) unzipFile(tok string, filePath string) error {
 	r.tokensMux.Unlock()
 
 	// then unzip
-	err = zipfns.Unzip(filePath, dir)
+	err = zipfns.Unzip(filePath, dir, 1<<30) // hard coded to 1 Gig max space for now.
 	if err != nil {
 		r.getLogger("unzipFile, zipfns.Unzip()").Error(err)
 		// error unzipping. Very possibly a bad input zip
-		// Could be other things, like no space left.
+		// or ErrStorageExceeded
 		return fmt.Errorf("input error: %w", err)
 	}
 
