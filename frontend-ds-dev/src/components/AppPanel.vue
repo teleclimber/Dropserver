@@ -61,6 +61,7 @@
 				<p>Name: {{appData.name}}</p>
 				<p>Version: {{appData.version}}</p>
 				<p>Schema: {{appData.schema}}</p>
+				<p>Entrypoint: {{ appData.entrypoint }}</p>
 				<p>Migrations: {{migrations_str}}</p>
 				<p>
 					App Icon: {{ appData.manifest?.icon|| "(none)" }}

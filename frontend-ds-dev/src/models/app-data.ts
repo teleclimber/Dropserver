@@ -13,7 +13,7 @@ type AppManifest = {
 	short_description: string,
 	version :string,
 	release_date: Date|undefined,
-	main: string,	// do we care here?
+	entrypoint: string,
 	schema: number,
 	migrations: MigrationStep[],
 	lib_version: string,	//semver
@@ -67,6 +67,7 @@ class AppData {
 	name = "";
 	version = "0.0.0";
 	schema = 0;
+	entrypoint = "";
 	migrations: MigrationStep[] = [];
     //schemas: number[] = [];
 

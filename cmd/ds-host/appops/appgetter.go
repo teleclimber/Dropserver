@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -170,6 +171,12 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		return
 	}
 
+	err = g.getEntrypoint(keyData.locationKey, &meta)
+	abort = g.checkStep(keyData, meta, err, "error determining app entrypoint")
+	if abort {
+		return
+	}
+
 	err = g.getDataFromSandbox(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error getting data from sandbox")
 	if abort {
@@ -237,11 +244,51 @@ func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMet
 	return nil
 }
 
+func (g *AppGetter) getEntrypoint(locationKey string, meta *domain.AppGetMeta) error {
+	entry := ""
+	if meta.VersionManifest.Entrypoint != "" {
+		entry = path.Clean(meta.VersionManifest.Entrypoint)
+		if entry == "" || entry == "." || entry == "/" || strings.Contains(entry, "..") || strings.Contains(entry, "\\") {
+			meta.Errors = append(meta.Errors, "Application entrypoint is invalid")
+			return nil
+		}
+		if path.IsAbs(entry) {
+			// accept abolute but turn it to relative
+			entry = entry[1:]
+		}
+		meta.VersionManifest.Entrypoint = entry
+		return nil
+	}
+
+	for _, d := range []string{"app.ts", "app.js"} {
+		_, err := os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), d))
+		if os.IsNotExist(err) {
+			// file not there, no op.
+		} else if err != nil {
+			return err
+		} else if entry != "" {
+			meta.Errors = append(meta.Errors, "Application contains both app.js and app.ts and does not specify which one to use in the manifest")
+			return nil
+		} else {
+			entry = d
+		}
+	}
+	if entry == "" {
+		meta.Errors = append(meta.Errors, "Application has neither app.js or app.ts and no entrypoint in the manifest")
+		return nil
+	}
+	meta.VersionManifest.Entrypoint = entry
+	return nil
+}
+
 // This will become a readAppMeta to get routes and migrations and all other data.
 func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMeta) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Starting sandbox to get app data"})
 
-	s, err := g.SandboxManager.ForApp(&domain.AppVersion{LocationKey: keyData.locationKey})
+	s, err := g.SandboxManager.ForApp(&domain.AppVersion{
+		LocationKey: keyData.locationKey,
+		Entrypoint:  meta.VersionManifest.Entrypoint,
+	})
 	if err != nil {
 		// This could very well be an app error!
 		return err

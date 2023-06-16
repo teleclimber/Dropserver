@@ -371,11 +371,11 @@ type AppVersion struct {
 	AppID       AppID      `db:"app_id" json:"app_id"`
 	Version     Version    `db:"version" json:"version"`
 	APIVersion  APIVersion `db:"api" json:"-"`
-	Schema      int        `db:"schema" json:"schema"` // use manifest column?
+	Schema      int        `db:"schema" json:"schema"`
+	Entrypoint  string     `db:"entrypoint" json:"entrypoint"`
 	Created     time.Time  `db:"created" json:"created"`
 	LocationKey string     `db:"location_key" json:"-"`
 	// consider adding:
-	// - app entrypoint (required to launch sandbox?)
 	// - migrations (summarized, like up-from, down-to?, eventually requried for properly running migrations)
 	// -> maybe migrations could be a separate query, or load the whole manifest when that comes up.
 }
@@ -422,8 +422,8 @@ type AppVersionManifest struct {
 	ShortDescription string `json:"short-description"` // I18N string.
 	// Version in semver format. Required.
 	Version Version `json:"version"`
-	// Main is the script that runs the app. Optional. If ommitted system will look for app.ts or app.js.
-	Main string `json:"entrypoint"`
+	// Entrypoint is the script that runs the app. Optional. If ommitted system will look for app.ts or app.js.
+	Entrypoint string `json:"entrypoint"`
 	// Schema is the verion of the appspace data schema.
 	// This is determined automatically by the system.
 	Schema int `json:"schema"`

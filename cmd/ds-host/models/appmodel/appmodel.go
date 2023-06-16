@@ -80,6 +80,7 @@ func (m *AppModel) PrepareStatements() {
 	m.stmt.selectVersion = p.exec(`SELECT 
 		app_id, version,
 		json_extract(manifest, '$.schema') AS schema,
+		json_extract(manifest, '$.entrypoint') AS entrypoint,
 		created, location_key
 		FROM app_versions WHERE app_id = ? AND version = ?`)
 

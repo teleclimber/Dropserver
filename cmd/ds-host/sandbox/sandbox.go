@@ -969,7 +969,7 @@ func (s *Sandbox) writeBootstrapFile() error { // divide this into two: getting 
 	// removing this file on config change.
 
 	str := "import '" + path.Join(s.paths.sandboxPath("sandbox-runner"), "index.ts") + "';\n"
-	str += "import '" + path.Join(s.paths.sandboxPath("app-files"), "app.ts") + "';"
+	str += "import '" + path.Join(s.paths.sandboxPath("app-files"), s.appVersion.Entrypoint) + "';"
 
 	err := os.WriteFile(p, []byte(str), 0600)
 	if err != nil {

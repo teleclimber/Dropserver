@@ -327,7 +327,7 @@ func TestRunnerScriptError(t *testing.T) {
 		id:                    7,
 		ownerID:               ownerID,
 		operation:             op,
-		appVersion:            &domain.AppVersion{AppID: appID, Version: version, LocationKey: appLoc},
+		appVersion:            &domain.AppVersion{AppID: appID, Version: version, Entrypoint: "app.ts", LocationKey: appLoc},
 		appspace:              &domain.Appspace{AppspaceID: appspaceID, LocationKey: asLoc},
 		status:                domain.SandboxStarting,
 		paths:                 &paths{Config: cfg, AppLocation2Path: appl2p, AppspaceLocation2Path: asl2p},
@@ -403,6 +403,7 @@ func TestStart(t *testing.T) {
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
 		Version:     version,
+		Entrypoint:  "app.ts",
 		LocationKey: appLoc}
 	appspace := &domain.Appspace{
 		AppspaceID:  appspaceID,
@@ -503,6 +504,7 @@ func TestStartAppOnly(t *testing.T) {
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
 		Version:     version,
+		Entrypoint:  "app.ts",
 		LocationKey: appLoc}
 
 	s := &Sandbox{

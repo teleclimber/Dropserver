@@ -1,6 +1,8 @@
 package appops
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -49,6 +51,108 @@ func TestValidateAppManifest(t *testing.T) {
 			t.Log(m.Errors)
 			t.Error("Error count mismatch")
 		}
+	}
+}
+
+func TestValidateEntryPoint(t *testing.T) {
+	g := &AppGetter{}
+
+	cases := []struct {
+		input    string
+		expected string
+		err      bool
+	}{
+		{"/", "", true},
+		{".", "", true},
+		{"abc/../def/", "def", false},
+		{"abc/../../def/", "", true},
+		{"/abc/def", "abc/def", false},
+		{"abc\\def", "abc\\def", true},
+	}
+	for _, c := range cases {
+		m := domain.AppGetMeta{
+			Errors: make([]string, 0),
+			VersionManifest: domain.AppVersionManifest{
+				Entrypoint: c.input,
+			}}
+		err := g.getEntrypoint("", &m)
+		if err != nil {
+			t.Error(err)
+		}
+		if c.err && len(m.Errors) == 0 {
+			t.Error("expected error in Meta.Error for case " + c.input)
+		}
+		if !c.err && len(m.Errors) != 0 {
+			t.Errorf("unexpected error in Meta.Error for case %v %v", c.input, m.Errors)
+		}
+		if !c.err && c.expected != m.VersionManifest.Entrypoint {
+			t.Errorf("expected entrypoint does not match: %v %v", c.expected, m.VersionManifest.Entrypoint)
+		}
+	}
+}
+
+type l2p struct {
+	appFiles string
+}
+
+func (l *l2p) Files(loc string) string {
+	return l.appFiles
+}
+
+func TestGetDefaultEntryPoint(t *testing.T) {
+	dir, err := os.MkdirTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	g := &AppGetter{
+		AppLocation2Path: &l2p{appFiles: dir},
+	}
+	m := domain.AppGetMeta{
+		Errors:          make([]string, 0),
+		VersionManifest: domain.AppVersionManifest{},
+	}
+
+	// getEntrypoint when there are no files:
+	err = g.getEntrypoint("", &m)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(m.Errors) != 1 {
+		t.Error("expected Meta.Error because no app js or ts in files")
+	}
+
+	// now put app.js
+	err = os.WriteFile(filepath.Join(g.AppLocation2Path.Files(""), "app.js"), []byte("app"), 0644)
+	if err != nil {
+		t.Error(err)
+	}
+	m.Errors = make([]string, 0)
+	err = g.getEntrypoint("", &m)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(m.Errors) != 0 {
+		t.Errorf("expected no Meta.Error %v", m.Errors)
+	}
+	if m.VersionManifest.Entrypoint != "app.js" {
+		t.Error("expected entrypoint to be app.js")
+	}
+
+	// now with both app.js and app.ts
+	err = os.WriteFile(filepath.Join(g.AppLocation2Path.Files(""), "app.ts"), []byte("app"), 0644)
+	if err != nil {
+		t.Error(err)
+	}
+	m.VersionManifest.Entrypoint = ""
+	m.Errors = make([]string, 0)
+	err = g.getEntrypoint("", &m)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(m.Errors) != 1 {
+		t.Errorf("expected one Meta.Error")
 	}
 }
 
