@@ -20,6 +20,10 @@ func Email(email string) error {
 	return goVal.Var(email, "required,email")
 }
 
+func HttpURL(url string) error {
+	return goVal.Var(url, "required,http_url")
+}
+
 // DomainName validates a domain name
 // Domain can include subdomains
 func DomainName(domainName string) error {

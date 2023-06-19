@@ -27,33 +27,6 @@ func TestSetKey(t *testing.T) {
 	}
 }
 
-func TestValidateAppManifest(t *testing.T) {
-	g := &AppGetter{}
-	cases := []struct {
-		manifest domain.AppVersionManifest
-		numErr   int
-	}{
-		{domain.AppVersionManifest{Name: "blah", Version: "0.0.1"}, 0},
-		{domain.AppVersionManifest{Version: "0.0.1"}, 1},
-		{domain.AppVersionManifest{Name: "blah"}, 1},
-	}
-
-	for _, c := range cases {
-		m := domain.AppGetMeta{
-			Errors:          make([]string, 0),
-			VersionManifest: c.manifest,
-		}
-		err := g.validateVersion(&m)
-		if err != nil {
-			t.Error(err)
-		}
-		if len(m.Errors) != c.numErr {
-			t.Log(m.Errors)
-			t.Error("Error count mismatch")
-		}
-	}
-}
-
 func TestValidatePackageFile(t *testing.T) {
 	cases := []struct {
 		input    string

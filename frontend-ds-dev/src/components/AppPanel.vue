@@ -77,6 +77,62 @@
 					<span v-if="accent_color" class="rounded inline-block h-3 w-20" :style="'background-color:'+accent_color">&nbsp;</span>
 					<span v-else class="italic text-gray-400">(none)</span>
 				</p>
+				<p class="flex">
+					<span class="mr-1">Authors:</span>
+					<div>
+						<div v-for="a in appData.manifest?.authors">
+							{{ a.name }}
+							&lt;<a class="text-blue-600 underline" :href="'mailto:'+a.email">{{ a.email }}</a>&gt;
+							<a class="text-blue-600 underline" :href="a.url">{{ a.url }}</a>
+						</div>
+						<span v-if="p_event.warnings.authors" class="text-orange-400">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+							</svg>
+							{{  p_event.warnings.authors }}
+						</span>
+					</div>
+					<div v-if="!appData.manifest?.authors.length" class="italic text-gray-400">(none)</div>
+				</p>
+				<p class="flex items-center">
+					<span class="mr-1">Website:</span>
+					<a v-if="appData.manifest?.website" :href="appData.manifest.website" class="text-blue-600 underline">
+						{{  appData.manifest.website }}
+					</a>
+					<span v-else class="italic text-gray-400">(none)</span>
+					<span v-if="p_event.warnings.website" class="text-orange-400">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{  p_event.warnings.website }}
+					</span>
+				</p>
+				<p class="flex items-center">
+					<span class="mr-1">Code Repo:</span>
+					<a v-if="appData.manifest?.code" :href="appData.manifest.code" class="text-blue-600 underline">
+						{{  appData.manifest.code }}
+					</a>
+					<span v-else class="italic text-gray-400">(none)</span>
+					<span v-if="p_event.warnings.code" class="text-orange-400">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{  p_event.warnings.code }}
+					</span>
+				</p>
+				<p class="flex items-center">
+					<span class="mr-1">Funding:</span>
+					<a v-if="appData.manifest?.funding" :href="appData.manifest.funding" class="text-blue-600 underline">
+						{{  appData.manifest.funding }}
+					</a>
+					<span v-else class="italic text-gray-400">(none)</span>
+					<span v-if="p_event.warnings.funding" class="text-orange-400">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{  p_event.warnings.funding }}
+					</span>
+				</p>
 			</div>
 			<AppRoutes></AppRoutes>
 			<!-- should also have registered migrations -->

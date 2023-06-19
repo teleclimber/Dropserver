@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/mazznoer/csscolorparser"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -196,11 +195,13 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	if abort {
 		return
 	}
-	err = g.validateAccentColor(keyData, &meta)
+	err = validateAccentColor(&meta)
 	abort = g.checkStep(keyData, meta, err, "error validating accent color")
 	if abort {
 		return
 	}
+
+	validateSoftData(&meta)
 
 	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
 
@@ -485,7 +486,7 @@ func (g *AppGetter) getRoutes(data appGetData, s domain.SandboxI) ([]domain.V0Ap
 }
 
 func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMeta) error {
-	err := g.validateVersion(meta)
+	err := validateVersion(meta)
 	if err != nil {
 		return err
 	}
@@ -493,27 +494,6 @@ func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMe
 		err = g.validateVersionSequence(keyData.appID, meta)
 	}
 	return err
-}
-
-// validate that app version has a name
-// validate that the DS API is usabel in this version of DS
-// Bit of a misnomer? It validates app name, api version, app version, user permissions.// it doenst nor shoud it.
-// Oh wait validate "version" here means app code version.
-func (g *AppGetter) validateVersion(meta *domain.AppGetMeta) error {
-	manifest := meta.VersionManifest
-	if manifest.Name == "" {
-		meta.Errors = append(meta.Errors, "App name can not be blank") // TODO I thought we said name wasn't required?
-	}
-
-	parsedVer, err := semver.ParseTolerant(string(manifest.Version))
-	if err != nil {
-		meta.Errors = append(meta.Errors, err.Error()) // TODO clarify it's a semver error
-		return nil
-	}
-
-	meta.VersionManifest.Version = domain.Version(parsedVer.String())
-
-	return nil
 }
 
 // validateVersionSequence ensures the candidate app version fits
@@ -642,20 +622,6 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 		return err
 	}
 
-	return nil
-}
-
-func (g *AppGetter) validateAccentColor(keyData appGetData, meta *domain.AppGetMeta) error {
-	if meta.VersionManifest.AccentColor == "" {
-		return nil
-	}
-	c, err := csscolorparser.Parse(meta.VersionManifest.AccentColor)
-	if err != nil {
-		meta.Warnings["accent-color"] = fmt.Sprintf("Unable to parse %s: invalid CSS color.", meta.VersionManifest.AccentColor)
-		meta.VersionManifest.AccentColor = ""
-		return nil
-	}
-	meta.VersionManifest.AccentColor = c.HexString()
 	return nil
 }
 

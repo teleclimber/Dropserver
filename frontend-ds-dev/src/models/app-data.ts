@@ -12,25 +12,29 @@ type AppManifest = {
 	name :string,
 	short_description: string,
 	version :string,
-	release_date: Date|undefined,
 	entrypoint: string,
 	schema: number,
 	migrations: MigrationStep[],
 	lib_version: string,	//semver
-	signature: string,	//later
+	
 	code_state: string,	 // ? later
 	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
 	accent_color: string,
 
-	authors: string[],	// later, 
+	authors: {name:string, email:string, url:string}[],
+	code: string,	// URL to code repo. OK.
+	website: string,	//URL to home page for app
+	funding: string,	// URL for now, but later maybe array of objects? Or...?
+
 	description: string,	// actually a reference to a long description. Later.
 	release_notes: string,	// ref to a file or something...
-	code: string,	// URL to code repo. OK.
-	homepage: string,	//URL to home page for app
-	help: string,	// URL to help
+	
 	license: string,	// SPDX format of license
 	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
-	funding: string,	// URL for now, but later maybe array of objects? Or...?
+
+	release_date: Date|undefined,
+	
+	signature: string,	//later
 
 	size: number	// bytes of what? compressed package? 
 }

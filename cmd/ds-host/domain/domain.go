@@ -410,9 +410,9 @@ type MetadataLinkedFile struct {
 }
 
 type ManifestAuthor struct {
-	Name    string `json:"name"`
-	Role    string `json:"role"`    // short description of role, like "original author" "current maintainer and packager"
-	Address string `json:"address"` // URL to personal home page or any substitue, (or maybe email if no URL)
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	URL   string `json:"url"`
 }
 
 type AppVersionManifest struct {
@@ -433,8 +433,7 @@ type AppVersionManifest struct {
 	// Determined automatically at packaging time (?)
 	// Required.
 	LibVersion string `json:"lib-version"`
-	// Signature of the package. Should be omitted if metadata is inside the package.
-	Signature string `json:"signature,omitempty"` // is string enough by itself?
+
 	// CodeState tells the system of processing needed before running the app
 	// Like remote fetch of modules and compile TS.
 	// Note that this can be determined entirely from the installer instance, so provided here for uer information purposes only?
@@ -445,22 +444,27 @@ type AppVersionManifest struct {
 	//AccentColor is a CSS color used to highlight the app in the UI
 	AccentColor string `json:"accent-color"`
 
+	Description  string `json:"description"`   // link to markdown file? I18N??
+	ReleaseNotes string `json:"release-notes"` // link to release notes markdown?
+
 	// Authors
-	Authors      []ManifestAuthor `json:"authors"`       // not actually a string. need a subtype for that? Or more thought?
-	Description  string           `json:"description"`   // link to markdown file? I18N??
-	ReleaseNotes string           `json:"release-notes"` // link to release notes markdown?
+	Authors []ManifestAuthor `json:"authors"`
+
 	// Code, typically URL of git repo
-	Code     string `json:"code"` // code repo
-	Homepage string `json:"homepage"`
-	Help     string `json:"help"` // URL of online help. Required so it can be shown readily.
+	Code    string `json:"code"` // code repo
+	Website string `json:"website"`
+	Funding string `json:"funding"` // should maybe not be a string only...
 	// License in SPDX form
 	License string `json:"license"`
 	// LicenseFile is a package-relative path to a txt file containing the license text.
 	// Parameter is optional. If not set the system looks for /LICENSE.txt. A license file is not required.
 	LicenseFile string `json:"license-file"` // Rel path to license file within package. (might be URL too?)
-	Funding     string `json:"funding"`      // should maybe not be a string only...
+
 	//ReleaseDate YYYY-MM-DD of software release date. Should be set automatically by packaging code.
 	ReleaseDate string `json:"release-date"` // date of packaging.
+
+	// Signature of the package. Should be omitted if metadata is inside the package.
+	Signature string `json:"signature,omitempty"` // is string enough by itself?
 
 	// Size of the installed package in bytes (except that additional space will be taken up when fetching remote modules if applicable)
 	// Although maybe the actual installed size can be measured by the packaging system?

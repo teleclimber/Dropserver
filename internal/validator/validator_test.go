@@ -48,6 +48,33 @@ func TestEmail(t *testing.T) {
 	}
 }
 
+func TestHttpURL(t *testing.T) {
+	cases := []struct {
+		url string
+		err bool
+	}{
+		{"", true},
+		{"abc", true},
+		{"abcabcabcabc", true},
+		{"             ", true},
+		{"a@b.c", true},
+		{"http:", true},
+		{"http://", true},
+		{"https:", true},
+		{"https://", true},
+		{"https://blah", false},
+	}
+
+	for _, c := range cases {
+		err := HttpURL(c.url)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
+			t.Error("should have gotten error")
+		}
+	}
+}
+
 func TestDomainName(t *testing.T) {
 	cases := []struct {
 		domain string
