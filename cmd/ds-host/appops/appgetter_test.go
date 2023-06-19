@@ -54,39 +54,26 @@ func TestValidateAppManifest(t *testing.T) {
 	}
 }
 
-func TestValidateEntryPoint(t *testing.T) {
-	g := &AppGetter{}
-
+func TestValidatePackageFile(t *testing.T) {
 	cases := []struct {
 		input    string
 		expected string
-		err      bool
+		ok       bool
 	}{
-		{"/", "", true},
-		{".", "", true},
-		{"abc/../def/", "def", false},
-		{"abc/../../def/", "", true},
-		{"/abc/def", "abc/def", false},
-		{"abc\\def", "abc\\def", true},
+		{"/", "", false},
+		{".", "", false},
+		{"abc/../def/", "def", true},
+		{"abc/../../def/", "", false},
+		{"/abc/def", "abc/def", true},
+		{"abc\\def", "abc\\def", false},
 	}
 	for _, c := range cases {
-		m := domain.AppGetMeta{
-			Errors: make([]string, 0),
-			VersionManifest: domain.AppVersionManifest{
-				Entrypoint: c.input,
-			}}
-		err := g.getEntrypoint("", &m)
-		if err != nil {
-			t.Error(err)
+		p, ok := validatePackagePath(c.input)
+		if c.ok != ok {
+			t.Errorf("mismatchin OK value: expected: %v, got: %v", c.ok, ok)
 		}
-		if c.err && len(m.Errors) == 0 {
-			t.Error("expected error in Meta.Error for case " + c.input)
-		}
-		if !c.err && len(m.Errors) != 0 {
-			t.Errorf("unexpected error in Meta.Error for case %v %v", c.input, m.Errors)
-		}
-		if !c.err && c.expected != m.VersionManifest.Entrypoint {
-			t.Errorf("expected entrypoint does not match: %v %v", c.expected, m.VersionManifest.Entrypoint)
+		if c.ok && c.expected != p {
+			t.Errorf("expected entrypoint does not match: %v %v", c.expected, p)
 		}
 	}
 }

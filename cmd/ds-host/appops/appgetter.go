@@ -245,17 +245,11 @@ func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMet
 }
 
 func (g *AppGetter) getEntrypoint(locationKey string, meta *domain.AppGetMeta) error {
-	entry := ""
-	if meta.VersionManifest.Entrypoint != "" {
-		entry = path.Clean(meta.VersionManifest.Entrypoint)
-		if entry == "" || entry == "." || entry == "/" || strings.Contains(entry, "..") || strings.Contains(entry, "\\") {
-			meta.Errors = append(meta.Errors, "Application entrypoint is invalid")
-			return nil
-		}
-		if path.IsAbs(entry) {
-			// accept abolute but turn it to relative
-			entry = entry[1:]
-		}
+	entry, ok := validatePackagePath(meta.VersionManifest.Entrypoint)
+	if !ok {
+		meta.Errors = append(meta.Errors, "Application entrypoint is invalid")
+		return nil
+	} else if entry != "" {
 		meta.VersionManifest.Entrypoint = entry
 		return nil
 	}
@@ -605,26 +599,26 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 		return err
 	}
 
+	icon, ok := validatePackagePath(meta.VersionManifest.Icon)
+	if !ok {
+		meta.Errors = append(meta.Errors, "App icon path is invalid")
+		return nil
+	}
+	meta.VersionManifest.Icon = icon // set the normalized path to generated manifest
 	if meta.VersionManifest.Icon == "" {
 		return nil
 	}
 	// steps to validate:
-	// - first check that path contains no ..
 	// - Stat the file
 	// - if no exist or is dir, warn/err
 	// - get mime type, look for image
 	// - verify filename suffix is legit .png, jpb, jpeg, ....
 	// - check filesize? Warn if bigger than...?
-	p := filepath.Clean(meta.VersionManifest.Icon)
-	if strings.Contains(p, "..") {
-		meta.Errors = append(meta.Errors, "App icon path is invalid")
-		return nil
-	}
-	p = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), p)
-	mimeType, err := getFileMimeType(p)
+
+	icon = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), icon)
+	mimeType, err := getFileMimeType(icon)
 	if os.IsNotExist(err) {
-		meta.Warnings["icon"] = "App icon not found at path " + meta.VersionManifest.Icon
-		fmt.Println("added icon warning")
+		meta.Warnings["icon"] = "App icon not found at package path " + meta.VersionManifest.Icon
 		return nil
 	}
 	if err != nil {
@@ -911,4 +905,19 @@ func getFileMimeType(p string) (string, error) {
 	contentType := http.DetectContentType(byteSlice)
 
 	return contentType, nil
+}
+
+func validatePackagePath(p string) (string, bool) {
+	if p == "" {
+		return "", true
+	}
+	p = path.Clean(p)
+	if p == "" || p == "." || p == "/" || strings.Contains(p, "..") || strings.Contains(p, "\\") {
+		return "", false
+	}
+	if path.IsAbs(p) {
+		// accept abolute but turn it to relative
+		p = p[1:]
+	}
+	return p, true
 }
