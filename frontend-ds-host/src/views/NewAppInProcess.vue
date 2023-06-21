@@ -160,7 +160,7 @@ onUnmounted( () => {
 					<p v-if="manifest.short_description" class="text-gray-600 italic">{{ manifest.short_description }}</p>
 					<p>
 						Version {{manifest.version}}
-						<template v-if="manifest.release_date">(released on {{ manifest.release_date.toLocaleDateString() }})</template>
+						<template v-if="manifest.release_date">({{ manifest.release_date }})</template>
 					</p>
 				</div>
 				<!-- here present app a bit better: BIG name, icon on left, short desc below (if provided), 

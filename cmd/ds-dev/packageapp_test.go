@@ -19,6 +19,12 @@ func TestGetFileList(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	manifestPath := filepath.Join(dir, "dropapp.json")
+	manifestInfo, err := os.Stat(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	f1Path := filepath.Join(dir, "file.txt")
 	f1Info, err := os.Stat(f1Path)
 	if err != nil {
@@ -33,6 +39,7 @@ func TestGetFileList(t *testing.T) {
 
 	expected := []FileListFile{
 		{Name: ".git", IsDir: true, Ignore: true},
+		{Name: "dropapp.json", IsDir: false, Size: manifestInfo.Size(), ModTime: manifestInfo.ModTime(), Ignore: false},
 		{Name: "file.txt", IsDir: false, Size: f1Info.Size(), ModTime: f1Info.ModTime(), Ignore: false},
 		{Name: "subdir/file2.txt", IsDir: false, Size: f2Info.Size(), ModTime: f2Info.ModTime(), Ignore: false},
 	}
@@ -68,8 +75,9 @@ func TestTarFiles(t *testing.T) {
 		t.Error(err)
 	}
 
+	manifestBytes := []byte("{\"testing\":true}")
 	var buf bytes.Buffer
-	err = tarFiles(&buf, dir, list)
+	err = tarFiles(&buf, dir, list, manifestBytes)
 	if err != nil {
 		t.Error(err)
 	}
@@ -83,7 +91,13 @@ func TestTarFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if hdr.Name != "file.txt" && hdr.Name != "subdir/file2.txt" {
+
+		isManifest := false
+		if hdr.Name == "dropapp.json" {
+			isManifest = true
+		}
+
+		if hdr.Name != "file.txt" && hdr.Name != "subdir/file2.txt" && !isManifest {
 			t.Error("got unexpected file: " + hdr.Name)
 		}
 
@@ -92,8 +106,12 @@ func TestTarFiles(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		if info.Size() != hdr.Size {
-			t.Errorf("Wrong Size for %s: %v %v", hdr.Name, info.Size(), hdr.Size)
+		size := info.Size()
+		if isManifest {
+			size = int64(len(manifestBytes))
+		}
+		if size != hdr.Size {
+			t.Errorf("Wrong Size for %s: %v %v", hdr.Name, size, hdr.Size)
 		}
 		modTime := info.ModTime().Round(time.Second)
 		if modTime != hdr.ModTime {
@@ -110,6 +128,9 @@ func TestTarFiles(t *testing.T) {
 		var expectedContents []byte
 		if expectedContents, err = os.ReadFile(p); err != nil {
 			t.Error(err)
+		}
+		if isManifest {
+			expectedContents = manifestBytes
 		}
 		if !bytes.Equal(tarContents.Bytes(), expectedContents) {
 			t.Errorf("got different contenst for file %s", hdr.Name)
@@ -137,6 +158,10 @@ func TestGetAppFile(t *testing.T) {
 func makeTestDir() (string, error) {
 	dir, err := os.MkdirTemp("", "")
 	if err != nil {
+		return "", err
+	}
+	mPath := filepath.Join(dir, "dropapp.json")
+	if err := os.WriteFile(mPath, []byte("{}"), 0666); err != nil {
 		return "", err
 	}
 	f1Path := filepath.Join(dir, "file.txt")

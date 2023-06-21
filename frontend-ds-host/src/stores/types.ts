@@ -80,10 +80,9 @@ export interface AppVersionUI {
 	}[],
 	website: string,
 	code: string,
-	funding: string
+	funding: string,
+	release_date: string,
 }
-// add: license, release date
-
 
 export interface App {
 	app_id: number,

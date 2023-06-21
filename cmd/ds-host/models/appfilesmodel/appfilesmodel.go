@@ -159,10 +159,7 @@ func (a *AppFilesModel) getPackagePath(locationKey string) string {
 }
 
 // ReadManifest reads metadata from the files at location key
-// this just reads the JSON file. OK.
-// In next iteration this will presumably read teh normalized JSON that was evaluated prior.
-// OR, this is the original file from the package? And we store the augmented / normalized version in the DB?
-// ^^ This is correct. The app is stored unmodified, and the normalized/processed/evaluated data is stashed in the DB.
+// This is the original manifest as included in the app package
 func (a *AppFilesModel) ReadManifest(locationKey string) (domain.AppVersionManifest, error) {
 	jsonPath := filepath.Join(a.AppLocation2Path.Files(locationKey), "dropapp.json")
 	jsonBytes, err := os.ReadFile(jsonPath)

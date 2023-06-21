@@ -181,7 +181,8 @@ func main() {
 
 	if *createPackageFlag != "" {
 		packager := &AppPackager{
-			AppGetter: appGetter}
+			AppGetter:     appGetter,
+			AppFilesModel: appFilesModel}
 		packager.PackageApp(appOrigin, *createPackageFlag)
 		os.Exit(0)
 	}

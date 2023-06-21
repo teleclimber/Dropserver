@@ -296,7 +296,8 @@ func TestGetVersionUI(t *testing.T) {
 		Authors:          authors,
 		Website:          "https://website",
 		Code:             "https://code",
-		Funding:          "https://finding"})
+		Funding:          "https://finding",
+		ReleaseDate:      "2023-06-21"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -327,6 +328,7 @@ func TestGetVersionUI(t *testing.T) {
 		Website:          "https://website",
 		Code:             "https://code",
 		Funding:          "https://finding",
+		ReleaseDate:      "2023-06-21",
 	}
 	if !cmp.Equal(expectedVerUI, appVersionUIOut) {
 		t.Errorf("app version out unexpected: %v, %v", expectedVerUI, appVersionUIOut)

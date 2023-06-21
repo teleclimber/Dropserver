@@ -24,6 +24,9 @@ type AppPackager struct {
 		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
 		DeleteKeyData(key domain.AppGetKey)
 	}
+	AppFilesModel interface {
+		ReadManifest(string) (domain.AppVersionManifest, error)
+	}
 }
 
 func (p *AppPackager) PackageApp(appDir, outDir string) {
@@ -45,12 +48,25 @@ func (p *AppPackager) PackageApp(appDir, outDir string) {
 	}
 
 	// Still to do:
-	// - determine entrypoint(?)
 	// - lib/API version
 	// - code state? No. Later
 	// - Find License file, and get SPDX value?
-	// - release date
 	// - size (get from tar?)
+
+	manifest, err := p.AppFilesModel.ReadManifest("")
+	if err != nil {
+		fmt.Println("Error reading app manifest file: ", err)
+		os.Exit(1)
+	}
+	releaseDate := time.Now().Format("2006-01-02")
+	manifest.ReleaseDate = releaseDate
+	results.VersionManifest.ReleaseDate = releaseDate
+
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		fmt.Println("Error generating manifest JSON: ", err)
+		os.Exit(1)
+	}
 
 	fileList, err := GetFileList(appDir)
 	if err != nil {
@@ -59,7 +75,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string) {
 	}
 
 	var buf bytes.Buffer
-	err = tarFiles(&buf, appDir, fileList)
+	err = tarFiles(&buf, appDir, fileList, manifestBytes)
 	if err != nil {
 		fmt.Println("Error creating tar archive of app files: ", err)
 		os.Exit(1)
@@ -139,32 +155,49 @@ func gzipArchive(w io.Writer, archive []byte, name, comment string, modTime time
 	return nil
 }
 
-func tarFiles(w io.Writer, baseDir string, list []FileListFile) error {
+func tarFiles(w io.Writer, baseDir string, list []FileListFile, manifestBytes []byte) error {
 	tw := tar.NewWriter(w)
 	defer tw.Close()
+	var src io.ReadCloser
+	var hdr tar.Header
+	var err error
+	foundManifest := false
 	for _, f := range list {
 		if f.Ignore {
 			continue
 		}
-		fullPath := filepath.Join(baseDir, f.Name)
-		hdr := &tar.Header{
-			Name:    f.Name,
-			Mode:    0644,
-			Size:    f.Size,
-			ModTime: f.ModTime}
-		err := tw.WriteHeader(hdr)
+		if f.Name == "dropapp.json" {
+			hdr = tar.Header{
+				Name:    f.Name,
+				Mode:    0644,
+				Size:    int64(len(manifestBytes)),
+				ModTime: f.ModTime}
+			src = io.NopCloser(bytes.NewBuffer(manifestBytes))
+			foundManifest = true
+		} else {
+			hdr = tar.Header{
+				Name:    f.Name,
+				Mode:    0644,
+				Size:    f.Size,
+				ModTime: f.ModTime}
+			fullPath := filepath.Join(baseDir, f.Name)
+			src, err = os.Open(fullPath)
+			if err != nil {
+				return err
+			}
+		}
+		err = tw.WriteHeader(&hdr)
 		if err != nil {
 			return err
 		}
-		file, err := os.Open(fullPath)
+		_, err = io.Copy(tw, src)
+		src.Close()
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(tw, file)
-		file.Close()
-		if err != nil {
-			return err
-		}
+	}
+	if !foundManifest {
+		return errors.New("did not find manifest")
 	}
 	return nil
 }

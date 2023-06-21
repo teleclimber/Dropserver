@@ -21,7 +21,7 @@ export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 	return {
 		app_id: Number(raw.app_id),
 		created_dt: new Date(raw.created_dt),
-		color:raw.color ? raw.color+'' : undefined,
+		color: raw.color ? raw.color+'' : undefined,
 		name: raw.name+'',
 		schema: Number(raw.schema),
 		short_desc: raw.short_desc+'',
@@ -29,7 +29,8 @@ export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 		authors: raw.authors ? raw.authors.map( (a:any) => ({name:a.name+'', email: a.email+'', url: a.url+''})) : [],
 		website: raw.website + '',
 		code: raw.code + '',
-		funding: raw.funding + ''
+		funding: raw.funding + '',
+		release_date: raw.release_date+'',
 	}
 }
 function appFromRaw(raw:any) :App {

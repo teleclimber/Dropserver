@@ -392,6 +392,7 @@ type AppVersionUI struct {
 	Code             string           `db:"code" json:"code"` // code repo
 	Website          string           `db:"website" json:"website"`
 	Funding          string           `db:"funding" json:"funding"`
+	ReleaseDate      string           `db:"release_date" json:"release_date"`
 
 	// License in SPDX form
 	//License string `json:"license"`	// after we get it in there
