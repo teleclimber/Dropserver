@@ -381,20 +381,21 @@ type AppVersion struct {
 }
 
 type AppVersionUI struct {
-	AppID            AppID     `db:"app_id" json:"app_id"`
-	Name             string    `db:"name" json:"name"`
-	Version          Version   `db:"version" json:"version"`
-	Schema           int       `db:"schema" json:"schema"`
-	Created          time.Time `db:"created" json:"created_dt"`
-	ShortDescription string    `db:"short_desc" json:"short_desc"`
-	AccentColor      string    `db:"color" json:"color"`
+	AppID            AppID            `db:"app_id" json:"app_id"`
+	Name             string           `db:"name" json:"name"`
+	Version          Version          `db:"version" json:"version"`
+	Schema           int              `db:"schema" json:"schema"`
+	Created          time.Time        `db:"created" json:"created_dt"`
+	ShortDescription string           `db:"short_desc" json:"short_desc"`
+	AccentColor      string           `db:"color" json:"color"`
+	Authors          []ManifestAuthor `json:"authors"`        //maybe truncate to three authors and send number of authors too?
+	Code             string           `db:"code" json:"code"` // code repo
+	Website          string           `db:"website" json:"website"`
+	Funding          string           `db:"funding" json:"funding"`
 
-	//APIVersion       APIVersion `db:"api" json:"api"`    // TODO alter somehow (or just leverage manfest in JSON column
-	// Icon bool...
+	// License in SPDX form
+	//License string `json:"license"`	// after we get it in there
 
-	// consider adding:
-	// - author?....
-	// - ...?
 }
 
 // MetadataLinkedFile for when metadata references a file. used by:

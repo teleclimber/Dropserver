@@ -90,6 +90,10 @@ func (m *AppModel) PrepareStatements() {
 		ifnull(json_extract(manifest, '$.short-description'), "") AS short_desc,
 		json_extract(manifest, '$.schema') AS schema,
 		ifnull(json_extract(manifest, '$.accent-color'), "") AS color,
+		ifnull(json_extract(manifest, '$.authors'), "") AS authors,
+		ifnull(json_extract(manifest, '$.website'), "") AS website,
+		ifnull(json_extract(manifest, '$.code'), "") AS code,
+		ifnull(json_extract(manifest, '$.funding'), "") AS funding,
 		created
 		FROM app_versions WHERE app_id = ? AND version = ?`)
 
@@ -206,17 +210,42 @@ func (m *AppModel) GetVersion(appID domain.AppID, version domain.Version) (domai
 	return appVersion, nil
 }
 
+type AppVersionUIDB struct {
+	domain.AppVersionUI
+	AuthorsDB string `db:"authors"`
+}
+
 func (m *AppModel) GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error) {
-	var appVersion domain.AppVersionUI
+	var appVersion AppVersionUIDB
 	err := m.stmt.selectVersionForUI.QueryRowx(appID, version).StructScan(&appVersion)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return appVersion, domain.ErrNoRowsInResultSet
+			return domain.AppVersionUI{}, domain.ErrNoRowsInResultSet
 		}
 		m.getLogger("GetVersionForUI()").AppID(appID).AppVersion(version).Error(err)
-		return appVersion, err
+		return domain.AppVersionUI{}, err
 	}
-	return appVersion, nil
+	authors := make([]domain.ManifestAuthor, 0)
+	if appVersion.AuthorsDB != "" {
+		err = json.Unmarshal([]byte(appVersion.AuthorsDB), &authors)
+		if err != nil {
+			m.getLogger("GetVersionForUI() unmarshal author data").AppID(appID).AppVersion(version).Error(err)
+			return domain.AppVersionUI{}, err
+		}
+	}
+	return domain.AppVersionUI{
+		AppID:            appVersion.AppID,
+		Name:             appVersion.Name,
+		Version:          appVersion.Version,
+		Schema:           appVersion.Schema,
+		Created:          appVersion.Created,
+		ShortDescription: appVersion.ShortDescription,
+		AccentColor:      appVersion.AccentColor,
+		Authors:          authors,
+		Website:          appVersion.Website,
+		Code:             appVersion.Code,
+		Funding:          appVersion.Funding,
+	}, nil
 }
 
 func (m *AppModel) GetVersionManifestJSON(appID domain.AppID, version domain.Version) (string, error) {

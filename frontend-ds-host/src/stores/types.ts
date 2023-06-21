@@ -73,7 +73,17 @@ export interface AppVersionUI {
 	short_desc: string,
 	//icon: boolean,	// implement later
 	color: string | undefined,
+	authors: {
+		name: string,
+		email: string,
+		url: string
+	}[],
+	website: string,
+	code: string,
+	funding: string
 }
+// add: license, release date
+
 
 export interface App {
 	app_id: number,

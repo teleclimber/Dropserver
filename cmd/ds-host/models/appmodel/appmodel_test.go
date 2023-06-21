@@ -281,13 +281,22 @@ func TestGetVersionUI(t *testing.T) {
 
 	appModel.PrepareStatements()
 
+	authors := []domain.ManifestAuthor{{
+		Name:  "OF",
+		Email: "me@of",
+		URL:   "of.net"}}
+
 	appVersion, err := appModel.CreateVersion(1, "loc", domain.AppVersionManifest{
 		Name:             "Test App",
 		Version:          domain.Version("0.0.1"),
 		Schema:           7,
 		ShortDescription: "abc-123",
 		Icon:             "icon.icon",
-		AccentColor:      "#aabbcc"})
+		AccentColor:      "#aabbcc",
+		Authors:          authors,
+		Website:          "https://website",
+		Code:             "https://code",
+		Funding:          "https://finding"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -314,14 +323,21 @@ func TestGetVersionUI(t *testing.T) {
 		ShortDescription: "abc-123",
 		AccentColor:      "#aabbcc",
 		Created:          appVersion.Created, // cheat on created because it's just easier that way.
+		Authors:          authors,
+		Website:          "https://website",
+		Code:             "https://code",
+		Funding:          "https://finding",
 	}
 	if !cmp.Equal(expectedVerUI, appVersionUIOut) {
 		t.Errorf("app version out unexpected: %v, %v", expectedVerUI, appVersionUIOut)
 	}
 
-	_, err = appModel.GetVersionForUI(1, "0.0.2")
+	appVersionUIOut, err = appModel.GetVersionForUI(1, "0.0.2")
 	if err != nil {
 		t.Error(err)
+	}
+	if appVersionUIOut.Authors == nil {
+		t.Error("authors should not be nil")
 	}
 }
 

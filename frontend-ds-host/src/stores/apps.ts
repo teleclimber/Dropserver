@@ -26,6 +26,10 @@ export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 		schema: Number(raw.schema),
 		short_desc: raw.short_desc+'',
 		version: raw.version+'',
+		authors: raw.authors ? raw.authors.map( (a:any) => ({name:a.name+'', email: a.email+'', url: a.url+''})) : [],
+		website: raw.website + '',
+		code: raw.code + '',
+		funding: raw.funding + ''
 	}
 }
 function appFromRaw(raw:any) :App {
