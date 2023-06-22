@@ -393,10 +393,7 @@ type AppVersionUI struct {
 	Website          string           `db:"website" json:"website"`
 	Funding          string           `db:"funding" json:"funding"`
 	ReleaseDate      string           `db:"release_date" json:"release_date"`
-
-	// License in SPDX form
-	//License string `json:"license"`	// after we get it in there
-
+	License          string           `db:"license" json:"license"`
 }
 
 // MetadataLinkedFile for when metadata references a file. used by:
@@ -459,8 +456,7 @@ type AppVersionManifest struct {
 	// License in SPDX form
 	License string `json:"license"`
 	// LicenseFile is a package-relative path to a txt file containing the license text.
-	// Parameter is optional. If not set the system looks for /LICENSE.txt. A license file is not required.
-	LicenseFile string `json:"license-file"` // Rel path to license file within package. (might be URL too?)
+	LicenseFile string `json:"license-file"` // Rel path to license file within package.
 
 	//ReleaseDate YYYY-MM-DD of software release date. Should be set automatically by packaging code.
 	ReleaseDate string `json:"release-date"` // date of packaging.

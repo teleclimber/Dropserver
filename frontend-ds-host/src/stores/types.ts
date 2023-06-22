@@ -82,6 +82,7 @@ export interface AppVersionUI {
 	code: string,
 	funding: string,
 	release_date: string,
+	license: string
 }
 
 export interface App {

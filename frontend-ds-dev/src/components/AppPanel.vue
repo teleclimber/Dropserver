@@ -65,7 +65,7 @@
 				<p>Migrations: {{migrations_str}}</p>
 				<p>
 					App Icon: {{ appData.manifest?.icon|| "(none)" }}
-					<span v-if="p_event.warnings.icon" class="text-orange-400">
+					<span v-if="p_event.warnings.icon" class="text-orange-500">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
 							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 						</svg>
@@ -85,7 +85,7 @@
 							&lt;<a class="text-blue-600 underline" :href="'mailto:'+a.email">{{ a.email }}</a>&gt;
 							<a class="text-blue-600 underline" :href="a.url">{{ a.url }}</a>
 						</div>
-						<span v-if="p_event.warnings.authors" class="text-orange-400">
+						<span v-if="p_event.warnings.authors" class="text-orange-500">
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
 								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 							</svg>
@@ -100,7 +100,7 @@
 						{{  appData.manifest.website }}
 					</a>
 					<span v-else class="italic text-gray-400">(none)</span>
-					<span v-if="p_event.warnings.website" class="text-orange-400">
+					<span v-if="p_event.warnings.website" class="text-orange-500">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
 							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 						</svg>
@@ -113,7 +113,7 @@
 						{{  appData.manifest.code }}
 					</a>
 					<span v-else class="italic text-gray-400">(none)</span>
-					<span v-if="p_event.warnings.code" class="text-orange-400">
+					<span v-if="p_event.warnings.code" class="text-orange-500">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
 							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 						</svg>
@@ -126,11 +126,26 @@
 						{{  appData.manifest.funding }}
 					</a>
 					<span v-else class="italic text-gray-400">(none)</span>
-					<span v-if="p_event.warnings.funding" class="text-orange-400">
+					<span v-if="p_event.warnings.funding" class="text-orange-500">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
 							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
 						</svg>
 						{{  p_event.warnings.funding }}
+					</span>
+				</p>
+				<p class="">
+					<span class="mr-2">License:</span>
+					<span v-if="appData.manifest?.license">
+						{{  appData.manifest.license }}
+					</span>
+					<span v-else class="italic text-gray-500">(none specified)</span>
+					<span v-if="appData.manifest?.license_file" class="pl-2">File: {{appData.manifest.license_file}}</span>
+					<span v-else class="italic text-gray-500 pl-2">(no license file specified)</span>
+					<span v-if="p_event.warnings.license" class="text-orange-500 pl-2">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{  p_event.warnings.license }}
 					</span>
 				</p>
 			</div>

@@ -13,9 +13,9 @@ import (
 type DevAppFilesModel struct {
 	appfilesmodel.AppFilesModel `checkinject:"required"`
 
-	routesData  []byte
-	manifest    domain.AppVersionManifest
-	appIconPath string
+	routesData []byte
+	manifest   domain.AppVersionManifest
+	fileLinks  map[string]string
 }
 
 func (a *DevAppFilesModel) Save(files *map[string][]byte) (string, error) {
@@ -33,19 +33,12 @@ func (a *DevAppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return a.routesData, nil
 }
 
-func (a *DevAppFilesModel) WriteAppIconLink(locationKey string, iconPath string) error {
-	if iconPath == "" {
-		a.appIconPath = ""
-		return nil
-	}
-	a.appIconPath = iconPath
+func (a *DevAppFilesModel) WriteFileLink(locationKey string, linkName string, iconPath string) error {
+	a.fileLinks[linkName] = iconPath
 	return nil
 }
-func (a *DevAppFilesModel) GetAppIconPath(locationKey string) string {
-	if a.appIconPath == "" {
-		return ""
-	}
-	return filepath.Join(a.AppLocation2Path.Files(locationKey), a.appIconPath)
+func (a *DevAppFilesModel) GetLinkPath(locationKey string, linkName string) string {
+	return a.fileLinks[linkName]
 }
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {

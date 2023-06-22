@@ -10,6 +10,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0
+	github.com/github/go-spdx/v2 v2.1.2
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-chi/docgen v1.2.0
 	github.com/go-playground/validator/v10 v10.14.1

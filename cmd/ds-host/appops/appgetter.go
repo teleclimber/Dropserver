@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/github/go-spdx/v2/spdxexp"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -46,7 +47,7 @@ type AppGetter struct {
 		ExtractPackage(locationKey string) error
 		ReadManifest(string) (domain.AppVersionManifest, error)
 		WriteRoutes(string, []byte) error
-		WriteAppIconLink(string, string) error
+		WriteFileLink(string, string, string) error
 		Delete(string) error
 	} `checkinject:"required"`
 	AppLocation2Path interface {
@@ -186,6 +187,12 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	err = g.validateAppVersion(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error validating app version")
+	if abort {
+		return
+	}
+
+	err = g.validateLicense(keyData.locationKey, &meta)
+	abort = g.checkStep(keyData, meta, err, "error validating app license")
 	if abort {
 		return
 	}
@@ -572,9 +579,53 @@ func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
 	return 0, false
 }
 
+func (g *AppGetter) validateLicense(locationKey string, meta *domain.AppGetMeta) error {
+	// first delete the license file link, if any
+	err := g.AppFilesModel.WriteFileLink(locationKey, "license-file", "")
+	if err != nil {
+		return err
+	}
+
+	if meta.VersionManifest.License == "" && meta.VersionManifest.LicenseFile == "" {
+		meta.Warnings["license"] = "No license information provided"
+		return nil
+	}
+	ok, _ := spdxexp.ValidateLicenses([]string{meta.VersionManifest.License})
+	if !ok {
+		meta.Warnings["license"] = "License is not a recognized SPDX identifier"
+	}
+
+	if meta.VersionManifest.LicenseFile == "" {
+		return nil
+	}
+
+	lPath, ok := validatePackagePath(meta.VersionManifest.LicenseFile)
+	if !ok {
+		meta.Errors = append(meta.Errors, "License file path is invalid")
+		return nil
+	}
+	meta.VersionManifest.LicenseFile = lPath
+
+	lFile := filepath.Join(g.AppLocation2Path.Files(locationKey), lPath)
+	_, err = os.Stat(lFile)
+	if os.IsNotExist(err) {
+		meta.Warnings["license"] = "License file not found at package path " + meta.VersionManifest.LicenseFile
+		return nil
+	} else if err != nil {
+		meta.Warnings["license"] = "Error opening license file:  " + err.Error()
+		return nil
+	}
+
+	err = g.AppFilesModel.WriteFileLink(locationKey, "license-file", lPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta) error {
 	// start by removing any app icon link in case this is a reprocess and it was not correctly removed
-	err := g.AppFilesModel.WriteAppIconLink(keyData.locationKey, "")
+	err := g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", "")
 	if err != nil {
 		return err
 	}
@@ -617,7 +668,7 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 		return nil
 	}
 
-	err = g.AppFilesModel.WriteAppIconLink(keyData.locationKey, meta.VersionManifest.Icon)
+	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", meta.VersionManifest.Icon)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ const appspaces = computed( () => {
 const app_icon_error = ref(false);
 const app_icon = computed( () => {
 	if( app_icon_error.value || !props.app.cur_ver ) return "";
-	return `/api/application/${props.app.app_id}/version/${props.app.cur_ver}/app-icon`;
+	return `/api/application/${props.app.app_id}/version/${props.app.cur_ver}/file/app-icon`;
 });
 
 </script>

@@ -203,33 +203,43 @@ func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	return routesData, nil
 }
 
-func (a *AppFilesModel) WriteAppIconLink(locationKey string, iconPath string) error {
+func (a *AppFilesModel) WriteFileLink(locationKey string, linkName string, destPath string) error {
+	validateLinkName(linkName)
 	// first remove it
-	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), "app-icon")
+	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), linkName)
 	os.Remove(linkPath)
-	if iconPath == "" {
+	if destPath == "" {
 		return nil
 	}
-	iconPath = filepath.Join(a.AppLocation2Path.Files(locationKey), iconPath)
-	err := os.Link(iconPath, linkPath)
+	destPath = filepath.Join(a.AppLocation2Path.Files(locationKey), destPath)
+	err := os.Link(destPath, linkPath)
 	if err != nil {
-		a.getLogger("WriteAppIconLink, os.Link").AddNote(iconPath).AddNote(linkPath).Error(err)
+		a.getLogger("WriteFileLink, os.Link").AddNote(destPath).AddNote(linkPath).Error(err)
 		return err
 	}
 	return nil
 }
 
-func (a *AppFilesModel) GetAppIconPath(locationKey string) string {
-	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), "app-icon")
+func (a *AppFilesModel) GetLinkPath(locationKey string, linkName string) string {
+	validateLinkName(linkName)
+	linkPath := filepath.Join(a.AppLocation2Path.Meta(locationKey), linkName)
 	_, err := os.Stat(linkPath)
 	if err == os.ErrNotExist {
 		return ""
 	}
 	if err != nil {
-		a.getLogger("GetAppIconPath, os.Stat").AddNote(linkPath).Error(err)
+		a.getLogger("GetLinkPath, os.Stat").AddNote(linkPath).Error(err)
 		return ""
 	}
 	return linkPath
+}
+
+// validateLinkName panics if link name is not one of the expected ones.
+// Panic is OK because this is a purely internal coding error.
+func validateLinkName(linkName string) {
+	if linkName != "app-icon" && linkName != "license-file" {
+		panic("invalid link name for app files model: " + linkName)
+	}
 }
 
 // Delete removes the files from the system

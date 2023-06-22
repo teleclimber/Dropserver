@@ -95,6 +95,7 @@ func (m *AppModel) PrepareStatements() {
 		ifnull(json_extract(manifest, '$.code'), "") AS code,
 		ifnull(json_extract(manifest, '$.funding'), "") AS funding,
 		ifnull(json_extract(manifest, '$.release-date'), "") AS release_date,
+		ifnull(json_extract(manifest, '$.license'), "") AS license,
 		created
 		FROM app_versions WHERE app_id = ? AND version = ?`)
 
@@ -247,6 +248,7 @@ func (m *AppModel) GetVersionForUI(appID domain.AppID, version domain.Version) (
 		Code:             appVersion.Code,
 		Funding:          appVersion.Funding,
 		ReleaseDate:      appVersion.ReleaseDate,
+		License:          appVersion.License,
 	}, nil
 }
 

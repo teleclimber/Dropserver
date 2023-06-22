@@ -48,7 +48,7 @@ type ApplicationRoutes struct {
 	} `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
-		GetAppIconPath(string) string
+		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
@@ -84,9 +84,9 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
-		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion) // ?? what is this?
+		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
 		// .Get("/version/{app-version}/manifest -> return the complete manifest.
-		r.With(a.appVersionCtx).Get("/version/{app-version}/app-icon", a.getAppIcon)
+		r.With(a.appVersionCtx).Get("/version/{app-version}/file/{link-name}", a.getFile)
 		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
 	})
 
@@ -372,9 +372,14 @@ func (a *ApplicationRoutes) cancelInProcess(w http.ResponseWriter, r *http.Reque
 	a.AppGetter.Delete(appGetKey)
 }
 
-func (a *ApplicationRoutes) getAppIcon(w http.ResponseWriter, r *http.Request) {
+func (a *ApplicationRoutes) getFile(w http.ResponseWriter, r *http.Request) {
 	appVersion, _ := domain.CtxAppVersionData(r.Context())
-	p := a.AppFilesModel.GetAppIconPath(appVersion.LocationKey)
+	linkName := chi.URLParam(r, "link-name")
+	if linkName != "app-icon" && linkName != "license-file" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	p := a.AppFilesModel.GetLinkPath(appVersion.LocationKey, linkName)
 	if p == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return

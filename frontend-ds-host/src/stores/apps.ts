@@ -31,6 +31,7 @@ export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 		code: raw.code + '',
 		funding: raw.funding + '',
 		release_date: raw.release_date+'',
+		license: raw.license+''
 	}
 }
 function appFromRaw(raw:any) :App {

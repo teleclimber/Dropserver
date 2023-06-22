@@ -119,7 +119,7 @@ func main() {
 		*appFilesModel,
 		nil,
 		domain.AppVersionManifest{},
-		"",
+		make(map[string]string),
 	}
 
 	devAppModel := &DevAppModel{}

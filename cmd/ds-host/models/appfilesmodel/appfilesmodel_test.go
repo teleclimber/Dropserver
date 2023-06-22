@@ -282,7 +282,7 @@ func createPackage(files fileList) io.Reader {
 	return &outBuf
 }
 
-func TestWriteAppIconLink(t *testing.T) {
+func TestWriteFileLink(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Error(err)
@@ -300,12 +300,12 @@ func TestWriteAppIconLink(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = m.WriteAppIconLink(loc, "")
+	err = m.WriteFileLink(loc, "app-icon", "")
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = m.WriteAppIconLink(loc, "nonsense")
+	err = m.WriteFileLink(loc, "app-icon", "nonsense")
 	if err == nil {
 		t.Error("should get an error when attempting to link to a non-existing file")
 	}
@@ -320,7 +320,7 @@ func TestWriteAppIconLink(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = m.WriteAppIconLink(loc, icon)
+	err = m.WriteFileLink(loc, "app-icon", icon)
 	if err != nil {
 		t.Error(err)
 	}

@@ -34,7 +34,7 @@ type DropserverDevServer struct {
 		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
 	} `checkinject:"required"`
 	AppFilesModel interface {
-		GetAppIconPath(string) string
+		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppspaceFiles interface {
 		Reset()
@@ -94,7 +94,7 @@ func (s *DropserverDevServer) GetBaseData(res http.ResponseWriter, req *http.Req
 
 }
 func (s *DropserverDevServer) GetAppIcon(res http.ResponseWriter, req *http.Request) {
-	p := s.AppFilesModel.GetAppIconPath("")
+	p := s.AppFilesModel.GetLinkPath("", "app-icon")
 	if p == "" {
 		res.WriteHeader(http.StatusNotFound)
 		return
