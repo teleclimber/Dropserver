@@ -56,7 +56,7 @@ type ApplicationRoutes struct {
 		GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error) // maybe no longer necessary?
 		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
-		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
+		GetVersionsForUIForApp(domain.AppID) ([]domain.AppVersionUI, error)
 	} `checkinject:"required"`
 	AppLogger interface {
 		Get(locationKey string) domain.LoggerI
@@ -74,6 +74,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Use(a.appGetKeyCtx)
 		r.Get("/", a.getInProcess)
 		r.Get("/log", a.getInProcessLog)
+		r.Get("/file/{link-name}", a.getInProcessFile)
 		r.Post("/", a.commitInProcess)
 		r.Delete("/", a.cancelInProcess)
 	})
@@ -345,6 +346,27 @@ func (a *ApplicationRoutes) getInProcessLog(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, chunk)
 }
 
+func (a *ApplicationRoutes) getInProcessFile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	linkName := chi.URLParam(r, "link-name")
+	if linkName != "app-icon" && linkName != "license-file" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	p := a.AppFilesModel.GetLinkPath(locationKey, linkName)
+	if p == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, p)
+}
+
 type AppCommitResp struct {
 	AppID   domain.AppID   `json:"app_id"`
 	Version domain.Version `json:"version"`
@@ -389,7 +411,7 @@ func (a *ApplicationRoutes) getFile(w http.ResponseWriter, r *http.Request) {
 
 func (a *ApplicationRoutes) getVersions(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
-	v, err := a.AppModel.GetVersionsForApp(app.AppID)
+	v, err := a.AppModel.GetVersionsForUIForApp(app.AppID) // make this UI
 	if err != nil {
 		writeServerError(w)
 	}

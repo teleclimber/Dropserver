@@ -9,14 +9,6 @@ import {SentMessageI} from 'twine-web';
 import { LoadState, App, AppVersion, AppVersionUI, AppManifest } from './types';
 import { Loadable, attachLoadState, setLoadState, getLoadState } from './loadable';
 
-function appVersionFromRaw(raw:any) :AppVersion {
-	return {
-		app_id: Number(raw.app_id),
-		created_dt: new Date(raw.created),
-		schema: Number(raw.schema),
-		version: raw.version+'',
-	}
-}
 export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 	return {
 		app_id: Number(raw.app_id),
@@ -54,7 +46,7 @@ export const useAppsStore = defineStore('apps', () => {
 	const load_state = ref(LoadState.NotLoaded);
 
 	const apps : ShallowRef<Map<number,ShallowRef<App>>> = shallowRef(new Map());
-	const app_versions :Map<number, Loadable<AppVersion[]>> = new Map;
+	const app_versions :Map<number, Loadable<AppVersionUI[]>> = new Map;
 
 	const is_loaded = computed( () => {
 		return load_state.value === LoadState.Loaded;
@@ -83,22 +75,22 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	// app versions:
-	function getAppVersions(app_id:number) :Loadable<AppVersion[]> | undefined {
+	function getAppVersions(app_id:number) :Loadable<AppVersionUI[]> | undefined {
 		return app_versions.get(app_id);
 	}
-	function mustGetAppVersions(app_id:number) :Loadable<AppVersion[]> {
+	function mustGetAppVersions(app_id:number) :Loadable<AppVersionUI[]> {
 		const ret = getAppVersions(app_id);
 		if( ret === undefined ) throw new Error('no versions for app: '+app_id);
 		return ret;
 	}
 	async function loadAppVersions(app_id:number) :Promise<void> {
 		if( app_versions.has(app_id) ) return;
-		const av :Loadable<AppVersion[]> = shallowReactive(attachLoadState([], LoadState.Loading));
+		const av :Loadable<AppVersionUI[]> = shallowReactive(attachLoadState([], LoadState.Loading));
 		console.log("is reactive at creation:", isReactive(av));
 		app_versions.set(app_id, av);
 		const resp = await ax.get(`/api/application/${app_id}/version`);
 		resp.data.forEach( (raw:any) => {
-			av.push(appVersionFromRaw(raw));
+			av.push(appVersionUIFromRaw(raw));
 		});
 		setLoadState(av, LoadState.Loaded);
 	}
@@ -180,9 +172,10 @@ function rawToAppManifest(raw:any) :AppManifest {
 		ret[new_k] = ret[k];
 		delete ret[k];
 	});
-	if( ret.release_date ) {
-		// handle release date. Set it to Date.
+	if( ret.authors ) {
+		ret.authors = ret.authors.map( (a:any) => ({name:a.name+'', email: a.email+'', url: a.url+''}))
 	}
+	else ret.authors = [];
 	return ret;
 }
 

@@ -717,6 +717,21 @@ func (mr *MockAppModelMockRecorder) GetVersionsForApp(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionsForApp", reflect.TypeOf((*MockAppModel)(nil).GetVersionsForApp), arg0)
 }
 
+// GetVersionsForUIForApp mocks base method
+func (m *MockAppModel) GetVersionsForUIForApp(arg0 domain.AppID) ([]domain.AppVersionUI, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVersionsForUIForApp", arg0)
+	ret0, _ := ret[0].([]domain.AppVersionUI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetVersionsForUIForApp indicates an expected call of GetVersionsForUIForApp
+func (mr *MockAppModelMockRecorder) GetVersionsForUIForApp(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionsForUIForApp", reflect.TypeOf((*MockAppModel)(nil).GetVersionsForUIForApp), arg0)
+}
+
 // MockAppspaceModel is a mock of AppspaceModel interface
 type MockAppspaceModel struct {
 	ctrl     *gomock.Controller

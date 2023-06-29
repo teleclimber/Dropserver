@@ -24,17 +24,18 @@ type AppModel struct {
 	// need config to select db type?
 
 	stmt struct {
-		selectID              *sqlx.Stmt
-		selectOwner           *sqlx.Stmt
-		insertApp             *sqlx.Stmt
-		deleteApp             *sqlx.Stmt
-		selectVersion         *sqlx.Stmt
-		selectVersionForUI    *sqlx.Stmt
-		selectVersionManifest *sqlx.Stmt
-		getAllVersions        *sqlx.Stmt
-		selectAppVerions      *sqlx.Stmt
-		insertVersion         *sqlx.Stmt
-		deleteVersion         *sqlx.Stmt
+		selectID               *sqlx.Stmt
+		selectOwner            *sqlx.Stmt
+		insertApp              *sqlx.Stmt
+		deleteApp              *sqlx.Stmt
+		selectVersion          *sqlx.Stmt
+		selectVersionForUI     *sqlx.Stmt
+		selectVersionManifest  *sqlx.Stmt
+		getAllVersions         *sqlx.Stmt
+		selectAppVersions      *sqlx.Stmt
+		selectAppVersionsForUI *sqlx.Stmt
+		insertVersion          *sqlx.Stmt
+		deleteVersion          *sqlx.Stmt
 	}
 }
 
@@ -99,12 +100,27 @@ func (m *AppModel) PrepareStatements() {
 		created
 		FROM app_versions WHERE app_id = ? AND version = ?`)
 
+	m.stmt.selectAppVersionsForUI = p.exec(`SELECT
+		app_id, version,
+		ifnull(json_extract(manifest, '$.name'), "") AS name,
+		ifnull(json_extract(manifest, '$.short-description'), "") AS short_desc,
+		json_extract(manifest, '$.schema') AS schema,
+		ifnull(json_extract(manifest, '$.accent-color'), "") AS color,
+		ifnull(json_extract(manifest, '$.authors'), "") AS authors,
+		ifnull(json_extract(manifest, '$.website'), "") AS website,
+		ifnull(json_extract(manifest, '$.code'), "") AS code,
+		ifnull(json_extract(manifest, '$.funding'), "") AS funding,
+		ifnull(json_extract(manifest, '$.release-date'), "") AS release_date,
+		ifnull(json_extract(manifest, '$.license'), "") AS license,
+		created
+		FROM app_versions WHERE app_id = ?`)
+
 	m.stmt.selectVersionManifest = p.exec(`SELECT manifest FROM app_versions WHERE app_id = ? AND version = ?`)
 
 	m.stmt.getAllVersions = p.exec(`SELECT version FROM app_versions WHERE app_id = ?`)
 
 	// get versions for app
-	m.stmt.selectAppVerions = p.exec(`SELECT
+	m.stmt.selectAppVersions = p.exec(`SELECT
 		app_id, version,
 		json_extract(manifest, '$.schema') AS schema,
 		created, location_key
@@ -227,29 +243,12 @@ func (m *AppModel) GetVersionForUI(appID domain.AppID, version domain.Version) (
 		m.getLogger("GetVersionForUI()").AppID(appID).AppVersion(version).Error(err)
 		return domain.AppVersionUI{}, err
 	}
-	authors := make([]domain.ManifestAuthor, 0)
-	if appVersion.AuthorsDB != "" {
-		err = json.Unmarshal([]byte(appVersion.AuthorsDB), &authors)
-		if err != nil {
-			m.getLogger("GetVersionForUI() unmarshal author data").AppID(appID).AppVersion(version).Error(err)
-			return domain.AppVersionUI{}, err
-		}
+	ret, err := makeAppVersionUI(appVersion)
+	if err != nil {
+		m.getLogger("GetVersionForUI() makeAppVersionUI()").AppID(appID).AppVersion(version).Error(err)
+		return domain.AppVersionUI{}, err
 	}
-	return domain.AppVersionUI{
-		AppID:            appVersion.AppID,
-		Name:             appVersion.Name,
-		Version:          appVersion.Version,
-		Schema:           appVersion.Schema,
-		Created:          appVersion.Created,
-		ShortDescription: appVersion.ShortDescription,
-		AccentColor:      appVersion.AccentColor,
-		Authors:          authors,
-		Website:          appVersion.Website,
-		Code:             appVersion.Code,
-		Funding:          appVersion.Funding,
-		ReleaseDate:      appVersion.ReleaseDate,
-		License:          appVersion.License,
-	}, nil
+	return ret, nil
 }
 
 func (m *AppModel) GetVersionManifestJSON(appID domain.AppID, version domain.Version) (string, error) {
@@ -283,7 +282,7 @@ func (m *AppModel) GetVersionManifest(appID domain.AppID, version domain.Version
 func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, error) {
 	ret := []*domain.AppVersion{}
 
-	err := m.stmt.selectAppVerions.Select(&ret, appID)
+	err := m.stmt.selectAppVersions.Select(&ret, appID)
 	if err != nil {
 		m.getLogger("GetVersionsForApp()").AppID(appID).Error(err)
 		return nil, err
@@ -300,6 +299,40 @@ func (m *AppModel) GetVersionsForApp(appID domain.AppID) ([]*domain.AppVersion, 
 		}
 		return iSemver.Compare(*jSemver) == -1
 	})
+
+	return ret, nil
+}
+
+// GetUIOVersionsForApp returns an array of versions of code for that application
+func (m *AppModel) GetVersionsForUIForApp(appID domain.AppID) ([]domain.AppVersionUI, error) {
+	rows := []AppVersionUIDB{}
+	err := m.stmt.selectAppVersionsForUI.Select(&rows, appID)
+	if err != nil {
+		m.getLogger("GetVersionsForUIForApp()").AppID(appID).Error(err)
+		return nil, err
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		iSemver, err := semver.New(string(rows[i].Version)) // this is not efficient, but ok for now
+		if err != nil {
+			return false
+		}
+		jSemver, err := semver.New(string(rows[j].Version))
+		if err != nil {
+			return false
+		}
+		return iSemver.Compare(*jSemver) == -1
+	})
+
+	ret := make([]domain.AppVersionUI, len(rows))
+	for i, r := range rows {
+		ui, err := makeAppVersionUI(r)
+		if err != nil {
+			m.getLogger("GetVersionForUI() makeAppVersionUI()").AppID(appID).AppVersion(r.Version).Error(err)
+			return nil, err
+		}
+		ret[i] = ui
+	}
 
 	return ret, nil
 }
@@ -386,6 +419,31 @@ func (m *AppModel) DeleteVersion(appID domain.AppID, version domain.Version) err
 		return err
 	}
 	return nil
+}
+
+func makeAppVersionUI(row AppVersionUIDB) (domain.AppVersionUI, error) {
+	authors := make([]domain.ManifestAuthor, 0)
+	if row.AuthorsDB != "" {
+		err := json.Unmarshal([]byte(row.AuthorsDB), &authors)
+		if err != nil {
+			return domain.AppVersionUI{}, err
+		}
+	}
+	return domain.AppVersionUI{
+		AppID:            row.AppID,
+		Name:             row.Name,
+		Version:          row.Version,
+		Schema:           row.Schema,
+		Created:          row.Created,
+		ShortDescription: row.ShortDescription,
+		AccentColor:      row.AccentColor,
+		Authors:          authors,
+		Website:          row.Website,
+		Code:             row.Code,
+		Funding:          row.Funding,
+		ReleaseDate:      row.ReleaseDate,
+		License:          row.License,
+	}, nil
 }
 
 func (m *AppModel) getLogger(note string) *record.DsLogger {

@@ -44,11 +44,11 @@ export type AppManifest = {
 	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
 	accent_color: string,
 
-	authors: string[],	// later, 
+	authors: AppAuthor[],
 	description: string,	// actually a reference to a long description. Later.
 	release_notes: string,	// ref to a file or something...
 	code: string,	// URL to code repo. OK.
-	homepage: string,	//URL to home page for app
+	website: string,	//URL to home page for app
 	help: string,	// URL to help
 	license: string,	// SPDX format of license
 	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
@@ -64,6 +64,12 @@ export interface AppVersion {
 	created_dt: Date,
 }
 
+export interface AppAuthor {
+	name: string,
+	email: string,
+	url: string
+}
+
 export interface AppVersionUI {
 	app_id: number,
 	version: string,
@@ -73,11 +79,7 @@ export interface AppVersionUI {
 	short_desc: string,
 	//icon: boolean,	// implement later
 	color: string | undefined,
-	authors: {
-		name: string,
-		email: string,
-		url: string
-	}[],
+	authors: AppAuthor[],
 	website: string,
 	code: string,
 	funding: string,

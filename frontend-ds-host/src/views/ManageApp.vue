@@ -12,6 +12,10 @@ import BigLoader from '../components/ui/BigLoader.vue';
 import DataDef from '@/components/ui/DataDef.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
 
+import AppLicense from '@/components/app/AppLicense.vue';
+import AppAuthorsSummary from '@/components/app/AppAuthorsSummary.vue';
+import AppLinksCompact from '@/components/app/AppLinksCompact.vue';
+
 const router = useRouter();
 
 const props = defineProps<{
@@ -30,6 +34,17 @@ const app = computed( () => {
 	const a = appsStore.getApp(Number(props.app_id));
 	if( a ) return a.value;
 	return undefined;
+});
+const app_icon_error = ref(false);
+const app_icon = computed( () => {
+	if( app_icon_error.value || !app.value?.cur_ver ) return "";
+	return `/api/application/${app.value.app_id}/version/${app.value.cur_ver}/file/app-icon`;
+});
+const release_date = computed( () => {
+	if( !app.value?.ver_data?.release_date ) return;
+	return new Date(app.value?.ver_data.release_date).toLocaleDateString(undefined, {
+		dateStyle:'medium'
+	});
 });
 const app_versions = computed( () => {
 	return appsStore.mustGetAppVersions(props.app_id);
@@ -77,50 +92,108 @@ async function delApp() {
 	router.push({name: 'apps'});
 }
 
+
+
 </script>
 
 <template>
 	<ViewWrap>
 		<template v-if="app">
-			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-				<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-					<h3 class="text-lg leading-6 font-medium text-gray-900">Application</h3>
-				</div>
-				<div class="my-5">
-					<DataDef field="Name:">{{ app.ver_data?.name }}</DataDef>
-					<DataDef field="Created:">{{ app.created_dt.toLocaleString() }}</DataDef>
+			<div class="md:mb-6 my-6 pb-4 bg-white shadow overflow-hidden border-t-8 border-gray-200" :style="'border-color:'+(app.ver_data?.color || 'rgb(135, 151, 164)')" >
+				<div class="grid app-grid gap-x-2 gap-y-2 px-4 py-4 sm:px-6">
+					<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-20 h-20" />
+					<div v-else class="w-20 h-20 text-gray-300  flex justify-center items-center">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-14 h-14">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+						</svg>
+					</div>
+					<div class="self-center">
+						<h3 class="text-2xl leading-6 font-medium text-gray-900">{{app.ver_data?.name}}</h3>
+						<p class="italic" v-if="app.ver_data?.short_desc">“{{app.ver_data?.short_desc}}”</p>
+					</div>
+					<div class="col-span-3 sm:col-start-2">
+						<p class="">
+							Version 
+							<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{app.cur_ver}}</span>
+							<span v-if="release_date"> released {{ release_date || '' }}</span>
+						</p>
+						<p class="">
+							By: <AppAuthorsSummary :authors="app.ver_data?.authors" class=""></AppAuthorsSummary>
+						</p>
+						<AppLicense class="" :license="app.ver_data?.license"></AppLicense>
+						<AppLinksCompact class="mt-3" :ver_data="app.ver_data"></AppLinksCompact>
+					</div>
 				</div>
 			</div>
 
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-				<div class="px-4 py-5 sm:px-6 flex justify-between">
+				<div class="px-4 pt-5 pb-2 sm:px-6 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Versions</h3>
 					<div >
 						<router-link :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn">Upload New Version</router-link>
 					</div>
 				</div>
 
-				<ul class="border-t border-b border-gray-200 divide-y divide-gray-200">
-					<li v-for="ver in app_versions" :key="ver.version" class="px-4 sm:px-6 py-3 flex items-center justify-between text-sm">
-						<div class="w-0 flex-1 flex items-center">
-							<span class="ml-2 flex-1 w-0 font-bold">
+				<div class="grid grid-cols-4 items-stretch">
+					<div></div>
+					<div class="flex justify-center items-end font-medium text-center">uploaded:</div>
+					<div class="flex justify-center items-end font-medium text-center">data schema:</div>
+					<div></div>
+					<template v-for="ver in app_versions" :key="ver.version">
+						<div class="border-t py-1 pl-4 md:pl-6 flex flex-col md:flex-row items-start md:items-center justify-center md:justify-start">
+							<span class=" font-medium bg-gray-200 text-gray-700 px-1 rounded-md">
 								{{ver.version}}
+							</span>
+							<span v-if="ver.release_date" class="md:ml-1"> 
+								({{ new Date(ver.release_date).toLocaleDateString(undefined, {dateStyle: 'short'}) }})
+							</span>
+						</div>
+						<div class="border-t flex items-center justify-center">
+							{{ver.created_dt.toLocaleDateString(undefined, {dateStyle: 'short'})}}
+						</div>
+						<div class="border-t py-2 flex items-center justify-center">
+							{{ver.schema}}
+						</div>
+						<div class="border-t flex items-center justify-end pr-4 md:pr-6">
+							<span v-if="deleting_versions.has(ver.version)">deleting</span>
+							<span v-else-if="version_appspaces.get(ver.version)?.length" 
+								class="bg-yellow-200 text-yellow-800 px-2 uppercase text-xs font-medium">in use</span>
+							<button v-else @click.stop.prevent="deleteVersion(ver.version)" class="btn text-red-700">
+								<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+								</svg>
+								<span class="hidden sm:inline-block">delete</span>
+							</button>
+						</div>
+					</template>
+				</div>
+				<!-- <ul class="border-t border-b border-gray-200 divide-y divide-gray-200">
+					<li v-for="ver in app_versions" :key="ver.version" class="px-4 sm:px-6 py-3 flex items-center justify-between">
+						<div class="">
+							<span class=" font-medium bg-gray-200 text-gray-700 px-1 rounded-md">
+								{{ver.version}}
+							</span>
+							<span v-if="ver.release_date" class="ml-1"> 
+								({{ new Date(ver.release_date).toLocaleDateString(undefined, {dateStyle: 'short'}) }})
 							</span>
 						</div>
 						<div class="w-0 flex-1 flex items-center">
+							<span >data schema:</span>
 							<span class="ml-2 flex-1 w-0 ">
 								{{ver.schema}}
 							</span>
 						</div>
 					
 						<div class="w-0 flex-1 flex items-center">
+							<span >uploaded:</span>
 							<span class="ml-2 flex-1 w-0">
-								{{ver.created_dt.toLocaleString()}}
+								{{ver.created_dt.toLocaleDateString(undefined, {dateStyle: 'short'})}}
 							</span>
 						</div>
 						<div class="">
 							<span v-if="deleting_versions.has(ver.version)">deleting</span>
-							<span v-else-if="version_appspaces.get(ver.version)?.length">in use</span>
+							<span v-else-if="version_appspaces.get(ver.version)?.length" 
+								class="bg-yellow-200 text-yellow-800 px-2 uppercase text-xs font-medium">in use</span>
 							<button v-else @click.stop.prevent="deleteVersion(ver.version)" class="btn text-red-700">
 								<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 									<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -133,7 +206,7 @@ async function delApp() {
 					<div v-if="getLoadState(app_versions) !== LoadState.Loaded" class="p-4 flex justify-center items-center text-gray-500 italic">
 						Loading...
 					</div>
-				</ul>
+				</ul> -->
 
 			</div>
 
@@ -161,8 +234,8 @@ async function delApp() {
 					</li>
 				</ul>
 
-				<div class="md:py-5 md:px-6">
-					<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="md:rounded-lg">
+				<div class="">
+					<MessageSad head="No Appspaces" v-if="app_appspaces.length === 0" class="">
 						There are no appspaces using this app. 
 						<router-link :to="{name:'new-appspace', query:{app_id:app.app_id, version:app.cur_ver}}"
 								class="btn whitespace-nowrap ">
@@ -194,3 +267,9 @@ async function delApp() {
 	</ViewWrap>
 </template>
 
+
+<style scoped>
+.app-grid {
+	grid-template-columns: 5rem 1fr max-content;
+}
+</style>

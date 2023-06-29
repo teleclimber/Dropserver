@@ -196,7 +196,7 @@ const routes: Array<RouteRecordRaw> = [
 			}
 		},
 		meta: {
-			title: "Processing App Version"
+			title: "New App Version"
 		}
 	},{
 		path: '/new-app',
@@ -211,7 +211,7 @@ const routes: Array<RouteRecordRaw> = [
 		component: NewAppInProcess,
 		props: true,
 		meta: {
-			title: "Processing New App"
+			title: "New App"
 		}
 	},{
 		path: '/contact',

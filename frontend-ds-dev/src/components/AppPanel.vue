@@ -77,6 +77,7 @@
 					<span v-if="accent_color" class="rounded inline-block h-3 w-20" :style="'background-color:'+accent_color">&nbsp;</span>
 					<span v-else class="italic text-gray-400">(none)</span>
 				</p>
+				<p>Short Description: "{{ appData.manifest?.short_description }}"</p>
 				<p class="flex">
 					<span class="mr-1">Authors:</span>
 					<div>
@@ -92,7 +93,7 @@
 							{{  p_event.warnings.authors }}
 						</span>
 					</div>
-					<div v-if="!appData.manifest?.authors.length" class="italic text-gray-400">(none)</div>
+					<div v-if="!appData.manifest?.authors?.length" class="italic text-gray-400">(none)</div>
 				</p>
 				<p class="flex items-center">
 					<span class="mr-1">Website:</span>

@@ -38,7 +38,11 @@ func (a *DevAppFilesModel) WriteFileLink(locationKey string, linkName string, ic
 	return nil
 }
 func (a *DevAppFilesModel) GetLinkPath(locationKey string, linkName string) string {
-	return a.fileLinks[linkName]
+	p, ok := a.fileLinks[linkName]
+	if !ok {
+		return ""
+	}
+	return filepath.Join(a.AppLocation2Path.Files(locationKey), p)
 }
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {
