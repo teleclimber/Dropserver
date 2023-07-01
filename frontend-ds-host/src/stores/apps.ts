@@ -92,6 +92,7 @@ export const useAppsStore = defineStore('apps', () => {
 		resp.data.forEach( (raw:any) => {
 			av.push(appVersionUIFromRaw(raw));
 		});
+		av.reverse();
 		setLoadState(av, LoadState.Loaded);
 	}
 

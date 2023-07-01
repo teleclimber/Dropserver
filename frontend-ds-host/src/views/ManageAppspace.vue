@@ -2,7 +2,6 @@
 import { ref, Ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 
 import { useAppspacesStore } from '@/stores/appspaces';
-import { useAppsStore } from '@/stores/apps';
 import { useAppspaceUsersStore } from '@/stores/appspace_users';
 
 import { fetchAppspaceSummary } from '../models/usage';
@@ -85,6 +84,12 @@ async function togglePause() {
 	pausing.value = false;
 }
 
+const app_icon_error = ref(false);
+const app_icon = computed( () => {
+	if( app_icon_error.value || !appspace.value ) return "";
+	return `/api/application/${appspace.value?.app_id}/version/${appspace.value?.app_version}/file/app-icon`;
+});
+
 const data_schema_mismatch = computed( ()=> {
 	return appspace.value?.ver_data && status.loaded && appspace.value?.ver_data.schema !== status.appspace_schema;
 });
@@ -116,11 +121,18 @@ onUnmounted( async () => {
 
 					<DataDef field="Created:">{{appspace.created_dt.toLocaleString()}}</DataDef>
 
-					<DataDef field="Application:">{{appspace.ver_data?.name }}</DataDef>
+					<DataDef field="Application:">
+						<span class="flex items-center">
+							<span class="w-0">&nbsp;</span><!-- needed to make baseline allignment work -->
+							<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-10 h-10" />
+							<h3 class="text-lg font-medium text-gray-900">{{appspace.ver_data?.name}}</h3>
+						</span>
+					</DataDef>
 
 					<DataDef field="App Version:">
-						{{appspace.app_version}}
-						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}" class="btn">
+						<span class="bg-gray-200 text-gray-600 px-1 rounded-md inline-block mr-1">{{appspace.app_version}}</span>
+						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}"
+							class="btn">
 							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
 							</svg>
