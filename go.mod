@@ -30,6 +30,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common v0.41.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/rivo/uniseg v0.4.4
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/soongo/path-to-regexp v1.6.4
 	github.com/teleclimber/twine-go v0.1.2

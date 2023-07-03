@@ -5,6 +5,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/mazznoer/csscolorparser"
+	"github.com/rivo/uniseg"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -45,6 +46,14 @@ func validateAccentColor(meta *domain.AppGetMeta) error {
 }
 
 func validateSoftData(meta *domain.AppGetMeta) {
+	if uniseg.GraphemeClusterCount(meta.VersionManifest.Name) > 30 {
+		meta.Warnings["name"] = "App name is over 30 characters. It may be difficult to display."
+	}
+
+	if uniseg.GraphemeClusterCount(meta.VersionManifest.ShortDescription) > 60 {
+		meta.Warnings["short-description"] = "Short description is over 60 characters. It may be difficult to display."
+	}
+
 	for _, a := range meta.VersionManifest.Authors {
 		if a.Email != "" {
 			err := validator.Email(a.Email)

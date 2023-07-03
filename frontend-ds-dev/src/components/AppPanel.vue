@@ -58,7 +58,18 @@
 			<h2 class="text-2xl my-2">Application Data:</h2>
 			<div class="my-4">
 				<p>App dir: {{baseData.app_path}}</p>
-				<p>Name: {{appData.name}}</p>
+				<p class="flex">
+					<span class="mr-1">Name:</span>
+					<div>
+						“{{appData.name}}”
+						<div v-if="p_event.warnings.name" class="text-orange-500">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+							</svg>
+							{{ p_event.warnings.name }}
+						</div>
+					</div>
+				</p>
 				<p>Version: {{appData.version}}</p>
 				<p>Schema: {{appData.schema}}</p>
 				<p>Entrypoint: {{ appData.entrypoint }}</p>
@@ -77,7 +88,18 @@
 					<span v-if="accent_color" class="rounded inline-block h-3 w-20" :style="'background-color:'+accent_color">&nbsp;</span>
 					<span v-else class="italic text-gray-400">(none)</span>
 				</p>
-				<p>Short Description: "{{ appData.manifest?.short_description }}"</p>
+				<p class="flex">
+					<span class="mr-1">Short Description:</span>
+					<div>
+						“{{ appData.manifest?.short_description }}”
+						<div v-if="p_event.warnings['short-description']" class="text-orange-500">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+							</svg>
+							{{ p_event.warnings['short-description'] }}
+						</div>
+					</div>
+				</p>
 				<p class="flex">
 					<span class="mr-1">Authors:</span>
 					<div>

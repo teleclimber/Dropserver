@@ -182,6 +182,7 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 						Name changed! App is called “<span class="font-medium">{{ sibling_versions.next?.name  }}</span>”
 						in {{  sibling_versions.next?.version }}
 					</SmallMessage>
+					<SmallMessage v-if="warnings['name']" mood="warn" :class="small_msg_classes">{{ warnings['name'] }}</SmallMessage>
 				</DataDef>
 
 				<DataDef field="Version:">
@@ -249,33 +250,37 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 							</a>
 						</li>
 					</ul>
-					<SmallMessage v-if="warnings['authors']" mood="warn">{{ warnings['authors'] }}</SmallMessage>
+					<SmallMessage v-if="warnings['authors']" mood="warn" :class="small_msg_classes">{{ warnings['authors'] }}</SmallMessage>
 					<p v-if="!manifest.authors || manifest.authors.length === 0" class="text-gray-400 italic">No authors listed</p>
 				</DataDef>
 
 				<DataDef field="Website:">
 					<a v-if="manifest.website" :href="manifest.website" :class="link_classes">{{ manifest.website }}</a>
 					<p v-else class="text-gray-400 italic">No website listed</p>
-					<SmallMessage v-if="warnings['website']" mood="warn">{{ warnings['website'] }}</SmallMessage>
+					<SmallMessage v-if="warnings['website']" mood="warn" :class="small_msg_classes">{{ warnings['website'] }}</SmallMessage>
 				</DataDef>
 
 				<DataDef field="Code repository:">
 					<a v-if="manifest.code" :href="manifest.code" :class="link_classes">{{ manifest.code }}</a>
 					<p v-else class="text-gray-400 italic">No code repository listed</p>
-					<SmallMessage v-if="warnings['code']" mood="warn">{{ warnings['code'] }}</SmallMessage>
+					<SmallMessage v-if="warnings['code']" mood="warn" :class="small_msg_classes">{{ warnings['code'] }}</SmallMessage>
 				</DataDef>
 
 				<DataDef field="Funding:">
 					<a v-if="manifest.funding" :href="manifest.funding" :class="link_classes">{{ manifest.funding }}</a>
 					<p v-else class="text-gray-400 italic">No funding website listed</p>
-					<SmallMessage v-if="warnings['funding']" mood="warn">{{ warnings['funding'] }}</SmallMessage>
+					<SmallMessage v-if="warnings['funding']" mood="warn" :class="small_msg_classes">{{ warnings['funding'] }}</SmallMessage>
 				</DataDef>
 
-				<DataDef v-if="warnings['icon']" field="Icon">
-					<SmallMessage mood="warn">{{ warnings['icon'] }}</SmallMessage>
+				<DataDef v-if="warnings['icon']" field="Icon:">
+					<SmallMessage mood="warn" :class="small_msg_classes">{{ warnings['icon'] }}</SmallMessage>
 				</DataDef>
-				<DataDef v-if="warnings['accent-color']" field="Icon">
-					<SmallMessage mood="warn">{{ warnings['accent-color'] }}</SmallMessage>
+				<DataDef v-if="warnings['accent-color']" field="Accent color:">
+					<SmallMessage mood="warn" :class="small_msg_classes">{{ warnings['accent-color'] }}</SmallMessage>
+				</DataDef>
+				<DataDef v-if="warnings['short-description']" field="Short description:">
+					<p>“{{ manifest.short_description }}”</p>
+					<SmallMessage mood="warn" :class="small_msg_classes">{{ warnings['short-description'] }}</SmallMessage>
 				</DataDef>
 			</div>
 
