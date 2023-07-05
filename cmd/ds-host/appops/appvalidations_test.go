@@ -31,3 +31,16 @@ func TestValidateAppManifest(t *testing.T) {
 		}
 	}
 }
+
+func TestBadURLRemoved(t *testing.T) {
+	m := domain.AppGetMeta{
+		Errors:   make([]string, 0),
+		Warnings: make(map[string]string),
+		VersionManifest: domain.AppVersionManifest{
+			Website: "blah"},
+	}
+	validateSoftData(&m)
+	if m.VersionManifest.Website != "" {
+		t.Error("Expected Website to be blank")
+	}
+}

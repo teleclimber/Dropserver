@@ -54,17 +54,19 @@ func validateSoftData(meta *domain.AppGetMeta) {
 		meta.Warnings["short-description"] = "Short description is over 60 characters. It may be difficult to display."
 	}
 
-	for _, a := range meta.VersionManifest.Authors {
+	for i, a := range meta.VersionManifest.Authors {
 		if a.Email != "" {
 			err := validator.Email(a.Email)
 			if err != nil {
 				meta.Warnings["authors"] = "Invalid author email: " + a.Email
+				meta.VersionManifest.Authors[i].Email = ""
 			}
 		}
 		if a.URL != "" {
 			err := validator.HttpURL(a.URL)
 			if err != nil {
 				meta.Warnings["authors"] = "Invalid author URL: " + a.URL
+				meta.VersionManifest.Authors[i].URL = ""
 			}
 		}
 	}
@@ -72,19 +74,22 @@ func validateSoftData(meta *domain.AppGetMeta) {
 	if meta.VersionManifest.Website != "" {
 		err := validator.HttpURL(meta.VersionManifest.Website)
 		if err != nil {
-			meta.Warnings["website"] = "Invalid website URL"
+			meta.Warnings["website"] = "Removed invalid website URL: " + meta.VersionManifest.Website
+			meta.VersionManifest.Website = ""
 		}
 	}
 	if meta.VersionManifest.Code != "" {
 		err := validator.HttpURL(meta.VersionManifest.Code)
 		if err != nil {
-			meta.Warnings["code"] = "Invalid code URL"
+			meta.Warnings["code"] = "Removed invalid code URL: " + meta.VersionManifest.Code
+			meta.VersionManifest.Code = ""
 		}
 	}
 	if meta.VersionManifest.Funding != "" {
 		err := validator.HttpURL(meta.VersionManifest.Funding)
 		if err != nil {
-			meta.Warnings["funding"] = "Invalid funding URL"
+			meta.Warnings["funding"] = "Removed invalid funding URL: " + meta.VersionManifest.Funding
+			meta.VersionManifest.Funding = ""
 		}
 	}
 }
