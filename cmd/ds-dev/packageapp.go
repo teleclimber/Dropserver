@@ -29,7 +29,7 @@ type AppPackager struct {
 	}
 }
 
-func (p *AppPackager) PackageApp(appDir, outDir string) {
+func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
 	checkOutputDir(outDir)
 
 	results := p.loadAppData()
@@ -81,7 +81,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string) {
 		os.Exit(1)
 	}
 
-	base := "dropapp-" + string(results.VersionManifest.Version) // replace with file name from config
+	base = fmt.Sprintf("%s-%s", base, string(results.VersionManifest.Version))
 	appFd, err := getAppFile(outDir, base)
 	if err != nil {
 		fmt.Println("Error creating package file: ", err)
@@ -100,7 +100,6 @@ func (p *AppPackager) PackageApp(appDir, outDir string) {
 		fmt.Println("Error creating manifest file: ", err)
 		os.Exit(1)
 	}
-
 }
 
 func (p *AppPackager) loadAppData() domain.AppGetMeta {
