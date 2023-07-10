@@ -5,23 +5,28 @@ import (
 	"errors"
 )
 
-type appVerMan2305 struct {
+type appVerMan2305DB struct {
 	AppID   int    `db:"app_id" json:"-"`
 	Name    string `db:"name" json:"name"`
 	Version string `db:"version" json:"version"`
 	Schema  int    `db:"schema" json:"schema"`
 }
 
+type appVerMan2305 struct {
+	appVerMan2305DB
+	Entrypoint string `json:"entrypoint"`
+}
+
 func packagedAppsUp(args *stepArgs) error {
 	args.dbExec(`ALTER TABLE app_versions ADD COLUMN manifest JSON`)
 
-	appVers := []appVerMan2305{}
+	appVers := []appVerMan2305DB{}
 	err := args.db.Handle.Select(&appVers, `SELECT apps.app_id, name, version, schema FROM app_versions LEFT JOIN apps USING(app_id)`)
 	if err != nil {
 		return err
 	}
 	for _, appVer := range appVers {
-		manifestBytes, err := json.Marshal(appVer)
+		manifestBytes, err := json.Marshal(appVerMan2305{appVer, "app.ts"})
 		if err != nil {
 			return err
 		}
@@ -93,3 +98,19 @@ func packagedAppsDown(args *stepArgs) error {
 
 	return args.dbErr
 }
+
+// TODO: do we need to add a column for app getter results / warnings?
+
+// TODO (next migration): add to apps table
+// The only things left in the table are things that are for this instance:
+// - owner id, app id, created ...
+// - add a user-note about this app so that user can differentiate apps they create.?
+// - auto update mode (or does that just depend on whether any appspaces ask for auto-update?)
+// - distribution URL (the URL to hit to get the latest version or list of versions or whatever)
+//   ..should get updated in case of 301
+// - dist_URL_moved is new URL (from 301) until user acknowledges it
+// - the contents of the "versions" endpoint of distribution URL should be stored in JSON
+//   ..along with necessary cache info to allow checking if it's been updated or not.
+// - datetime of last time the dist url was hit.
+// And some cached data to simplify management?
+// - latest acquired version (if app_versions table does not support sorting)

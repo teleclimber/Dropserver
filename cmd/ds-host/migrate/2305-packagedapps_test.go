@@ -24,6 +24,7 @@ type TestAppVer2305 struct {
 	Manifest   string `db:"manifest"`
 	ManVersion string `db:"man_version"`
 	Schema     int    `db:"schema"`
+	Entrypoint string `db:"entrypoint"`
 }
 
 func TestPackagedAppsUp(t *testing.T) {
@@ -63,7 +64,8 @@ func TestPackagedAppsUp(t *testing.T) {
 	var out TestAppVer2305
 	db.Handle.QueryRowx(`SELECT app_id, version, manifest, 
 		json_extract(manifest, '$.version') AS man_version,
-		json_extract(manifest, '$.schema') AS schema
+		json_extract(manifest, '$.schema') AS schema,
+		json_extract(manifest, '$.entrypoint') AS entrypoint
 		FROM app_versions WHERE app_id = ? AND version = ?`,
 		av.AppID, av.Version).StructScan(&out)
 
@@ -74,6 +76,9 @@ func TestPackagedAppsUp(t *testing.T) {
 	}
 	if out.Schema != av.Schema {
 		t.Errorf("schema: expected %v, got %v", av.Schema, out.Schema)
+	}
+	if out.Entrypoint != "app.ts" {
+		t.Error("expected entrypoint to be app.ts")
 	}
 }
 
