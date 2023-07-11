@@ -58,7 +58,7 @@ func extractPackage(packagePath, tempDir string) string {
 	}
 	defer f.Close()
 
-	err = appfilesmodel.ExtractPackageLow(f, appDir, 1<<30)
+	err = appfilesmodel.ExtractPackageLow(f, appDir, domain.AppExtractedPackageMaxSize)
 	if err != nil {
 		panic(err)
 	}

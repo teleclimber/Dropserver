@@ -93,7 +93,7 @@ func (a *AppFilesModel) ExtractPackage(locationKey string) error {
 		return err
 	}
 
-	err = ExtractPackageLow(packageFD, appFilesPath, 1<<30) // 1Gb for now. Will hook into user-level disk quota when that gets written
+	err = ExtractPackageLow(packageFD, appFilesPath, domain.AppExtractedPackageMaxSize) // Will hook into user-level disk quota when that gets written
 	if err != nil {
 		logger.AddNote("extractPackage").Error(err)
 		return err

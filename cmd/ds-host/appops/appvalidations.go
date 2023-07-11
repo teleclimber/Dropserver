@@ -46,12 +46,13 @@ func validateAccentColor(meta *domain.AppGetMeta) error {
 }
 
 func validateSoftData(meta *domain.AppGetMeta) {
-	if uniseg.GraphemeClusterCount(meta.VersionManifest.Name) > 30 {
-		meta.Warnings["name"] = "App name is over 30 characters. It may be difficult to display."
+	c := uniseg.GraphemeClusterCount(meta.VersionManifest.Name)
+	if c > domain.AppNameMaxLength {
+		meta.Warnings["name"] = fmt.Sprintf("App name is over %v characters (%v). It may be difficult to display.", domain.AppNameMaxLength, c)
 	}
-
-	if uniseg.GraphemeClusterCount(meta.VersionManifest.ShortDescription) > 60 {
-		meta.Warnings["short-description"] = "Short description is over 60 characters. It may be difficult to display."
+	c = uniseg.GraphemeClusterCount(meta.VersionManifest.ShortDescription)
+	if c > domain.AppShortDescriptionMaxLength {
+		meta.Warnings["short-description"] = fmt.Sprintf("Short description is over %v characters (%v). It may be difficult to display.", domain.AppShortDescriptionMaxLength, c)
 	}
 
 	for i, a := range meta.VersionManifest.Authors {

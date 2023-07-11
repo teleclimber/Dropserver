@@ -142,7 +142,6 @@ func Unzip(src, dest string, maxSize int64) error {
 		return actualSize, nil
 	}
 
-	//maxSize := int64(1 << 30) // hard-coded to 1 gig for now.
 	size := int64(0)
 	for _, f := range r.File {
 		s, err := extractAndWriteFile(f, maxSize-size)
