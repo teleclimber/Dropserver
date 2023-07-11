@@ -45,6 +45,7 @@ type AppGetter struct {
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
 		ExtractPackage(locationKey string) error
+		GetManifestSize(string) (int64, error)
 		ReadManifest(string) (domain.AppVersionManifest, error)
 		WriteRoutes(string, []byte) error
 		WriteFileLink(string, string, string) error
@@ -240,12 +241,21 @@ func (g *AppGetter) checkStep(keyData appGetData, meta domain.AppGetMeta, err er
 func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMeta) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading manifest from app files"})
 
-	manifest, err := g.AppFilesModel.ReadManifest(keyData.locationKey)
+	size, err := g.AppFilesModel.GetManifestSize(keyData.locationKey)
 	if err != nil {
 		if err == domain.ErrAppManifestNotFound {
 			meta.Errors = append(meta.Errors, "Application manifest file not found")
 			return nil
 		}
+		return err
+	}
+	if size > domain.AppManifestMaxFileSize {
+		meta.Errors = append(meta.Errors, "Application manifest file is too large")
+		return nil
+	}
+
+	manifest, err := g.AppFilesModel.ReadManifest(keyData.locationKey)
+	if err != nil {
 		return err
 	}
 	meta.VersionManifest = manifest

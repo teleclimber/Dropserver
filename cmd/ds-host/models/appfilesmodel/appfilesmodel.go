@@ -163,15 +163,15 @@ func (a *AppFilesModel) getPackagePath(locationKey string) string {
 func (a *AppFilesModel) ReadManifest(locationKey string) (domain.AppVersionManifest, error) {
 	jsonPath := filepath.Join(a.AppLocation2Path.Files(locationKey), "dropapp.json")
 	jsonBytes, err := os.ReadFile(jsonPath)
-	if err != nil {
-		// here the error might be that dropapp.json is not in app?
-		// Or it could be a more internal problem, like directory of apps not where it's expected to be.
-		// Or it could be a bad location key, like it was deleted but DB doesn't know.
+	if os.IsNotExist(err) {
 		if !a.locationKeyExists(locationKey) {
-			a.getLogger(fmt.Sprintf("ReadManifest(), location key: %v", locationKey)).Error(err)
-			return domain.AppVersionManifest{}, errors.New("internal error reading app meta data")
+			a.getLogger("ReadManifest()").Log("location key not found: %v")
+			return domain.AppVersionManifest{}, domain.ErrLocationKeyDoesNotExist
 		}
-		return domain.AppVersionManifest{}, domain.ErrAppManifestNotFound // rename to app manifest
+		return domain.AppVersionManifest{}, domain.ErrAppManifestNotFound
+	} else if err != nil {
+		a.getLogger("ReadManifest()").Error(err)
+		return domain.AppVersionManifest{}, err
 	}
 
 	meta, err := unmarshalManifest(jsonBytes)
@@ -181,6 +181,22 @@ func (a *AppFilesModel) ReadManifest(locationKey string) (domain.AppVersionManif
 	}
 
 	return meta, nil
+}
+
+func (a *AppFilesModel) GetManifestSize(locationKey string) (int64, error) {
+	jsonPath := filepath.Join(a.AppLocation2Path.Files(locationKey), "dropapp.json")
+	fInfo, err := os.Stat(jsonPath)
+	if os.IsNotExist(err) {
+		if !a.locationKeyExists(locationKey) {
+			a.getLogger("GetManifestSize()").Log("location key not found: %v")
+			return 0, domain.ErrLocationKeyDoesNotExist
+		}
+		return 0, domain.ErrAppManifestNotFound
+	} else if err != nil {
+		a.getLogger("GetManifestSize()").Error(err)
+		return 0, err
+	}
+	return fInfo.Size(), nil
 }
 
 func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error {
@@ -280,6 +296,8 @@ func (a *AppFilesModel) locationKeyExists(locationKey string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
+	// TODO log an error here
+	// and probably return false?
 	return true // OK but there could be aonther problem, like permissions out of whack?
 	// Should probably log that as warning at least.
 }

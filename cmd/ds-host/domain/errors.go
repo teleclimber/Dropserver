@@ -25,8 +25,12 @@ var ErrBadAuth = errors.New("authentication incorrect")
 // appspace is currently closed
 var ErrAppspaceLockedClosed = errors.New("appspace is locked closed")
 
+// ErrLocationKeyDoesNotExist means that an attempt to open a path at a location key
+// failed because the location key itself was not found on disk
+var ErrLocationKeyDoesNotExist = errors.New("location key was not found on disk")
+
 // ErrAppManifestNotFound means the application manifest (dropapp.json) file was not found
-var ErrAppManifestNotFound = errors.New("App manifest dropapp.json not found")
+var ErrAppManifestNotFound = errors.New("app manifest dropapp.json not found")
 
 // ErrAppVersionInUse indicates the operation could not be performed
 // on the app version because something (probably an appspace)
