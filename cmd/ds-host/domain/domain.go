@@ -428,32 +428,26 @@ type AppVersionManifest struct {
 	Schema int `json:"schema"`
 	// Migrations is list of migrations provided by this app version
 	Migrations []MigrationStep `json:"migrations"`
-	// LibVersion is the version of the lib support.
-	// Determined automatically at packaging time (?)
-	// Required.
-	LibVersion string `json:"lib-version"`
 
-	// CodeState tells the system of processing needed before running the app
-	// Like remote fetch of modules and compile TS.
-	// Note that this can be determined entirely from the installer instance, so provided here for uer information purposes only?
-	CodeState string `json:"code-state"` // Unclear on actual need for this. I think it is needed, just not clrear how/where. really an enum: "remote", "ts", ""
 	// Icon is a package-relative path to an icon file to display within the installer instance UI.
-	// Optional.
 	Icon string `json:"icon"`
-	//AccentColor is a CSS color used to highlight the app in the UI
+	//AccentColor is a CSS color used to differentiate the app in the Dropserver UI
 	AccentColor string `json:"accent-color"`
 
-	Description  string `json:"description"`   // link to markdown file? I18N??
-	ReleaseNotes string `json:"release-notes"` // link to release notes markdown?
+	// Both of these are not currently handled.
+	// Description  string `json:"description"`   // link to markdown file? I18N??
+	// ReleaseNotes string `json:"release-notes"` // link to release notes markdown?
 
 	// Authors
 	Authors []ManifestAuthor `json:"authors"`
 
-	// Code, typically URL of git repo
-	Code    string `json:"code"` // code repo
+	// Code is the URL of the code repository
+	Code string `json:"code"`
+	// Website for the app
 	Website string `json:"website"`
+	// Funding website or site where funding situation is explained
 	Funding string `json:"funding"` // should maybe not be a string only...
-	// License in SPDX form
+	// License in SPDX string form
 	License string `json:"license"`
 	// LicenseFile is a package-relative path to a txt file containing the license text.
 	LicenseFile string `json:"license-file"` // Rel path to license file within package.
@@ -461,12 +455,9 @@ type AppVersionManifest struct {
 	//ReleaseDate YYYY-MM-DD of software release date. Should be set automatically by packaging code.
 	ReleaseDate string `json:"release-date"` // date of packaging.
 
-	// Signature of the package. Should be omitted if metadata is inside the package.
-	Signature string `json:"signature,omitempty"` // is string enough by itself?
-
 	// Size of the installed package in bytes (except that additional space will be taken up when fetching remote modules if applicable)
 	// Although maybe the actual installed size can be measured by the packaging system?
-	Size int `json:"size"`
+	// Size int `json:"size"`
 }
 
 type AppGetKey string

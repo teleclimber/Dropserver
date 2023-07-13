@@ -6,12 +6,9 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -649,38 +646,13 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 	if meta.VersionManifest.Icon == "" {
 		return nil
 	}
-	// steps to validate:
-	// - Stat the file
-	// - if no exist or is dir, warn/err
-	// - get mime type, look for image
-	// - verify filename suffix is legit .png, jpb, jpeg, ....
-	// - check filesize? Warn if bigger than...?
 
 	icon = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), icon)
-	mimeType, err := getFileMimeType(icon)
-	if os.IsNotExist(err) {
-		meta.Warnings["icon"] = "App icon not found at package path " + meta.VersionManifest.Icon
-		return nil
-	}
-	if err != nil {
-		meta.Warnings["icon"] = "Error processing app icon:  " + err.Error()
-		return nil
-	}
-	mimeTypes := []string{"image/jpeg", "image/png", "image/svg+xml", "image/webp"}
-	typeOk := false
-	for _, t := range mimeTypes {
-		if t == mimeType {
-			typeOk = true
+	if validateIcon(meta, icon) {
+		err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", meta.VersionManifest.Icon)
+		if err != nil {
+			return err
 		}
-	}
-	if !typeOk {
-		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Jpeg, png, svg and webp are supported."
-		return nil
-	}
-
-	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", meta.VersionManifest.Icon)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -909,42 +881,4 @@ func randomKey() domain.AppGetKey {
 		b[i] = chars36[seededRand2.Intn(len(chars36))]
 	}
 	return domain.AppGetKey(string(b))
-}
-
-func getFileMimeType(p string) (string, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	fInfo, err := f.Stat()
-	if err != nil {
-		return "", err
-	}
-	if fInfo.IsDir() {
-		return "", errors.New("path is a directory")
-	}
-	byteSlice := make([]byte, 512)
-	_, err = f.Read(byteSlice)
-	if err != nil {
-		return "", fmt.Errorf("error reading bytes from file: %w", err)
-	}
-	contentType := http.DetectContentType(byteSlice)
-
-	return contentType, nil
-}
-
-func validatePackagePath(p string) (string, bool) {
-	if p == "" {
-		return "", true
-	}
-	p = path.Clean(p)
-	if p == "" || p == "." || p == "/" || strings.Contains(p, "..") || strings.Contains(p, "\\") {
-		return "", false
-	}
-	if path.IsAbs(p) {
-		// accept abolute but turn it to relative
-		p = p[1:]
-	}
-	return p, true
 }

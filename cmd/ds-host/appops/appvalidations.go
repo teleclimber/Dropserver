@@ -2,8 +2,21 @@ package appops
 
 import (
 	"fmt"
+	"image"
+	"net/http"
+	"os"
+	"path"
+	"strings"
+
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+
+	"golang.org/x/image/webp"
 
 	"github.com/blang/semver/v4"
+	"github.com/inhies/go-bytesize"
+	"github.com/kettek/apng"
 	"github.com/mazznoer/csscolorparser"
 	"github.com/rivo/uniseg"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -93,4 +106,130 @@ func validateSoftData(meta *domain.AppGetMeta) {
 			meta.VersionManifest.Funding = ""
 		}
 	}
+}
+
+func validateIcon(meta *domain.AppGetMeta, iconPath string) bool {
+	f, err := os.Open(iconPath)
+	if os.IsNotExist(err) {
+		meta.Warnings["icon"] = "App icon not found at package path " + meta.VersionManifest.Icon
+		return false
+	}
+	if err != nil {
+		meta.Warnings["icon"] = "Error processing app icon:  " + err.Error()
+		return false
+	}
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		meta.Warnings["icon"] = "Error getting icon file info:  " + err.Error()
+		return false
+	}
+	if fInfo.IsDir() {
+		meta.Warnings["icon"] = "Error: icon path is a directory"
+		return false
+	}
+
+	mimeType, err := getFileMimeType(iconPath)
+	if err != nil {
+		meta.Warnings["icon"] = "Error getting app icon mime type:  " + err.Error()
+		return false
+	}
+
+	mimeTypes := []string{"image/jpeg", "image/png", "image/svg+xml", "image/webp"}
+	typeOk := false
+	for _, t := range mimeTypes {
+		if t == mimeType {
+			typeOk = true
+		}
+	}
+	if !typeOk {
+		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Jpeg, png, svg and webp are supported."
+		return false
+	}
+
+	// get w and h and check: is square and then size.
+	var config image.Config
+	if mimeType == "image/jpeg" || mimeType == "image/png" {
+		config, _, err = image.DecodeConfig(f)
+		if err != nil {
+			meta.Warnings["icon"] = "Error reading app icon file. " + err.Error()
+			return false
+		}
+	} else if mimeType == "image/webp" {
+		config, err = webp.DecodeConfig(f)
+		if err != nil {
+			meta.Warnings["icon"] = "Error reading app icon file. " + err.Error()
+			return false
+		}
+	}
+	if mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/webp" {
+		if config.Height != config.Width {
+			meta.Warnings["icon"] = fmt.Sprintf("App icon is not square: %v x %v.", config.Width, config.Height)
+		} else if config.Height < domain.AppIconMinPixelSize {
+			meta.Warnings["icon"] = fmt.Sprintf("App icon should be at least %v pixels. It is %v pixels.", domain.AppIconMinPixelSize, config.Width)
+		}
+	}
+
+	if fInfo.Size() > domain.AppIconMaxFileSize {
+		appendWarning(meta, "icon", fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
+			bytesize.New(float64(fInfo.Size())), bytesize.New(float64(domain.AppIconMaxFileSize))))
+	}
+
+	if mimeType == "image/png" {
+		// need to open again so the decoder can work from the beginning
+		fPng, err := os.Open(iconPath)
+		if err != nil {
+			meta.Warnings["icon"] = "Error opening PNG app icon: " + err.Error()
+			return false
+		}
+		defer fPng.Close()
+		a, err := apng.DecodeAll(fPng)
+		if err != nil {
+			meta.Warnings["icon"] = "Error opening decoding PNG app icon: " + err.Error()
+		}
+		if len(a.Frames) > 1 {
+			appendWarning(meta, "icon", "App icon appears to be animated. Non-animated icons are preferred.")
+		}
+	}
+
+	return true
+}
+
+func getFileMimeType(p string) (string, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return "", err
+	}
+	byteSlice := make([]byte, 512)
+	_, err = f.Read(byteSlice)
+	if err != nil {
+		return "", fmt.Errorf("error reading bytes from file: %w", err)
+	}
+	contentType := http.DetectContentType(byteSlice)
+
+	return contentType, nil
+}
+
+func validatePackagePath(p string) (string, bool) {
+	if p == "" {
+		return "", true
+	}
+	p = path.Clean(p)
+	if p == "" || p == "." || p == "/" || strings.Contains(p, "..") || strings.Contains(p, "\\") {
+		return "", false
+	}
+	if path.IsAbs(p) {
+		// accept abolute but turn it to relative
+		p = p[1:]
+	}
+	return p, true
+}
+
+func appendWarning(meta *domain.AppGetMeta, key string, warning string) {
+	w := meta.Warnings[key]
+	if w != "" {
+		w = w + " "
+	}
+	meta.Warnings[key] = w + warning
 }
