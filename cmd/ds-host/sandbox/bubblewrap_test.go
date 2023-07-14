@@ -106,7 +106,8 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
 		Version:     version,
-		LocationKey: appLoc}
+		LocationKey: appLoc,
+		Entrypoint:  "app.ts"}
 
 	log := &testLogger2{
 		log: func(source, message string) {
@@ -199,7 +200,8 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	appVersion := &domain.AppVersion{
 		AppID:       appID,
 		Version:     version,
-		LocationKey: appLoc}
+		LocationKey: appLoc,
+		Entrypoint:  "app.ts"}
 	appspace := &domain.Appspace{
 		AppspaceID:  appspaceID,
 		LocationKey: asLoc}
