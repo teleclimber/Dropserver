@@ -25,6 +25,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
 	"github.com/teleclimber/DropServer/cmd/ds-host/ds2ds"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
+	"github.com/teleclimber/DropServer/cmd/ds-host/hosttools"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
@@ -60,12 +61,26 @@ var configFlag = flag.String("config", "", "use this JSON confgiuration file")
 
 var migrateFlag = flag.Bool("migrate", false, "Set migrate flag to migrate db as needed.")
 
+var changeDomainFromFlag = flag.String("change-domain-from", "", "use this to change the domain name across the system")
+var changeDomainToFlag = flag.String("change-domain-to", "", "the domain name will be changed to this domain across the system")
+
 var dumpRoutesFlag = flag.String("dump-routes", "", "dump routes in markdown format to this location")
 
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 func main() {
 	flag.Parse()
+
+	// check flags make sense:
+	if *changeDomainFromFlag != "" && *changeDomainToFlag != "" {
+		if *migrateFlag {
+			fmt.Println("Can't have both migrate flag and change domain flag")
+			os.Exit(1)
+		}
+	} else if *changeDomainFromFlag != "" || *changeDomainToFlag != "" {
+		fmt.Println("You must specify botjh -change-domain-from and -change-domain-to")
+		os.Exit(1)
+	}
 
 	// serve pprof routes if DEBUG is on
 	if os.Getenv("DEBUG") != "" {
@@ -92,7 +107,7 @@ func main() {
 
 	record.NewDsLogger().Log("ds-host version: " + cmd_version)
 
-	if runtimeConfig.Prometheus.Enable && !*migrateFlag {
+	if runtimeConfig.Prometheus.Enable && !*migrateFlag && *changeDomainFromFlag == "" {
 		record.ExposePromMetrics(*runtimeConfig)
 	}
 
@@ -122,6 +137,15 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
+	}
+
+	if *changeDomainFromFlag != "" {
+		cd := &hosttools.ChangeDomain{
+			DB:                    db,
+			AppspaceLocation2Path: appspaceLocation2Path,
+		}
+		cd.ChangeDomain(*changeDomainFromFlag, *changeDomainToFlag)
+		os.Exit(0)
 	}
 
 	migrator := &migrate.Migrator{
