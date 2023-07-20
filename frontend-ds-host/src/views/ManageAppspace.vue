@@ -113,7 +113,7 @@ onUnmounted( async () => {
 					</div>
 				</div>
 				<div class="my-5">
-					<DataDef field="Appsace Address:">
+					<DataDef field="Appspace Address:">
 						<a :href="enter_link" class="text-blue-700 underline hover:text-blue-500">{{display_link}}</a>
 					</DataDef>
 
