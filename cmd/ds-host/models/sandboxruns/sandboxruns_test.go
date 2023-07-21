@@ -174,7 +174,7 @@ func TestAppspaceSum(t *testing.T) {
 	createRun(m, t, id2, start1, domain.SandboxRunData{TiedUpMs: 999, CpuUsec: 9999, MemoryByteSec: 9999})
 
 	// empty set:
-	sums, err := m.AppsaceSums(id1.OwnerID, appspaceID1, firstOf(time.February), firstOf(time.March))
+	sums, err := m.AppspaceSums(id1.OwnerID, appspaceID1, firstOf(time.February), firstOf(time.March))
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,7 +189,7 @@ func TestAppspaceSum(t *testing.T) {
 	}
 
 	// just one run, excludes run by other appspace
-	sums, err = m.AppsaceSums(id1.OwnerID, appspaceID1, firstOf(time.March), firstOf(time.April))
+	sums, err = m.AppspaceSums(id1.OwnerID, appspaceID1, firstOf(time.March), firstOf(time.April))
 	if err != nil {
 		t.Error(err)
 	}
@@ -204,7 +204,7 @@ func TestAppspaceSum(t *testing.T) {
 	}
 
 	// Actually sum runs correctly:
-	sums, err = m.AppsaceSums(id1.OwnerID, appspaceID1, firstOf(time.March), firstOf(time.May))
+	sums, err = m.AppspaceSums(id1.OwnerID, appspaceID1, firstOf(time.March), firstOf(time.May))
 	if err != nil {
 		t.Error(err)
 	}

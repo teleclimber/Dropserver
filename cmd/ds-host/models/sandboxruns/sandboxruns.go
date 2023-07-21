@@ -134,12 +134,12 @@ func (m *SandboxRunsModel) GetAppspace(ownerID domain.UserID, appspaceID domain.
 // - for user
 // With arbitrary Time range.
 
-func (m *SandboxRunsModel) AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error) {
+func (m *SandboxRunsModel) AppspaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error) {
 	var ret domain.SandboxRunData
 
 	err := m.stmt.sumAppspace.QueryRowx(ownerID, appspaceID, from, to).StructScan(&ret)
 	if err != nil {
-		m.getLogger("AppsaceSums()").UserID(ownerID).AppspaceID(appspaceID).Error(err)
+		m.getLogger("AppspaceSums()").UserID(ownerID).AppspaceID(appspaceID).Error(err)
 		return ret, err
 	}
 

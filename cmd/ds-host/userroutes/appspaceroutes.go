@@ -56,7 +56,7 @@ type AppspaceRoutes struct {
 		Open(appspaceID domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
 	SandboxRunsModel interface {
-		AppsaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error)
+		AppspaceSums(ownerID domain.UserID, appspaceID domain.AppspaceID, from time.Time, to time.Time) (domain.SandboxRunData, error)
 	} `checkinject:"required"`
 	DropIDModel interface {
 		Get(handle string, dom string) (domain.DropID, error)
@@ -359,7 +359,7 @@ func (a *AppspaceRoutes) getUsage(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	nowMinus30d := now.Add(-30 * 24 * time.Hour)
 
-	sums30d, err := a.SandboxRunsModel.AppsaceSums(appspace.OwnerID, appspace.AppspaceID, nowMinus30d, now)
+	sums30d, err := a.SandboxRunsModel.AppspaceSums(appspace.OwnerID, appspace.AppspaceID, nowMinus30d, now)
 	if err != nil {
 		returnError(w, err)
 		return

@@ -331,7 +331,7 @@ func main() {
 	migrationJobController.Start()
 
 	// Ds-dev frontend twine services:
-	appsaceStatusService := &AppspaceStatusService{
+	appspaceStatusService := &AppspaceStatusService{
 		AppspaceStatus:       appspaceStatus,
 		AppspaceStatusEvents: appspaceStatusEvents,
 	}
@@ -382,7 +382,7 @@ func main() {
 		MigrationJobModel:      devMigrationJobModel,
 		MigrationJobController: migrationJobController,
 		AppspaceStatus:         appspaceStatus,
-		AppspaceStatusService:  appsaceStatusService,
+		AppspaceStatusService:  appspaceStatusService,
 		SandboxControlService:  sandboxControlService,
 		AppMetaService:         appMetaService,
 		AppRoutesService:       appRoutesService,
