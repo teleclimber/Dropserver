@@ -131,6 +131,10 @@ func main() {
 
 	if *migrateFlag {
 		err := migrator.Migrate("")
+		if err == migrate.ErrNoMigrationNeeded {
+			fmt.Println("Schema matches desired schema, no migration needed")
+			os.Exit(0)
+		}
 		if err != nil {
 			fmt.Println("Error Migrating", err.Error())
 			os.Exit(1)

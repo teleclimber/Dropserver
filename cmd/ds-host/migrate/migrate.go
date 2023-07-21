@@ -13,6 +13,8 @@ import (
 // We realize that migrations can involve the DB
 // as well as any other data.
 
+var ErrNoMigrationNeeded = errors.New("no migration needed")
+
 // Migrator manages the migration process
 type Migrator struct {
 	Steps     []MigrationStep       `checkinject:"required"`
@@ -61,7 +63,7 @@ func (m *Migrator) Migrate(to string) error {
 	}
 
 	if fromIndex == toIndex {
-		return errors.New("migration nonsensical: from and to are the same")
+		return ErrNoMigrationNeeded
 	}
 
 	if toIndex > fromIndex {
