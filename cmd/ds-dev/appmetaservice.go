@@ -9,10 +9,7 @@ import (
 )
 
 type AppMetaService struct {
-	DevAppModel *DevAppModel `checkinject:"required"`
-	AppGetter   interface {
-		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
-	} `checkinject:"required"`
+	DevAppModel         *DevAppModel `checkinject:"required"`
 	DevAppProcessEvents interface {
 		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
 		Unsubscribe(<-chan AppProcessEvent)

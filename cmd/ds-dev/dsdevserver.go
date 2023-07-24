@@ -28,11 +28,8 @@ type twineService interface {
 // DropserverDevServer serves routes at dropserver-dev which control
 // the handling of the app server
 type DropserverDevServer struct {
-	Config      *domain.RuntimeConfig `checkinject:"required"`
-	DevAppModel *DevAppModel          `checkinject:"required"`
-	AppGetter   interface {
-		ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error)
-	} `checkinject:"required"`
+	Config        *domain.RuntimeConfig `checkinject:"required"`
+	DevAppModel   *DevAppModel          `checkinject:"required"`
 	AppFilesModel interface {
 		GetLinkPath(string, string) string
 	} `checkinject:"required"`
@@ -54,9 +51,6 @@ type DropserverDevServer struct {
 	} `checkinject:"required"`
 	MigrationJobModel interface {
 		CreateFromSchema(migrateTo int) error
-	} `checkinject:"required"`
-	MigrationJobController interface {
-		WakeUp()
 	} `checkinject:"required"`
 	PauseAppspace interface {
 		Pause(appspaceID domain.AppspaceID, pause bool) error

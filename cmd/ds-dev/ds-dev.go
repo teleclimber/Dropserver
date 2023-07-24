@@ -148,7 +148,6 @@ func main() {
 		AppModel:         devAppModel,
 		V0AppRoutes:      v0AppRoutes,
 		AppLogger:        appLogger,
-		//SandboxManager: ,	// added below
 	}
 	appGetter.Init()
 
@@ -344,7 +343,6 @@ func main() {
 		DevAppModel:         devAppModel,
 		DevAppProcessEvents: appProcessingEvents,
 		AppVersionEvents:    appVersionEvents,
-		AppGetter:           appGetter,
 	}
 	userService := &UserService{
 		DevAuthenticator:     devAuth,
@@ -369,27 +367,25 @@ func main() {
 	}
 
 	dsDevHandler := &DropserverDevServer{
-		Config:                 runtimeConfig,
-		DevAppModel:            devAppModel,
-		AppFilesModel:          devAppFilesModel,
-		AppGetter:              appGetter,
-		AppspaceFiles:          appspaceFiles,
-		PauseAppspace:          pauseAppspace,
-		AppspaceMetaDB:         appspaceMetaDb,
-		AppspaceDB:             appspaceDB,
-		AppspaceLogger:         appspaceLogger,
-		DevSandboxManager:      devSandboxManager,
-		MigrationJobModel:      devMigrationJobModel,
-		MigrationJobController: migrationJobController,
-		AppspaceStatus:         appspaceStatus,
-		AppspaceStatusService:  appspaceStatusService,
-		SandboxControlService:  sandboxControlService,
-		AppMetaService:         appMetaService,
-		AppRoutesService:       appRoutesService,
-		UserService:            userService,
-		RouteHitService:        routeHitService,
-		AppspaceLogService:     appspaceLogTwine,
-		MigrationJobService:    migrationJobTwine}
+		Config:                runtimeConfig,
+		DevAppModel:           devAppModel,
+		AppFilesModel:         devAppFilesModel,
+		AppspaceFiles:         appspaceFiles,
+		PauseAppspace:         pauseAppspace,
+		AppspaceMetaDB:        appspaceMetaDb,
+		AppspaceDB:            appspaceDB,
+		AppspaceLogger:        appspaceLogger,
+		DevSandboxManager:     devSandboxManager,
+		MigrationJobModel:     devMigrationJobModel,
+		AppspaceStatus:        appspaceStatus,
+		AppspaceStatusService: appspaceStatusService,
+		SandboxControlService: sandboxControlService,
+		AppMetaService:        appMetaService,
+		AppRoutesService:      appRoutesService,
+		UserService:           userService,
+		RouteHitService:       routeHitService,
+		AppspaceLogService:    appspaceLogTwine,
+		MigrationJobService:   migrationJobTwine}
 	dsDevHandler.SetPaths(appOrigin, appspaceSourceDir)
 
 	// Create server.
