@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	_ "image/gif"
@@ -22,6 +23,91 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
+
+type migrationPair struct {
+	schema int
+	up     bool
+	down   bool
+}
+
+func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never returns an error for now?
+	migrations := meta.VersionManifest.Migrations
+	if len(migrations) == 0 {
+		return nil
+	}
+
+	// first validate each individual step:
+	for _, step := range migrations {
+		if step.Direction != "up" && step.Direction != "down" {
+			meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v: not up or down", step.Direction, step.Schema))
+			return nil
+		}
+		if step.Schema < 1 {
+			meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v: schema less than 1", step.Direction, step.Schema))
+			return nil
+		}
+	}
+
+	pairs := make([]migrationPair, 0)
+	for _, step := range migrations {
+		found := false
+		for i, p := range pairs {
+			if p.schema == step.Schema {
+				found = true
+				if (step.Direction == "up" && p.up) || (step.Direction == "down" && p.down) {
+					meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v declared more than once", step.Direction, step.Schema))
+				} else if step.Direction == "up" {
+					pairs[i].up = true
+				} else {
+					pairs[i].down = true
+				}
+			}
+		}
+		if !found {
+			pairs = append(pairs, migrationPair{schema: step.Schema, up: step.Direction == "up", down: step.Direction == "down"})
+		}
+	}
+
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].schema > pairs[j].schema // sort reversed, so we iterate from the highest schema
+	})
+
+	if !pairs[0].up {
+		meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migrations: the highest schema %v must have an up migration.", pairs[0].schema))
+	}
+
+	// what should we be warning the user about:
+	// - gap in up migrations (makes the lower ones unusable)
+	// - gap in down migration (same)
+	// - any mismatch pair, except for 0->1
+	prevUp := -1
+	nextDown := -1
+	warn := false
+	for _, pair := range pairs {
+		if pair.up {
+			if prevUp != -1 && prevUp-1 != pair.schema {
+				warn = true
+			}
+			prevUp = pair.schema
+		}
+		if pair.down {
+			if nextDown != -1 && nextDown-1 != pair.schema {
+				warn = true
+			}
+			nextDown = pair.schema
+		}
+		if !pair.up || (!pair.down && pair.schema != 1) {
+			warn = true
+		}
+	}
+	if warn {
+		meta.Warnings["migrations"] = "Migrations should be sequential and come in up-down pairs."
+	}
+
+	meta.VersionManifest.Schema = pairs[0].schema
+
+	return nil
+}
 
 // validate that app version has a name
 // validate that the DS API is usabel in this version of DS

@@ -3,7 +3,6 @@ package appops
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -216,97 +215,5 @@ func TestValidateSequence(t *testing.T) {
 			t.Log(appGetMeta.Errors)
 			t.Error(c.desc, "got unexpected errors")
 		}
-	}
-}
-
-func TestValidateMigrationSteps(t *testing.T) {
-	g := &AppGetter{}
-
-	cases := []struct {
-		desc       string
-		migrations []domain.MigrationStep
-		schemas    []int
-		isErr      bool
-	}{
-		{
-			desc:       "empty array",
-			migrations: []domain.MigrationStep{},
-			schemas:    []int{},
-			isErr:      false,
-		}, {
-			desc: "up",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "down",
-			migrations: []domain.MigrationStep{
-				{Direction: "down", Schema: 1}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1}},
-			schemas: []int{1},
-			isErr:   false,
-		}, {
-			desc: "up up down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2},
-				{Direction: "up", Schema: 1}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up1 up1 down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
-				{Direction: "up", Schema: 1}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up down down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2},
-				{Direction: "down", Schema: 1}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up gap up down gap down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
-				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up up up down gap down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
-				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3},
-				{Direction: "up", Schema: 2}},
-			schemas: nil,
-			isErr:   true,
-		}, {
-			desc: "up up up down down down",
-			migrations: []domain.MigrationStep{
-				{Direction: "up", Schema: 1}, {Direction: "down", Schema: 1},
-				{Direction: "down", Schema: 3}, {Direction: "up", Schema: 3},
-				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2}},
-			schemas: []int{1, 2, 3},
-			isErr:   false,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.desc, func(t *testing.T) {
-			schemas, err := g.ValidateMigrationSteps(c.migrations)
-			if (err != nil) != c.isErr {
-				t.Errorf("mismatch between error and expected: %v %v", c.isErr, err)
-			}
-			if !reflect.DeepEqual(schemas, c.schemas) {
-				t.Errorf("schemas not equal: %v, %v", schemas, c.schemas)
-			}
-		})
 	}
 }

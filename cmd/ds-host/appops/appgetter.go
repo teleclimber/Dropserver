@@ -183,6 +183,12 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating data"})
 
+	err = validateMigrationSteps(&meta)
+	abort = g.checkStep(keyData, meta, err, "error validating migrations")
+	if abort {
+		return
+	}
+
 	err = g.validateAppVersion(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error validating app version")
 	if abort {
@@ -386,87 +392,9 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 		meta.Errors = append(meta.Errors, fmt.Sprintf("failed to parse json migrations data: %v", err))
 		return nil
 	}
-
-	schemas, err := g.ValidateMigrationSteps(migrations)
-	if err != nil {
-		meta.Errors = append(meta.Errors, err.Error())
-	}
-	if len(schemas) > 0 {
-		meta.VersionManifest.Schema = schemas[len(schemas)-1]
-	}
 	meta.VersionManifest.Migrations = migrations
 
 	return nil
-}
-
-func (g *AppGetter) ValidateMigrationSteps(migrations []domain.MigrationStep) ([]int, error) {
-	if len(migrations) == 0 {
-		return []int{}, nil
-	}
-	// first should validate each individual step:
-	for _, step := range migrations {
-		if step.Direction != "up" && step.Direction != "down" {
-			return nil, fmt.Errorf("invalid step: %v %v: not up or down", step.Direction, step.Schema)
-		}
-		if step.Schema < 1 {
-			return nil, fmt.Errorf("invalid step: %v %v: schema less than 1", step.Direction, step.Schema)
-		}
-	}
-
-	// now sort such that we can check sequence:
-	sort.Slice(migrations, func(i, j int) bool {
-		a := migrations[i]
-		b := migrations[j]
-		if a.Direction == b.Direction {
-			if a.Direction == "up" {
-				return a.Schema < b.Schema
-			} else {
-				return a.Schema > b.Schema
-			}
-		} else {
-			return a.Direction == "up"
-		}
-	})
-
-	// check we end where we started
-	if len(migrations) == 1 {
-		return nil, errors.New("error validating migrations: migrations come in up/down pairs. There can not be only one migration")
-	}
-	startSchema := migrations[0].Schema
-	endSchema := migrations[len(migrations)-1].Schema
-	if startSchema != endSchema {
-		return nil, fmt.Errorf("error validating migrations: first and last step schemas are different: %v, %v", startSchema, endSchema)
-	}
-
-	// now check sequnce:
-	isUp := true
-	expected := migrations[0].Schema
-	ret := make([]int, 0)
-	for _, m := range migrations {
-		if m.Direction == "up" {
-			ret = append(ret, m.Schema)
-		}
-		if isUp && m.Direction == "down" {
-			isUp = false
-			expected = expected - 1
-		} else if !isUp && m.Direction == "up" {
-			// can't switch back. error
-			// but that's an error in the sorting algorithm.
-			err := errors.New("error validating migration sequnce. Likely error in sort")
-			g.getLogger("validateMigrationSteps, json.Unmarshal").Error(err)
-			return nil, err
-		}
-		if m.Schema != expected {
-			return nil, fmt.Errorf("error validating migrations at step %v %v: expected %v", m.Direction, m.Schema, expected)
-		}
-		if isUp {
-			expected = expected + 1
-		} else {
-			expected = expected - 1
-		}
-	}
-
-	return ret, nil
 }
 
 // Note this is a versioned API
