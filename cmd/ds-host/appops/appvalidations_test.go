@@ -23,7 +23,7 @@ func TestValidateMigrationSteps(t *testing.T) {
 			migrations: []domain.MigrationStep{
 				{Direction: "up", Schema: 1}},
 			isErr:  false,
-			isWarn: false, // no warning because down from 1 is not needed
+			isWarn: true,
 		}, {
 			desc: "up3",
 			migrations: []domain.MigrationStep{
@@ -48,7 +48,7 @@ func TestValidateMigrationSteps(t *testing.T) {
 				{Direction: "up", Schema: 2}, {Direction: "down", Schema: 2},
 				{Direction: "up", Schema: 1}},
 			isErr:  false,
-			isWarn: false, // no warning bc no need for down from 1
+			isWarn: true,
 		}, {
 			desc: "up2 up3 down3",
 			migrations: []domain.MigrationStep{

@@ -96,7 +96,7 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 			}
 			nextDown = pair.schema
 		}
-		if !pair.up || (!pair.down && pair.schema != 1) {
+		if !pair.up || !pair.down {
 			warn = true
 		}
 	}
