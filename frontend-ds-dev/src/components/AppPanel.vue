@@ -73,7 +73,15 @@
 				<p>Version: {{appData.version}}</p>
 				<p>Schema: {{appData.schema}}</p>
 				<p>Entrypoint: {{ appData.entrypoint }}</p>
-				<p>Migrations: {{migrations_str}}</p>
+				<p>Migrations: 
+					<MigrationsGrid :migrations="appData.migrations"></MigrationsGrid>
+					<span v-if="p_event.warnings.migrations" class="text-orange-500 pl-2">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline">
+							<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+						</svg>
+						{{  p_event.warnings.migrations }}
+					</span>
+				</p>
 				<p>
 					App Icon: {{ appData.manifest?.icon|| "(none)" }}
 					<span v-if="p_event.warnings.icon" class="text-orange-500">
@@ -189,12 +197,14 @@ import appData from '../models/app-data';
 
 import Log from './Log.vue';
 import AppRoutes from './AppRoutes.vue';
+import MigrationsGrid from './MigrationsGrid.vue';
 
 export default defineComponent({
 	components: {
-		Log,
-		AppRoutes
-	},
+    Log,
+    AppRoutes,
+    MigrationsGrid
+},
 	setup() {
 		const show_process_log = ref(false);
 		const app_ok = ref(true);	//temporary. 
@@ -202,14 +212,6 @@ export default defineComponent({
 		const appLog = reactive(new LiveLog) as LiveLog;	// have to cast to LiveLog to make TS happy.
 		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
 		
-		const migrations_str = computed( () => {
-			// Maybe sort the array of migrations, and try to craft a string that makes sense?
-			// would like to warn on missing migrations.
-			const m = appData.migrations;
-			if( m.length === 0 ) return "none";
-			return m.map( s => (s.direction === 'up' ? '🔺' : '🔻') + s.schema ).join(', ');
-		});
-
 		const p_event = computed( () => appData.last_processing_event );
 		const app_icon = ref("app-icon?"+Date.now());
 
@@ -229,7 +231,6 @@ export default defineComponent({
 			baseData,
 			show_process_log, app_ok,
 			appData,
-			migrations_str,
 			appLog,
 			p_event,
 			app_icon, accent_color
