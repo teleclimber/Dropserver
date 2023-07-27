@@ -16,6 +16,7 @@ import SmallMessage from '@/components/ui/SmallMessage.vue';
 
 import { getLoadState } from '@/stores/loadable';
 import { LoadState, AppVersionUI } from '@/stores/types';
+import MigrationsGrid from '@/components/appspace/MigrationsGrid.vue';
 
 const router = useRouter();
 
@@ -218,6 +219,11 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 					</SmallMessage>
 				</DataDef>
 
+				<DataDef field="Migrations:">
+					<MigrationsGrid :migrations="manifest.migrations"></MigrationsGrid>
+					<SmallMessage v-if="warnings['migrations']" mood="warn" :class="small_msg_classes">{{ warnings['migrations'] }}</SmallMessage>
+				</DataDef>
+
 				<DataDef field="License:">
 					<p><AppLicense :license="manifest.license" ></AppLicense></p>
 					<SmallMessage v-if="prev && sibling_versions.prev?.license !== manifest.license"  mood="warn" :class="small_msg_classes">
@@ -251,24 +257,24 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 						</li>
 					</ul>
 					<SmallMessage v-if="warnings['authors']" mood="warn" :class="small_msg_classes">{{ warnings['authors'] }}</SmallMessage>
-					<p v-if="!manifest.authors || manifest.authors.length === 0" class="text-gray-400 italic">No authors listed</p>
+					<p v-if="!manifest.authors || manifest.authors.length === 0" class="text-gray-500 italic">No authors listed</p>
 				</DataDef>
 
 				<DataDef field="Website:">
 					<a v-if="manifest.website" :href="manifest.website" :class="link_classes">{{ manifest.website }}</a>
-					<p v-else class="text-gray-400 italic">No website listed</p>
+					<p v-else class="text-gray-500 italic">No website listed</p>
 					<SmallMessage v-if="warnings['website']" mood="warn" :class="small_msg_classes">{{ warnings['website'] }}</SmallMessage>
 				</DataDef>
 
 				<DataDef field="Code repository:">
 					<a v-if="manifest.code" :href="manifest.code" :class="link_classes">{{ manifest.code }}</a>
-					<p v-else class="text-gray-400 italic">No code repository listed</p>
+					<p v-else class="text-gray-500 italic">No code repository listed</p>
 					<SmallMessage v-if="warnings['code']" mood="warn" :class="small_msg_classes">{{ warnings['code'] }}</SmallMessage>
 				</DataDef>
 
 				<DataDef field="Funding:">
 					<a v-if="manifest.funding" :href="manifest.funding" :class="link_classes">{{ manifest.funding }}</a>
-					<p v-else class="text-gray-400 italic">No funding website listed</p>
+					<p v-else class="text-gray-500 italic">No funding website listed</p>
 					<SmallMessage v-if="warnings['funding']" mood="warn" :class="small_msg_classes">{{ warnings['funding'] }}</SmallMessage>
 				</DataDef>
 
