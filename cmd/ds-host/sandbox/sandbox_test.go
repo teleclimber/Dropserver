@@ -358,7 +358,7 @@ func TestRunnerScriptError(t *testing.T) {
 
 	s.Kill()
 
-	s.WaitFor(domain.SandboxDead)
+	s.WaitFor(domain.SandboxCleanedUp)
 }
 
 func TestStart(t *testing.T) {
@@ -463,7 +463,7 @@ func TestStart(t *testing.T) {
 
 	s.Graceful()
 
-	s.WaitFor(domain.SandboxDead)
+	s.WaitFor(domain.SandboxCleanedUp)
 }
 
 func TestStartAppOnly(t *testing.T) {
@@ -544,7 +544,7 @@ func TestStartAppOnly(t *testing.T) {
 
 	s.Graceful()
 
-	s.WaitFor(domain.SandboxDead)
+	s.WaitFor(domain.SandboxCleanedUp)
 }
 
 // TEST DISABLED bc ExecFn not functional rn.

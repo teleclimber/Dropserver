@@ -152,7 +152,7 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 
 	s.Graceful()
 
-	s.WaitFor(domain.SandboxDead)
+	s.WaitFor(domain.SandboxCleanedUp)
 }
 
 func TestStartAppspaceBwrap(t *testing.T) {
@@ -260,7 +260,7 @@ func TestStartAppspaceBwrap(t *testing.T) {
 
 	s.Graceful()
 
-	s.WaitFor(domain.SandboxDead)
+	s.WaitFor(domain.SandboxCleanedUp)
 }
 
 func handleStd(rc io.ReadCloser, source string) {
