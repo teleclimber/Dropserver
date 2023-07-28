@@ -1,10 +1,148 @@
-<style scoped>
-	.log-grid {
-		display: grid;
-		grid-template-columns: 3rem 50px max-content max-content 1fr max-content;
-	}
-</style>
+<script setup lang="ts">
+import { onMounted, reactive, ref, Ref, nextTick, computed, watch} from 'vue';
 
+import userData from '../models/user-data';
+
+import UiButton from './ui/UiButton.vue';
+
+// Redo:
+// - list users from db
+// - add a "public" user
+// - each db user can be updated
+// - each user (inc public) can be selected as the owner
+// - create new user
+// - delete user
+// - need a create/update UI
+
+const display_name_input :Ref<HTMLInputElement|null> = ref(null);
+const edit_user_open = ref(false);
+const is_edit = ref(false);
+const proxy_id = ref("");
+const display_name = ref("");
+const avatar = ref("");
+const avatar_url = ref("");	// either avatar/appspace/<appspace avatar file> or avatar/baked-in/<baked-in-file>
+
+const permissions :{[key:string]:boolean} = reactive({});
+
+const baked_in_avatars :Ref<string[]> = ref([]);
+fetch('avatar/baked-in').then( async (resp) => {
+	if( !resp.ok ) throw new Error("fetch error for basic data");
+	baked_in_avatars.value = await resp.json();
+});
+
+function avatarChanged(a :string) {
+	console.log("change", a);
+	avatar.value = a;
+	avatar_url.value = "avatar/baked-in/"+a;
+}
+
+function showAddUser() {
+	if( edit_user_open.value ) return;
+
+	is_edit.value = false;
+
+	proxy_id.value = "";
+	display_name.value = "";
+	avatar.value = "";
+	avatar_url.value = "";
+
+	for( let p in permissions ) {
+		permissions[p] = false;
+	}
+
+	edit_user_open.value = true;
+
+	focusModal();
+}
+function showEditUser(p_id:string) {
+	if( edit_user_open.value ) return;
+
+	is_edit.value = true;
+
+	const u = userData.getUser(p_id);
+	if( u === undefined ) {
+		throw new Error("can't find user: "+p_id);
+	}
+
+	// get user and copy values
+	proxy_id.value = p_id;
+	display_name.value = u.display_name;
+	avatar.value = u.avatar;
+	avatar_url.value = "avatar/appspace/"+u.avatar;
+
+	// first reset permissions:
+	for( let p in permissions ) {
+		permissions[p] = false;
+	}
+	u.permissions.forEach((p) => {
+		permissions[p] = true;
+	});
+
+	edit_user_open.value = true;
+
+	focusModal();
+}
+function focusModal() {
+	nextTick( () => {
+		if( !display_name_input.value ) return;
+		display_name_input.value.focus();
+	});
+}
+function saveEditUser() {
+	if( !edit_user_open.value ) return;
+
+	if( display_name.value == "" || display_name.value.length > 20 ) return;	//what are the validatiosn again?
+	// maybe let the user model perform validations. Just wait for response?
+
+	const ps :string[] = [];
+	for( let p in permissions ) {
+		if( permissions[p] ) ps.push(p);
+	}
+
+	if( is_edit.value ) {
+		//this.userData.editUser();
+		userData.editUser(proxy_id.value, display_name.value, avatar.value, ps)
+	}
+	else {
+		userData.addUser(display_name.value, avatar.value, ps)
+	}
+	closeUserModal();
+}
+function closeUserModal() {
+	// move focus back
+	if( is_edit.value ) {
+		// 
+	} 
+	else {
+		//TODO later... (<HTMLInputElement>this.$refs.add_btn).focus();
+	}
+	edit_user_open.value = false;
+}
+
+function delUser(proxy_id: string) {
+	const u = userData.getUser(proxy_id);
+	if( u === undefined ) return;
+	if( confirm("Delete "+u.display_name+"?") ) {
+		userData.deleteUser(proxy_id);
+	}
+}
+
+const active_user = computed( () => {
+	return userData.getActiveUser();
+});
+const active_user_input = ref("");
+onMounted( () => {
+	const u = userData.getActiveUser();
+	if(u) active_user_input.value =  u.proxy_id;
+});
+watch( active_user, () => {
+	active_user_input.value = active_user.value ? active_user.value.proxy_id : '';
+});
+watch( active_user_input, () => {
+	userData.setActiveUser(active_user_input.value);
+});
+
+</script>
 <template>
 	<div class="m-4 flex items-center h-8">
 		Logged-in user:
@@ -101,168 +239,9 @@
 	</teleport>	
 </template>
 
-
-<script lang="ts">
-import { defineComponent, onMounted, reactive, ref, Ref, nextTick, computed, watch} from 'vue';
-
-import appData from '../models/app-data';
-import userData from '../models/user-data';
-
-import UiButton from './ui/UiButton.vue';
-
-// Redo:
-// - list users from db
-// - add a "public" user
-// - each db user can be updated
-// - each user (inc public) can be selected as the owner
-// - create new user
-// - delete user
-// - need a create/update UI
-
-
-
-export default defineComponent({
-	components: {
-		UiButton
-	},
-	setup(props, context) {
-		const display_name_input :Ref<HTMLInputElement|null> = ref(null);
-		const edit_user_open = ref(false);
-		const is_edit = ref(false);
-		const proxy_id = ref("");
-		const display_name = ref("");
-		const avatar = ref("");
-		const avatar_url = ref("");	// either avatar/appspace/<appspace avatar file> or avatar/baked-in/<baked-in-file>
-
-		const permissions :{[key:string]:boolean} = reactive({});
-
-		const baked_in_avatars :Ref<string[]> = ref([]);
-		fetch('avatar/baked-in').then( async (resp) => {
-			if( !resp.ok ) throw new Error("fetch error for basic data");
-			baked_in_avatars.value = await resp.json();
-		});
-
-		function avatarChanged(a :string) {
-			console.log("change", a);
-			avatar.value = a;
-			avatar_url.value = "avatar/baked-in/"+a;
-		}
-
-		function showAddUser() {
-			if( edit_user_open.value ) return;
-
-			is_edit.value = false;
-
-			proxy_id.value = "";
-			display_name.value = "";
-			avatar.value = "";
-			avatar_url.value = "";
-
-			for( let p in permissions ) {
-				permissions[p] = false;
-			}
-
-			edit_user_open.value = true;
-
-			focusModal();
-		}
-		function showEditUser(p_id:string) {
-			if( edit_user_open.value ) return;
-
-			is_edit.value = true;
-
-			const u = userData.getUser(p_id);
-			if( u === undefined ) {
-				throw new Error("can't find user: "+p_id);
-			}
-
-			// get user and copy values
-			proxy_id.value = p_id;
-			display_name.value = u.display_name;
-			avatar.value = u.avatar;
-			avatar_url.value = "avatar/appspace/"+u.avatar;
-
-			// first reset permissions:
-			for( let p in permissions ) {
-				permissions[p] = false;
-			}
-			u.permissions.forEach((p) => {
-				permissions[p] = true;
-			});
-
-			edit_user_open.value = true;
-
-			focusModal();
-		}
-		function focusModal() {
-			nextTick( () => {
-				if( !display_name_input.value ) return;
-				display_name_input.value.focus();
-			});
-		}
-		function saveEditUser() {
-			if( !edit_user_open.value ) return;
-
-			if( display_name.value == "" || display_name.value.length > 20 ) return;	//what are the validatiosn again?
-			// maybe let the user model perform validations. Just wait for response?
-
-			const ps :string[] = [];
-			for( let p in permissions ) {
-				if( permissions[p] ) ps.push(p);
-			}
-
-			if( is_edit.value ) {
-				//this.userData.editUser();
-				userData.editUser(proxy_id.value, display_name.value, avatar.value, ps)
-			}
-			else {
-				userData.addUser(display_name.value, avatar.value, ps)
-			}
-			closeUserModal();
-		}
-		function closeUserModal() {
-			// move focus back
-			if( is_edit.value ) {
-				// 
-			} 
-			else {
-				//TODO later... (<HTMLInputElement>this.$refs.add_btn).focus();
-			}
-			edit_user_open.value = false;
-		}
-		
-		function delUser(proxy_id: string) {
-			const u = userData.getUser(proxy_id);
-			if( u === undefined ) return;
-			if( confirm("Delete "+u.display_name+"?") ) {
-				userData.deleteUser(proxy_id);
-			}
-		}
-
-		const active_user = computed( () => {
-			return userData.getActiveUser();
-		});
-		const active_user_input = ref("");
-		onMounted( () => {
-			const u = userData.getActiveUser();
-			if(u) active_user_input.value =  u.proxy_id;
-		});
-		watch( active_user, () => {
-			active_user_input.value = active_user.value ? active_user.value.proxy_id : '';
-		});
-		watch( active_user_input, () => {
-			userData.setActiveUser(active_user_input.value);
-		});
-
-		return { userData, appData, 
-			edit_user_open, is_edit,
-			display_name_input, display_name,
-			permissions,
-			showAddUser, showEditUser, saveEditUser, closeUserModal,
-			baked_in_avatars, avatar, avatar_url, avatarChanged,
-			delUser,
-			active_user, active_user_input,
-		};
-	},
-});
-</script>
+<style scoped>
+	.log-grid {
+		display: grid;
+		grid-template-columns: 3rem 50px max-content max-content 1fr max-content;
+	}
+</style>

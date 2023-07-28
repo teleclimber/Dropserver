@@ -1,3 +1,52 @@
+<script setup lang="ts">
+import { reactive, ref, computed, onMounted } from 'vue';
+import appData from '../models/app-data';
+import migrationData from '../models/migration-data';
+import appspaceStatus, { pauseAppspace, runMigration, ImportAndMigrate }  from '../models/appspace-status';
+
+import UiButton from './ui/UiButton.vue';
+
+const ui_paused = ref(false);
+onMounted( () => {
+	ui_paused.value = !!appspaceStatus.paused;
+});
+function togglePause() {
+	ui_paused.value = !ui_paused.value;
+	pauseAppspace(ui_paused.value);
+}
+
+const migrate_to_schema = ref(appData.schema);
+
+function runMigrationClicked() {
+	runMigration(migrate_to_schema.value);
+}
+
+const importAndMigrate = reactive(new ImportAndMigrate);
+
+const last_job = computed( () => migrationData.last_job );
+
+const possible_migrations = computed( () => {
+	const cur_schema = appspaceStatus.appspace_schema;
+	const m = appData.migrations;
+	const ret :number[] = [];
+	let i = cur_schema;
+	// up:
+	while(true) {
+		++i;
+		if( m.find( s => s.direction === 'up' && s.schema === i) ) ret.push(i);
+		else break
+	}
+	i = cur_schema;
+	// down:
+	while(true) {
+		--i;
+		if( m.find( s => s.direction === 'down' && s.schema === i) ) ret.unshift(i);
+		else break
+	}
+	return ret;
+});
+
+</script>
 <template>
 	<div class="flex items-stretch">
 		<UiButton class="mr-2 flex items-center" type="submit" @click.stop.prevent="togglePause">
@@ -61,69 +110,3 @@
 		<p>{{last_job.error}}</p>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, reactive, ref, computed, onMounted } from 'vue';
-import appData from '../models/app-data';
-import migrationData from '../models/migration-data';
-import appspaceStatus, { pauseAppspace, runMigration, ImportAndMigrate }  from '../models/appspace-status';
-
-import UiButton from './ui/UiButton.vue';
-
-export default defineComponent({
-	name: 'AppspaceControl',
-	components: {
-		UiButton,
-	},
-	setup(props, context) {
-		const ui_paused = ref(false);
-		onMounted( () => {
-			ui_paused.value = !!appspaceStatus.paused;
-		});
-		function togglePause() {
-			ui_paused.value = !ui_paused.value;
-			pauseAppspace(ui_paused.value);
-		}
-
-		const migrate_to_schema = ref(appData.schema);
-
-		function runMigrationClicked() {
-			runMigration(migrate_to_schema.value);
-		}
-
-		const importAndMigrate = reactive(new ImportAndMigrate);
-
-		const last_job = computed( () => migrationData.last_job );
-
-		const possible_migrations = computed( () => {
-			const cur_schema = appspaceStatus.appspace_schema;
-			const m = appData.migrations;
-			const ret :number[] = [];
-			let i = cur_schema;
-			// up:
-			while(true) {
-				++i;
-				if( m.find( s => s.direction === 'up' && s.schema === i) ) ret.push(i);
-				else break
-			}
-			i = cur_schema;
-			// down:
-			while(true) {
-				--i;
-				if( m.find( s => s.direction === 'down' && s.schema === i) ) ret.unshift(i);
-				else break
-			}
-			return ret;
-		});
-
-		return {
-			appspaceStatus, appData,
-			ui_paused, migrate_to_schema,
-			possible_migrations,
-			togglePause, runMigrationClicked,
-			importAndMigrate,
-			last_job,
-		};
-	}
-});
-</script>

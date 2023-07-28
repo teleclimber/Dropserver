@@ -1,3 +1,38 @@
+<script setup lang="ts">
+import { ref, watch, onBeforeMount, computed } from 'vue';
+import sandboxControl from '../models/sandbox-control';
+
+import UiButton from './ui/UiButton.vue';
+
+const ui_inspect_sandbox = ref(false);
+function toggleInspect() {
+	ui_inspect_sandbox.value = !ui_inspect_sandbox.value;
+	console.log( "setting inspect sandbox", ui_inspect_sandbox.value);
+	sandboxControl.setInspect(ui_inspect_sandbox.value);
+};
+function setInspectUIToModel() {
+	ui_inspect_sandbox.value = sandboxControl.inspect;
+}
+onBeforeMount( setInspectUIToModel );
+watch( () => sandboxControl.inspect, setInspectUIToModel );
+
+function stopSandbox() {
+	sandboxControl.stopSandbox();
+}
+
+const type = computed( () => sandboxControl.type );
+const status = computed( () => sandboxControl.status );
+const status_str = computed( () => {
+	switch(status.value) {
+		case 2: return "starting";
+		case 3: return "running";
+		case 4: return "stopping";
+		default: return "off";
+	};
+});
+
+</script>
+
 <template>
 	<div class="flex flex-col border-2 p-1 border-gray-500 rounded-lg text-sm">
 		<div class="mb-1 flex justify-center items-center rounded" 
@@ -23,52 +58,3 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, ref, watch, onBeforeMount, computed } from 'vue';
-import sandboxControl from '../models/sandbox-control';
-
-import UiButton from './ui/UiButton.vue';
-
-export default defineComponent({
-	name: 'Sandbox',
-	components: {
-		UiButton
-	},
-	setup(props, context) {
-		const ui_inspect_sandbox = ref(false);
-		function toggleInspect() {
-			ui_inspect_sandbox.value = !ui_inspect_sandbox.value;
-			console.log( "setting inspect sandbox", ui_inspect_sandbox.value);
-			sandboxControl.setInspect(ui_inspect_sandbox.value);
-		};
-		function setInspectUIToModel() {
-			ui_inspect_sandbox.value = sandboxControl.inspect;
-		}
-		onBeforeMount( setInspectUIToModel );
-		watch( () => sandboxControl.inspect, setInspectUIToModel );
-
-		function stopSandbox() {
-			sandboxControl.stopSandbox();
-		}
-
-		const type = computed( () => sandboxControl.type );
-		const status = computed( () => sandboxControl.status );
-		const status_str = computed( () => {
-			switch(status.value) {
-				case 2: return "starting";
-				case 3: return "running";
-				case 4: return "stopping";
-				default: return "off";
-			};
-		})
-
-		return {
-			ui_inspect_sandbox,
-			toggleInspect,
-			stopSandbox,
-			type, status, status_str
-		};
-	}
-});
-</script>

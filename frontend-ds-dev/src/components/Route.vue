@@ -1,3 +1,11 @@
+<script setup lang="ts">
+import {RouteConfig} from '../models/app-routes';
+
+defineProps<{
+	route: RouteConfig
+}>();
+
+</script>
 <template>
 	<span v-if="route.auth.allow === 'public'" class="border-b border-gray-400 text-sm bold pl-2 bg-yellow-300">public</span>
 	<span v-else-if="route.auth.allow === 'authorized'"  class="border-b border-gray-400 text-sm bold pl-2 bg-teal-200">
@@ -30,18 +38,3 @@
 		<span class="border-b border-gray-400">not implemented</span>
 	</template>
 </template>
-
-<script lang="ts">
-import { defineComponent, PropType } from 'vue';
-import {RouteConfig} from '../models/app-routes';
-
-export default defineComponent({
-	props: {
-		route: {
-			type: Object as PropType<RouteConfig>,
-			required: true
-		}
-	}
-
-});
-</script>

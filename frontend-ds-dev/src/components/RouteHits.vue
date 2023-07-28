@@ -1,10 +1,14 @@
-<style scoped>
-	.route-grid {
-		display: grid;
-		grid-template-columns: max-content max-content 4fr 7rem 5fr;
-		align-items: baseline;
-	}
-</style>
+<script setup lang="ts">
+import { onUpdated, ref, Ref } from 'vue';
+import routeEvents from '../models/route-hits';
+
+const scroll_container:Ref<undefined|HTMLElement> = ref(undefined);
+onUpdated( () => {
+	if( !scroll_container.value ) return;
+	scroll_container.value.scrollTop = scroll_container.value.scrollHeight;
+});
+
+</script>
 
 <template>
 	<div class="bg-gray-50 h-full" style="scroll-behavior: smooth" ref="scroll_container">
@@ -83,24 +87,10 @@
 	</div>
 </template>
 
-<script lang="ts">
-import { defineComponent, onUpdated, ref, Ref } from 'vue';
-import routeEvents from '../models/route-hits';
-
-export default defineComponent({
-	name: 'Routehits',
-	components: {
-	},
-	setup(props, context) {
-		const scroll_container:Ref<undefined|HTMLElement> = ref(undefined);
-		onUpdated( () => {
-			if( !scroll_container.value ) return;
-			scroll_container.value.scrollTop = scroll_container.value.scrollHeight;
-		});
-		return {
-			scroll_container,
-			routeEvents
-		};
-	},
-});
-</script>
+<style scoped>
+	.route-grid {
+		display: grid;
+		grid-template-columns: max-content max-content 4fr 7rem 5fr;
+		align-items: baseline;
+	}
+</style>

@@ -1,3 +1,9 @@
+<script setup lang="ts">
+defineProps<{
+	pressed?: boolean
+}>();
+
+</script>
 <template>
 	<button class="	px-4 py-1 rounded border-t-2 border-b-2
 			text-white font-medium text-xs leading-tight uppercase 
@@ -12,22 +18,3 @@
 		<slot></slot>
 	</button>
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-export default defineComponent({
-	components: {
-	},
-	props: {
-		pressed: {
-			type: Boolean,
-			required: false,
-			default: false
-		}
-	},
-	setup(props, context) {
-
-	}
-});
-</script>

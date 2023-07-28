@@ -1,9 +1,9 @@
-<style scoped>
-	.log-grid {
-		display: grid;
-		grid-template-columns: 8rem 6rem 4fr 7rem 5fr;
-	}
-</style>
+<script setup lang="ts">
+import appRoutesService from '../models/app-routes';
+
+import Route from './Route.vue';
+
+</script>
 
 <template>
 	<div class="border-l-4 border-gray-800  my-8">
@@ -24,23 +24,9 @@
 	</div>
 </template>
 
-<script lang="ts">
-import { defineComponent, reactive } from 'vue';
-import appRoutesService from '../models/app-routes';
-
-import Route from './Route.vue';
-
-export default defineComponent({
-	name: 'AppRoutes',
-
-	components: {
-		Route
-	},
-	setup(props, context) {
-		return {
-			appRoutesService,
-		};
-	},
-
-});
-</script>
+<style scoped>
+	.log-grid {
+		display: grid;
+		grid-template-columns: 8rem 6rem 4fr 7rem 5fr;
+	}
+</style>

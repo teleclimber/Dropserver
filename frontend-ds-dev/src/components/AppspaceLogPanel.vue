@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { reactive } from 'vue';
+
+import LiveLog from '../models/appspace-log-data';
+
+import Log from './Log.vue';
+
+const appspaceLog = reactive(new LiveLog) as LiveLog;
+appspaceLog.subscribeAppspaceLog(15);	// 15 is designated hard-coded appspace id in ds-dev.
+
+</script>
 <template>
 	<div class="border-t-4 border-black px-4  text-sm uppercase font-bold">
 		Appspace Log:
@@ -7,25 +18,3 @@
 		<Log title="Appspace" :live_log="appspaceLog"></Log>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, reactive } from 'vue';
-
-import LiveLog from '../models/appspace-log-data';
-
-import Log from './Log.vue';
-
-export default defineComponent({
-	components: {
-		Log,
-	},
-	setup() {
-		const appspaceLog = reactive(new LiveLog) as LiveLog;
-		appspaceLog.subscribeAppspaceLog(15);	// 15 is designated hard-coded appspace id in ds-dev.
-
-		return {
-			appspaceLog
-		}
-	},
-});
-</script>

@@ -1,3 +1,10 @@
+<script setup lang="ts">
+import baseData from '../models/base-data';
+import appspaceStatus from '../models/appspace-status';
+
+import AppspaceControl from './AppspaceControl.vue';
+
+</script>
 <template>
 	<div class="m-4">
 		<AppspaceControl></AppspaceControl>
@@ -9,26 +16,3 @@
 	</div>
 	<!-- here in future I imagine we'd have a rudimentary file viewer? -->
 </template>
-
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-import baseData from '../models/base-data';
-import appspaceStatus from '../models/appspace-status';
-
-import AppspaceControl from './AppspaceControl.vue';
-import Log from './Log.vue';
-
-export default defineComponent({
-	components: {
-		AppspaceControl,
-		Log,
-	},
-	setup() {
-		return {
-			baseData,
-			appspaceStatus,
-		}
-	},
-});
-</script>

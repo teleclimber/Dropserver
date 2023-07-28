@@ -1,3 +1,16 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import appspaceStatus from '../models/appspace-status';
+
+const status_string = computed( () => {
+	if( appspaceStatus.problem ) return "problem";
+	if( appspaceStatus.app_version_schema !== appspaceStatus.appspace_schema ) return "migrate";
+	if( appspaceStatus.paused ) return "paused";
+	if( appspaceStatus.temp_paused ) return "busy";
+	return "ready";
+});
+</script>
 <template>
 	<div class="w-48 h-8 text-center">
 		<div v-if="status_string === 'problem'" class="bg-red-300 h-full flex justify-center items-center">Problem</div>
@@ -33,30 +46,3 @@
 		</div>
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-
-import appspaceStatus from '../models/appspace-status';
-
-export default defineComponent({
-	name: 'AppspaceStatus',
-	components: {
-		
-	},
-	setup(props, context) {
-		const status_string = computed( () => {
-			if( appspaceStatus.problem ) return "problem";
-			if( appspaceStatus.app_version_schema !== appspaceStatus.appspace_schema ) return "migrate";
-			if( appspaceStatus.paused ) return "paused";
-			if( appspaceStatus.temp_paused ) return "busy";
-			return "ready";
-		});
-
-		return {
-			status_string,
-			appspaceStatus
-		}
-	}
-});
-</script>

@@ -1,3 +1,35 @@
+<script setup lang="ts">
+import { reactive, ref, computed, watch, onMounted } from 'vue';
+
+import baseData from '../models/base-data';
+import LiveLog from '../models/appspace-log-data';
+import appData from '../models/app-data';
+
+import Log from './Log.vue';
+import AppRoutes from './AppRoutes.vue';
+import MigrationsGrid from './MigrationsGrid.vue';
+
+const show_process_log = ref(false);
+
+const appLog = reactive(new LiveLog) as LiveLog;	// have to cast to LiveLog to make TS happy.
+appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
+
+const p_event = computed( () => appData.last_processing_event );
+const app_icon = ref("app-icon?"+Date.now());
+
+const accent_color = computed( () => {
+	return appData.manifest?.accent_color;
+});
+
+onMounted( () => {
+	if( p_event.value.errors.length ) show_process_log.value = true;
+});
+watch( p_event, () => {
+	if( p_event.value.errors.length ) show_process_log.value = true;
+	app_icon.value = "app-icon?"+Date.now();
+});
+
+</script>
 <template>
 	<div>
 		<div class="bg-gray-100">
@@ -182,59 +214,7 @@
 				</p>
 			</div>
 			<AppRoutes></AppRoutes>
-			<!-- should also have registered migrations -->
 		</div>
 
 	</div>
 </template>
-
-<script lang="ts">
-import { defineComponent, reactive, ref, computed, watch, onMounted } from 'vue';
-
-import baseData from '../models/base-data';
-import LiveLog from '../models/appspace-log-data';
-import appData from '../models/app-data';
-
-import Log from './Log.vue';
-import AppRoutes from './AppRoutes.vue';
-import MigrationsGrid from './MigrationsGrid.vue';
-
-export default defineComponent({
-	components: {
-    Log,
-    AppRoutes,
-    MigrationsGrid
-},
-	setup() {
-		const show_process_log = ref(false);
-		const app_ok = ref(true);	//temporary. 
-
-		const appLog = reactive(new LiveLog) as LiveLog;	// have to cast to LiveLog to make TS happy.
-		appLog.subscribeAppLog(11, "");	// send anything. The ds-dev backend always retunrs logs for the subject app.
-		
-		const p_event = computed( () => appData.last_processing_event );
-		const app_icon = ref("app-icon?"+Date.now());
-
-		const accent_color = computed( () => {
-			return appData.manifest?.accent_color;
-		});
-
-		onMounted( () => {
-			if( p_event.value.errors.length ) show_process_log.value = true;
-		});
-		watch( p_event, () => {
-			if( p_event.value.errors.length ) show_process_log.value = true;
-			app_icon.value = "app-icon?"+Date.now();
-		});
-
-		return {
-			baseData,
-			show_process_log, app_ok,
-			appData,
-			appLog,
-			p_event,
-			app_icon, accent_color
-		}
-	},
-});
-</script>

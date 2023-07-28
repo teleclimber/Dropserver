@@ -24,7 +24,7 @@ type RouteHit = {
 	v0_route_config: RouteConfig,
 	user?: User,
 	authorized: boolean,
-	status: Number
+	status: number
 }
 
 class RouteEvents {

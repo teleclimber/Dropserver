@@ -1,9 +1,22 @@
-<style scoped>
-	.log-grid {
-		display: grid;
-		grid-template-columns: 12rem 10rem 1fr;
-	}
-</style>
+<script setup lang="ts">
+import { ref, Ref, watch, nextTick } from 'vue';
+import LiveLog from '../models/appspace-log-data';
+
+const props = defineProps<{
+	title: string,
+	live_log: LiveLog
+}>();
+
+const scroll_container:Ref<undefined|HTMLElement> = ref(undefined);
+watch( () => props.live_log.entries, () => {
+	nextTick( () => {
+		if( !scroll_container.value ) return;
+		scroll_container.value.scrollTop = scroll_container.value.scrollHeight;
+		// make scrolling smooth after the initial scroll
+		scroll_container.value.style.scrollBehavior = "smooth";
+	});
+}, {deep: true} );
+</script>
 
 <template>
 	<div class="overflow-y-scroll bg-gray-100 h-full" ref="scroll_container">
@@ -20,37 +33,9 @@
 	</div>
 </template>
 
-<script lang="ts">
-import { defineComponent, PropType, ref, Ref, watch, onMounted, nextTick } from 'vue';
-import LiveLog from '../models/appspace-log-data';
-
-export default defineComponent({
-	name: 'Log',
-	components: {
-	},
-	props: {
-		title: {
-			type: String,
-			required: true
-		},
-		live_log: {
-			type: LiveLog,
-			required: true
-		}
-	},
-	setup(props, context) {
-		const scroll_container:Ref<undefined|HTMLElement> = ref(undefined);
-		watch( () => props.live_log.entries, () => {
-			nextTick( () => {
-				if( !scroll_container.value ) return;
-				scroll_container.value.scrollTop = scroll_container.value.scrollHeight;
-				// make scrolling smooth after the initial scroll
-				scroll_container.value.style.scrollBehavior = "smooth";
-			});
-		}, {deep: true} );
-		return {
-			scroll_container
-		}
-	},
-});
-</script>
+<style scoped>
+	.log-grid {
+		display: grid;
+		grid-template-columns: 12rem 10rem 1fr;
+	}
+</style>

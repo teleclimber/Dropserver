@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import AppspaceStatus from './AppspaceStatus.vue';
+import Sandbox from './Sandbox.vue';
+
+import baseData from '../models/base-data';
+import appData from '../models/app-data';
+import userData from '../models/user-data';
+
+const active_user = computed( () => {
+	return userData.getActiveUser();
+});
+
+</script>
 <template>
 	<header class="pt-4 px-4 flex justify-between">
 		<div class="">
@@ -24,32 +39,3 @@
 		</div>		
 	</header>
 </template>
-
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
-
-import AppspaceStatus from './AppspaceStatus.vue';
-import Sandbox from './Sandbox.vue';
-
-import baseData from '../models/base-data';
-import appData from '../models/app-data';
-import appspaceStatus from '../models/appspace-status';
-import userData from '../models/user-data';
-
-export default defineComponent({
-	components: {
-		AppspaceStatus,
-		Sandbox
-	},
-	setup(props, context) {
-
-		const active_user = computed( () => {
-			return userData.getActiveUser();
-		});
-		return {
-			baseData, appData, appspaceStatus,
-			active_user
-		}
-	}
-});
-</script>
