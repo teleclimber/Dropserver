@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -44,6 +45,7 @@ type AppGetter struct {
 		ExtractPackage(locationKey string) error
 		GetManifestSize(string) (int64, error)
 		ReadManifest(string) (domain.AppVersionManifest, error)
+		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
 		WriteRoutes(string, []byte) error
 		WriteFileLink(string, string, string) error
 		Delete(string) error
@@ -191,6 +193,12 @@ func (g *AppGetter) processApp(keyData appGetData) {
 
 	err = g.validateAppVersion(keyData, &meta)
 	abort = g.checkStep(keyData, meta, err, "error validating app version")
+	if abort {
+		return
+	}
+
+	err = g.validateChangelog(keyData.locationKey, &meta)
+	abort = g.checkStep(keyData, meta, err, "error validating changelog")
 	if abort {
 		return
 	}
@@ -512,6 +520,57 @@ func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (g *AppGetter) validateChangelog(locationKey string, meta *domain.AppGetMeta) error {
+	err := g.AppFilesModel.WriteFileLink(locationKey, "changelog", "")
+	if err != nil {
+		return err
+	}
+
+	// if no changelog specified, look for changelog.txt file by default.
+	if meta.VersionManifest.Changelog == "" {
+		_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), "changelog.txt"))
+		if errors.Is(err, fs.ErrNotExist) {
+			meta.Warnings["changelog"] = "changelog.txt not found and no changelog file specified"
+			return nil
+		} else if err != nil {
+			return err
+		}
+		meta.VersionManifest.Changelog = "changelog.txt"
+	}
+
+	clPath, ok := validatePackagePath(meta.VersionManifest.Changelog)
+	if !ok {
+		meta.Warnings["changelog"] = "Changelog path is invalid"
+		return nil
+	}
+	meta.VersionManifest.Changelog = clPath // set the normalized path to generated manifest
+
+	_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), clPath))
+	if errors.Is(err, fs.ErrNotExist) {
+		meta.Warnings["changelog"] = "Changelog path is incorrect"
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	err = g.AppFilesModel.WriteFileLink(locationKey, "changelog", meta.VersionManifest.Changelog)
+	if err != nil {
+		return err
+	}
+
+	cl, ok, err := g.AppFilesModel.GetVersionChangelog(locationKey, meta.VersionManifest.Version)
+	if !ok {
+		meta.Warnings["changelog"] = "There was a problem reading the changelog."
+	} else if err != nil {
+		return err
+	}
+	if cl == "" {
+		meta.Warnings["changelog"] = "Changelog is blank for this version"
+	}
+
+	return nil
 }
 
 func (g *AppGetter) validateLicense(locationKey string, meta *domain.AppGetMeta) error {

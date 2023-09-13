@@ -48,6 +48,7 @@ type ApplicationRoutes struct {
 	} `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
+		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
 		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppModel interface {
@@ -74,6 +75,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Use(a.appGetKeyCtx)
 		r.Get("/", a.getInProcess)
 		r.Get("/log", a.getInProcessLog)
+		r.Get("/changelog", a.getInProcessChangelog)
 		r.Get("/file/{link-name}", a.getInProcessFile)
 		r.Post("/", a.commitInProcess)
 		r.Delete("/", a.cancelInProcess)
@@ -87,6 +89,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Post("/version", a.postNewVersion)
 		r.With(a.appVersionCtx).Get("/version/{app-version}", a.getVersion)
 		// .Get("/version/{app-version}/manifest -> return the complete manifest.
+		r.With(a.appVersionCtx).Get("/version/{app-version}/changelog", a.getChangelog)
 		r.With(a.appVersionCtx).Get("/version/{app-version}/file/{link-name}", a.getFile)
 		r.With(a.appVersionCtx).Delete("/version/{app-version}", a.deleteVersion)
 	})
@@ -346,6 +349,35 @@ func (a *ApplicationRoutes) getInProcessLog(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, chunk)
 }
 
+func (a *ApplicationRoutes) getInProcessChangelog(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	appGetKey, _ := domain.CtxAppGetKey(ctx)
+	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	lastEvent, ok := a.AppGetter.GetLastEvent(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if !lastEvent.Done {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	meta, ok := a.AppGetter.GetResults(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if len(meta.Errors) != 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	a.respondWithChangelog(w, locationKey, meta.VersionManifest.Version)
+}
+
 func (a *ApplicationRoutes) getInProcessFile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
@@ -392,6 +424,22 @@ func (a *ApplicationRoutes) cancelInProcess(w http.ResponseWriter, r *http.Reque
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 
 	a.AppGetter.Delete(appGetKey)
+}
+
+func (a *ApplicationRoutes) getChangelog(w http.ResponseWriter, r *http.Request) {
+	appVersion, _ := domain.CtxAppVersionData(r.Context())
+	a.respondWithChangelog(w, appVersion.LocationKey, appVersion.Version)
+}
+
+func (a *ApplicationRoutes) respondWithChangelog(w http.ResponseWriter, locationKey string, version domain.Version) {
+	cl, _, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/text")
+	w.Write([]byte(cl))
 }
 
 func (a *ApplicationRoutes) getFile(w http.ResponseWriter, r *http.Request) {

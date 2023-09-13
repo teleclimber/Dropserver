@@ -9,7 +9,10 @@ import (
 )
 
 type AppMetaService struct {
-	DevAppModel         *DevAppModel `checkinject:"required"`
+	DevAppModel   *DevAppModel `checkinject:"required"`
+	AppFilesModel interface {
+		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
+	} `checkinject:"required"`
 	DevAppProcessEvents interface {
 		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
 		Unsubscribe(<-chan AppProcessEvent)
@@ -30,9 +33,11 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 	go func() {
 		for range appVersionEvent {
 			go s.sendManifest(t)
+			go s.sendChangelog(t)
 		}
 	}()
 	s.sendManifest(t)
+	s.sendChangelog(t)
 
 	ev, appProcessCh := s.DevAppProcessEvents.Subscribe()
 	go func() {
@@ -50,6 +55,7 @@ func (s *AppMetaService) Start(t *twine.Twine) {
 
 const appDataCmd = 12
 const appProcessEventCmd = 13
+const appChangelogCmd = 14
 
 type AppMetaResp struct {
 	AppName       string                 `json:"name"`
@@ -68,6 +74,19 @@ func (s *AppMetaService) sendManifest(twine *twine.Twine) {
 	_, err = twine.SendBlock(appDataService, appDataCmd, bytes)
 	if err != nil {
 		fmt.Println("sendManifest SendBlock Error: " + err.Error())
+	}
+}
+
+func (s *AppMetaService) sendChangelog(twine *twine.Twine) {
+	cl, ok, err := s.AppFilesModel.GetVersionChangelog("", s.DevAppModel.Manifest.Version)
+	if !ok {
+		cl = "Error reading changelog"
+	} else if err != nil {
+		fmt.Println("sendChangelog GetVersionChangelog Error: " + err.Error())
+	}
+	_, err = twine.SendBlock(appDataService, appChangelogCmd, []byte(cl))
+	if err != nil {
+		fmt.Println("sendChangelog SendBlock Error: " + err.Error())
 	}
 }
 

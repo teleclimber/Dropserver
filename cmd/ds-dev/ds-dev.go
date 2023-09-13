@@ -341,6 +341,7 @@ func main() {
 	}
 	appMetaService := &AppMetaService{
 		DevAppModel:         devAppModel,
+		AppFilesModel:       devAppFilesModel,
 		DevAppProcessEvents: appProcessingEvents,
 		AppVersionEvents:    appVersionEvents,
 	}

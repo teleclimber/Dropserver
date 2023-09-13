@@ -63,6 +63,13 @@ watch( () => appGetter.done, () => {
 	if( appGetter.done ) live_log.initInProcessAppLog(props.app_get_key);
 });
 
+const changelog = ref("");
+watch( () => appGetter.done, async () => {
+	changelog.value = "";
+	const resp = await fetch(`/api/application/in-process/${props.app_get_key}/changelog`);
+	changelog.value = await resp.text();
+}, { immediate: true });
+
 // Get next and prev versions, if any according to app getter meta.
 const app_versions = computed( () => {
 	if( props.app_id === undefined ) return undefined;
@@ -170,6 +177,11 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 						</div>
 					</div>
 				</div>
+			</div>
+
+			<div class="px-4 sm:px-2 mx-auto max-w-xl font-medium mt-6">What's new:</div>
+			<div class="bg-gray-100 px-4 sm:px-2 py-2 mx-auto max-w-xl max-h-48 overflow-y-scroll mb-6">
+				<pre class="text-sm whitespace-pre-wrap">{{ changelog || "No changelog :(" }}</pre>
 			</div>
 
 			<div v-if="manifest">

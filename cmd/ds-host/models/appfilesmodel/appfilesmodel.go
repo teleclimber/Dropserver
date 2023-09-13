@@ -2,16 +2,17 @@ package appfilesmodel
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -62,9 +63,9 @@ func (a *AppFilesModel) createLocation() (string, error) {
 		return "", fmt.Errorf("internal error creating location: %w", err)
 	}
 
-	p, err = ioutil.TempDir(p, "app")
+	p, err = os.MkdirTemp(p, "app")
 	if err != nil {
-		a.getLogger("createLocation()").AddNote("ioutil.TempDir()").Error(err)
+		a.getLogger("createLocation()").AddNote("os.MkdirTemp()").Error(err)
 		return "", fmt.Errorf("internal error creating location: %w", err)
 	}
 
@@ -201,7 +202,7 @@ func (a *AppFilesModel) GetManifestSize(locationKey string) (int64, error) {
 
 func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error {
 	routesFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "routes.json")
-	err := ioutil.WriteFile(routesFile, routesData, 0644) // TODO: correct permissions?
+	err := os.WriteFile(routesFile, routesData, 0644) // TODO: correct permissions?
 	if err != nil {
 		a.getLogger(fmt.Sprintf("WriteRoutes(), location key: %v", locationKey)).Error(err)
 		return err
@@ -211,7 +212,7 @@ func (a *AppFilesModel) WriteRoutes(locationKey string, routesData []byte) error
 
 func (a *AppFilesModel) ReadRoutes(locationKey string) ([]byte, error) {
 	routesFile := filepath.Join(a.AppLocation2Path.Meta(locationKey), "routes.json")
-	routesData, err := ioutil.ReadFile(routesFile)
+	routesData, err := os.ReadFile(routesFile)
 	if err != nil {
 		a.getLogger(fmt.Sprintf("ReadRoutes(), location key: %v", locationKey)).Error(err)
 		return nil, err
@@ -253,9 +254,74 @@ func (a *AppFilesModel) GetLinkPath(locationKey string, linkName string) string 
 // validateLinkName panics if link name is not one of the expected ones.
 // Panic is OK because this is a purely internal coding error.
 func validateLinkName(linkName string) {
-	if linkName != "app-icon" && linkName != "license-file" {
+	if linkName != "app-icon" && linkName != "license-file" && linkName != "changelog" {
 		panic("invalid link name for app files model: " + linkName)
 	}
+}
+
+// GetVersionChangelog returns the changelog at location key for the version.
+// Note this function is duplicated in the ds-dev version of AppFilesModel!
+func (a *AppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error) {
+	p := a.GetLinkPath(locationKey, "changelog")
+	if p == "" { // no changelog file, no changelog.
+		return "", true, nil
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		a.getLogger("GetVersionChangelog").AddNote("os.Open").Error(err)
+		return "", false, err
+	}
+	defer f.Close()
+
+	ret, ok, err := GetVersionChangelog(f, version)
+	if err != nil {
+		a.getLogger("GetVersionChangelog").AddNote("getVersionChangelog").Error(err)
+		return "", ok, err
+	}
+
+	return ret, ok, nil
+}
+
+// GetVersionChangelog parses the changelog at reader
+// and returns the portion that corresponds to ver
+// It returns false if an error is likley due to bad input data
+func GetVersionChangelog(r io.Reader, ver domain.Version) (string, bool, error) {
+	ret := ""
+	found := false
+	skipEmptyLine := false
+
+	targetVer, err := semver.ParseTolerant(string(ver))
+	if err != nil {
+		return "", true, err // definitely a Dropserver error
+	}
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		l := strings.TrimSpace(scanner.Text())
+
+		parsedVer, verErr := semver.ParseTolerant(l)
+
+		if !found && verErr == nil && targetVer.EQ(parsedVer) {
+			found = true
+		} else if found && verErr == nil {
+			break // found another version, so break
+		} else if found {
+			if l != "" || !skipEmptyLine {
+				ret += l + "\n"
+			}
+			if l == "" {
+				skipEmptyLine = true
+			} else {
+				skipEmptyLine = false
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", false, err // An error while scanning is likely due to a bad changelog file. send "not ok".
+	}
+
+	return strings.TrimSpace(ret), true, nil
 }
 
 // Delete removes the files from the system

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +67,7 @@ func TestDecodeAppJSON(t *testing.T) {
 }
 
 func TestSavePackage(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -92,7 +91,7 @@ func TestSavePackage(t *testing.T) {
 		t.Error("location key should not be empty")
 	}
 
-	dat, err := ioutil.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "package.tar.gz"))
+	dat, err := os.ReadFile(filepath.Join(cfg.Exec.AppsPath, locKey, "package.tar.gz"))
 	if err != nil {
 		t.Error(err)
 	}
@@ -107,7 +106,7 @@ type fileList []struct {
 }
 
 func TestExtractPackageLow(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -135,7 +134,7 @@ func TestExtractPackageLow(t *testing.T) {
 }
 
 func TestExtractBadPackage(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -184,7 +183,7 @@ func TestLimitedReader(t *testing.T) {
 }
 
 func TestExtractOversizePackageLow(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -202,7 +201,7 @@ func TestExtractOversizePackageLow(t *testing.T) {
 }
 
 func TestExtractPackage(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,7 +282,7 @@ func createPackage(files fileList) io.Reader {
 }
 
 func TestWriteFileLink(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -332,6 +331,38 @@ func TestWriteFileLink(t *testing.T) {
 	}
 	if !bytes.Equal(b, []byte("hello")) {
 		t.Error("got wrong conetent for app icon")
+	}
+}
+
+func TestGetVersionChangelog(t *testing.T) {
+	cases := []struct {
+		in  string
+		ver string
+		out string
+	}{{
+		"blah\n0.0.1\nx\n1.2.3 \nabc",
+		"1.2.3",
+		"abc",
+	}, {
+		"1.2.3 \nabc \n2.3.4\nblah",
+		"1.2.3",
+		"abc",
+	}, {
+		"1.2.3 \n\nabc\n\ndef\nghi \n \n2.3.4\nblah",
+		"1.2.3",
+		"abc\n\ndef\nghi",
+	}}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			r := strings.NewReader(c.in)
+			result, _, err := GetVersionChangelog(r, domain.Version(c.ver))
+			if err != nil {
+				t.Error(err)
+			}
+			if result != c.out {
+				t.Errorf("expected %v, got -%v-", c.out, result)
+			}
+		})
 	}
 }
 

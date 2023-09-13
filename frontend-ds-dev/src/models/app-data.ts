@@ -18,7 +18,7 @@ type AppManifest = {
 	lib_version: string,	//semver
 	
 	code_state: string,	 // ? later
-	icon: string,	// how to reference icon? app version should have  adefault path so no need to reference it here? Except to know if there is one or not
+	icon: string,
 	accent_color: string,
 
 	authors: {name:string, email:string, url:string}[],
@@ -26,8 +26,7 @@ type AppManifest = {
 	website: string,	//URL to home page for app
 	funding: string,	// URL for now, but later maybe array of objects? Or...?
 
-	description: string,	// actually a reference to a long description. Later.
-	release_notes: string,	// ref to a file or something...
+	changelog: string,
 	
 	license: string,	// SPDX format of license
 	license_file: string,	// maybe this is like icon, lets us know it exists and can use the link to the file.
@@ -77,6 +76,8 @@ class AppData {
 
 	manifest :AppManifest|undefined;
 
+	changelog_text = "";
+
 	_start() {
 		twineClient.registerService(13, this);
 	}
@@ -88,6 +89,9 @@ class AppData {
 			case 13:
 				this.handleAppGetEventMessage(m);
 				break;
+			case 14:
+				this.handleAppChangelogMessage(m);
+				break;
 			default:
 				m.sendError("command not recognized: "+m.command);
 		}
@@ -96,11 +100,23 @@ class AppData {
 	handleAppDataMessage(m:ReceivedMessageI) {
 		try {
 			this.manifest = rawToAppManifest(JSON.parse(new TextDecoder('utf-8').decode(m.payload)));
-			Object.assign(this, this.manifest);
+			Object.assign(this, this.manifest);	// this is a terrible idea.
 			//if( !this.schemas ) this.schemas = [];
 		}
 		catch(e) {
 			m.sendError("error processing app version data "+e);
+			console.error(e);
+			return;
+		}
+
+		m.sendOK();
+	}
+	handleAppChangelogMessage(m:ReceivedMessageI) {
+		try {
+			this.changelog_text = new TextDecoder('utf-8').decode(m.payload)
+		}
+		catch(e) {
+			m.sendError("error processing changelog data "+e);
 			console.error(e);
 			return;
 		}

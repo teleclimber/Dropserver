@@ -103,6 +103,14 @@ const to_down = computed( () => {
 	return to_i > cur_i;
 });
 
+const to_changelog = ref("");
+watch( to_app_version, async () => {
+	to_changelog.value = "";
+	if( to_app_version.value === undefined ) return;
+	const resp = await fetch(`/api/application/${to_app_version.value.app_id}/version/${to_app_version.value.version}/changelog`);
+	to_changelog.value = await resp.text();
+}, { immediate: true });
+
 const running_migration_job = computed( () => {
 	let job : AppspaceMigrationJob|undefined;
 	const jobs = migrationJobsStore.getJobs(props.appspace_id);
@@ -246,6 +254,11 @@ const small_msg_classes = ['inline-block', 'mt-1'];
 							</div>
 						</div>
 					</div>
+				</div>
+
+				<div class="px-4 sm:px-2 mx-auto max-w-xl font-medium mt-6">What's new:</div>
+				<div class="bg-gray-100 px-4 sm:px-2 py-2 mx-auto max-w-xl max-h-48 overflow-y-scroll mb-6">
+					<pre class="text-sm whitespace-pre-wrap">{{ to_changelog || "No changelog :(" }}</pre>
 				</div>
 
 				<div v-if="to_app_version && cur_app_version">

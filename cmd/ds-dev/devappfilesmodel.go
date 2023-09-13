@@ -45,6 +45,21 @@ func (a *DevAppFilesModel) GetLinkPath(locationKey string, linkName string) stri
 	return filepath.Join(a.AppLocation2Path.Files(locationKey), p)
 }
 
+func (a *DevAppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error) {
+	p := a.GetLinkPath(locationKey, "changelog")
+	if p == "" { // no changelog file, no changelog.
+		return "", true, nil
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return "", false, err
+	}
+	defer f.Close()
+
+	ret, ok, err := appfilesmodel.GetVersionChangelog(f, version)
+	return ret, ok, err
+}
+
 func (a *DevAppFilesModel) Delete(locationKey string) error {
 	panic("Delete should never be called!")
 }

@@ -436,7 +436,9 @@ type AppVersionManifest struct {
 
 	// Both of these are not currently handled.
 	// Description  string `json:"description"`   // link to markdown file? I18N??
-	// ReleaseNotes string `json:"release-notes"` // link to release notes markdown?
+
+	// Changelog is a package-relative path to a text file that contains release notes
+	Changelog string `json:"changelog"`
 
 	// Authors
 	Authors []ManifestAuthor `json:"authors"`

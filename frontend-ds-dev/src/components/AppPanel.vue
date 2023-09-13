@@ -164,7 +164,7 @@ const none_classes = ['italic', 'text-gray-500'];
 						{{ p_event.warnings.funding }}
 					</SmallMessage>
 				</DataDef>
-				<DataDef field="license">
+				<DataDef field="License:">
 					<span v-if="appData.manifest?.license">
 						{{  appData.manifest.license }}
 					</span>
@@ -175,6 +175,22 @@ const none_classes = ['italic', 'text-gray-500'];
 						{{ p_event.warnings.license }}
 					</SmallMessage>
 				</DataDef>
+				<DataDef field="Changelog:">
+					<span v-if="appData.manifest?.changelog" class="pr-2">
+						File: {{  appData.manifest.changelog }}
+					</span>
+					<span v-else class="pr-2" :class="none_classes">(none specified)</span>
+					<SmallMessage mood="warn" v-if="p_event.warnings.changelog">
+						{{ p_event.warnings.changelog }}
+					</SmallMessage>
+				</DataDef>
+			</div>
+			<div class="border-l-4 border-gray-800  my-8">
+				<h4 class="bg-gray-800 px-2 py-1 text-white inline-block">Changelog:</h4>
+				<div class="bg-gray-100 p-2 max-h-48 overflow-y-scroll">
+					<pre v-if="appData.changelog_text" class="text-sm whitespace-pre-wrap">{{ appData.changelog_text }}</pre>
+					<span v-else class="italic text-gray-600">No changelog</span>
+				</div>
 			</div>
 			<AppRoutes></AppRoutes>
 		</div>
