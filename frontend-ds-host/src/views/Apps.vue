@@ -14,7 +14,7 @@ appsStore.loadData();
 <template>
 	<ViewWrap>
 		<div class="flex m-4 md:m-0 md:mb-6">
-			<router-link to="new-app" class="btn btn-blue">Upload New App</router-link>
+			<router-link to="new-app" class="btn btn-blue">Get New App</router-link>
 		</div>
 		<AppListItem v-for="[app_id, app] in appsStore.apps" :key="app_id" :app="app.value"></AppListItem>
 		<BigLoader v-if="!appsStore.is_loaded"></BigLoader>

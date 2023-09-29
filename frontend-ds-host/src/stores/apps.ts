@@ -38,7 +38,7 @@ function appFromRaw(raw:any) :App {
 	}
 }
 
-export type UploadResp = {
+export type PostNewAppResp = {
 	app_get_key: string
 }
 
@@ -102,8 +102,15 @@ export const useAppsStore = defineStore('apps', () => {
 		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application', form_data);
-		const data = <UploadResp>resp.data;
+		const data = <PostNewAppResp>resp.data;
 
+		return data.app_get_key;
+	}
+
+	// fetch new app from the passed URL
+	async function getNewAppFromURL(from_url: string) :Promise<string> {
+		const resp = await ax.post('/api/application', {from_url});
+		const data = <PostNewAppResp>resp.data;
 		return data.app_get_key;
 	}
 
@@ -121,7 +128,7 @@ export const useAppsStore = defineStore('apps', () => {
 		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application/'+app_id+'/version', form_data);
-		const data = <UploadResp>resp.data;
+		const data = <PostNewAppResp>resp.data;
 
 		return data.app_get_key;
 	}
@@ -148,7 +155,7 @@ export const useAppsStore = defineStore('apps', () => {
 		is_loaded, 
 		loadData, apps, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
-		uploadNewApplication, commitNewApplication, uploadNewAppVersion
+		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion
 	};
 });
 
