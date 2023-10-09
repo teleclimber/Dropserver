@@ -30,7 +30,11 @@ type migrationPair struct {
 	down   bool
 }
 
-func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never returns an error for now?
+func (g *AppGetter) validateMigrationSteps(keyData appGetData) error { // apparently never returns an error for now?
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return nil
+	}
 	migrations := meta.VersionManifest.Migrations
 	if len(migrations) == 0 {
 		return nil
@@ -39,11 +43,11 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 	// first validate each individual step:
 	for _, step := range migrations {
 		if step.Direction != "up" && step.Direction != "down" {
-			meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v: not up or down", step.Direction, step.Schema))
+			g.appendErrorResult(keyData.key, fmt.Sprintf("Invalid migration step: %v %v: not up or down", step.Direction, step.Schema))
 			return nil
 		}
 		if step.Schema < 1 {
-			meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v: schema less than 1", step.Direction, step.Schema))
+			g.appendErrorResult(keyData.key, fmt.Sprintf("Invalid migration step: %v %v: schema less than 1", step.Direction, step.Schema))
 			return nil
 		}
 	}
@@ -55,7 +59,7 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 			if p.schema == step.Schema {
 				found = true
 				if (step.Direction == "up" && p.up) || (step.Direction == "down" && p.down) {
-					meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migration step: %v %v declared more than once", step.Direction, step.Schema))
+					g.appendErrorResult(keyData.key, fmt.Sprintf("Invalid migration step: %v %v declared more than once", step.Direction, step.Schema))
 				} else if step.Direction == "up" {
 					pairs[i].up = true
 				} else {
@@ -73,7 +77,7 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 	})
 
 	if !pairs[0].up {
-		meta.Errors = append(meta.Errors, fmt.Sprintf("Invalid migrations: the highest schema %v must have an up migration.", pairs[0].schema))
+		g.appendErrorResult(keyData.key, fmt.Sprintf("Invalid migrations: the highest schema %v must have an up migration.", pairs[0].schema))
 	}
 
 	// what should we be warning the user about:
@@ -101,10 +105,11 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 		}
 	}
 	if warn {
-		meta.Warnings["migrations"] = "Migrations should be sequential and come in up-down pairs."
+		g.setWarningResult(keyData.key, "migrations", "Migrations should be sequential and come in up-down pairs.")
 	}
 
 	meta.VersionManifest.Schema = pairs[0].schema
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 
 	return nil
 }
@@ -113,59 +118,73 @@ func validateMigrationSteps(meta *domain.AppGetMeta) error { // apparently never
 // validate that the DS API is usabel in this version of DS
 // Bit of a misnomer? It validates app name, api version, app version, user permissions.// it doenst nor shoud it.
 // Oh wait validate "version" here means app code version.
-func validateVersion(meta *domain.AppGetMeta) error {
+func (g *AppGetter) validateVersion(keyData appGetData) error {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return nil
+	}
 	manifest := meta.VersionManifest
 	if manifest.Name == "" {
-		meta.Errors = append(meta.Errors, "App name can not be blank") // TODO I thought we said name wasn't required?
+		g.appendErrorResult(keyData.key, "App name can not be blank") // TODO I thought we said name wasn't required?
 	}
 
 	parsedVer, err := semver.ParseTolerant(string(manifest.Version))
 	if err != nil {
-		meta.Errors = append(meta.Errors, err.Error()) // TODO clarify it's a semver error
+		g.appendErrorResult(keyData.key, err.Error()) // TODO clarify it's a semver error
 		return nil
 	}
 
-	meta.VersionManifest.Version = domain.Version(parsedVer.String())
+	manifest.Version = domain.Version(parsedVer.String())
+	g.setManifestResult(keyData.key, manifest)
 
 	return nil
 }
 
-func validateAccentColor(meta *domain.AppGetMeta) error {
-	if meta.VersionManifest.AccentColor == "" {
-		return nil
+func (g *AppGetter) validateAccentColor(keyData appGetData) {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return
 	}
-	c, err := csscolorparser.Parse(meta.VersionManifest.AccentColor)
+	color := meta.VersionManifest.AccentColor
+	if color == "" {
+		return
+	}
+	c, err := csscolorparser.Parse(color)
 	if err != nil {
-		meta.Warnings["accent-color"] = fmt.Sprintf("Unable to parse %s: invalid CSS color.", meta.VersionManifest.AccentColor)
+		g.setWarningResult(keyData.key, "icon", fmt.Sprintf("Unable to parse %s: invalid CSS color.", color))
 		meta.VersionManifest.AccentColor = ""
-		return nil
 	}
 	meta.VersionManifest.AccentColor = c.HexString()
-	return nil
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 }
 
-func validateSoftData(meta *domain.AppGetMeta) {
+func (g *AppGetter) validateSoftData(keyData appGetData) {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return
+	}
+
 	c := uniseg.GraphemeClusterCount(meta.VersionManifest.Name)
 	if c > domain.AppNameMaxLength {
-		meta.Warnings["name"] = fmt.Sprintf("App name is over %v characters (%v). It may be difficult to display.", domain.AppNameMaxLength, c)
+		g.setWarningResult(keyData.key, "name", fmt.Sprintf("App name is over %v characters (%v). It may be difficult to display.", domain.AppNameMaxLength, c))
 	}
 	c = uniseg.GraphemeClusterCount(meta.VersionManifest.ShortDescription)
 	if c > domain.AppShortDescriptionMaxLength {
-		meta.Warnings["short-description"] = fmt.Sprintf("Short description is over %v characters (%v). It may be difficult to display.", domain.AppShortDescriptionMaxLength, c)
+		g.setWarningResult(keyData.key, "short-description", fmt.Sprintf("Short description is over %v characters (%v). It may be difficult to display.", domain.AppShortDescriptionMaxLength, c))
 	}
 
 	for i, a := range meta.VersionManifest.Authors {
 		if a.Email != "" {
 			err := validator.Email(a.Email)
 			if err != nil {
-				meta.Warnings["authors"] = "Invalid author email: " + a.Email
+				g.setWarningResult(keyData.key, "authors", "Invalid author email: "+a.Email)
 				meta.VersionManifest.Authors[i].Email = ""
 			}
 		}
 		if a.URL != "" {
 			err := validator.HttpURL(a.URL)
 			if err != nil {
-				meta.Warnings["authors"] = "Invalid author URL: " + a.URL
+				g.setWarningResult(keyData.key, "authors", "Invalid author URL: "+a.URL)
 				meta.VersionManifest.Authors[i].URL = ""
 			}
 		}
@@ -174,52 +193,49 @@ func validateSoftData(meta *domain.AppGetMeta) {
 	if meta.VersionManifest.Website != "" {
 		err := validator.HttpURL(meta.VersionManifest.Website)
 		if err != nil {
-			meta.Warnings["website"] = "Removed invalid website URL: " + meta.VersionManifest.Website
+			g.setWarningResult(keyData.key, "website", "Removed invalid website URL: "+meta.VersionManifest.Website)
 			meta.VersionManifest.Website = ""
 		}
 	}
 	if meta.VersionManifest.Code != "" {
 		err := validator.HttpURL(meta.VersionManifest.Code)
 		if err != nil {
-			meta.Warnings["code"] = "Removed invalid code URL: " + meta.VersionManifest.Code
+			g.setWarningResult(keyData.key, "code", "Removed invalid code URL: "+meta.VersionManifest.Code)
 			meta.VersionManifest.Code = ""
 		}
 	}
 	if meta.VersionManifest.Funding != "" {
 		err := validator.HttpURL(meta.VersionManifest.Funding)
 		if err != nil {
-			meta.Warnings["funding"] = "Removed invalid funding URL: " + meta.VersionManifest.Funding
+			g.setWarningResult(keyData.key, "funding", "Removed invalid funding URL: "+meta.VersionManifest.Funding)
 			meta.VersionManifest.Funding = ""
 		}
 	}
+
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 }
 
-func validateIcon(meta *domain.AppGetMeta, iconPath string) bool {
+func validateIcon(iconPath string) (string, bool) {
 	f, err := os.Open(iconPath)
 	if os.IsNotExist(err) {
-		meta.Warnings["icon"] = "App icon not found at package path " + meta.VersionManifest.Icon
-		return false
+		return "App icon file not found at specified path", false
 	}
 	if err != nil {
-		meta.Warnings["icon"] = "Error processing app icon:  " + err.Error()
-		return false
+		return "Error processing app icon:  " + err.Error(), false
 	}
 	defer f.Close()
 
 	fInfo, err := f.Stat()
 	if err != nil {
-		meta.Warnings["icon"] = "Error getting icon file info:  " + err.Error()
-		return false
+		return "Error getting icon file info:  " + err.Error(), false
 	}
 	if fInfo.IsDir() {
-		meta.Warnings["icon"] = "Error: icon path is a directory"
-		return false
+		return "Error: icon path is a directory", false
 	}
 
 	mimeType, err := getFileMimeType(iconPath)
 	if err != nil {
-		meta.Warnings["icon"] = "Error getting app icon mime type:  " + err.Error()
-		return false
+		return "Error getting app icon mime type:  " + err.Error(), false
 	}
 
 	mimeTypes := []string{"image/jpeg", "image/png", "image/svg+xml", "image/webp"}
@@ -230,8 +246,7 @@ func validateIcon(meta *domain.AppGetMeta, iconPath string) bool {
 		}
 	}
 	if !typeOk {
-		meta.Warnings["icon"] = "App icon type not supported:  " + mimeType + " Jpeg, png, svg and webp are supported."
-		return false
+		return "App icon type not supported:  " + mimeType + " Jpeg, png, svg and webp are supported.", false
 	}
 
 	// get w and h and check: is square and then size.
@@ -239,26 +254,25 @@ func validateIcon(meta *domain.AppGetMeta, iconPath string) bool {
 	if mimeType == "image/jpeg" || mimeType == "image/png" {
 		config, _, err = image.DecodeConfig(f)
 		if err != nil {
-			meta.Warnings["icon"] = "Error reading app icon file. " + err.Error()
-			return false
+			return "Error reading app icon file. " + err.Error(), false
 		}
 	} else if mimeType == "image/webp" {
 		config, err = webp.DecodeConfig(f)
 		if err != nil {
-			meta.Warnings["icon"] = "Error reading app icon file. " + err.Error()
-			return false
+			return "Error reading app icon file. " + err.Error(), false
 		}
 	}
+	warn := ""
 	if mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/webp" {
 		if config.Height != config.Width {
-			meta.Warnings["icon"] = fmt.Sprintf("App icon is not square: %v x %v.", config.Width, config.Height)
+			warn = fmt.Sprintf("App icon is not square: %v x %v.", config.Width, config.Height)
 		} else if config.Height < domain.AppIconMinPixelSize {
-			meta.Warnings["icon"] = fmt.Sprintf("App icon should be at least %v pixels. It is %v pixels.", domain.AppIconMinPixelSize, config.Width)
+			warn = fmt.Sprintf("App icon should be at least %v pixels. It is %v pixels.", domain.AppIconMinPixelSize, config.Width)
 		}
 	}
 
 	if fInfo.Size() > domain.AppIconMaxFileSize {
-		appendWarning(meta, "icon", fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
+		warn = appendWarning(warn, fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
 			bytesize.New(float64(fInfo.Size())), bytesize.New(float64(domain.AppIconMaxFileSize))))
 	}
 
@@ -266,20 +280,19 @@ func validateIcon(meta *domain.AppGetMeta, iconPath string) bool {
 		// need to open again so the decoder can work from the beginning
 		fPng, err := os.Open(iconPath)
 		if err != nil {
-			meta.Warnings["icon"] = "Error opening PNG app icon: " + err.Error()
-			return false
+			return "Error opening PNG app icon: " + err.Error(), false
 		}
 		defer fPng.Close()
 		a, err := apng.DecodeAll(fPng)
 		if err != nil {
-			meta.Warnings["icon"] = "Error opening decoding PNG app icon: " + err.Error()
+			return "Error opening decoding PNG app icon: " + err.Error(), false
 		}
 		if len(a.Frames) > 1 {
-			appendWarning(meta, "icon", "App icon appears to be animated. Non-animated icons are preferred.")
+			return "App icon appears to be animated. Non-animated icons are preferred.", false
 		}
 	}
 
-	return true
+	return warn, true
 }
 
 func getFileMimeType(p string) (string, error) {
@@ -312,10 +325,9 @@ func validatePackagePath(p string) (string, bool) {
 	return p, true
 }
 
-func appendWarning(meta *domain.AppGetMeta, key string, warning string) {
-	w := meta.Warnings[key]
-	if w != "" {
-		w = w + " "
+func appendWarning(og, ap string) string {
+	if og == "" {
+		return ap
 	}
-	meta.Warnings[key] = w + warning
+	return og + " " + ap
 }

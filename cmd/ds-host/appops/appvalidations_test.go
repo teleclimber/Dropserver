@@ -7,6 +7,9 @@ import (
 )
 
 func TestValidateMigrationSteps(t *testing.T) {
+	g := &AppGetter{}
+	g.Init()
+
 	cases := []struct {
 		desc       string
 		migrations []domain.MigrationStep
@@ -98,14 +101,13 @@ func TestValidateMigrationSteps(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.desc, func(t *testing.T) {
-			meta := domain.AppGetMeta{
-				Warnings:        make(map[string]string),
-				VersionManifest: domain.AppVersionManifest{Migrations: c.migrations},
-			}
-			err := validateMigrationSteps(&meta)
+			keyData := g.set(appGetData{})
+			g.setManifestResult(keyData.key, domain.AppVersionManifest{Migrations: c.migrations})
+			err := g.validateMigrationSteps(keyData)
 			if err != nil {
 				t.Error(err)
 			}
+			meta, _ := g.GetResults(keyData.key)
 			if (len(meta.Errors) == 0) == c.isErr {
 				t.Errorf("mismatch between error and expected: %v %v", c.isErr, meta.Errors)
 			}
@@ -117,6 +119,9 @@ func TestValidateMigrationSteps(t *testing.T) {
 }
 
 func TestValidateAppManifest(t *testing.T) {
+	g := &AppGetter{}
+	g.Init()
+
 	cases := []struct {
 		manifest domain.AppVersionManifest
 		numErr   int
@@ -127,30 +132,28 @@ func TestValidateAppManifest(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m := domain.AppGetMeta{
-			Errors:          make([]string, 0),
-			VersionManifest: c.manifest,
-		}
-		err := validateVersion(&m)
+		keyData := g.set(appGetData{})
+		g.setManifestResult(keyData.key, c.manifest)
+		err := g.validateVersion(keyData)
 		if err != nil {
 			t.Error(err)
 		}
-		if len(m.Errors) != c.numErr {
-			t.Log(m.Errors)
+		meta, _ := g.GetResults(keyData.key)
+		if len(meta.Errors) != c.numErr {
+			t.Log(meta.Errors)
 			t.Error("Error count mismatch")
 		}
 	}
 }
 
 func TestBadURLRemoved(t *testing.T) {
-	m := domain.AppGetMeta{
-		Errors:   make([]string, 0),
-		Warnings: make(map[string]string),
-		VersionManifest: domain.AppVersionManifest{
-			Website: "blah"},
-	}
-	validateSoftData(&m)
-	if m.VersionManifest.Website != "" {
+	g := &AppGetter{}
+	g.Init()
+	keyData := g.set(appGetData{})
+	g.setManifestResult(keyData.key, domain.AppVersionManifest{Website: "blah"})
+	g.validateSoftData(keyData)
+	meta, _ := g.GetResults(keyData.key)
+	if meta.VersionManifest.Website != "" {
 		t.Error("Expected Website to be blank")
 	}
 }
