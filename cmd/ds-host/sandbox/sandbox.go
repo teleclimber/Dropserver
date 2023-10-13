@@ -229,7 +229,7 @@ func (s *Sandbox) Start() {
 }
 
 func (s *Sandbox) doStart() error {
-	logger := s.getLogger("doStart()")
+	logger := s.getLogger("doStart()").AddNote(fmt.Sprintf("Sandbox %v", s.id))
 	logger.Debug("starting...")
 
 	s.setStatus(domain.SandboxStarting) // should already be set, but just in case
@@ -562,7 +562,7 @@ func (s *Sandbox) handleMessage(m twine.ReceivedMessageI) {
 
 // Graceful politely asks the sandbox to shut itself down
 func (s *Sandbox) Graceful() {
-	s.getLogger("Graceful()").Log("starting shutdown")
+	s.getLogger("Graceful()").Log(fmt.Sprintf("Sandbox %v starting shutdown", s.id))
 
 	s.setStatus(domain.SandboxKilling)
 
@@ -576,12 +576,10 @@ func (s *Sandbox) Graceful() {
 			s.getLogger("Graceful() twine.SendBlock()").Log("response not OK")
 		}
 
-		s.getLogger("Graceful()").Log("sending twine.Graceful()")
-
 		// Then tell twine to shut down nicely:
 		s.twine.Graceful()
 
-		s.getLogger("Graceful()").Log("graceful complete")
+		s.getLogger("Graceful()").Log(fmt.Sprintf("Sandbox %v graceful complete", s.id))
 	}()
 }
 
@@ -658,7 +656,7 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 		}
 	}
 
-	s.getLogger("cleanup()").Log("cleanup complete")
+	s.getLogger("cleanup()").Log(fmt.Sprintf("Sandbox %v cleanup complete", s.id))
 }
 
 func (s *Sandbox) pidAlive() bool {
@@ -861,8 +859,6 @@ func (s *Sandbox) setStatus(status domain.SandboxStatus) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
-	s.getLogger("setStatus()").Log(fmt.Sprintf("Sandbox %v set status from %v to %v\n", s.id, s.status, status))
-
 	if status > s.status {
 
 		s.status = status
@@ -893,7 +889,6 @@ func (s *Sandbox) WaitFor(status domain.SandboxStatus) {
 		s.statusMux.Unlock()
 		return
 	}
-	fmt.Println(s.id, "waiting for sandbox status", status)
 
 	if _, ok := s.waitStatusSub[status]; !ok {
 		s.waitStatusSub[status] = []chan domain.SandboxStatus{}
