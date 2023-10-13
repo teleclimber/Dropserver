@@ -175,10 +175,8 @@ func (w *DevAppWatcher) watch() {
 					// Just ignore (no-op) and pretend it never happened.
 				} else if event.Op&fsnotify.Create == fsnotify.Create {
 					fileInfo, err := os.Stat(event.Name)
-					if err != nil {
-						panic(err) //deal with this if we hit it
-					}
-					if fileInfo.IsDir() {
+					// See issue #118 for reason to ignore error from os.Stat (file may have been deleted after create)
+					if err == nil && fileInfo.IsDir() {
 						w.watchDir(event.Name)
 					}
 					w.filesChanged()
