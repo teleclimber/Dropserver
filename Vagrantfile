@@ -38,7 +38,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	curl -fsSL https://deno.land/x/install/install.sh | sh
 	export DENO_INSTALL="/root/.deno"
 	export PATH="$DENO_INSTALL/bin:$PATH"
-	curl -L "https://go.dev/dl/go1.21.1.linux-amd64.tar.gz" -o go.tar.gz
+	curl -L "https://go.dev/dl/go1.21.3.linux-amd64.tar.gz" -o go.tar.gz
 	tar -C /usr/local -xzf go.tar.gz
 	rm go.tar.gz
 	echo 'export PATH=/usr/local/go/bin:$PATH' > /etc/profile.d/go.sh
