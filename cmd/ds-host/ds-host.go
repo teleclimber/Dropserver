@@ -329,11 +329,16 @@ func main() {
 		AppspaceLogger:     appspaceLogger,
 	}
 
+	remoteAppGetter := &appops.RemoteAppGetter{
+		AppFilesModel: appFilesModel,
+	}
+
 	appGetter := &appops.AppGetter{
 		AppFilesModel:    appFilesModel,
 		AppLocation2Path: appLocation2Path,
 		AppModel:         appModel,
 		AppLogger:        appLogger,
+		RemoteAppGetter:  remoteAppGetter,
 		SandboxManager:   sandboxManager,
 		V0AppRoutes:      v0AppRoutes,
 	}

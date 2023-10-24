@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"github.com/github/go-spdx/v2/spdxexp"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 type appGetData struct {
@@ -41,7 +41,6 @@ type subscriber struct {
 // And it can commit files to become an actual app version
 type AppGetter struct {
 	AppFilesModel interface {
-		SavePackage(io.Reader) (string, error)
 		ExtractPackage(locationKey string) error
 		GetManifestSize(string) (int64, error)
 		ReadManifest(string) (domain.AppVersionManifest, error)
@@ -60,6 +59,10 @@ type AppGetter struct {
 	} `checkinject:"required"`
 	AppLogger interface {
 		Log(locationKey string, source string, message string)
+	} `checkinject:"required"`
+	RemoteAppGetter interface {
+		FetchListing(url string) (domain.AppListing, error)
+		FetchPackageJob(url string) (string, error)
 	} `checkinject:"required"`
 	SandboxManager interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
@@ -101,6 +104,122 @@ func (g *AppGetter) Stop() {
 	}
 }
 
+// InstallFromURL installs a new app from a URL
+func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error) {
+	data := g.set(appGetData{
+		userID: userID,
+	})
+
+	go func() {
+		g.sendEvent(data, domain.AppGetEvent{Step: "Fetching listing"})
+
+		// re-validate listing URL? Make sure it parses or we'll get a fail somewhere down the line.
+		err := validator.HttpURL(listingURL)
+		if err != nil {
+			g.appendErrorResult(data.key, fmt.Sprintf("Error validating listing URL %v: %v", listingURL, err.Error()))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		listing, err := g.RemoteAppGetter.FetchListing(listingURL)
+		if err != nil {
+			// deduce action based on error type?
+			// some are warnings... Like what, specifically?
+			// - redirect: implies app may have moved, and user should be aware?
+			//   .. Here we can abort. This should have been dealt with on initial fetch of listing.
+			// - user errors: got a 404 wrong URL (should be handled differently by UI)
+			//   ..But! the url should already have been hit by system UI. So no need to be interactive. Just abort.
+
+			// abort and return
+			g.appendErrorResult(data.key, fmt.Sprintf("Error fetching listing from %v: %v", listingURL, err.Error()))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		err = ValidateListing(listing)
+		if err != nil {
+			g.appendErrorResult(data.key, "Error validating listing: "+err.Error())
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		var versionListing domain.AppListingVersion
+		var ok bool
+		if version == domain.Version("") {
+			version, err = GetLatestVersion(listing.Versions)
+			if err != nil {
+				// this is a coding error: we validated the listing earlier so there is no reason to get an error here.
+				// log it and fail out with unexpected error.
+				g.getLogger("InstallFromURL").AddNote("Unexpected error fron GetLatestVersion").Error(err)
+				g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
+				g.sendEvent(data, domain.AppGetEvent{Done: true})
+				return
+			}
+		}
+		versionListing, ok = listing.Versions[version]
+		if !ok {
+			g.appendErrorResult(data.key, "Unable to find the requested version in the app listing: "+string(version))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		// Later we'll use an actual job to fetch and install the app version to prevent duplicates
+		// (Although since this is a new app install, a dedupe job is not necessary?)
+
+		g.sendEvent(data, domain.AppGetEvent{Step: "Fetching app package"})
+
+		packageURL, err := URLFromListing(listingURL, listing.Base, versionListing.Package)
+		if err != nil {
+			// Shouldn't happen. All URLs should be checked before we get to this step.
+			g.getLogger("InstallFromURL").AddNote("Unexpected error fron URLFromListing").Error(err)
+			g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		locationKey, err := g.RemoteAppGetter.FetchPackageJob(packageURL)
+		if locationKey != "" {
+			data, ok = g.setLocationKey(data.key, locationKey)
+			if !ok {
+				return
+			}
+		}
+		if err != nil {
+			g.appendErrorResult(data.key, fmt.Sprintf("Error fetching package at %v: %v", packageURL, err.Error()))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		g.sendEvent(data, domain.AppGetEvent{Step: "Extracting app package"})
+
+		err = g.AppFilesModel.ExtractPackage(locationKey)
+		if err != nil {
+			g.appendErrorResult(data.key, "Error extracting app package: "+err.Error())
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		g.processApp(data)
+
+		results, ok := g.GetResults(data.key)
+		if !ok {
+			return
+		}
+
+		if len(results.Errors) == 0 && len(results.Warnings) != 0 {
+			g.sendEvent(data, domain.AppGetEvent{Input: "commit"}) // user commit installation since there are warnings.
+		} else {
+			_, _, err = g.Commit(data.key)
+			if err != nil {
+				g.appendErrorResult(data.key, "Error committing app: "+err.Error())
+			}
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+		}
+	}()
+
+	return data.key, nil
+}
+
 // InstallPackage extracts the package at location key and
 // begins process of extracting and verifying all data.
 func (g *AppGetter) InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error) {
@@ -120,10 +239,12 @@ func (g *AppGetter) InstallPackage(userID domain.UserID, locationKey string, app
 		err := g.AppFilesModel.ExtractPackage(locationKey)
 		if err != nil {
 			g.appendErrorResult(data.key, err.Error())
-			g.sendEvent(data, domain.AppGetEvent{Done: true, Error: true})
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return
 		}
 		g.processApp(data)
+
+		g.sendEvent(data, domain.AppGetEvent{Input: "commit"})
 	}()
 
 	return data.key, nil
@@ -145,7 +266,10 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 
 	g.sendEvent(data, domain.AppGetEvent{Step: "Starting reprocess"})
 
-	go g.processApp(data)
+	go func() {
+		g.processApp(data)
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+	}()
 
 	return data.key, nil
 }
@@ -218,8 +342,6 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	g.validateSoftData(keyData)
 
 	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
-
-	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 }
 func (g *AppGetter) checkStep(keyData appGetData, err error, errStr string) bool {
 	if err != nil {
@@ -230,12 +352,12 @@ func (g *AppGetter) checkStep(keyData appGetData, err error, errStr string) bool
 		// Yes, it's internal error. Log or console output makes sense.
 		// Still need to let user know why it all went wrong.
 		g.getLogger("processApp").Error(err)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return true
 	}
 	if g.resultHasError(keyData.key) {
 		// errors in processing app meta data, probably app fault.
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return true
 	}
 	return false
@@ -689,31 +811,50 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		g.getLogger("Commit, g.get(key)").Error(err)
 		return domain.AppID(0), domain.Version(""), err
 	}
-	// Here there is a slight chance Delete will be called while this function is running.
+	// Here there is a chance Delete will be called while this function is running.
 	// We could set a "committing" flag on that keyData to prevent this from happening.
 	meta, ok := g.GetResults(key)
 	if !ok {
 		err := errors.New("results does not exist")
-		g.getLogger("Commt, g.getResults").Error(err)
+		g.getLogger("Commit, g.getResults").Error(err)
 		return domain.AppID(0), domain.Version(""), err
 	}
+
+	ev, ok := g.GetLastEvent(key)
+	if !ok {
+		err := errors.New("last event does not exist")
+		g.getLogger("Commit, g.GetLastEvent").Error(err)
+		return domain.AppID(0), domain.Version(""), err
+	}
+	if ev.Done {
+		err := errors.New("trying to commit when already Done")
+		g.getLogger("Commit").Error(err)
+		return domain.AppID(0), domain.Version(""), err
+	}
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Committing..."})
 
 	appID := keyData.appID
 
 	if !keyData.hasAppID {
 		aID, err := g.AppModel.Create(keyData.userID)
 		if err != nil {
+			g.appendErrorResult(key, err.Error())
+			g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 			return domain.AppID(0), domain.Version(""), err
 		}
+		g.setAppIDResult(key, aID)
 		appID = aID
 	}
 
 	version, err := g.AppModel.CreateVersion(appID, keyData.locationKey, meta.VersionManifest)
 	if err != nil {
+		g.appendErrorResult(key, err.Error())
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return appID, domain.Version(""), err
 	}
 
-	g.DeleteKeyData(key)
+	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 
 	return appID, version.Version, nil
 }
@@ -725,14 +866,21 @@ func (g *AppGetter) Delete(key domain.AppGetKey) {
 		return
 	}
 
+	ev, ok := g.GetLastEvent(key)
+	if ok && ev.Done {
+		return // do not delete files if done. Have to go through app delete.
+	}
+
 	if appGetData.sandbox != nil && appGetData.sandbox.Status() < domain.SandboxDead {
 		appGetData.sandbox.Kill()
 	}
 
-	err := g.AppFilesModel.Delete(appGetData.locationKey)
-	if err != nil {
-		// should be logged by afm. just return.
-		return
+	if appGetData.locationKey != "" {
+		err := g.AppFilesModel.Delete(appGetData.locationKey)
+		if err != nil {
+			// should be logged by afm. just return.
+			return
+		}
 	}
 
 	g.DeleteKeyData(key)
@@ -746,10 +894,8 @@ func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 		return
 	}
 
-	results, _ := g.GetResults(key)
-
 	// Send one last event in case there are any subscribers
-	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Error: len(results.Errors) > 0, Step: "Deleting processing data"})
+	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Step: "Deleting processing data"})
 	// unsubscribe the channels listenning for updates to the key
 	g.unsubscribeKey(appGetData.key)
 	// delete the last_event
@@ -781,6 +927,17 @@ func (g *AppGetter) set(d appGetData) appGetData { // createKey
 	g.results[key] = domain.AppGetMeta{Key: key, Errors: make([]string, 0), Warnings: make(map[string]string)}
 
 	return d
+}
+func (g *AppGetter) setLocationKey(key domain.AppGetKey, locationKey string) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	if !ok {
+		return appGetData{}, false
+	}
+	data.locationKey = locationKey
+	g.keys[key] = data
+	return data, true
 }
 func (g *AppGetter) setSandbox(key domain.AppGetKey, sb domain.SandboxI) (appGetData, bool) {
 	g.keysMux.Lock()
@@ -834,12 +991,12 @@ func (g *AppGetter) setWarningResult(key domain.AppGetKey, label, warning string
 		g.results[key] = result
 	}
 }
-func (g *AppGetter) setManifestResult(key domain.AppGetKey, mainfest domain.AppVersionManifest) {
+func (g *AppGetter) setManifestResult(key domain.AppGetKey, manifest domain.AppVersionManifest) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
 	result, ok := g.results[key]
 	if ok {
-		result.VersionManifest = mainfest
+		result.VersionManifest = manifest
 		g.results[key] = result
 	}
 }
@@ -853,7 +1010,15 @@ func (g *AppGetter) setPrevNextResult(key domain.AppGetKey, prev, next domain.Ve
 		g.results[key] = result
 	}
 }
-
+func (g *AppGetter) setAppIDResult(key domain.AppGetKey, appID domain.AppID) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	if ok {
+		result.AppID = appID
+		g.results[key] = result
+	}
+}
 func (g *AppGetter) GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
@@ -887,6 +1052,10 @@ func (g *AppGetter) sendEvent(getData appGetData, ev domain.AppGetEvent) {
 	ev.Key = getData.key
 	g.eventsMux.Lock()
 	defer g.eventsMux.Unlock()
+
+	// TODO Here we could check the last event to ensure we're not sending conflicting signals.
+	// But what happens if we do send conflicing signals?
+	// Maybe just log it? We can investigate further if we see this in logs.
 
 	g.lastEvent[ev.Key] = ev
 

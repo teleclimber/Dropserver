@@ -466,20 +466,26 @@ type AppGetKey string
 
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
-	Key             AppGetKey          `json:"key"`
-	PrevVersion     Version            `json:"prev_version"`
-	NextVersion     Version            `json:"next_version"`
-	Errors          []string           `json:"errors"`
-	Warnings        map[string]string  `json:"warnings"`
+	Key         AppGetKey         `json:"key"`
+	PrevVersion Version           `json:"prev_version"`
+	NextVersion Version           `json:"next_version"`
+	Errors      []string          `json:"errors"`
+	Warnings    map[string]string `json:"warnings"`
+	// VersionManifest is currently the manifest as determined by the app processing steps.
 	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
+	// AppID of the app if getting a new version, or of the created app if new app
+	AppID AppID `json:"app_id"`
 }
 
 // AppGetEvent contains updates to an app getter process
 type AppGetEvent struct {
-	Key   AppGetKey `json:"key"`
-	Done  bool      `json:"done"`
-	Error bool      `json:"error"` // TODO maybe add Warning flag so that event recipeints can act accordingly? Or remove Error because every caller should just get the full dump of the process?
-	Step  string    `json:"step"`
+	Key AppGetKey `json:"key"`
+	// Done means the entire process is finished, nothing more is going to happen.
+	Done bool `json:"done"`
+	// Input is non-empty string when user input is needed (like "commit", or "see warnings then continue")
+	Input string `json:"input"`
+	// Step is user-readable strings that give an indication of the steps taken.
+	Step string `json:"step"`
 }
 
 // Appspace represents the data structure for App spaces.

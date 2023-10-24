@@ -34,6 +34,7 @@ type Versions struct {
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppGetter interface {
+		InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error)
 		InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
 		GetLocationKey(key domain.AppGetKey) (string, bool)
@@ -214,10 +215,9 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 	http.Error(w, "query params not supported", http.StatusNotImplemented)
 }
 
-// NewAppResp returns the new app and nversion metadata
-type NewAppResp struct {
-	App     domain.App        `json:"app"`
-	Version domain.AppVersion `json:"app_version"`
+type InstallAppFromURLRequest struct {
+	URL     string         `json:"url"`
+	Version domain.Version `json:"version"`
 }
 
 // postNewApplication is for Post with no app-id
@@ -226,13 +226,36 @@ type NewAppResp struct {
 // if there are no files but there is a key, then create a new app with files found at key.
 func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
-	a.handlePackageUpload(r, w, userID)
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/json" {
+		reqData := InstallAppFromURLRequest{}
+		err := readJSON(r, &reqData)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		appGetKey, err := a.AppGetter.InstallFromURL(userID, reqData.URL, reqData.Version)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		writeJSON(w, FilesUploadResp{Key: appGetKey})
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		a.handlePackageUpload(r, w, userID)
+	} else {
+		writeBadRequest(w, "Content Type", "expected application/json or multipart/form-data, got "+contentType)
+	}
 }
 
 func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, _ := domain.CtxAuthUserID(ctx)
 	app, _ := domain.CtxAppData(ctx)
+
+	// TODO this gets more tricky: if the app is "uploaded", then new version must be uploaded as well.
+	// If app is from URL, then this is a request to fetch a new version from listing.
+
 	a.handlePackageUpload(r, w, userID, app.AppID)
 }
 
@@ -246,6 +269,8 @@ func (a *ApplicationRoutes) handlePackageUpload(r *http.Request, w http.Response
 		http.Error(w, "unable to get package file from multipart: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer f.Close()
+
 	// if we capture the header above, we can know the original package filename and propagate as desired.
 
 	loc, err := a.AppFilesModel.SavePackage(f)
@@ -317,15 +342,11 @@ func (a *ApplicationRoutes) getInProcess(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	meta := domain.AppGetMeta{}
-	if lastEvent.Done {
-		meta, ok = a.AppGetter.GetResults(appGetKey)
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	meta, ok := a.AppGetter.GetResults(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
-
 	writeJSON(w, InProcessResp{LastEvent: lastEvent, Meta: meta})
 }
 
@@ -333,7 +354,7 @@ func (a *ApplicationRoutes) getInProcessLog(w http.ResponseWriter, r *http.Reque
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -353,7 +374,7 @@ func (a *ApplicationRoutes) getInProcessChangelog(w http.ResponseWriter, r *http
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -382,7 +403,7 @@ func (a *ApplicationRoutes) getInProcessFile(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

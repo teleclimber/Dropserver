@@ -64,6 +64,10 @@ export const useAppsStore = defineStore('apps', () => {
 			load_state.value = LoadState.Loaded;
 		}
 	}
+	function setReload() {
+		// ugh.
+		load_state.value = LoadState.NotLoaded;
+	}
 
 	function getApp(app_id: number) :ShallowRef<App> | undefined {
 		return apps.value.get(app_id);
@@ -108,8 +112,8 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	// fetch new app from the passed URL
-	async function getNewAppFromURL(from_url: string) :Promise<string> {
-		const resp = await ax.post('/api/application', {from_url});
+	async function getNewAppFromURL(url: string, version?: string) :Promise<string> {
+		const resp = await ax.post('/api/application', {url, version});
 		const data = <PostNewAppResp>resp.data;
 		return data.app_get_key;
 	}
@@ -152,7 +156,7 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	return {
-		is_loaded, 
+		is_loaded, setReload,
 		loadData, apps, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
 		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion
@@ -169,11 +173,13 @@ export type AppGetMeta = {
 	next_version: string,
 	errors: string[],	// maybe array of strings?
 	warnings: Record<string, string>,
-	version_manifest?: AppManifest
+	version_manifest?: AppManifest,
+	app_id: number
 }
 
 
-function rawToAppManifest(raw:any) :AppManifest {
+function rawToAppManifest(raw:any) :AppManifest|undefined {
+	if( raw.version === "" ) return undefined;	// version is the only required part of manifest, if it's not set we just got a zero-value manifest.
 	const ret = Object.assign({}, raw);
 	Object.keys(ret).filter( k => k.includes("-") ).forEach( k => {
 		const new_k = k.replaceAll("-", "_");
@@ -200,7 +206,7 @@ function rawToAppManifest(raw:any) :AppManifest {
 type AppGetEvent = {
 	key: string,
 	done: boolean,
-	error: boolean,
+	input: string,
 	step: string
 }
 type InProcessResp = {
@@ -230,12 +236,11 @@ export class AppGetter {
 		for await (const m of this.subMessage.incomingMessages()) {
 			switch (m.command) {
 				case 11:	//event
-					this.last_event.value = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+					const ev = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 					m.sendOK();
-					if(this.last_event.value.done && this.meta.value === undefined ) {
-						this.loadInProcess();
-						this.unsubscribeKey();
-					}
+					if( ev.done ) this.unsubscribeKey();
+					if( ev.done || ev.input ) this.loadInProcess();
+					else this.last_event.value = ev;
 					break;
 			
 				default:
@@ -260,7 +265,11 @@ export class AppGetter {
 		const data = <InProcessResp>resp.data;
 		if( data.meta.version_manifest ) data.meta.version_manifest = rawToAppManifest(data.meta.version_manifest);
 		this.last_event.value = data.last_event;
-		if( this.last_event.value.done ) this.meta.value = data.meta;
+		this.meta.value = data.meta;
+		if( this.done && !this.has_error ) {
+			const appStore = useAppsStore();
+			appStore.setReload();	// temporary until we can lazy-load apps.
+		}
 	}
 	async unsubscribeKey() {
 		if( !this.subMessage ) return;
@@ -269,17 +278,29 @@ export class AppGetter {
 		await m.refSendBlock(13, undefined);
 	}
 
-	get done() :boolean {
-		if( this.meta.value ) return true;
-		else return !!this.last_event.value?.done;
+	get done() :boolean {	// Note we changed what "done" means on the backend, sort of. It now means the process is completely finished.
+		return !!this.last_event.value?.done
 	}
-	get canCommit() :boolean {
-		return !!this.meta.value && this.meta.value.errors.length === 0;
+	get expects_input() :boolean {
+		return !!this.last_event.value?.input;
+	}
+	get must_confirm() :boolean {
+		return !this.done && this.last_event.value?.input === "commit";
+	}
+	get has_error() :boolean {
+		return this.meta.value?.errors.length !== 0;
+	}
+	get version_manifest() :AppManifest|undefined {
+		return this.meta.value?.version_manifest;
 	}
 
 	async cancel() {
-		if( this.not_found ) return;
+		if( this.not_found.value ) return;
 		try {
+			await this.unsubscribeKey();
+			this.not_found.value = true;
+			this.last_event.value = undefined;
+			this.meta.value = undefined;
 			await ax.delete('/api/application/in-process/'+this.key.value);
 		}
 		catch(e) {

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Ref, ref, reactive, onMounted, onUnmounted, watch, computed, ComputedRef } from 'vue';
+import { Ref, ref, reactive, onMounted, onUnmounted, watch, computed, ComputedRef, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAppsStore, AppGetter } from '@/stores/apps';
@@ -98,11 +98,24 @@ watch( create_button, () => {
 const committing = ref(false);
 
 async function doCommit() {
-	if( !appGetter.canCommit ) return;
+	if( !appGetter.must_confirm ) return;
 	committing.value = true;
 	const new_app_id = await appsStore.commitNewApplication(appGetter.key.value);
-	router.replace({name: 'manage-app', params:{id: new_app_id}});
+	//router.replace({name: 'manage-app', params:{id: new_app_id}});
+	// The watchEffect below now does the router operation.
 }
+
+watchEffect( () => {
+	if( !appGetter.done || appGetter.expects_input || appGetter.has_error ) return;
+	const app_id = appGetter.meta.value?.app_id;
+	if( !app_id ) console.error("Expected an app_id")
+	router.replace({name: 'manage-app', params:{id: app_id}});
+});
+
+const show_details = computed( () => {
+	if( appGetter.version_manifest === undefined ) return false;
+	return (appGetter.done && appGetter.has_error) || appGetter.must_confirm;
+});
 
 async function startOver() {
 	await appGetter.cancel();
@@ -132,7 +145,8 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 				<button @click="startOver" class="btn">Start Over</button>
 			</div>
 		</MessageSad>
-		<MessageProcessing v-else-if="!appGetter.done" class="" head="Processing...">
+
+		<MessageProcessing v-else-if="!appGetter.must_confirm && !appGetter.done" class="" head="Processing...">
 			<p v-if="appGetter.last_event.value">{{appGetter.last_event.value.step}}</p>
 			<p v-else>Getting info...</p>
 			<div class="pt-5 flex ">
@@ -140,16 +154,19 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 			</div>
 		</MessageProcessing>
 
-		<div v-if="appGetter.done" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+		<MessageSad v-if="meta && meta.errors.length" class="" head="Error">
+			<p v-for="err in meta.errors" :key="'meta-errors-'+err">{{err}}</p>
+			<p class="mt-2"><a href="#" @click.stop.prevent="startOver" class="btn">start over</a></p>
+		</MessageSad>
+
+		<div v-if="show_details" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">
 					Review New {{ desc_str }}
 				</h3>
 			</div>
-			<MessageSad v-if="meta && meta.errors.length" class="mx-4 sm:mx-6 my-5 rounded" head="Error">
-				<p v-for="err in meta.errors" :key="'meta-errors-'+err">{{err}}</p>
-			</MessageSad>
-			<MessageWarn v-else-if="meta && Object.keys(warnings).length" class="mx-4 sm:mx-6 my-5 rounded" head="Warning">
+
+			<MessageWarn v-if="meta && Object.keys(warnings).length" class="mx-4 sm:mx-6 my-5 rounded" head="Warning">
 				<p>App can be installed but some issues were found.
 					Please review the warnings below before continuing.</p>
 			</MessageWarn>
@@ -322,7 +339,7 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 						ref="create_button"
 						type="submit"
 						class="btn-blue"
-						:disabled="!appGetter.canCommit || committing"
+						:disabled="appGetter.has_error || committing"
 						value="Finish" />
 						<!-- TODO tweak submit messge for version-->
 				</div>
