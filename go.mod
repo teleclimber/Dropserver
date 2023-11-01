@@ -3,6 +3,7 @@ module github.com/teleclimber/DropServer
 go 1.16
 
 require (
+	code.dny.dev/ssrf v0.2.0
 	github.com/Storytel/gomock-matchers v1.3.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8

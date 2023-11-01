@@ -330,6 +330,7 @@ func main() {
 	}
 
 	remoteAppGetter := &appops.RemoteAppGetter{
+		Config:        runtimeConfig,
 		AppFilesModel: appFilesModel,
 	}
 

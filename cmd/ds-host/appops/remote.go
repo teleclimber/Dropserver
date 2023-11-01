@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"path"
 	"sort"
 	"strings"
 
+	"code.dny.dev/ssrf"
 	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
@@ -19,22 +22,77 @@ import (
 // as well parse/interpret / validate the incoming data unless it's done elsewhere.
 
 type RemoteAppGetter struct {
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
 	} `checkinject:"required"`
+
+	client *http.Client
+}
+
+func (r *RemoteAppGetter) init() {
+	if r.client != nil {
+		return
+	}
+
+	s := r.getSSRF()
+	dialer := &net.Dialer{
+		Control: s.Safe,
+	}
+	transport := &http.Transport{
+		DialContext: dialer.DialContext,
+	}
+	r.client = &http.Client{
+		Transport: transport,
+	}
+}
+
+func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
+	prefixes4 := make([]netip.Prefix, 0)
+	prefixes6 := make([]netip.Prefix, 0)
+	for _, a := range r.Config.InternalNetwork.AllowedIPs {
+		p := getPrefix(a)
+		if p.Addr().Is4() {
+			prefixes4 = append(prefixes4, p)
+		} else if p.Addr().Is6() {
+			prefixes6 = append(prefixes6, p)
+		}
+	}
+	return ssrf.New(
+		ssrf.WithAllowedV4Prefixes(prefixes4...),
+		ssrf.WithAllowedV6Prefixes(prefixes6...))
+}
+
+func getPrefix(og string) netip.Prefix {
+	a := og
+	addr, err := netip.ParseAddr(a)
+	if err == nil {
+		if addr.Is4() {
+			a = a + "/32"
+		} else if addr.Is6() {
+			a = a + "/128"
+		}
+	}
+	p, err := netip.ParsePrefix(a)
+	if err != nil {
+		// this should never happen because these strings should be validated as parseable
+		panic("unable to process allowed IP into prefix: " + og)
+	}
+	return p
 }
 
 // FetchListing fetches the listing and returns
 // errors and warnings encountered
 func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) { // return a warning or not???
+	r.init()
+
 	// What should the redirect policy be?
 	// - if just http > https then fine.
 	// - otherwise question it?
 
-	// TODO: SSRF protection and don't use default client and don't create a new client each time!
 	// Also, passing the client makes it possible to test this function?
 
-	resp, err := http.DefaultClient.Get(url)
+	resp, err := r.client.Get(url)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
 		// whow needs to know about this error?
@@ -110,7 +168,9 @@ func URLFromListing(listingURL, baseURL, relPath string) (string, error) {
 // FetchAppPackage from remote URL
 // Creates location and returns locationKey as string
 func (r *RemoteAppGetter) FetchPackageJob(url string) (string, error) {
-	resp, err := http.DefaultClient.Get(url) // TODO SSRF protection
+	r.init()
+
+	resp, err := r.client.Get(url)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
 		// who needs to know about this error?

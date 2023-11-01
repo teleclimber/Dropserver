@@ -47,7 +47,10 @@ type RuntimeConfig struct {
 		Port      int16  `json:"port"` // default to 443
 	} `json:"external-access"`
 	// TrustCert is used in ds2ds
-	TrustCert             string `json:"trust-cert"`
+	TrustCert       string `json:"trust-cert"`
+	InternalNetwork struct {
+		AllowedIPs []string `json:"allowed-ips"` // Allowed IP addresses, or CIDR ranges.
+	} `json:"internal-network"`
 	ManageTLSCertificates struct {
 		Enable              bool   `json:"enable"`
 		Email               string `json:"acme-account-email"`
