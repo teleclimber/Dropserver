@@ -26,11 +26,15 @@ const from_url_normalized = computed( () => {
 
 const from_url_valid = computed( () => {
 	if( from_url_normalized.value === "" ) return "";
+	let u :URL|undefined;
 	try {
-		new URL(from_url_normalized.value);
+		u = new URL(from_url_normalized.value);
 	}
 	catch {
-		return "Please check the link, it appears to be invalid."
+		return "Please check the link, it appears to be invalid.";
+	}
+	if( u.protocol !== "https:" ) {
+		return "Please use a secure https:// URL.";
 	}
 	return "";
 });

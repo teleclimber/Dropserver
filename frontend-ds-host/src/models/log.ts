@@ -28,7 +28,7 @@ export class LiveLog {
 			resp = await ax.get('/api/application/in-process/'+appGetKey+'/log');
 		}
 		catch(error: any | AxiosError) {
-			throw error;
+			return
 		}
 		if( resp?.data === undefined ) return;
 

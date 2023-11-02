@@ -123,14 +123,6 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 
 		listing, err := g.RemoteAppGetter.FetchListing(listingURL)
 		if err != nil {
-			// deduce action based on error type?
-			// some are warnings... Like what, specifically?
-			// - redirect: implies app may have moved, and user should be aware?
-			//   .. Here we can abort. This should have been dealt with on initial fetch of listing.
-			// - user errors: got a 404 wrong URL (should be handled differently by UI)
-			//   ..But! the url should already have been hit by system UI. So no need to be interactive. Just abort.
-
-			// abort and return
 			g.appendErrorResult(data.key, fmt.Sprintf("Error fetching listing from %v: %v", listingURL, err.Error()))
 			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return

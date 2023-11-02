@@ -18,9 +18,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-// functions to fetch things from an app distribution site
-// as well parse/interpret / validate the incoming data unless it's done elsewhere.
-
 type RemoteAppGetter struct {
 	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppFilesModel interface {
@@ -43,6 +40,9 @@ func (r *RemoteAppGetter) init() {
 		DialContext: dialer.DialContext,
 	}
 	r.client = &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return errors.New("no redirects please")
+		},
 		Transport: transport,
 	}
 }
@@ -59,6 +59,7 @@ func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
 		}
 	}
 	return ssrf.New(
+		ssrf.WithPorts(443), // HTTPS only
 		ssrf.WithAllowedV4Prefixes(prefixes4...),
 		ssrf.WithAllowedV6Prefixes(prefixes6...))
 }
@@ -83,19 +84,13 @@ func getPrefix(og string) netip.Prefix {
 
 // FetchListing fetches the listing and returns
 // errors and warnings encountered
-func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) { // return a warning or not???
+func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) {
 	r.init()
-
-	// What should the redirect policy be?
-	// - if just http > https then fine.
-	// - otherwise question it?
-
-	// Also, passing the client makes it possible to test this function?
 
 	resp, err := r.client.Get(url)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
-		// whow needs to know about this error?
+		// who needs to know about this error?
 		return domain.AppListing{}, err
 	}
 	defer resp.Body.Close()

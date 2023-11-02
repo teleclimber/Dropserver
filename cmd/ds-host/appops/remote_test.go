@@ -47,18 +47,22 @@ func TestGetSSRF(t *testing.T) {
 
 	s := r.getSSRF()
 
-	err := s.Safe("tcp4", "54.84.236.175:80", nil)
+	err := s.Safe("tcp4", "54.84.236.175:443", nil)
 	if err != nil {
 		t.Error(err)
 	}
-	err = s.Safe("tcp4", "192.168.1.10:80", nil)
+	err = s.Safe("tcp4", "54.84.236.175:80", nil)
 	if err == nil {
-		t.Error("expected error")
+		t.Error("expected error (prohibited port)")
+	}
+	err = s.Safe("tcp4", "192.168.1.10:443", nil)
+	if err == nil {
+		t.Error("expected error (prohibited ip)")
 	}
 
 	cfg.InternalNetwork.AllowedIPs = []string{"192.168.1.10"}
 	s = r.getSSRF()
-	err = s.Safe("tcp4", "192.168.1.10:80", nil)
+	err = s.Safe("tcp4", "192.168.1.10:443", nil)
 	if err != nil {
 		t.Error(err)
 	}
