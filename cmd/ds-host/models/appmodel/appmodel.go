@@ -6,17 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-// Note we will have application
-// ..and application versions
-// So two tables
-//
+type stmtPreparer interface {
+	Preparex(query string) (*sqlx.Stmt, error)
+}
 
 // AppModel represents the model for app
 type AppModel struct {
@@ -26,8 +27,6 @@ type AppModel struct {
 	stmt struct {
 		selectID               *sqlx.Stmt
 		selectOwner            *sqlx.Stmt
-		insertApp              *sqlx.Stmt
-		deleteApp              *sqlx.Stmt
 		selectVersion          *sqlx.Stmt
 		selectVersionForUI     *sqlx.Stmt
 		selectVersionManifest  *sqlx.Stmt
@@ -67,13 +66,6 @@ func (m *AppModel) PrepareStatements() {
 
 	//get for a given owner user ID
 	m.stmt.selectOwner = p.exec(`SELECT * FROM apps WHERE owner_id = ?`)
-
-	// insert app:
-	m.stmt.insertApp = p.exec(`INSERT INTO apps 
-		("owner_id", "created") VALUES (?, datetime("now"))`)
-
-	// delete app
-	m.stmt.deleteApp = p.exec(`DELETE FROM apps WHERE app_id = ?`)
 
 	// get version
 	// This one is intended for internal use (like running a sandbox)
@@ -167,14 +159,81 @@ func (m *AppModel) GetForOwner(userID domain.UserID) ([]*domain.App, error) {
 	return ret, nil
 }
 
-// Create adds an app to the database
-// Other arguments: source URL, auto-update mode (if that applies to app)
+// Create adds an app to the database with no URL data
+// For use with manually uploaded apps.
 func (m *AppModel) Create(ownerID domain.UserID) (domain.AppID, error) {
-	// location key isn't here. It's in a version.
-	// do we check name and locationKey for epty string or excess length?
-	// -> probably, yes. Or where should that actually happen?
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("Create(), Begin()").Error(err)
+		return domain.AppID(0), err
+	}
+	defer tx.Rollback()
 
-	r, err := m.stmt.insertApp.Exec(ownerID)
+	appID, err := m.create(ownerID, tx)
+	if err != nil {
+		return domain.AppID(0), err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		m.getLogger("Create(), tx.Commit()").Error(err)
+		return domain.AppID(0), err
+	}
+
+	return appID, nil
+}
+
+// CreateFromURL creates the app and stores app url data
+func (m *AppModel) CreateFromURL(ownerID domain.UserID, url string, auto bool, listingFetch domain.AppListingFetch) (domain.AppID, error) {
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("CreateFromURL(), Begin()").Error(err)
+		return domain.AppID(0), err
+	}
+	defer tx.Rollback()
+
+	appID, err := m.create(ownerID, tx)
+	if err != nil {
+		return domain.AppID(0), err
+	}
+
+	err = createAppUrlData(appID, url, auto, tx)
+	if err != nil {
+		m.getLogger("CreateFromURL(), createAppUrlData()").Error(err)
+		return domain.AppID(0), err
+	}
+
+	err = setListing(appID, listingFetch, tx)
+	if err != nil {
+		m.getLogger("CreateFromURL(), setListing()").Error(err)
+		return domain.AppID(0), err
+	}
+
+	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	if err != nil {
+		m.getLogger("CreateFromURL(), setLast()").Error(err)
+		return domain.AppID(0), err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		m.getLogger("Create(), tx.Commit()").Error(err)
+		return domain.AppID(0), err
+	}
+
+	return appID, nil
+}
+
+func (m *AppModel) create(ownerID domain.UserID, sp stmtPreparer) (domain.AppID, error) {
+	stmt, err := sp.Preparex(`INSERT INTO apps 
+		("owner_id", "created") VALUES (?, datetime("now"))`)
+	if err != nil {
+		m.getLogger("create(), tx.Preparex()").Error(err)
+		return domain.AppID(0), err
+	}
+	defer stmt.Close()
+
+	r, err := stmt.Exec(ownerID)
 	if err != nil {
 		m.getLogger("Create(), insertApp.Exec()").UserID(ownerID).Error(err)
 		return domain.AppID(0), err
@@ -193,6 +252,118 @@ func (m *AppModel) Create(ownerID domain.UserID) (domain.AppID, error) {
 	return domain.AppID(lastID), nil
 }
 
+func createAppUrlData(appID domain.AppID, url string, auto bool, sp stmtPreparer) error {
+	stmt, err := sp.Preparex(`INSERT INTO app_urls 
+		("app_id", "url", "automatic", "new_url") VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(appID, url, auto, "")
+
+	return err
+}
+
+// GetAppUrlData returns the app url data.
+// If there is no app url data it returns domain.ErrNoRowsInResultSet
+func (m *AppModel) GetAppUrlData(appID domain.AppID) (domain.AppURLData, error) {
+	urlData, err := getAppUrlData(appID, m.DB.Handle)
+	if err == domain.ErrNoRowsInResultSet {
+		return domain.AppURLData{}, err
+	} else if err != nil {
+		m.getLogger("GetAppUrlData").AppID(appID).Error(err)
+		return domain.AppURLData{}, err
+	}
+	return urlData, nil
+}
+
+func getAppUrlData(appID domain.AppID, sp stmtPreparer) (domain.AppURLData, error) {
+	stmt, err := sp.Preparex(`SELECT app_id, url, automatic, 
+		last_dt, last_result, 
+		new_url, new_url_dt, 
+		listing_dt, etag, latest_version 
+		FROM app_urls WHERE app_id = ?`)
+	if err != nil {
+		return domain.AppURLData{}, err
+	}
+	defer stmt.Close()
+
+	var urlData domain.AppURLData
+	err = stmt.QueryRowx(appID).StructScan(&urlData)
+	if err == sql.ErrNoRows {
+		return domain.AppURLData{}, domain.ErrNoRowsInResultSet
+	} else if err != nil {
+		return domain.AppURLData{}, err
+	}
+	return urlData, nil
+}
+
+func getListing(appID domain.AppID, sp stmtPreparer) (domain.AppListing, error) {
+	stmt, err := sp.Preparex(`SELECT listing FROM app_urls WHERE app_id = ?`)
+	if err != nil {
+		return domain.AppListing{}, err
+	}
+	defer stmt.Close()
+
+	var listingStr string
+	err = stmt.Get(&listingStr, appID)
+	if err == sql.ErrNoRows {
+		return domain.AppListing{}, domain.ErrNoRowsInResultSet
+	} else if err != nil {
+		return domain.AppListing{}, err
+	}
+
+	var listing domain.AppListing
+	err = json.Unmarshal([]byte(listingStr), &listing)
+	if err != nil {
+		return domain.AppListing{}, err
+	}
+	return listing, nil
+}
+
+// GetAppUrlListing returns the listing along with the URL data
+// If app is not from a URL it returns the error domain.ErrNoRowsInResultSet
+func (m *AppModel) GetAppUrlListing(appID domain.AppID) (domain.AppListing, domain.AppURLData, error) {
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("GetAppUrlListing(), Beginx()").Error(err)
+		return domain.AppListing{}, domain.AppURLData{}, err
+	}
+	defer tx.Commit()
+
+	urlData, err := getAppUrlData(appID, tx)
+	if err == domain.ErrNoRowsInResultSet {
+		return domain.AppListing{}, domain.AppURLData{}, err
+	} else if err != nil {
+		m.getLogger("GetAppUrlListing(), getAppUrlData()").AppID(appID).Error(err)
+		return domain.AppListing{}, domain.AppURLData{}, err
+	}
+
+	listing, err := getListing(appID, tx)
+	if err != nil {
+		m.getLogger("GetAppUrlListing(), getListing()").AppID(appID).Error(err)
+		return domain.AppListing{}, domain.AppURLData{}, err
+	}
+
+	return listing, urlData, nil
+}
+
+// UpdateAutomatic to set the value of the automatic column in app url data
+func (m *AppModel) UpdateAutomatic(appID domain.AppID, auto bool) error {
+	stmt, err := m.DB.Handle.Preparex(`UPDATE app_urls SET automatic = ? WHERE app_id = ?`)
+	if err != nil {
+		m.getLogger("UpdateAutomatic(), Preparex()").AppID(appID).Error(err)
+		return err
+	}
+	_, err = stmt.Exec(auto, appID)
+	if err != nil {
+		m.getLogger("UpdateAutomatic(), Preparex()").AppID(appID).Error(err)
+		return err
+	}
+	return nil
+}
+
 // Delete the app from the DB row.
 // It fails if there are versions of the app in the DB
 func (m *AppModel) Delete(appID domain.AppID) error {
@@ -206,12 +377,183 @@ func (m *AppModel) Delete(appID domain.AppID) error {
 		return err
 	}
 
-	_, err = m.stmt.deleteApp.Exec(appID)
+	tx, err := m.DB.Handle.Beginx()
 	if err != nil {
-		m.getLogger("Delete(), deleteApp.Exec()").AppID(appID).Error(err)
+		m.getLogger("Delete(), Beginx()").AppID(appID).Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Preparex(`DELETE FROM app_urls WHERE app_id = ?`)
+	if err != nil {
+		m.getLogger("Delete(), Preparex() for app_urls").AppID(appID).Error(err)
+		return err
+	}
+	_, err = stmt.Exec(appID)
+	if err != nil {
+		m.getLogger("Delete(), Exec() for app_urls").AppID(appID).Error(err)
+		return err
+	}
+
+	stmt, err = tx.Preparex(`DELETE FROM apps WHERE app_id = ?`)
+	if err != nil {
+		m.getLogger("Delete(), Preparex() for apps").AppID(appID).Error(err)
+		return err
+	}
+	_, err = stmt.Exec(appID)
+	if err != nil {
+		m.getLogger("Delete(), Exec() for apps").AppID(appID).Error(err)
+		return err
+	}
+
+	tx.Commit()
+	return nil
+}
+
+// SetLastFetch time of the last listing fetch
+func (m *AppModel) SetLastFetch(appID domain.AppID, lastDt time.Time, lastResult string) error {
+	err := setLast(appID, lastResult, lastDt, m.DB.Handle)
+	if err != nil {
+		m.getLogger("SetLastFetch(), setLast()").AppID(appID).Error(err)
 		return err
 	}
 	return nil
+}
+
+// SetListing and the last fetch data and reset the new url data.
+func (m *AppModel) SetListing(appID domain.AppID, listingFetch domain.AppListingFetch) error {
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("SetListing(), Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	// set last fetch data
+	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	if err != nil {
+		m.getLogger("SetListing(), setLast()").AppID(appID).Error(err)
+		return err
+	}
+
+	// reset new URL data since we got a listing
+	err = setNewUrl(appID, "", nulltypes.NewTime(time.Time{}, false), tx)
+	if err != nil {
+		m.getLogger("SetListing(), setNewUrl()").AppID(appID).Error(err)
+		return err
+	}
+
+	// set listing
+	err = setListing(appID, listingFetch, tx)
+	if err != nil {
+		m.getLogger("SetListing(), setListing()").AppID(appID).Error(err)
+		return err
+	}
+
+	tx.Commit()
+	return nil
+}
+
+// SetNewUrl sets the new url that the remote site says future requests should go
+func (m *AppModel) SetNewUrl(appID domain.AppID, url string, dt nulltypes.NullTime) error {
+	err := setNewUrl(appID, url, dt, m.DB.Handle)
+	if err != nil {
+		m.getLogger("SetNewUrl(), setNewUrl()").AppID(appID).Error(err)
+		return err
+	}
+	return nil
+}
+
+// UpdateURL of app listing and set the listing.
+func (m *AppModel) UpdateURL(appID domain.AppID, url string, listingFetch domain.AppListingFetch) error { // this should include the listing found at theat url and any relevant meta, like when updating listing
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("SetListing(), Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Preparex(`UPDATE app_urls SET url = ? WHERE app_id = ?`)
+	if err != nil {
+		m.getLogger("UpdateURL(), Preparex()").AppID(appID).Error(err)
+		return err
+	}
+	_, err = stmt.Exec(url, appID)
+	if err != nil {
+		m.getLogger("UpdateURL(), Exec()").AppID(appID).Error(err)
+		return err
+	}
+
+	// set last fetch data
+	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	if err != nil {
+		m.getLogger("UpdateURL(), setLast()").AppID(appID).Error(err)
+		return err
+	}
+
+	// reset new URL data since we got a listing
+	err = setNewUrl(appID, "", nulltypes.NewTime(time.Time{}, false), tx)
+	if err != nil {
+		m.getLogger("UpdateURL(), setNewUrl()").AppID(appID).Error(err)
+		return err
+	}
+
+	// set listing
+	err = setListing(appID, listingFetch, tx)
+	if err != nil {
+		m.getLogger("UpdateURL(), setListing()").AppID(appID).Error(err)
+		return err
+	}
+
+	tx.Commit()
+	return nil
+}
+
+func setLast(appID domain.AppID, result string, dt time.Time, sp stmtPreparer) error {
+	stmt, err := sp.Preparex(`UPDATE app_urls SET
+		last_dt = ?, last_result = ?
+		WHERE app_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(dt, result, appID)
+
+	return err
+}
+
+func setNewUrl(appID domain.AppID, new_url string, dt nulltypes.NullTime, sp stmtPreparer) error {
+	stmt, err := sp.Preparex(`UPDATE app_urls SET
+		new_url = ?, new_url_dt = ?
+		WHERE app_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(new_url, dt, appID)
+
+	return err
+}
+
+func setListing(appID domain.AppID, l domain.AppListingFetch, sp stmtPreparer) error {
+	listingBytes, err := json.Marshal(l.Listing)
+	if err != nil {
+		return err
+	}
+
+	stmt, err := sp.Preparex(`UPDATE app_urls SET
+		listing =  json(?), listing_dt = ?, etag = ?, latest_version = ?
+		WHERE app_id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(listingBytes, l.ListingDatetime, l.Etag, l.LatestVersion, appID)
+
+	return err
 }
 
 // GetVersion returns the version for the app

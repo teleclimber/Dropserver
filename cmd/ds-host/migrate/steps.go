@@ -46,5 +46,9 @@ var MigrationSteps []MigrationStep = []MigrationStep{{
 	name: "2305-packagedapps",
 	up:   packagedAppsUp,
 	down: packagedAppsDown,
+}, {
+	name: "2311-appurls",
+	up:   appsFromURLsUp,
+	down: appsFromURLsDown,
 },
 }

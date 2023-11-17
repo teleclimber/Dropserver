@@ -368,6 +368,57 @@ type App struct {
 	Created time.Time `db:"created" json:"created_dt"`
 }
 
+// TODO consider calrifying that this is used to set Listing data
+// ..it doesn't show up in any getters...
+// AppListingFetch is the app listing along with some fetch metadata
+type AppListingFetch struct {
+	// Listing is the last successfully fetched app listing
+	// Maybe this should not be in here? Get it separately if you actually want the listing data?
+	Listing AppListing `db:"listing" json:"listing"` // TODO we should get rid of JSON tags
+	// ListingDatetime for HTTP cache purposes
+	ListingDatetime time.Time `db:"listing_dt" json:"listing_dt"`
+	// Etag of fetched listing for caching purposes
+	Etag string `db:"etag" json:"etag"`
+	// LatestVersion is the highest stable semver of all versions in listing.
+	LatestVersion Version `db:"latest_version" json:"latest_version"`
+}
+
+// AppURLData contains all metadata related to fetching the app listing
+type AppURLData struct {
+	AppID AppID `db:"app_id"` // not repeating json:"app_id" // TODO is that still valid? I don't think we embed this anymore.
+
+	// URL of the app listing JSON file
+	// It should not need redirecting
+	URL string `db:"url" json:"url"`
+
+	// Automatic fetch of the app listing
+	Automatic bool `db:"automatic" json:"automatic"`
+
+	// Last fetch attempted
+	Last time.Time `db:"last_dt" json:"last_dt"` // Not null, this struct can onle exist after created after inital fetch?
+	// LastResult code or fetch error(?) or validation error?
+	// intended for end user (beware I18N issues then)
+	// maybe use result code: "listing-updated", "XXX" for response code, "validation-error"?
+	// TODO need some clarification here on what values can be. So far I've used "ok" and "no-change" I think.
+	LastResult string `db:"last_result" json:"last_result"`
+
+	// NewURL from which the app listing should be fetched.
+	// This is set when the original URL returns a permanent redirect
+	// or the "new-url" field is set in the listing
+	// and the new URL requires confirmation from the user.
+	NewURL string `db:"new_url" json:"new_url"`
+	// NewUrlDatetime timestamp of when the new URL was initially discovered (is this necessary?)
+	NewUrlDatetime nulltypes.NullTime `db:"new_url_dt" json:"new_url_dt"`
+
+	// ListingDatetime
+	ListingDatetime time.Time `db:"listing_dt" json:"listing_dt"`
+	// Etag of fetched listing for caching purposes
+	Etag string `db:"etag"` // do we need the etag in JSON?
+
+	// LatestVersion is the highest stable semver of all versions in listing.
+	LatestVersion Version `db:"latest_version" json:"latest_version"`
+}
+
 // AppVersion represents a set of version of an app
 // This struct is meant for backend use, like starting a sandbox.
 type AppVersion struct {

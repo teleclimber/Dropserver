@@ -17,6 +17,9 @@ type AppListingVersion struct {
 // AppListing describes a set of application versions and
 // Urls and paths for requesting additional files
 type AppListing struct {
+	// NewURL of the app listing.
+	// If this is non-empty the rest of the listing data is ignored
+	NewURL string `json:"new-url,omitempty"`
 	// Base URL for all relative paths in listing
 	// If not specified the Base is determined from the listing URL
 	Base string `json:"base,omitempty"`
