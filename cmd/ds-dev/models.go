@@ -77,6 +77,9 @@ func (m *DevAppModel) GetVersion(appID domain.AppID, version domain.Version) (do
 func (m *DevAppModel) Create(_ domain.UserID) (domain.AppID, error) {
 	panic("Did not expect to use Create")
 }
+func (m *DevAppModel) CreateFromURL(_ domain.UserID, _ string, _ bool, _ domain.AppListingFetch) (domain.AppID, error) {
+	panic("Did not expect to use CreateFromURL")
+}
 
 func (m *DevAppModel) CreateVersion(_ domain.AppID, _ string, _ domain.AppVersionManifest) (domain.AppVersion, error) {
 	panic("Did not expect to use CreateVersion")

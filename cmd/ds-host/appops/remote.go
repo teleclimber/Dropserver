@@ -12,10 +12,12 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"code.dny.dev/ssrf"
 	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 type RemoteAppGetter struct {
@@ -82,22 +84,46 @@ func getPrefix(og string) netip.Prefix {
 	return p
 }
 
-// FetchListing fetches the listing and returns
+func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch, error) {
+	listingFetch, err := r.fetchListing(url)
+	if err != nil {
+		err = fmt.Errorf("error fetching listing from %v: %w", url, err)
+		return domain.AppListingFetch{}, err
+	}
+
+	err = ValidateListing(listingFetch.Listing)
+	if err != nil {
+		err = fmt.Errorf("error validating listing from %v: %w", url, err)
+		return domain.AppListingFetch{}, err
+	}
+
+	latestVersion, err := GetLatestVersion(listingFetch.Listing.Versions)
+	if err != nil {
+		// this is a coding error: we validated the listing earlier so there is no reason to get an error here.
+		r.getLogger("FetchValidListing").AddNote("Unexpected error fron GetLatestVersion").Error(err)
+		return domain.AppListingFetch{}, fmt.Errorf("unexpected error: %w", err)
+	}
+	listingFetch.LatestVersion = latestVersion
+
+	return listingFetch, nil
+}
+
+// fetchListing fetches the listing and returns
 // errors and warnings encountered
-func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) {
+func (r *RemoteAppGetter) fetchListing(url string) (domain.AppListingFetch, error) {
 	r.init()
 
 	resp, err := r.client.Get(url)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
 		// who needs to know about this error?
-		return domain.AppListing{}, err
+		return domain.AppListingFetch{}, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		// Unclear what kind of error this would be ? Something like "Error reading response..."
-		return domain.AppListing{}, err
+		return domain.AppListingFetch{}, err
 	}
 
 	// switch on resp status
@@ -107,7 +133,21 @@ func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) {
 	// - 304 Not Modified will be relevant when we are re-checking for a changed listing
 	// For now anything but 200 is an error (this will have to change)
 	if resp.StatusCode != http.StatusOK {
-		return domain.AppListing{}, fmt.Errorf("got response code: %v", resp.Status)
+		return domain.AppListingFetch{}, fmt.Errorf("got response code: %v", resp.Status)
+	}
+
+	newEtag := resp.Header.Get("ETag")
+	lm := resp.Header.Get("Last-Modified")
+	newLastModified := time.Now()
+	if lm != "" {
+		lmt, err := http.ParseTime(lm)
+		if err != nil {
+			// This is kind of a pain to deal with. Not problematic enough to kill the whole process
+			// But user should know of issue so that info can be relayed to developer?
+			// no-op for now.
+		} else {
+			newLastModified = lmt
+		}
 	}
 
 	// check mime type? However it's not sure that a file server will serve JSON as application/json?
@@ -115,29 +155,63 @@ func (r *RemoteAppGetter) FetchListing(url string) (domain.AppListing, error) {
 	var listing domain.AppListing
 	err = json.Unmarshal(body, &listing)
 	if err != nil {
-		return domain.AppListing{}, err
+		return domain.AppListingFetch{}, err
 	}
 
-	return listing, nil
+	return domain.AppListingFetch{Listing: listing, Etag: newEtag, ListingDatetime: newLastModified}, nil
 }
 
 func ValidateListing(listing domain.AppListing) error {
-	// TODO complete validation code
+	if listing.NewURL != "" {
+		// If NewURL is set, we ignore the rest of the listing
+		// We don't validate the new url at this stage.
+		return nil
+	}
 
-	// zero versions is a fail
-
-	// Base URL should parse
+	if listing.Base != "" {
+		_, err := url.Parse(listing.Base)
+		if err != nil {
+			return fmt.Errorf("base url did not parse: %w", err)
+		}
+	}
 
 	if len(listing.Versions) == 0 {
 		return errors.New("there are no versions in this app listing")
 	}
 
-	//for i, v := range listing.Versions {
-	// - validate each version as semver
-	// - validate each relative path
-	//   some can't be empty
-	//   none can contain ..
-	//}
+	for v, vd := range listing.Versions {
+		_, err := semver.Parse(string(v))
+		if err != nil {
+			return fmt.Errorf("failed to parse version %v: %w", v, err)
+		}
+		err = validateListingPath(vd.Manifest, true)
+		if err != nil {
+			return fmt.Errorf("failed to validate manifest path for version %v: %w", v, err)
+		}
+		err = validateListingPath(vd.Package, true)
+		if err != nil {
+			return fmt.Errorf("failed to validate package path for version %v: %w", v, err)
+		}
+		err = validateListingPath(vd.Changelog, false)
+		if err != nil {
+			return fmt.Errorf("failed to validate changelog path for version %v: %w", v, err)
+		}
+		err = validateListingPath(vd.Icon, false)
+		if err != nil {
+			return fmt.Errorf("failed to validate icon path for version %v: %w", v, err)
+		}
+	}
+
+	return nil
+}
+func validateListingPath(p string, required bool) error {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		if !required {
+			return nil
+		}
+		return fmt.Errorf("required path is empty")
+	}
 
 	return nil
 }
@@ -206,4 +280,12 @@ func GetLatestVersion(versions map[domain.Version]domain.AppListingVersion) (dom
 
 	return semVersions[0].verStr, nil
 
+}
+
+func (g *RemoteAppGetter) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("RemoteAppGetter")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

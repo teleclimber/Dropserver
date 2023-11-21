@@ -21,11 +21,14 @@ import (
 
 type appGetData struct {
 	key         domain.AppGetKey
+	url         string
 	locationKey string
 	userID      domain.UserID
 	hasAppID    bool
 	appID       domain.AppID
 	sandbox     domain.SandboxI
+	hasListing  bool
+	listing     domain.AppListingFetch
 }
 
 type subscriber struct {
@@ -54,6 +57,7 @@ type AppGetter struct {
 	} `checkinject:"required"`
 	AppModel interface {
 		Create(domain.UserID) (domain.AppID, error)
+		CreateFromURL(domain.UserID, string, bool, domain.AppListingFetch) (domain.AppID, error)
 		CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
@@ -61,7 +65,7 @@ type AppGetter struct {
 		Log(locationKey string, source string, message string)
 	} `checkinject:"required"`
 	RemoteAppGetter interface {
-		FetchListing(url string) (domain.AppListing, error)
+		FetchValidListing(url string) (domain.AppListingFetch, error)
 		FetchPackageJob(url string) (string, error)
 	} `checkinject:"required"`
 	SandboxManager interface {
@@ -107,6 +111,7 @@ func (g *AppGetter) Stop() {
 // InstallFromURL installs a new app from a URL
 func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error) {
 	data := g.set(appGetData{
+		url:    listingURL,
 		userID: userID,
 	})
 
@@ -121,34 +126,20 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 			return
 		}
 
-		listing, err := g.RemoteAppGetter.FetchListing(listingURL)
+		listingFetch, err := g.RemoteAppGetter.FetchValidListing(listingURL)
 		if err != nil {
-			g.appendErrorResult(data.key, fmt.Sprintf("Error fetching listing from %v: %v", listingURL, err.Error()))
+			g.appendErrorResult(data.key, err.Error())
 			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return
 		}
-
-		err = ValidateListing(listing)
-		if err != nil {
-			g.appendErrorResult(data.key, "Error validating listing: "+err.Error())
-			g.sendEvent(data, domain.AppGetEvent{Done: true})
-			return
-		}
+		g.setListing(data.key, listingFetch)
 
 		var versionListing domain.AppListingVersion
 		var ok bool
 		if version == domain.Version("") {
-			version, err = GetLatestVersion(listing.Versions)
-			if err != nil {
-				// this is a coding error: we validated the listing earlier so there is no reason to get an error here.
-				// log it and fail out with unexpected error.
-				g.getLogger("InstallFromURL").AddNote("Unexpected error fron GetLatestVersion").Error(err)
-				g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
-				g.sendEvent(data, domain.AppGetEvent{Done: true})
-				return
-			}
+			version = listingFetch.LatestVersion
 		}
-		versionListing, ok = listing.Versions[version]
+		versionListing, ok = listingFetch.Listing.Versions[version]
 		if !ok {
 			g.appendErrorResult(data.key, "Unable to find the requested version in the app listing: "+string(version))
 			g.sendEvent(data, domain.AppGetEvent{Done: true})
@@ -160,7 +151,7 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 
 		g.sendEvent(data, domain.AppGetEvent{Step: "Fetching app package"})
 
-		packageURL, err := URLFromListing(listingURL, listing.Base, versionListing.Package)
+		packageURL, err := URLFromListing(listingURL, listingFetch.Listing.Base, versionListing.Package)
 		if err != nil {
 			// Shouldn't happen. All URLs should be checked before we get to this step.
 			g.getLogger("InstallFromURL").AddNote("Unexpected error fron URLFromListing").Error(err)
@@ -829,7 +820,14 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 	appID := keyData.appID
 
 	if !keyData.hasAppID {
-		aID, err := g.AppModel.Create(keyData.userID)
+		var aID domain.AppID
+		var err error
+		if keyData.url == "" {
+			aID, err = g.AppModel.Create(keyData.userID) // Here we have to split depending on whether it's url or not.
+		} else {
+			aID, err = g.AppModel.CreateFromURL(keyData.userID, keyData.url, false, keyData.listing)
+			// TODO Where is "automatic" coming from??
+		}
 		if err != nil {
 			g.appendErrorResult(key, err.Error())
 			g.sendEvent(keyData, domain.AppGetEvent{Done: true})
@@ -942,6 +940,19 @@ func (g *AppGetter) setSandbox(key domain.AppGetKey, sb domain.SandboxI) (appGet
 	g.keys[key] = data
 	return data, true
 }
+func (g *AppGetter) setListing(key domain.AppGetKey, listing domain.AppListingFetch) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	if !ok {
+		return appGetData{}, false
+	}
+	data.hasListing = true
+	data.listing = listing
+	g.keys[key] = data
+	return data, true
+}
+
 func (g *AppGetter) get(key domain.AppGetKey) (appGetData, bool) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()

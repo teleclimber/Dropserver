@@ -5,13 +5,13 @@ package domain
 type AppListingVersion struct {
 	// Manifest is relative path to the manifest JSON file
 	Manifest string `json:"manifest"`
-	// Manifest is relative path to the package file (required)
+	// Package is relative path to the package file (required)
 	Package string `json:"package"`
-	// Manifest is relative path to the changelog text file for this version
-	Changelog string `json:"changelog"`
+	// Changelog is relative path to the changelog text file for this version
+	Changelog string `json:"changelog,omitempty"`
 	// Icon is relative path of the application icon.
 	// It should be the same file as manifest.Icon
-	Icon string `json:"icon"`
+	Icon string `json:"icon,omitempty"`
 }
 
 // AppListing describes a set of application versions and

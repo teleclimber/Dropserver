@@ -385,7 +385,7 @@ type AppListingFetch struct {
 
 // AppURLData contains all metadata related to fetching the app listing
 type AppURLData struct {
-	AppID AppID `db:"app_id"` // not repeating json:"app_id" // TODO is that still valid? I don't think we embed this anymore.
+	AppID AppID `db:"app_id" json:"app_id"`
 
 	// URL of the app listing JSON file
 	// It should not need redirecting
