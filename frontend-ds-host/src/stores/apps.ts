@@ -6,8 +6,22 @@ import type {AxiosResponse, AxiosError} from 'axios';
 
 import twineClient from '../twine-services/twine_client';
 import {SentMessageI} from 'twine-web';
-import { LoadState, App, AppVersion, AppVersionUI, AppManifest } from './types';
+import { LoadState, App, AppVersionUI, AppManifest, AppUrlData } from './types';
 import { Loadable, attachLoadState, setLoadState, getLoadState } from './loadable';
+
+export function appUrlDataFromRaw(raw:any) :AppUrlData {
+	return {
+		app_id: Number(raw.app_id),
+		url: raw.url+'',
+		automatic: !!raw.automatic,
+		last_dt: new Date(raw.last_dt),
+		last_result: raw.last_result+'',
+		new_url: raw.new_url + '',
+		new_url_dt: raw.new_url_dt ? new Date(raw.new_url_dt) : undefined,
+		listing_dt: new Date(raw.listing_dt),
+		latest_version: raw.latest_version+''
+	}
+}
 
 export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 	return {
@@ -33,6 +47,7 @@ function appFromRaw(raw:any) :App {
 	return {
 		app_id,
 		created_dt,
+		url_data: raw.url_data ? appUrlDataFromRaw(raw.url_data) : undefined,
 		cur_ver,
 		ver_data: cur_ver ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
@@ -155,11 +170,19 @@ export const useAppsStore = defineStore('apps', () => {
 		app_versions.delete(app_id);
 	}
 
+	async function changeAutomaticListingFetch(app_id: number, automatic:boolean) {
+		const app = mustGetApp(app_id);
+		if( !app.value.url_data ) return;	 // maybe an error would be better?
+		await ax.post('/api/application/'+app_id+'/automatic-listing-fetch', {automatic});
+		app.value.url_data.automatic = automatic;
+	}
+
 	return {
 		is_loaded, setReload,
 		loadData, apps, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
-		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion
+		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion,
+		changeAutomaticListingFetch
 	};
 });
 

@@ -7,6 +7,7 @@ import { useAppspacesStore } from '@/stores/appspaces';
 import AppLicense from './app/AppLicense.vue';
 import AppAuthorsSummary from './app/AppAuthorsSummary.vue';
 import AppLinksCompact from './app/AppLinksCompact.vue';
+import AppUrlData from './app/AppUrlData.vue';
 
 const props = defineProps<{
 	app: App
@@ -45,6 +46,8 @@ const app_icon = computed( () => {
 					<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{app.cur_ver}}</span>
 					by <AppAuthorsSummary :authors="app.ver_data?.authors" class=""></AppAuthorsSummary>
 				</p>
+				<AppUrlData v-if="app.url_data" :d="app.url_data" :cur_ver="app.cur_ver"></AppUrlData>
+				<p v-else>Manually uploaded</p>
 				<AppLicense class="" :license="app.ver_data?.license"></AppLicense>
 				<AppLinksCompact class="mt-4" :ver_data="app.ver_data"></AppLinksCompact>
 			</div>

@@ -22,7 +22,8 @@ type GetAppsResp struct {
 
 type ApplicationResp struct {
 	domain.App
-	CurVer     domain.Version      `json:"cur_ver"`
+	UrlData    *domain.AppURLData  `json:"url_data,omitempty"`
+	CurVer     domain.Version      `json:"cur_ver"` // CurVer is the latest locally installed version
 	VesionData domain.AppVersionUI `json:"ver_data"`
 }
 
@@ -55,6 +56,8 @@ type ApplicationRoutes struct {
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
+		GetAppUrlData(appID domain.AppID) (domain.AppURLData, error)
+		UpdateAutomatic(appID domain.AppID, auto bool) error
 		GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error) // maybe no longer necessary?
 		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
@@ -85,6 +88,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Route("/{application}", func(r chi.Router) {
 		r.Use(a.applicationCtx)
 		r.Get("/", a.getApplication)
+		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
@@ -101,7 +105,18 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 func (a *ApplicationRoutes) getApplication(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
 
-	appResp := ApplicationResp{app, "", domain.AppVersionUI{}}
+	appResp := ApplicationResp{app, nil, "", domain.AppVersionUI{}}
+
+	urlData, err := a.AppModel.GetAppUrlData(app.AppID)
+	if err == domain.ErrNoRowsInResultSet {
+		// no-op
+	} else if err != nil {
+		httpInternalServerError(w)
+		return
+	} else {
+		appResp.UrlData = &urlData
+	}
+
 	curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
 	if err == nil {
 		appResp.CurVer = curVer
@@ -142,21 +157,34 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 
 	fail := false
 	for i, app := range apps {
+		appI := ApplicationResp{*app, nil, "", domain.AppVersionUI{}}
+
+		urlData, err := a.AppModel.GetAppUrlData(app.AppID)
+		if err == domain.ErrNoRowsInResultSet {
+			// no-op
+		} else if err != nil {
+			fail = true
+			break
+		} else {
+			appI.UrlData = &urlData
+		}
+
 		curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
 		if err == domain.ErrNoRowsInResultSet {
-			respData.Apps[i] = ApplicationResp{*app, "", domain.AppVersionUI{}}
-			continue
-		}
-		if err != nil {
+			// no-op
+		} else if err != nil {
 			fail = true
 			break
+		} else {
+			ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
+			if err != nil {
+				fail = true
+				break
+			}
+			appI.CurVer = curVer
+			appI.VesionData = ver
 		}
-		ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
-		if err != nil {
-			fail = true
-			break
-		}
-		respData.Apps[i] = ApplicationResp{*app, curVer, ver}
+		respData.Apps[i] = appI
 	}
 	if fail {
 		httpInternalServerError(w)
@@ -164,6 +192,22 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSON(w, respData)
+}
+
+func (a *ApplicationRoutes) postAutomaticListingFetch(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	var reqData struct {
+		Automatic bool `json:"automatic"`
+	}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = a.AppModel.UpdateAutomatic(app.AppID, reqData.Automatic)
+	if err != nil {
+		returnError(w, err)
+	}
 }
 
 func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {
