@@ -405,8 +405,7 @@ func main() {
 	deleteAppspace.AppspaceStatus = appspaceStatus
 
 	migrationMinder := &appspacestatus.MigrationMinder{
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
+		AppModel: appModel,
 	}
 
 	appspaceAvatars := &appspaceops.Avatars{

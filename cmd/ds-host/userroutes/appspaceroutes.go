@@ -62,7 +62,7 @@ type AppspaceRoutes struct {
 		Get(handle string, dom string) (domain.DropID, error)
 	} `checkinject:"required"`
 	MigrationMinder interface {
-		GetForAppspace(domain.Appspace) (domain.AppVersion, bool, error)
+		GetForAppspace(domain.Appspace) (domain.Version, bool, error)
 	} `checkinject:"required"`
 	AppspaceMetaDB interface {
 		Create(domain.AppspaceID, int) error
@@ -128,14 +128,13 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 
 	respData := a.makeAppspaceMeta(appspace)
-	upgrade, ok, err := a.MigrationMinder.GetForAppspace(appspace)
+	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if ok {
-		respData.UpgradeVersion = upgrade.Version
-	}
+	respData.UpgradeVersion = upgradeVersion
+
 	ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
 	if err == nil {
 		respData.AppVersionData = &ver
@@ -199,15 +198,14 @@ func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Requ
 	}
 	respData := make([]AppspaceResp, 0)
 	for _, appspace := range appspaces {
-		appspaceResp := a.makeAppspaceMeta(*appspace) // TODO
-		upgrade, ok, err := a.MigrationMinder.GetForAppspace(*appspace)
+		appspaceResp := a.makeAppspaceMeta(*appspace)
+		upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if ok {
-			appspaceResp.UpgradeVersion = upgrade.Version
-		}
+		appspaceResp.UpgradeVersion = upgradeVersion
+
 		ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
 		if err == nil {
 			appspaceResp.AppVersionData = &ver
