@@ -7,12 +7,17 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks SetupKey,DeleteApp,BackupAppspace,RestoreAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks SetupKey,RemoteAppGetter,DeleteApp,BackupAppspace,RestoreAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
 
 type SetupKey interface {
 	Has() (bool, error)
 	Get() (string, error)
 	Delete() error
+}
+
+type RemoteAppGetter interface {
+	FetchValidListing(url string) (domain.AppListingFetch, error)
+	FetchPackageJob(url string) (string, error)
 }
 
 type DeleteApp interface {
