@@ -56,7 +56,7 @@ func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.Versi
 	} else if err != nil {
 		return domain.Version(""), isRemote, err
 	} else {
-		remote, err := appops.GetLatestVersion(listing.Versions) // TODO remove dependence on appops!
+		remote, err := appops.GetLatestVersion(listing.Versions)
 		if err != nil {
 			m.getLogger("GetForAppspace() GetLatestVersion").Error(err)
 			return domain.Version(""), isRemote, err
