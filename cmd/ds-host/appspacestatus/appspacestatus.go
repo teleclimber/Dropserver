@@ -78,7 +78,7 @@ type AppspaceStatus struct {
 	} `checkinject:"required"`
 
 	AppspaceFilesEvents interface {
-		Subscribe(chan<- domain.AppspaceID)
+		Subscribe() <-chan domain.AppspaceID
 	} `checkinject:"required"`
 	AppspaceRouter interface {
 		SubscribeLiveCount(domain.AppspaceID, chan<- int) int
@@ -113,9 +113,7 @@ func (s *AppspaceStatus) Init() {
 	s.status = make(map[domain.AppspaceID]*status)
 	s.closed = make(map[domain.AppspaceID]bool)
 
-	asFilesCh := make(chan domain.AppspaceID)
-	go s.handleAppspaceFiles(asFilesCh)
-	s.AppspaceFilesEvents.Subscribe(asFilesCh)
+	go s.handleAppspaceFiles(s.AppspaceFilesEvents.Subscribe())
 
 	migrationJobsCh := s.MigrationJobEvents.Subscribe()
 	go s.handleMigrationJobUpdate(migrationJobsCh)

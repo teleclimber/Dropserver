@@ -46,19 +46,21 @@ func (mr *MockAppspaceFilesEventsMockRecorder) Send(arg0 interface{}) *gomock.Ca
 }
 
 // Subscribe mocks base method
-func (m *MockAppspaceFilesEvents) Subscribe(arg0 chan<- domain.AppspaceID) {
+func (m *MockAppspaceFilesEvents) Subscribe() <-chan domain.AppspaceID {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Subscribe", arg0)
+	ret := m.ctrl.Call(m, "Subscribe")
+	ret0, _ := ret[0].(<-chan domain.AppspaceID)
+	return ret0
 }
 
 // Subscribe indicates an expected call of Subscribe
-func (mr *MockAppspaceFilesEventsMockRecorder) Subscribe(arg0 interface{}) *gomock.Call {
+func (mr *MockAppspaceFilesEventsMockRecorder) Subscribe() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockAppspaceFilesEvents)(nil).Subscribe), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockAppspaceFilesEvents)(nil).Subscribe))
 }
 
 // Unsubscribe mocks base method
-func (m *MockAppspaceFilesEvents) Unsubscribe(arg0 chan<- domain.AppspaceID) {
+func (m *MockAppspaceFilesEvents) Unsubscribe(arg0 <-chan domain.AppspaceID) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Unsubscribe", arg0)
 }

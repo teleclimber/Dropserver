@@ -12,8 +12,8 @@ import (
 // AppspaceFilesEvents interface for mocking
 type AppspaceFilesEvents interface {
 	Send(appspaceID domain.AppspaceID)
-	Subscribe(ch chan<- domain.AppspaceID)
-	Unsubscribe(ch chan<- domain.AppspaceID)
+	Subscribe() <-chan domain.AppspaceID
+	Unsubscribe(ch <-chan domain.AppspaceID)
 }
 
 // AppspaceStatusEvents interface for mocking
