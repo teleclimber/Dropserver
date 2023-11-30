@@ -6,14 +6,14 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-type subIDs interface {
+type SubscribeIDs interface {
 	domain.UserID | domain.AppID | domain.AppspaceID
 }
-type dataTypes interface {
+type DataTypes interface {
 	domain.AppURLData | domain.AppspaceID
 }
 
-type eventIDSubs[T subIDs, D dataTypes] struct {
+type eventIDSubs[T SubscribeIDs, D DataTypes] struct {
 	subsMux     sync.Mutex
 	subscribers map[T]*eventSubs[D]
 }
@@ -53,7 +53,7 @@ func (s *eventIDSubs[T, D]) send(subID T, data D) {
 	}
 }
 
-type eventSubs[D dataTypes] struct {
+type eventSubs[D DataTypes] struct {
 	subsMux     sync.Mutex
 	subscribers []chan D
 }

@@ -22,7 +22,10 @@ type stmtPreparer interface {
 // AppModel represents the model for app
 type AppModel struct {
 	DB *domain.DB
-	// need config to select db type?
+
+	AppUrlDataEvents interface {
+		Send(ownerID domain.UserID, data domain.AppURLData)
+	}
 
 	stmt struct {
 		selectID               *sqlx.Stmt
@@ -221,6 +224,8 @@ func (m *AppModel) CreateFromURL(ownerID domain.UserID, url string, auto bool, l
 		return domain.AppID(0), err
 	}
 
+	m.sendAppURLDataEvent(appID)
+
 	return appID, nil
 }
 
@@ -361,6 +366,7 @@ func (m *AppModel) UpdateAutomatic(appID domain.AppID, auto bool) error {
 		m.getLogger("UpdateAutomatic(), Preparex()").AppID(appID).Error(err)
 		return err
 	}
+	m.sendAppURLDataEvent(appID)
 	return nil
 }
 
@@ -417,6 +423,7 @@ func (m *AppModel) SetLastFetch(appID domain.AppID, lastDt time.Time, lastResult
 		m.getLogger("SetLastFetch(), setLast()").AppID(appID).Error(err)
 		return err
 	}
+	m.sendAppURLDataEvent(appID)
 	return nil
 }
 
@@ -451,6 +458,7 @@ func (m *AppModel) SetListing(appID domain.AppID, listingFetch domain.AppListing
 	}
 
 	tx.Commit()
+	m.sendAppURLDataEvent(appID)
 	return nil
 }
 
@@ -461,6 +469,7 @@ func (m *AppModel) SetNewUrl(appID domain.AppID, url string, dt nulltypes.NullTi
 		m.getLogger("SetNewUrl(), setNewUrl()").AppID(appID).Error(err)
 		return err
 	}
+	m.sendAppURLDataEvent(appID)
 	return nil
 }
 
@@ -506,6 +515,7 @@ func (m *AppModel) UpdateURL(appID domain.AppID, url string, listingFetch domain
 	}
 
 	tx.Commit()
+	m.sendAppURLDataEvent(appID)
 	return nil
 }
 
@@ -554,6 +564,21 @@ func setListing(appID domain.AppID, l domain.AppListingFetch, sp stmtPreparer) e
 	_, err = stmt.Exec(listingBytes, l.ListingDatetime, l.Etag, l.LatestVersion, appID)
 
 	return err
+}
+
+func (m *AppModel) sendAppURLDataEvent(appID domain.AppID) {
+	if m.AppUrlDataEvents == nil {
+		return
+	}
+	app, err := m.GetFromID(appID)
+	if err != nil {
+		return
+	}
+	urlData, err := m.GetAppUrlData(appID)
+	if err != nil {
+		return
+	}
+	m.AppUrlDataEvents.Send(app.OwnerID, urlData)
 }
 
 // GetVersion returns the version for the app

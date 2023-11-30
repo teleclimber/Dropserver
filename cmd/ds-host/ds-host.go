@@ -155,6 +155,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
+	appUrlDataEvents := &events.AppUrlDataEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -186,7 +187,8 @@ func main() {
 		Config:           runtimeConfig}
 
 	appModel := &appmodel.AppModel{
-		DB: db}
+		DB:               db,
+		AppUrlDataEvents: appUrlDataEvents}
 	appModel.PrepareStatements()
 
 	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{

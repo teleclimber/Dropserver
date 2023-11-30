@@ -210,3 +210,27 @@ func (e *AppspaceRouteHitEvents) removeSubscriber(ch chan<- *domain.AppspaceRout
 		}
 	}
 }
+
+// AppUrlDataEvents sends AppURLData
+type AppUrlDataEvents struct {
+	ownerSubs eventIDSubs[domain.UserID, domain.AppURLData]
+	appSubs   eventIDSubs[domain.AppID, domain.AppURLData]
+}
+
+func (e *AppUrlDataEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.AppURLData {
+	return e.appSubs.subscribe(domain.AppID(ownerID))
+}
+
+func (e *AppUrlDataEvents) SubscribeApp(appID domain.AppID) <-chan domain.AppURLData {
+	return e.appSubs.subscribe(appID)
+}
+
+func (e *AppUrlDataEvents) Unsubscribe(ch <-chan domain.AppURLData) {
+	e.appSubs.unsubscribe(ch)
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppUrlDataEvents) Send(ownerID domain.UserID, data domain.AppURLData) {
+	e.ownerSubs.send(ownerID, data)
+	e.appSubs.send(data.AppID, data)
+}
