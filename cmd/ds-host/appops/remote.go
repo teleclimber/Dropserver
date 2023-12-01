@@ -13,12 +13,19 @@ import (
 	"code.dny.dev/ssrf"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
 type RemoteAppGetter struct {
 	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
+	} `checkinject:"required"`
+	AppModel interface {
+		GetAppUrlData(domain.AppID) (domain.AppURLData, error)
+		SetLastFetch(domain.AppID, time.Time, string) error
+		SetListing(domain.AppID, domain.AppListingFetch) error
+		SetNewUrl(domain.AppID, string, nulltypes.NullTime) error
 	} `checkinject:"required"`
 
 	client *http.Client
@@ -79,11 +86,59 @@ func getPrefix(og string) netip.Prefix {
 	return p
 }
 
+func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
+	appUrlData, err := r.AppModel.GetAppUrlData(appID)
+	if err != nil {
+		return err
+	}
+	listingFetch, err := r.fetchListing(appUrlData.URL, appUrlData.Etag)
+	if err != nil {
+		err = fmt.Errorf("error fetching listing from %v: %w", appUrlData.URL, err)
+		r.AppModel.SetLastFetch(appID, time.Now(), "error")
+		return err
+	}
+	if listingFetch.NotModified {
+		r.AppModel.SetLastFetch(appID, time.Now(), "not-modified")
+		return nil
+	}
+	if getNewURL(listingFetch) != "" {
+		r.AppModel.SetNewUrl(appID, getNewURL(listingFetch), nulltypes.NewTime(time.Now(), true))
+		return errors.New("app listing has moved, new URL: " + getNewURL(listingFetch))
+	}
+
+	err = ValidateListing(listingFetch.Listing)
+	if err != nil {
+		r.AppModel.SetLastFetch(appID, time.Now(), "error")
+		err = fmt.Errorf("error validating listing from %v: %w", appUrlData.URL, err)
+		return err
+	}
+
+	latestVersion, err := GetLatestVersion(listingFetch.Listing.Versions)
+	if err != nil {
+		// this is a coding error: we validated the listing earlier so there is no reason to get an error here.
+		r.AppModel.SetLastFetch(appID, time.Now(), "error")
+		r.getLogger("RefreshAppListing").AddNote("Unexpected error fron GetLatestVersion").Error(err)
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+	listingFetch.LatestVersion = latestVersion
+
+	r.AppModel.SetListing(appID, listingFetch)
+
+	return nil
+}
+
 func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch, error) {
-	listingFetch, err := r.fetchListing(url)
+	listingFetch, err := r.fetchListing(url, "")
 	if err != nil {
 		err = fmt.Errorf("error fetching listing from %v: %w", url, err)
 		return domain.AppListingFetch{}, err
+	}
+	if listingFetch.NotModified {
+		// this shouldn't happen since we didn't send an etag, but we can't carry on.
+		return domain.AppListingFetch{}, errors.New("error fetching listing: endpoint returned last-modified, but we didn't send an etag")
+	}
+	if getNewURL(listingFetch) != "" {
+		return listingFetch, nil
 	}
 
 	err = ValidateListing(listingFetch.Listing)
@@ -105,10 +160,18 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 
 // fetchListing fetches the listing and returns
 // errors and warnings encountered
-func (r *RemoteAppGetter) fetchListing(url string) (domain.AppListingFetch, error) {
+func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListingFetch, error) {
 	r.init()
 
-	resp, err := r.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return domain.AppListingFetch{}, err
+	}
+	if etag != "" {
+		req.Header.Set("If-None-Match", etag)
+	}
+
+	resp, err := r.client.Do(req)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
 		// who needs to know about this error?
@@ -127,6 +190,9 @@ func (r *RemoteAppGetter) fetchListing(url string) (domain.AppListingFetch, erro
 	// - 3xx redirects? How to handle? Does it depend on whether it's the initial fetch or re-fetch? (redirects are handled by the client defined above)
 	// - 304 Not Modified will be relevant when we are re-checking for a changed listing
 	// For now anything but 200 is an error (this will have to change)
+	if resp.StatusCode == http.StatusNotModified {
+		return domain.AppListingFetch{NotModified: true}, nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		return domain.AppListingFetch{}, fmt.Errorf("got response code: %v", resp.Status)
 	}
@@ -153,7 +219,10 @@ func (r *RemoteAppGetter) fetchListing(url string) (domain.AppListingFetch, erro
 		return domain.AppListingFetch{}, err
 	}
 
-	return domain.AppListingFetch{Listing: listing, Etag: newEtag, ListingDatetime: newLastModified}, nil
+	return domain.AppListingFetch{
+		Listing:         listing,
+		Etag:            newEtag,
+		ListingDatetime: newLastModified}, nil
 }
 
 // FetchAppPackage from remote URL
@@ -182,4 +251,13 @@ func (g *RemoteAppGetter) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
+}
+
+func getNewURL(listingFetch domain.AppListingFetch) string {
+	if listingFetch.NewURL != "" {
+		return listingFetch.NewURL
+	} else if listingFetch.Listing.NewURL != "" {
+		return listingFetch.Listing.NewURL
+	}
+	return ""
 }

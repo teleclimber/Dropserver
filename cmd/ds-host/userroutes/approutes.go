@@ -44,6 +44,9 @@ type ApplicationRoutes struct {
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
 		Delete(domain.AppGetKey)
 	} `checkinject:"required"`
+	RemoteAppGetter interface {
+		RefreshAppListing(domain.AppID) error
+	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
 		DeleteVersion(appID domain.AppID, version domain.Version) error
@@ -89,6 +92,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Use(a.applicationCtx)
 		r.Get("/", a.getApplication)
 		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
+		r.Post("/refresh-listing", a.refreshListing)
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
@@ -207,6 +211,16 @@ func (a *ApplicationRoutes) postAutomaticListingFetch(w http.ResponseWriter, r *
 	err = a.AppModel.UpdateAutomatic(app.AppID, reqData.Automatic)
 	if err != nil {
 		returnError(w, err)
+	}
+}
+
+func (a *ApplicationRoutes) refreshListing(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	err := a.RemoteAppGetter.RefreshAppListing(app.AppID)
+	if err != nil {
+		// treat any error here as something to show the user
+		// because it's most likely an error with the fetch or validation of returned data
+		w.Write([]byte(err.Error()))
 	}
 }
 

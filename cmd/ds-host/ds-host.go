@@ -334,6 +334,7 @@ func main() {
 	remoteAppGetter := &appops.RemoteAppGetter{
 		Config:        runtimeConfig,
 		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
 	}
 
 	appGetter := &appops.AppGetter{
@@ -456,11 +457,12 @@ func main() {
 		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		AppGetter:     appGetter,
-		DeleteApp:     deleteApp,
-		AppFilesModel: appFilesModel,
-		AppModel:      appModel,
-		AppLogger:     appLogger}
+		AppGetter:       appGetter,
+		RemoteAppGetter: remoteAppGetter,
+		DeleteApp:       deleteApp,
+		AppFilesModel:   appFilesModel,
+		AppModel:        appModel,
+		AppLogger:       appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUsersModelV0:  appspaceUsersModelV0,

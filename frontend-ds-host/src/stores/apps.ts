@@ -79,6 +79,18 @@ export const useAppsStore = defineStore('apps', () => {
 			load_state.value = LoadState.Loaded;
 		}
 	}
+	async function loadApp(app_id:number) {
+		const resp = await ax.get('/api/application/'+app_id);
+		const app_in = appFromRaw(resp.data);
+		const app_ex = apps.value.get(app_id);
+		if( app_ex === undefined ) {
+			apps.value.set(app_id, shallowRef(app_in));
+			apps.value = new Map(apps.value);
+		}
+		else {
+			app_ex.value = app_in;
+		}
+	}
 	function setReload() {
 		// ugh.
 		load_state.value = LoadState.NotLoaded;
@@ -105,7 +117,6 @@ export const useAppsStore = defineStore('apps', () => {
 	async function loadAppVersions(app_id:number) :Promise<void> {
 		if( app_versions.has(app_id) ) return;
 		const av :Loadable<AppVersionUI[]> = shallowReactive(attachLoadState([], LoadState.Loading));
-		console.log("is reactive at creation:", isReactive(av));
 		app_versions.set(app_id, av);
 		const resp = await ax.get(`/api/application/${app_id}/version`);
 		resp.data.forEach( (raw:any) => {
@@ -170,6 +181,12 @@ export const useAppsStore = defineStore('apps', () => {
 		app_versions.delete(app_id);
 	}
 
+	async function refreshListing(app_id:number) :Promise<string> {
+		const resp = await ax.post('/api/application/'+app_id+'/refresh-listing');
+		loadApp(app_id);
+		return resp.data+'';
+	}
+
 	async function changeAutomaticListingFetch(app_id: number, automatic:boolean) {
 		const app = mustGetApp(app_id);
 		if( !app.value.url_data ) return;	 // maybe an error would be better?
@@ -179,10 +196,10 @@ export const useAppsStore = defineStore('apps', () => {
 
 	return {
 		is_loaded, setReload,
-		loadData, apps, getApp, mustGetApp, deleteApp,
+		loadData, apps, loadApp, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
 		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion,
-		changeAutomaticListingFetch
+		refreshListing, changeAutomaticListingFetch
 	};
 });
 

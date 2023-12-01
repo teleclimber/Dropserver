@@ -368,19 +368,24 @@ type App struct {
 	Created time.Time `db:"created" json:"created_dt"`
 }
 
-// TODO consider calrifying that this is used to set Listing data
-// ..it doesn't show up in any getters...
 // AppListingFetch is the app listing along with some fetch metadata
 type AppListingFetch struct {
+	// NotModified is true if the remote endpoint returned the Not-Modified header
+	NotModified bool
+	// NewURL is set if remote endpoint return a permanent redirect
+	// or if listing contains new url? (although that could be determined by Listing.NewURL)
+	NewURL string
 	// Listing is the last successfully fetched app listing
 	// Maybe this should not be in here? Get it separately if you actually want the listing data?
-	Listing AppListing `db:"listing" json:"listing"` // TODO we should get rid of JSON tags
+	Listing AppListing
 	// ListingDatetime for HTTP cache purposes
-	ListingDatetime time.Time `db:"listing_dt" json:"listing_dt"`
+	ListingDatetime time.Time
 	// Etag of fetched listing for caching purposes
-	Etag string `db:"etag" json:"etag"`
+	Etag string
 	// LatestVersion is the highest stable semver of all versions in listing.
-	LatestVersion Version `db:"latest_version" json:"latest_version"`
+	// I wonder if maybe latest version should be somewhere else?
+	// It's not really "fetch"-related. It's interpretation of listing.
+	LatestVersion Version
 }
 
 // AppURLData contains all metadata related to fetching the app listing
@@ -396,10 +401,11 @@ type AppURLData struct {
 
 	// Last fetch attempted
 	Last time.Time `db:"last_dt" json:"last_dt"` // Not null, this struct can onle exist after created after inital fetch?
-	// LastResult code or fetch error(?) or validation error?
-	// intended for end user (beware I18N issues then)
-	// maybe use result code: "listing-updated", "XXX" for response code, "validation-error"?
-	// TODO need some clarification here on what values can be. So far I've used "ok" and "no-change" I think.
+	// LastResult values:
+	// - "ok": fetch succeeded with new listing
+	// - "not-modified": remote returned that resource not modified
+	// - "new-url": remote indicated there is a new url to fetch things from (details?) (But we already have a new url field in DB?)
+	// - "error": some error happened. But would love to stash the actual error as well.
 	LastResult string `db:"last_result" json:"last_result"`
 
 	// NewURL from which the app listing should be fetched.

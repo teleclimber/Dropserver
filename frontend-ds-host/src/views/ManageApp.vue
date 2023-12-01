@@ -23,14 +23,13 @@ const props = defineProps<{
 }>();
 
 const appsStore = useAppsStore();
-appsStore.loadData();	// TODO No, this should be loadApp, but that requires some rethink in appsStore.
+appsStore.loadApp(Number(props.app_id));
 appsStore.loadAppVersions(props.app_id);
 
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 
 const app = computed( () => {
-	if( !appsStore.is_loaded ) return undefined;
 	const a = appsStore.getApp(Number(props.app_id));
 	if( a ) return a.value;
 	return undefined;
@@ -94,10 +93,18 @@ async function delApp() {
 
 const last_check_str = computed( () => {
 	if( !app.value?.url_data ) return '';
-	const hours_ago = Math.round((Date.now() - app.value.url_data.last_dt.getTime())/1000/60/60);
-	if( hours_ago <= 24 ) return hours_ago + ' hours ago';
+	let time_ago = Math.round((Date.now() - app.value.url_data.last_dt.getTime())/1000/60);
+	if( time_ago < 60 ) return time_ago + ' minutes ago';
+	time_ago = Math.round(time_ago/60);
+	if( time_ago <= 24 ) return time_ago + ' hours ago';
 	return app.value.url_data.last_dt.toLocaleDateString();
 });
+
+async function refreshListing() {
+	if( app.value === undefined ) return;
+	const err = await appsStore.refreshListing(app.value.app_id);
+	if( err ) alert(err);
+}
 
 const loading_automatic = ref(false);
 async function setAutomatic(auto :boolean) {
@@ -145,7 +152,7 @@ async function setAutomatic(auto :boolean) {
 					<div>
 						<div v-if="app.url_data">
 							<span class="italic text-gray-500 mr-2">last checked {{ last_check_str }}</span>
-							<a href="#" class="btn" @click.stop.prevent="">check for upgrades</a>
+							<a href="#" class="btn" @click.stop.prevent="refreshListing">check for upgrades</a>
 						</div>
 						<router-link v-else :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn">Upload New Version</router-link>
 					</div>
@@ -153,7 +160,7 @@ async function setAutomatic(auto :boolean) {
 				<div v-if="app.url_data" class="px-4 sm:px-6 py-2">
 					<p>This app is distributed from a website:</p>
 					<p class="text-gray-800 italic">{{ app.url_data.url }}</p>
-					<p v-if="app.url_data.last_result != 'ok'">
+					<p v-if="app.url_data.last_result === 'error'">
 						Last attempt to get app versions resulted in a problem: {{ app.url_data.last_result }}
 					</p>
 					<p v-if="app.url_data.new_url">
@@ -167,7 +174,7 @@ async function setAutomatic(auto :boolean) {
 						<span v-else>
 							The app listing must be refreshed manually. Enable automatic refresh:
 						</span>
-						<button v-if="!loading_automatic" class="btn" @click.stop.prevent="setAutomatic(!app.url_data.automatic)">
+						<button v-if="!loading_automatic" class="btn" @click.stop.prevent="setAutomatic(!app?.url_data?.automatic)">
 							{{ app.url_data.automatic ? "disable" : "enable" }}
 						</button>
 						<span v-else class="text-gray-600 italic">hang on...</span>
