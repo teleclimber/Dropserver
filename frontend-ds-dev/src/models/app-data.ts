@@ -51,11 +51,18 @@ function rawToAppManifest(raw:any) :AppManifest {
 	return ret;
 }
 
+export type Warning = {
+	field: string,
+	problem: string,
+	bad_value: string,
+	message: string
+}
+
 type AppProcessEvent = {
 	processing: boolean,
 	step: string
 	errors: string[],
-	warnings: Record<string,string>
+	warnings: Warning[]
 }
 
 class AppData {
@@ -64,7 +71,7 @@ class AppData {
 		processing: true,
 		step: 'waiting...',
 		errors: [],
-		warnings: {}
+		warnings: []
 	};
 
 	name = "";

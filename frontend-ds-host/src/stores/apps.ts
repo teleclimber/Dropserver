@@ -217,6 +217,13 @@ export type AppGetMeta = {
 	app_id: number
 }
 
+export type Warning = {
+	field: string,
+	problem: string,
+	bad_value: string,
+	message: string
+}
+
 
 function rawToAppManifest(raw:any) :AppManifest|undefined {
 	if( raw.version === "" ) return undefined;	// version is the only required part of manifest, if it's not set we just got a zero-value manifest.

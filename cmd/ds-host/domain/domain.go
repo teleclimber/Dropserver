@@ -458,13 +458,37 @@ type AppVersionUI struct {
 
 type AppGetKey string
 
+// ProcessProblem are consts that enable checking for
+// a specific problem at processing time.
+type ProcessProblem string
+
+const ProblemEmpty ProcessProblem = "empty"
+const ProblemInvalid ProcessProblem = "invalid"
+const ProblemBig ProcessProblem = "big"
+const ProblemSmall ProcessProblem = "small" // maybe roll this into poor experience
+const ProblemNotFound ProcessProblem = "not-found"
+
+// ProblemError implies an error took place while processing
+const ProblemError ProcessProblem = "error"
+
+// ProblemPoorExperience indicate the value is usable but does
+// not meet best practices
+const ProblemPoorExperience ProcessProblem = "poor-experience"
+
+type ProcessWarning struct {
+	Field    string         `json:"field"`     // Field is JSON key of problematic field, repeat of map key
+	Problem  ProcessProblem `json:"problem"`   // Problem for classification
+	BadValue string         `json:"bad_value"` // BadValue of field for safe display
+	Message  string         `json:"message"`   // Message for user or developer
+}
+
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
-	Key         AppGetKey         `json:"key"`
-	PrevVersion Version           `json:"prev_version"`
-	NextVersion Version           `json:"next_version"`
-	Errors      []string          `json:"errors"`
-	Warnings    map[string]string `json:"warnings"`
+	Key         AppGetKey        `json:"key"`
+	PrevVersion Version          `json:"prev_version"`
+	NextVersion Version          `json:"next_version"`
+	Errors      []string         `json:"errors"`
+	Warnings    []ProcessWarning `json:"warnings"`
 	// VersionManifest is currently the manifest as determined by the app processing steps.
 	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
 	// AppID of the app if getting a new version, or of the created app if new app
