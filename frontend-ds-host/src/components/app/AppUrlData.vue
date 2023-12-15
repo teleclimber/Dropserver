@@ -31,9 +31,11 @@ const last_check_str = computed( () => {
 		</svg>
 		<span v-if="d.last_result === 'error'">Problem fetching listing</span>
 		<span v-else-if="d.new_url">App has moved to a new address</span>
-		<span v-else-if="new_ver">Latest published version: {{  d.latest_version }}</span>
+		<span v-else-if="new_ver">New version available: 
+			<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{  d.latest_version }}</span>
+		</span>
 		<span v-else>
-			Last checked for new version {{ last_check_str }}
+			You have the latest version (last checked {{ last_check_str }})
 		</span>
 	</div>
 </template>

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
@@ -179,5 +180,136 @@ func TestHasProblem(t *testing.T) {
 				t.Errorf("mismatch: %v, %v", got, c.has)
 			}
 		})
+	}
+}
+
+func TestValidateSequence(t *testing.T) {
+	cases := []struct {
+		desc        string
+		appVersions []appVersionSemver
+		warn        bool
+	}{
+		{
+			desc: "incrementing schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.8.1", 2),
+				makeAppVersionSemver("0.2.1", 0),
+			},
+		}, {
+			desc: "same schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.8.1", 1),
+				makeAppVersionSemver("0.2.1", 1),
+			},
+		}, {
+			desc: "next has lower schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.8.1", 0),
+				makeAppVersionSemver("0.2.1", 1),
+			},
+			warn: true,
+		}, {
+			desc: "prev has higher schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.8.1", 1),
+				makeAppVersionSemver("0.2.1", 2),
+			},
+			warn: true,
+		}, {
+			desc: "prev only increment schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.2.1", 0),
+			},
+		}, {
+			desc: "next only increment schema",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver("0.8.1", 2),
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			_, _, warns := validateVersionSequence(domain.Version("0.5.0"), 1, c.appVersions)
+			if len(warns) == 0 && c.warn {
+				t.Error("got no warnings, expected some")
+			} else if len(warns) != 0 && !c.warn {
+				t.Log(warns)
+				t.Error("got warnings,none expected")
+			}
+		})
+	}
+}
+
+func TestValidateSequenceAlreadyExists(t *testing.T) {
+	_, _, warns := validateVersionSequence(domain.Version("0.5.0"), 1, []appVersionSemver{makeAppVersionSemver("0.5.0", 2)})
+	if len(warns) != 1 {
+		t.Error("expected a warning")
+	}
+}
+
+func TestValidateSequencePrevNext(t *testing.T) {
+	v2 := "0.2.0"
+	v3 := "0.3.0"
+	v7 := "0.7.0"
+	v8 := "0.8.0"
+
+	cases := []struct {
+		desc        string
+		appVersions []appVersionSemver
+		warn        bool
+		prev        domain.Version
+		next        domain.Version
+	}{
+		{
+			desc: "four versions",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver(v2, 1),
+				makeAppVersionSemver(v8, 1),
+				makeAppVersionSemver(v7, 1),
+				makeAppVersionSemver(v3, 1),
+			},
+			prev: domain.Version(v3),
+			next: domain.Version(v7),
+		}, {
+			desc:        "no versions",
+			appVersions: []appVersionSemver{},
+		}, {
+			desc: "prev only",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver(v2, 1),
+				makeAppVersionSemver(v3, 1),
+			},
+			prev: domain.Version(v3),
+		}, {
+			desc: "next only",
+			appVersions: []appVersionSemver{
+				makeAppVersionSemver(v8, 1),
+				makeAppVersionSemver(v7, 1),
+			},
+			next: domain.Version(v7),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			p, n, _ := validateVersionSequence(domain.Version("0.5.0"), 1, c.appVersions)
+			if p != c.prev {
+				t.Errorf("mismatched prev: %v %v", p, c.prev)
+			}
+			if n != c.next {
+				t.Errorf("mismatched next: %v %v", n, c.next)
+			}
+		})
+	}
+}
+
+func makeAppVersionSemver(version string, schema int) appVersionSemver {
+	return appVersionSemver{
+		domain.AppVersion{
+			Version: domain.Version(version),
+			Schema:  schema,
+		},
+		semver.MustParse(version),
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -290,6 +291,72 @@ func validateVersion(version domain.Version) (domain.Version, domain.ProcessWarn
 			Message:  err.Error()}
 	}
 	return domain.Version(parsedVer.String()), domain.ProcessWarning{}
+}
+
+type appVersionSemver struct {
+	domain.AppVersion
+	semver semver.Version
+}
+
+func validateVersionSequence(version domain.Version, schema int, appVersions []appVersionSemver) (prev, next domain.Version, warnings []domain.ProcessWarning) {
+	ver, _ := semver.Parse(string(version))
+
+	for _, v := range appVersions {
+		if v.semver.Equals(ver) {
+			warnings = append(warnings, domain.ProcessWarning{
+				Field:   "version-sequence", // could this be "version"?
+				Problem: domain.ProblemInvalid,
+				Message: "Version is already installed",
+			})
+			return
+		}
+	}
+
+	sort.Slice(appVersions, func(i, j int) bool {
+		return appVersions[i].semver.Compare(appVersions[j].semver) == -1
+	})
+
+	var p domain.AppVersion
+	for _, v := range appVersions {
+		if v.semver.LT(ver) {
+			p = v.AppVersion
+		} else {
+			break
+		}
+	}
+	if p != (domain.AppVersion{}) {
+		if p.Schema > schema {
+			warnings = append(warnings, domain.ProcessWarning{
+				Field:   "version-sequence", // is this "schema" or "version" or "version-sequence"?
+				Problem: domain.ProblemInvalid,
+				Message: fmt.Sprintf("Data schema (%v) is less than previous version (%v)", schema, p.Schema),
+			})
+		}
+		prev = p.Version
+	}
+
+	slices.Reverse(appVersions)
+
+	var n domain.AppVersion
+	for _, v := range appVersions {
+		if v.semver.GT(ver) {
+			n = v.AppVersion
+		} else {
+			break
+		}
+	}
+	if n != (domain.AppVersion{}) {
+		if n.Schema < schema {
+			warnings = append(warnings, domain.ProcessWarning{
+				Field:   "version-sequence",
+				Problem: domain.ProblemInvalid,
+				Message: fmt.Sprintf("Data schema (%v) is greater than next version (%v)", schema, n.Schema),
+			})
+		}
+		next = n.Version
+	}
+
+	return
 }
 
 func validateAccentColor(color string) (string, bool) {

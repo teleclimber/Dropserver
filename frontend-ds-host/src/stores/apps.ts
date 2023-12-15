@@ -115,10 +115,10 @@ export const useAppsStore = defineStore('apps', () => {
 		return ret;
 	}
 	async function loadAppVersions(app_id:number) :Promise<void> {
-		if( app_versions.has(app_id) ) return;
-		const av :Loadable<AppVersionUI[]> = shallowReactive(attachLoadState([], LoadState.Loading));
-		app_versions.set(app_id, av);
+		if( !app_versions.has(app_id) ) app_versions.set(app_id, shallowReactive(attachLoadState([], LoadState.Loading)));
+		const av = app_versions.get(app_id)!;
 		const resp = await ax.get(`/api/application/${app_id}/version`);
+		av.splice(0, av.length);	//empty it
 		resp.data.forEach( (raw:any) => {
 			av.push(appVersionUIFromRaw(raw));
 		});
@@ -140,6 +140,11 @@ export const useAppsStore = defineStore('apps', () => {
 	// fetch new app from the passed URL
 	async function getNewAppFromURL(url: string, version?: string) :Promise<string> {
 		const resp = await ax.post('/api/application', {url, version});
+		const data = <PostNewAppResp>resp.data;
+		return data.app_get_key;
+	}
+	async function getNewVersionFromURL(app_id :number, version: string) :Promise<string> {
+		const resp = await ax.post('/api/application/'+app_id+'/version', {version});
 		const data = <PostNewAppResp>resp.data;
 		return data.app_get_key;
 	}
@@ -172,6 +177,18 @@ export const useAppsStore = defineStore('apps', () => {
 		const v = av[v_index];
 		if( v === undefined ) throw new Error("did not find the version");
 		av.splice(v_index, 1);
+
+		// When deleting a version, the cur_ver may change.
+		const app  = mustGetApp(app_id);
+		if( app.value.cur_ver === version ) {
+			app.value.cur_ver = "";
+			app.value.ver_data = undefined;
+			if( av.length ) {
+				app.value.cur_ver = av[0].version;
+				app.value.ver_data = av[0];
+			}
+			app.value = Object.assign({}, app.value);
+		}
 	}
 	
 	async function deleteApp(app_id: number) {
@@ -194,17 +211,25 @@ export const useAppsStore = defineStore('apps', () => {
 		app.value.url_data.automatic = automatic;
 	}
 
+	async function fetchVersionManifest(app_id:number, version:string|undefined ) :Promise<AppGetMeta> {
+		const resp = await ax.get(`/api/application/${app_id}/fetch-version-manifest?version=${version || ""}`);
+		const data = <AppGetMeta>resp.data;
+		data.version_manifest = rawToAppManifest(data.version_manifest);
+		return data;
+	}
+
 	return {
 		is_loaded, setReload,
 		loadData, apps, loadApp, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
-		uploadNewApplication, getNewAppFromURL, commitNewApplication, uploadNewAppVersion,
-		refreshListing, changeAutomaticListingFetch
+		uploadNewApplication, getNewAppFromURL, getNewVersionFromURL, commitNewApplication, uploadNewAppVersion,
+		refreshListing, changeAutomaticListingFetch,
+		fetchVersionManifest
 	};
 });
 
 
-// NewAppVersionResp is returned by the server when it reads the contents of a new app code
+// AppGetMeta is returned by the server when it reads the contents of a new app code
 // (whether it's a new version or an all new app).
 // It returns any errors / problems found in the files, and the app version data if passable.
 export type AppGetMeta = {
@@ -212,7 +237,7 @@ export type AppGetMeta = {
 	prev_version: string,
 	next_version: string,
 	errors: string[],	// maybe array of strings?
-	warnings: Record<string, string>,
+	warnings: Warning[],
 	version_manifest?: AppManifest,
 	app_id: number
 }

@@ -36,6 +36,7 @@ type Versions struct {
 type ApplicationRoutes struct {
 	AppGetter interface {
 		InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error)
+		InstallNewVersionFromURL(userID domain.UserID, appID domain.AppID, version domain.Version) (domain.AppGetKey, error)
 		InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
 		GetLocationKey(key domain.AppGetKey) (string, bool)
@@ -46,6 +47,7 @@ type ApplicationRoutes struct {
 	} `checkinject:"required"`
 	RemoteAppGetter interface {
 		RefreshAppListing(domain.AppID) error
+		FetchNewVersionManifest(domain.AppID, domain.Version) (domain.AppGetMeta, error)
 	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
@@ -76,7 +78,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Use(mustBeAuthenticated)
 
 	r.Get("/", a.getApplications)
-	r.Post("/", a.postNewApplication) // could this be same route for new app and new version? Just include app id in metadata.
+	r.Post("/", a.postNewApplication)
 
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
 		r.Use(a.appGetKeyCtx)
@@ -93,6 +95,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Get("/", a.getApplication)
 		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
 		r.Post("/refresh-listing", a.refreshListing)
+		r.Get("/fetch-version-manifest", a.fetchVersionManifest)
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
@@ -224,6 +227,24 @@ func (a *ApplicationRoutes) refreshListing(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	}
+
+	manifestMeta, err := a.RemoteAppGetter.FetchNewVersionManifest(app.AppID, domain.Version(v))
+	if err != nil {
+		returnError(w, err)
+	}
+
+	writeJSON(w, manifestMeta)
+}
+
 func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
 	err := a.DeleteApp.Delete(app.AppID)
@@ -306,15 +327,34 @@ func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Re
 	}
 }
 
+type InstallNewVersionFromURLRequest struct {
+	Version domain.Version `json:"version"`
+}
+
 func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, _ := domain.CtxAuthUserID(ctx)
 	app, _ := domain.CtxAppData(ctx)
 
-	// TODO this gets more tricky: if the app is "uploaded", then new version must be uploaded as well.
-	// If app is from URL, then this is a request to fetch a new version from listing.
-
-	a.handlePackageUpload(r, w, userID, app.AppID)
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/json" {
+		reqData := InstallNewVersionFromURLRequest{}
+		err := readJSON(r, &reqData)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		appGetKey, err := a.AppGetter.InstallNewVersionFromURL(userID, app.AppID, reqData.Version)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		writeJSON(w, FilesUploadResp{Key: appGetKey})
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		a.handlePackageUpload(r, w, userID, app.AppID)
+	} else {
+		writeBadRequest(w, "Content Type", "expected application/json or multipart/form-data, got "+contentType)
+	}
 }
 
 type FilesUploadResp struct {

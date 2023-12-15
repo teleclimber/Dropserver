@@ -2,21 +2,17 @@
 import { Ref, ref, reactive, onMounted, onUnmounted, watch, computed, ComputedRef, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAppsStore, AppGetter, Warning } from '@/stores/apps';
+import { useAppsStore, AppGetter } from '@/stores/apps';
 import { LiveLog } from '../models/log';
 
 import ViewWrap from '../components/ViewWrap.vue';
-import DataDef from '../components/ui/DataDef.vue';
+
 import MessageSad from '../components/ui/MessageSad.vue';
 import MessageWarn from '@/components/ui/MessageWarn.vue';
 import MessageProcessing from '../components/ui/MessageProcessing.vue';
+import AppCard from '@/components/app/AppCard.vue';
+import Manifest from '@/components/app/Manifest.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
-import AppLicense from '@/components/app/AppLicense.vue';
-import SmallMessage from '@/components/ui/SmallMessage.vue';
-
-import { getLoadState } from '@/stores/loadable';
-import { LoadState, AppVersionUI } from '@/stores/types';
-import MigrationsGrid from '@/components/appspace/MigrationsGrid.vue';
 
 const router = useRouter();
 
@@ -35,39 +31,9 @@ appGetter.updateKey(props.app_get_key);
 const meta = computed( () => appGetter.meta.value );
 const manifest = computed( () => meta.value?.version_manifest );
 
-const warnings = computed( () => {
-	const ret :Record<string,Warning[]> = {};
-	meta.value?.warnings.forEach(w => {
-		const f = w.field;
-		if( !ret[f] ) ret[f] = [];
-		ret[f].push(w);
-	});
-	return ret;
-});
-const bad_values = computed( () => {
-	const ret :Record<string,string> = {};
-	meta.value?.warnings.forEach(w => {
-		if( w.bad_value ) ret[w.field] = w.bad_value;
-	});
-	return ret;
-});
-
-const app_icon_error = ref(false);
 const app_icon = computed( () => {
-	if( app_icon_error.value || !manifest.value ) return "";
+	if( !manifest.value ) return "";
 	return `/api/application/in-process/${props.app_get_key}/file/app-icon`;
-});
-
-const accent_color = computed( () => {
-	if( manifest.value && manifest.value.accent_color ) return manifest.value.accent_color;
-	return 'rgb(135, 151, 164)';
-});
-
-const release_date = computed( () => {
-	if( !manifest.value?.release_date ) return;
-	return new Date(manifest.value.release_date).toLocaleDateString(undefined, {
-		dateStyle:'medium'
-	});
 });
 
 const show_log = ref(false);
@@ -82,24 +48,6 @@ watch( () => appGetter.done, async () => {
 	const resp = await fetch(`/api/application/in-process/${props.app_get_key}/changelog`);
 	changelog.value = await resp.text();
 }, { immediate: true });
-
-// Get next and prev versions, if any according to app getter meta.
-const app_versions = computed( () => {
-	if( props.app_id === undefined ) return undefined;
-	appsStore.loadAppVersions(props.app_id);
-	const av = appsStore.mustGetAppVersions(props.app_id);
-	return av;
-});
-const sibling_versions :ComputedRef<{prev?: AppVersionUI, next?: AppVersionUI}> = computed( () => {
-	if( !app_versions.value ) return {};
-	if( getLoadState(app_versions.value) !== LoadState.Loaded ) return {};
-	return {
-		prev: app_versions.value.find( v => v.version === meta.value?.prev_version ),
-		next: app_versions.value.find( v => v.version === meta.value?.next_version )
-	}
-});
-const prev = computed( () => !!meta.value?.prev_version );
-const next = computed( () => !!meta.value?.next_version );
 
 const create_button :Ref<HTMLInputElement|undefined> = ref();
 onMounted( () => {
@@ -145,8 +93,6 @@ onUnmounted( () => {
 	appGetter.unsubscribeKey();
 });
 
-const small_msg_classes = ['inline-block', 'mt-1'];
-const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' ];
 
 </script>
 
@@ -179,159 +125,19 @@ const link_classes = ['text-blue-500', 'hover:underline', 'hover:text-blue-600' 
 				</h3>
 			</div>
 
-			<MessageWarn v-if="meta && Object.keys(warnings).length" class="mx-4 sm:mx-6 my-5 rounded" head="Warning">
+			<MessageWarn v-if="meta?.warnings.length" class="mx-4 sm:mx-6 my-5 rounded" head="Warning">
 				<p>App can be installed but some issues were found.
 					Please review the warnings below before continuing.</p>
 			</MessageWarn>
 
-			<!-- app version card -->
-			<div class="my-8 px-4 sm:px-6" v-if="manifest">
-				<div class=" mx-auto max-w-xl pb-4 bg-white shadow overflow-hidden border-2" style="border-top-width:1rem" :style="'border-color:'+accent_color" >
-					<div class="grid app-grid gap-x-2 gap-y-2 px-2 py-2 ">
-						<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-20 h-20" />
-						<div v-else class="w-20 h-20 text-gray-300 flex justify-center items-center">
-							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-14 h-14">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-							</svg>
-						</div>
-						<div class="self-center">
-							<h3 class="text-2xl leading-6 font-medium text-gray-900">{{manifest.name}}</h3>
-							<p class="italic" v-if="manifest.short_description">“{{manifest.short_description}}”</p>
-						</div>
-						<div class="col-span-3 sm:col-start-2">
-							<p class="text-lg font-medium">
-								Version 
-								<span class="bg-gray-200 text-gray-700 px-1 rounded-md">{{manifest.version}}</span>
-								<span v-if="release_date"> released {{ release_date || '' }}</span>
-							</p>
-						</div>
-					</div>
-				</div>
-			</div>
+			<AppCard v-if="manifest" :manifest="manifest" :icon_url="app_icon"></AppCard>
 
 			<div class="px-4 sm:px-2 mx-auto max-w-xl font-medium mt-6">What's new:</div>
 			<div class="bg-gray-100 px-4 sm:px-2 py-2 mx-auto max-w-xl max-h-48 overflow-y-scroll mb-6">
 				<pre class="text-sm whitespace-pre-wrap">{{ changelog || "No changelog :(" }}</pre>
 			</div>
 
-			<div v-if="manifest">
-				<DataDef field="App name:">
-					<p class="font-medium text-lg">{{ manifest.name }}</p>
-					<SmallMessage v-if="prev && sibling_versions.prev?.name !== manifest.name" mood="warn" :class="small_msg_classes">
-						Name changed since {{ sibling_versions.prev?.version }}! 
-						Was: “<span class="font-medium">{{ sibling_versions.prev?.name }}</span>”
-					</SmallMessage>
-					<SmallMessage v-else-if="next && manifest.name !== sibling_versions.next?.name" mood="warn" :class="small_msg_classes">
-						Name changed! App is called “<span class="font-medium">{{ sibling_versions.next?.name  }}</span>”
-						in {{  sibling_versions.next?.version }}
-					</SmallMessage>
-					<SmallMessage v-for="w in warnings['name']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Version:">
-					<p class="">
-						<span class="font-medium text-lg bg-gray-200 text-gray-700 px-1 rounded-md">{{ manifest.version }}</span>
-						<span v-if="release_date"> released {{ release_date || '' }}</span>
-					</p>
-					<SmallMessage v-if="prev && next" mood="info" :class="small_msg_classes">
-						This version comes between previously uploaded versions {{ sibling_versions.prev?.version }}
-						and {{ sibling_versions.next?.version }}.
-					</SmallMessage>
-					<!-- <SmallMessage v-else-if="prev" mood="info" :class="small_msg_classes">
-						Previous uploaded version: {{ sibling_versions.prev?.version }}.
-					</SmallMessage> -->
-					<SmallMessage v-else-if="next" mood="info" :class="small_msg_classes">
-						This version comes before previously uploaded version {{ sibling_versions.next?.version }}.
-					</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Data schema:">
-					<p class="font-medium text-lg">{{ manifest.schema }}</p>
-					<SmallMessage v-if="sibling_versions.prev && sibling_versions.prev.schema < manifest.schema" mood="info" :class="small_msg_classes">
-						The previous version ({{ sibling_versions.prev?.version }}) has a schema of 
-						{{  sibling_versions.prev.schema }}. 
-					</SmallMessage>
-					<SmallMessage v-if="sibling_versions.prev && sibling_versions.prev.schema > manifest.schema"  mood="warn" :class="small_msg_classes">
-						Error: The previous version ({{ sibling_versions.prev?.version }}) has a schema of 
-						{{  sibling_versions.prev.schema }}. 
-					</SmallMessage>
-					<SmallMessage v-if="sibling_versions.next && sibling_versions.next.schema < manifest.schema" mood="warn" :class="small_msg_classes">
-						Error: The next version ({{ sibling_versions.next.version }}) has a schema of 
-						{{  sibling_versions.next.schema }}. 
-					</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Migrations:">
-					<MigrationsGrid :migrations="manifest.migrations"></MigrationsGrid>
-					<SmallMessage v-if="warnings['migrations']" mood="warn" :class="small_msg_classes">{{ warnings['migrations'] }}</SmallMessage>
-				</DataDef>
-
-				<DataDef field="License:">
-					<p><AppLicense :license="manifest.license" ></AppLicense></p>
-					<SmallMessage v-if="prev && sibling_versions.prev?.license !== manifest.license"  mood="warn" :class="small_msg_classes">
-						License changed since {{ sibling_versions.prev?.version }}!
-						Was: <AppLicense :license="sibling_versions.prev?.license"></AppLicense>
-					</SmallMessage>
-					<SmallMessage v-else-if="next && manifest.license !== sibling_versions.next?.license"  mood="warn" :class="small_msg_classes">
-						License change: license is <AppLicense :license="sibling_versions.next?.license"></AppLicense>
-						in {{ sibling_versions.next?.version }}
-					</SmallMessage>
-					<SmallMessage v-for="w in warnings['license']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-					<SmallMessage v-for="w in warnings['license-file']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Authors:">
-					<ul>
-						<li v-for="a in manifest.authors" class="">
-							<span class="mr-2">{{ a.name }} </span>
-							<a v-if="a.url" :href="a.url" class="mr-2 uppercase" :class="link_classes">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-text-bottom">
-									<path d="M16.555 5.412a8.028 8.028 0 00-3.503-2.81 14.899 14.899 0 011.663 4.472 8.547 8.547 0 001.84-1.662zM13.326 7.825a13.43 13.43 0 00-2.413-5.773 8.087 8.087 0 00-1.826 0 13.43 13.43 0 00-2.413 5.773A8.473 8.473 0 0010 8.5c1.18 0 2.304-.24 3.326-.675zM6.514 9.376A9.98 9.98 0 0010 10c1.226 0 2.4-.22 3.486-.624a13.54 13.54 0 01-.351 3.759A13.54 13.54 0 0110 13.5c-1.079 0-2.128-.127-3.134-.366a13.538 13.538 0 01-.352-3.758zM5.285 7.074a14.9 14.9 0 011.663-4.471 8.028 8.028 0 00-3.503 2.81c.529.638 1.149 1.199 1.84 1.66zM17.334 6.798a7.973 7.973 0 01.614 4.115 13.47 13.47 0 01-3.178 1.72 15.093 15.093 0 00.174-3.939 10.043 10.043 0 002.39-1.896zM2.666 6.798a10.042 10.042 0 002.39 1.896 15.196 15.196 0 00.174 3.94 13.472 13.472 0 01-3.178-1.72 7.973 7.973 0 01.615-4.115zM10 15c.898 0 1.778-.079 2.633-.23a13.473 13.473 0 01-1.72 3.178 8.099 8.099 0 01-1.826 0 13.47 13.47 0 01-1.72-3.178c.855.151 1.735.23 2.633.23zM14.357 14.357a14.912 14.912 0 01-1.305 3.04 8.027 8.027 0 004.345-4.345c-.953.542-1.971.981-3.04 1.305zM6.948 17.397a8.027 8.027 0 01-4.345-4.345c.953.542 1.971.981 3.04 1.305a14.912 14.912 0 001.305 3.04z" />
-								</svg>
-								web
-							</a>
-							<a v-if="a.email" :href="'mailto:'+a.email" class="uppercase" :class="link_classes">
-								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-text-bottom">
-									<path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
-									<path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
-								</svg>
-								email
-							</a>
-						</li>
-					</ul>
-					<SmallMessage v-for="w in warnings['authors']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-					<p v-if="!manifest.authors || manifest.authors.length === 0" class="text-gray-500 italic">No authors listed</p>
-				</DataDef>
-
-				<DataDef field="Website:">
-					<a v-if="manifest.website" :href="manifest.website" :class="link_classes">{{ manifest.website }}</a>
-					<p v-else class="text-gray-500 italic">No website listed</p>
-					<SmallMessage v-for="w in warnings['website']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Code repository:">
-					<a v-if="manifest.code" :href="manifest.code" :class="link_classes">{{ manifest.code }}</a>
-					<p v-else class="text-gray-500 italic">No code repository listed</p>
-					<SmallMessage v-for="w in warnings['code']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-
-				<DataDef field="Funding:">
-					<a v-if="manifest.funding" :href="manifest.funding" :class="link_classes">{{ manifest.funding }}</a>
-					<p v-else class="text-gray-500 italic">No funding website listed</p>
-					<SmallMessage v-for="w in warnings['funding']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-
-				<DataDef v-if="warnings['icon']" field="Icon:">
-					<SmallMessage v-for="w in warnings['icon']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-				<DataDef v-if="warnings['accent-color']" field="Accent color:">
-					<SmallMessage v-for="w in warnings['accent-color']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-				<DataDef v-if="warnings['short-description']" field="Short description:">
-					<p>“{{ manifest.short_description }}”</p>
-					<SmallMessage v-for="w in warnings['short-description']" mood="warn" :class="small_msg_classes">{{ w.message }}</SmallMessage>
-				</DataDef>
-			</div>
+			<Manifest v-if="manifest" :manifest="manifest" :warnings="meta?.warnings"></Manifest>
 
 			<div class="my-6 px-4 sm:px-6">
 				<div class="py-2 flex justify-between items-baseline">

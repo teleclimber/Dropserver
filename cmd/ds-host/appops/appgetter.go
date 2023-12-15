@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
@@ -26,8 +25,8 @@ type appGetData struct {
 	hasAppID    bool
 	appID       domain.AppID
 	sandbox     domain.SandboxI
-	hasListing  bool
-	listing     domain.AppListingFetch
+	hasListing  bool                   // apparently unused
+	listing     domain.AppListingFetch // listing that we fetch at app creation time
 }
 
 type subscriber struct {
@@ -57,6 +56,7 @@ type AppGetter struct {
 	AppModel interface {
 		Create(domain.UserID) (domain.AppID, error)
 		CreateFromURL(domain.UserID, string, bool, domain.AppListingFetch) (domain.AppID, error)
+		GetAppUrlListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
 		CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
@@ -154,8 +154,6 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 		// Later we'll use an actual job to fetch and install the app version to prevent duplicates
 		// (Although since this is a new app install, a dedupe job is not necessary?)
 
-		g.sendEvent(data, domain.AppGetEvent{Step: "Fetching app package"})
-
 		packageURL, err := URLFromListing(listingURL, listingFetch.Listing.Base, versionListing.Package)
 		if err != nil {
 			// Shouldn't happen. All URLs should be checked before we get to this step.
@@ -165,49 +163,92 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 			return
 		}
 
-		locationKey, err := g.RemoteAppGetter.FetchPackageJob(packageURL)
-		if locationKey != "" {
-			data, ok = g.setLocationKey(data.key, locationKey)
-			if !ok {
-				return
-			}
-		}
-		if err != nil {
-			g.appendErrorResult(data.key, fmt.Sprintf("Error fetching package at %v: %v", packageURL, err.Error()))
-			g.sendEvent(data, domain.AppGetEvent{Done: true})
-			return
-		}
-
-		g.sendEvent(data, domain.AppGetEvent{Step: "Extracting app package"})
-
-		err = g.AppFilesModel.ExtractPackage(locationKey)
-		if err != nil {
-			g.appendErrorResult(data.key, "Error extracting app package: "+err.Error())
-			g.sendEvent(data, domain.AppGetEvent{Done: true})
-			return
-		}
-
-		g.processApp(data)
-
-		g.errorFromWarnings(data.key, false)
-
-		results, ok := g.GetResults(data.key)
-		if !ok {
-			return
-		}
-
-		if len(results.Errors) == 0 && len(results.Warnings) != 0 {
-			g.sendEvent(data, domain.AppGetEvent{Input: "commit"}) // user commit installation since there are warnings.
-		} else {
-			_, _, err = g.Commit(data.key)
-			if err != nil {
-				g.appendErrorResult(data.key, "Error committing app: "+err.Error())
-			}
-			g.sendEvent(data, domain.AppGetEvent{Done: true})
-		}
+		g.installFromURL(data.key, packageURL)
 	}()
 
 	return data.key, nil
+}
+
+func (g *AppGetter) InstallNewVersionFromURL(userID domain.UserID, appID domain.AppID, version domain.Version) (domain.AppGetKey, error) {
+	listing, urlData, err := g.AppModel.GetAppUrlListing(appID)
+	if err != nil {
+		return domain.AppGetKey(""), err
+	}
+	data := g.set(appGetData{
+		url:      urlData.URL,
+		userID:   userID,
+		hasAppID: true,
+		appID:    appID,
+	})
+
+	versionListing, ok := listing.Versions[version]
+	if !ok {
+		g.appendErrorResult(data.key, "Unable to find the requested version in the app listing: "+string(version))
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return data.key, err
+	}
+
+	packageURL, err := URLFromListing(urlData.URL, listing.Base, versionListing.Package)
+	if err != nil {
+		// Shouldn't happen. All URLs should be checked before we get to this step.
+		g.getLogger("InstallFromURL").AddNote("Unexpected error fron URLFromListing").Error(err)
+		g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return data.key, err
+	}
+
+	go g.installFromURL(data.key, packageURL)
+
+	return data.key, nil
+}
+
+func (g *AppGetter) installFromURL(key domain.AppGetKey, packageURL string) {
+	data, ok := g.get(key)
+	if !ok {
+		return //error?
+	}
+	g.sendEvent(data, domain.AppGetEvent{Step: "Fetching app package"})
+
+	locationKey, err := g.RemoteAppGetter.FetchPackageJob(packageURL)
+	if locationKey != "" {
+		data, ok = g.setLocationKey(data.key, locationKey)
+		if !ok {
+			return
+		}
+	}
+	if err != nil {
+		g.appendErrorResult(data.key, fmt.Sprintf("Error fetching package at %v: %v", packageURL, err.Error()))
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return
+	}
+
+	g.sendEvent(data, domain.AppGetEvent{Step: "Extracting app package"})
+
+	err = g.AppFilesModel.ExtractPackage(locationKey)
+	if err != nil {
+		g.appendErrorResult(data.key, "Error extracting app package: "+err.Error())
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return
+	}
+
+	g.processApp(data)
+
+	g.errorFromWarnings(data.key, false)
+
+	results, ok := g.GetResults(data.key)
+	if !ok {
+		return
+	}
+
+	if len(results.Errors) == 0 && len(results.Warnings) != 0 {
+		g.sendEvent(data, domain.AppGetEvent{Input: "commit"}) // user commit installation since there are warnings.
+	} else {
+		_, _, err = g.Commit(data.key)
+		if err != nil {
+			g.appendErrorResult(data.key, "Error committing app: "+err.Error())
+		}
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+	}
 }
 
 // InstallPackage extracts the package at location key and
@@ -265,6 +306,8 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 	return data.key, nil
 }
 
+// TODO this needs to be pure function so we can relay situation before the user goes any further
+// Do this by setting fatal on warning!
 func (g *AppGetter) errorFromWarnings(key domain.AppGetKey, devOnly bool) {
 	meta, ok := g.GetResults(key)
 	if !ok {
@@ -277,6 +320,10 @@ func (g *AppGetter) errorFromWarnings(key domain.AppGetKey, devOnly bool) {
 	// similar for schema. Any issue here is a dealbreaker
 	if hasWarnings("schema", meta.Warnings) {
 		g.appendErrorResult(key, "invalid schema")
+	}
+	// version sequence has to be clean
+	if hasProblem("version-sequence", domain.ProblemInvalid, meta.Warnings) {
+		g.appendErrorResult(key, "invalid version and schema sequence")
 	}
 
 	// if devOnly (like ds-dev) then don't trigger errors for remaining problems
@@ -332,11 +379,14 @@ func (g *AppGetter) processApp(keyData appGetData) {
 	g.setManifestResult(keyData.key, cleanManifest)
 
 	if keyData.hasAppID {
-		err = g.validateVersionSequence(keyData)
-		abort = g.checkStep(keyData, err, "error validating app version")
+		appVersions, err := g.getVersionSemvers(keyData.appID)
+		abort = g.checkStep(keyData, err, "error getting app versions")
 		if abort {
 			return
 		}
+		prev, next, warns := validateVersionSequence(cleanManifest.Version, cleanManifest.Schema, appVersions)
+		g.setWarningResult(keyData.key, warns...)
+		g.setPrevNextResult(keyData.key, prev, next)
 	}
 
 	// we may get duplicate warnings for some of these because we are validating twice
@@ -585,86 +635,21 @@ func (g *AppGetter) getRoutes(s domain.SandboxI) ([]domain.V0AppRoute, error) {
 	return routes, nil
 }
 
-// validateVersionSequence ensures the candidate app version fits
-// with existing versions already on system.
-func (g *AppGetter) validateVersionSequence(keyData appGetData) error {
-	meta, ok := g.GetResults(keyData.key)
-	if !ok {
-		return errors.New("could not get results metadata")
-	}
-	ver, _ := semver.New(string(meta.VersionManifest.Version)) // already validated in validateVersion
-	schema := meta.VersionManifest.Schema
-
-	semVersions, appErr, err := g.getVersions(keyData.appID, *ver)
-	if err != nil {
-		return err
-	}
-	if appErr != "" {
-		g.appendErrorResult(keyData.key, appErr)
-		return nil
-	}
-
-	var p, n domain.Version
-	verIndex, _ := getVerIndex(semVersions, *ver)
-	if verIndex != 0 {
-		prev := semVersions[verIndex-1]
-		if prev.appVersion.Schema > schema {
-			g.appendErrorResult(keyData.key, "Previous version has a higher schema")
-		}
-		p = prev.appVersion.Version
-	}
-	if verIndex != len(semVersions)-1 {
-		next := semVersions[verIndex+1]
-		if next.appVersion.Schema < schema {
-			g.appendErrorResult(keyData.key, "Next version has a lower schema")
-		}
-		n = next.appVersion.Version
-	}
-	g.setPrevNextResult(keyData.key, p, n)
-
-	return nil
-}
-
-type semverAppVersion struct {
-	semver     semver.Version
-	appVersion *domain.AppVersion
-}
-
-func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, string, error) {
-
+func (g *AppGetter) getVersionSemvers(appID domain.AppID) ([]appVersionSemver, error) {
 	appVersions, err := g.AppModel.GetVersionsForApp(appID)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-
-	semVersions := make([]semverAppVersion, len(appVersions)+1)
-	semVersions[0] = semverAppVersion{semver: newVer}
+	ret := make([]appVersionSemver, len(appVersions))
 	for i, appVersion := range appVersions {
-		sver, err := semver.New(string(appVersion.Version))
+		sver, err := semver.Parse(string(appVersion.Version))
 		if err != nil {
-			// couldn't parse semver of existing version.
-			return nil, "", err
+			g.getLogger("getVersionSemvers() semver.Parse").AppID(appID).AddNote(fmt.Sprintf("bad version: %v", appVersion.Version)).Error(err)
+			return nil, err
 		}
-		cmp := sver.Compare(newVer)
-		if cmp == 0 {
-			return nil, fmt.Sprintf("Version %s of the app aleady exists on the system", newVer), nil
-		}
-		semVersions[i+1] = semverAppVersion{semver: *sver, appVersion: appVersion}
+		ret[i] = appVersionSemver{*appVersion, sver}
 	}
-
-	sort.Slice(semVersions, func(i, j int) bool {
-		return semVersions[i].semver.Compare(semVersions[j].semver) == -1
-	})
-	return semVersions, "", nil
-}
-
-func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
-	for i, v := range semVers {
-		if v.semver.Compare(ver) == 0 {
-			return i, true
-		}
-	}
-	return 0, false
+	return ret, nil
 }
 
 func (g *AppGetter) validateChangelog(keyData appGetData) error {
@@ -977,7 +962,12 @@ func (g *AppGetter) set(d appGetData) appGetData { // createKey
 	g.keys[key] = d
 
 	// then init the results map for this key
-	g.results[key] = domain.AppGetMeta{Key: key, Errors: make([]string, 0), Warnings: make([]domain.ProcessWarning, 0)}
+	g.results[key] = domain.AppGetMeta{
+		Key:      key,
+		AppID:    d.appID,
+		Errors:   make([]string, 0),
+		Warnings: make([]domain.ProcessWarning, 0),
+	}
 
 	return d
 }

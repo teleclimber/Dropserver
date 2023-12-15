@@ -4,11 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/blang/semver/v4"
-	"github.com/golang/mock/gomock"
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestSetKey(t *testing.T) {
@@ -132,109 +127,5 @@ func TestGetDefaultEntryPoint(t *testing.T) {
 	result, _ = g.GetResults(keyData.key)
 	if len(result.Errors) != 1 {
 		t.Errorf("expected one Meta.Error")
-	}
-}
-
-func TestVersionSort(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appID := domain.AppID(7)
-	ver, _ := semver.New("0.5.0")
-
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-
-	g := &AppGetter{
-		AppModel: appModel,
-	}
-
-	// basic sorting:
-	appModel.EXPECT().GetVersionsForApp(appID).Return([]*domain.AppVersion{
-		{Version: domain.Version("0.8.1")},
-		{Version: domain.Version("0.2.1")},
-	}, nil)
-	vers, appErr, err := g.getVersions(appID, *ver)
-	if err != nil {
-		t.Error(err)
-	}
-	if appErr != "" {
-		t.Error(appErr)
-	}
-	if vers[0].appVersion.Version != domain.Version("0.2.1") {
-		t.Error("sort order is wrong")
-	}
-
-	// dupe version
-	appModel.EXPECT().GetVersionsForApp(appID).Return([]*domain.AppVersion{
-		{Version: domain.Version("0.8.1")},
-		{Version: domain.Version("0.5.0")},
-	}, nil)
-	_, appErr, err = g.getVersions(appID, *ver)
-	if err != nil {
-		t.Error(err)
-	}
-	if appErr == "" {
-		t.Error("expected an error")
-	}
-}
-
-func TestValidateSequence(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appID := domain.AppID(7)
-
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-
-	g := &AppGetter{
-		AppModel: appModel,
-	}
-	g.Init()
-
-	cases := []struct {
-		desc        string
-		appVersions []*domain.AppVersion
-		numErr      int
-	}{
-		{"incrementing schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 2},
-			{Version: domain.Version("0.2.1"), Schema: 0},
-		}, 0},
-		{"same schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 1},
-			{Version: domain.Version("0.2.1"), Schema: 1},
-		}, 0},
-		{"next has lower schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 0},
-			{Version: domain.Version("0.2.1"), Schema: 1},
-		}, 1},
-		{"prev has higher schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 1},
-			{Version: domain.Version("0.2.1"), Schema: 2},
-		}, 1},
-		{"prev only increment schema", []*domain.AppVersion{
-			{Version: domain.Version("0.2.1"), Schema: 0},
-		}, 0},
-		{"next only increment schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 2},
-		}, 0},
-	}
-
-	for _, c := range cases {
-		keyData := g.set(appGetData{appID: appID})
-		g.setManifestResult(keyData.key, domain.AppVersionManifest{
-			Version: domain.Version("0.5.0"),
-			Schema:  1,
-		})
-		appModel.EXPECT().GetVersionsForApp(appID).Return(c.appVersions, nil)
-		err := g.validateVersionSequence(keyData)
-		if err != nil {
-			t.Error(c.desc, err)
-		}
-		result, _ := g.GetResults(keyData.key)
-		if len(result.Errors) != c.numErr {
-			t.Log(result.Errors)
-			t.Error(c.desc, "got unexpected errors")
-		}
 	}
 }

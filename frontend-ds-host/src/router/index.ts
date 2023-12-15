@@ -17,6 +17,7 @@ import ManageRemoteAppspace from '../views/ManageRemoteAppspace.vue';
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
 import NewApp from '../views/NewApp.vue';
+import NewAppVersion from '../views/NewAppVersion.vue';
 import NewAppInProcess from '../views/NewAppInProcess.vue';
 
 import Contacts from '../views/Contacts.vue';
@@ -176,10 +177,13 @@ const routes: Array<RouteRecordRaw> = [
 	},{
 		path: '/app/:id/new-version',
 		name: 'new-app-version',
-		component: NewApp,
+		component: NewAppVersion,
 		props: route => {
+			let v = '';
+			if( route.query['version'] && !Array.isArray(route.query['version']) ) v = route.query['version'];
 			return {
-				app_id: appIdParam(route)
+				app_id: appIdParam(route),
+				version: v
 			}
 		},
 		meta: {

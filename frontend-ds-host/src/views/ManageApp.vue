@@ -4,12 +4,10 @@ import { useRouter } from 'vue-router';
 
 import { useAppsStore } from '@/stores/apps';
 import { useAppspacesStore } from '@/stores/appspaces';
-import { Appspace, LoadState } from '@/stores/types';
-import { getLoadState } from '@/stores/loadable';
+import { Appspace } from '@/stores/types';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
-import DataDef from '@/components/ui/DataDef.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
 
 import AppLicense from '@/components/app/AppLicense.vue';
@@ -23,14 +21,14 @@ const props = defineProps<{
 }>();
 
 const appsStore = useAppsStore();
-appsStore.loadApp(Number(props.app_id));
+appsStore.loadApp(props.app_id);
 appsStore.loadAppVersions(props.app_id);
 
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 
 const app = computed( () => {
-	const a = appsStore.getApp(Number(props.app_id));
+	const a = appsStore.getApp(props.app_id);
 	if( a ) return a.value;
 	return undefined;
 });
@@ -180,7 +178,12 @@ async function setAutomatic(auto :boolean) {
 						<span v-else class="text-gray-600 italic">hang on...</span>
 					</p>
 					<p v-if="app.cur_ver !== app.url_data.latest_version">
-						New version is available: {{ app.url_data.latest_version }}
+						New version is available:
+						<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{ app.url_data.latest_version }}</span>
+						<router-link :to="{name:'new-app-version', query:{version:app.url_data.latest_version}}"
+							class="btn whitespace-nowrap ">
+							Get it
+						</router-link>
 						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
 						<!-- We could also show new versions or any relevant version in the versions listing. That seems like the best place? -->
 					</p>

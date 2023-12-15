@@ -476,10 +476,11 @@ const ProblemError ProcessProblem = "error"
 const ProblemPoorExperience ProcessProblem = "poor-experience"
 
 type ProcessWarning struct {
-	Field    string         `json:"field"`     // Field is JSON key of problematic field, repeat of map key
+	Field    string         `json:"field"`     // Field indicates area of problem. It can be the json key from manifest or something else
 	Problem  ProcessProblem `json:"problem"`   // Problem for classification
 	BadValue string         `json:"bad_value"` // BadValue of field for safe display
 	Message  string         `json:"message"`   // Message for user or developer
+	// Add Fatal field to indicate that process failed and this is why?
 }
 
 // AppGetMeta has app version data and any errors found in it
@@ -490,7 +491,7 @@ type AppGetMeta struct {
 	Errors      []string         `json:"errors"`
 	Warnings    []ProcessWarning `json:"warnings"`
 	// VersionManifest is currently the manifest as determined by the app processing steps.
-	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
+	VersionManifest AppVersionManifest `json:"version_manifest"`
 	// AppID of the app if getting a new version, or of the created app if new app
 	AppID AppID `json:"app_id"`
 }
