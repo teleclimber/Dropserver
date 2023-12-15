@@ -184,8 +184,17 @@ async function setAutomatic(auto :boolean) {
 							class="btn whitespace-nowrap ">
 							Get it
 						</router-link>
+						<!-- this goes wrong if latest version becomes unavailable. -->
 						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
 						<!-- We could also show new versions or any relevant version in the versions listing. That seems like the best place? -->
+					</p>
+					<p v-else>
+						You have the latest version. 
+						<router-link :to="{name:'new-app-version', query:{version:undefined}}"
+							class="btn whitespace-nowrap ">
+							Get a different version
+						</router-link>
+						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
 					</p>
 				</div>
 				<div class="grid grid-cols-4 items-stretch">

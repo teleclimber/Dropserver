@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -62,6 +63,7 @@ type ApplicationRoutes struct {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
 		GetAppUrlData(appID domain.AppID) (domain.AppURLData, error)
+		GetAppUrlListing(appID domain.AppID) (domain.AppListing, domain.AppURLData, error)
 		UpdateAutomatic(appID domain.AppID, auto bool) error
 		GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error) // maybe no longer necessary?
@@ -95,6 +97,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Get("/", a.getApplication)
 		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
 		r.Post("/refresh-listing", a.refreshListing)
+		r.Get("/listing-versions", a.getListingVersions)
 		r.Get("/fetch-version-manifest", a.fetchVersionManifest)
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
@@ -225,6 +228,23 @@ func (a *ApplicationRoutes) refreshListing(w http.ResponseWriter, r *http.Reques
 		// because it's most likely an error with the fetch or validation of returned data
 		w.Write([]byte(err.Error()))
 	}
+}
+
+func (a *ApplicationRoutes) getListingVersions(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	listing, _, err := a.AppModel.GetAppUrlListing(app.AppID)
+	if err != nil {
+		returnError(w, err)
+	}
+
+	// consider bailing if urldata has new url set?
+
+	sorted, err := appops.GetSortedVersions(listing.Versions)
+	if err != nil {
+		returnError(w, err)
+	}
+
+	writeJSON(w, sorted) // for now we just send an array of versions. We have no other data anywyas.
 }
 
 func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.Request) {

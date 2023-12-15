@@ -20,6 +20,32 @@ watch( props, async () => {
 	getMeta.value = await appsStore.fetchVersionManifest(props.app_id, props.version);
 }, {immediate: true});
 
+const listing_versions :Ref<string[]|undefined> = ref();
+const versions_error = ref("");
+watch( props, async () => {
+	try {
+		const resp = await fetch(`/api/application/${props.app_id}/listing-versions`);
+		listing_versions.value = <string[]>await resp.json();
+	}
+	catch(e) {
+		versions_error.value = "error fetching listing versions"
+	}
+}, {immediate: true});
+
+const picked_version = ref("latest");
+watch( () => props.version, async () => {
+	picked_version.value = props.version || "latest";
+}, {immediate: true});
+
+watch( picked_version, () => {
+	if( picked_version.value === "latest" /*&& props.version*/ ) {
+		router.replace({name:'new-app-version', query:{version:undefined}})
+	}
+	else if( picked_version.value !== props.version ) {
+		router.replace({name:'new-app-version', query:{version:picked_version.value}})
+	}
+}, {immediate: true});
+
 const has_error = ref(false);	// TODO: true if there are any fatal errors in validation
 
 const submitting = ref(false);
@@ -39,32 +65,37 @@ async function cancel() {
 </script>
 
 <template>
-	<ViewWrap>
-		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
-			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">
-					Details for version {{ version }}
-				</h3>
+	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+		<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+			<h3 class="text-lg leading-6 font-medium text-gray-900">
+				Install version from application website:
+			</h3>
+			<div class="mt-2">
+				Select version: 
+				<select ref="pick_version" v-model="picked_version" class="shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+					<option value="latest">Latest</option>
+					<option v-for="v in listing_versions" :key="'version-'+v" :value="v">{{v}}</option>
+				</select>
 			</div>
-
-			<!-- fatal errors that prevent installation should be shown here. -->
-
-			<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
-			<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
-
-			<form @submit.prevent="doInstall" @keyup.esc="cancel">
-				<div class="px-4 py-5 sm:px-6 flex justify-between">
-					<input type="button" class="btn" @click="cancel" value="Cancel" />
-					<input
-						ref="create_button"
-						type="submit"
-						class="btn-blue"
-						:disabled="has_error || submitting"
-						value="Install" />
-				</div>
-			</form>
-
 		</div>
-	</ViewWrap>
+
+		<!-- fatal errors that prevent installation should be shown here. -->
+
+		<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+		<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
+
+		<form @submit.prevent="doInstall" @keyup.esc="cancel">
+			<div class="px-4 py-5 sm:px-6 flex justify-between">
+				<input type="button" class="btn" @click="cancel" value="Cancel" />
+				<input
+					ref="create_button"
+					type="submit"
+					class="btn-blue"
+					:disabled="has_error || submitting"
+					value="Install" />
+			</div>
+		</form>
+
+	</div>
 </template>
 

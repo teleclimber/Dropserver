@@ -237,9 +237,48 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 
 	// check url data for reasons to bail: like new url?
 
+	// bail if no versions:
+	if len(listing.Versions) == 0 {
+		return domain.AppGetMeta{
+			AppID: appID,
+			Warnings: []domain.ProcessWarning{{
+				Field:   "listing",
+				Problem: domain.ProblemInvalid,
+				Message: "App listing contains zero versions",
+				// TODO mark as Fatal
+			}},
+		}, nil
+	}
+
+	// if version is not set, return the latest version:
+	if version == domain.Version("") {
+		version, err = GetLatestVersion(listing.Versions)
+		if err != nil {
+			return domain.AppGetMeta{
+				AppID: appID,
+				Warnings: []domain.ProcessWarning{{
+					Field:   "listing",
+					Problem: domain.ProblemError,
+					Message: "Error while determining latest version in app listing: " + err.Error(),
+					// TODO mark as Fatal
+				}},
+			}, nil
+		}
+	}
+
 	manifest, err := r.fetchManifestFromListing(urlData.URL, listing, version)
 	if err != nil {
-		return domain.AppGetMeta{}, err
+		if err != nil {
+			return domain.AppGetMeta{
+				AppID: appID,
+				Warnings: []domain.ProcessWarning{{
+					Field:   "manifest",
+					Problem: domain.ProblemError,
+					Message: "Error while fetching the app manifest: " + err.Error(),
+					// TODO mark as Fatal
+				}},
+			}, nil
+		}
 	}
 
 	manifest, warnings := validateManifest(manifest)

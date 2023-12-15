@@ -69,6 +69,7 @@ func validateListingPath(p string, required bool) error {
 
 // URLFromListing returns a URL for a relative path of a listing
 // It assumes values passed are already sanitzed.
+// maybe this should not be exported? If it needs to be used externally it needs to be injected.
 func URLFromListing(listingURL, baseURL, relPath string) (string, error) { // leave here ot move to independent remote function?
 	var u *url.URL
 	var err error
@@ -86,29 +87,42 @@ func URLFromListing(listingURL, baseURL, relPath string) (string, error) { // le
 }
 
 type semverListing struct {
-	semver *semver.Version
+	semver semver.Version
 	verStr domain.Version
 }
 
+// GetLatestVersion should maybe be pulled out into reusable utility package?
 func GetLatestVersion(versions map[domain.Version]domain.AppListingVersion) (domain.Version, error) {
+	sorted, err := GetSortedVersions(versions)
+	if err != nil {
+		return domain.Version(""), err
+	}
+	return sorted[0], nil
+}
+
+// GetSortedVersions sorts versions from newest to oldest.
+func GetSortedVersions(versions map[domain.Version]domain.AppListingVersion) ([]domain.Version, error) {
 	if len(versions) == 0 {
-		return domain.Version(""), errors.New("no versions in listing")
+		return []domain.Version{}, nil
 	}
 	semVersions := make([]semverListing, len(versions))
 	i := 0
 	for v := range versions {
-		sver, err := semver.New(string(v))
+		sver, err := semver.Parse(string(v))
 		if err != nil {
-			return domain.Version(""), err
+			return []domain.Version{}, err
 		}
 		semVersions[i] = semverListing{semver: sver, verStr: v}
 		i++
 	}
 
 	sort.Slice(semVersions, func(i, j int) bool {
-		return semVersions[i].semver.Compare(*semVersions[j].semver) == 1
+		return semVersions[i].semver.Compare(semVersions[j].semver) == 1
 	})
 
-	return semVersions[0].verStr, nil
-
+	ret := make([]domain.Version, len(semVersions))
+	for i, s := range semVersions {
+		ret[i] = s.verStr
+	}
+	return ret, nil
 }
