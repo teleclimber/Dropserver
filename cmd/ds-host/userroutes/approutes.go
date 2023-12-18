@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -47,8 +48,10 @@ type ApplicationRoutes struct {
 		Delete(domain.AppGetKey)
 	} `checkinject:"required"`
 	RemoteAppGetter interface {
+		FetchValidListing(string) (domain.AppListingFetch, error)
 		RefreshAppListing(domain.AppID) error
 		FetchNewVersionManifest(domain.AppID, domain.Version) (domain.AppGetMeta, error)
+		FetchUrlVersionManifest(string, domain.Version) (domain.AppGetMeta, error)
 	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
@@ -81,6 +84,12 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 
 	r.Get("/", a.getApplications)
 	r.Post("/", a.postNewApplication)
+
+	r.Route("/fetch/{app-url}", func(r chi.Router) {
+		r.Use(a.appUrlCtx)
+		r.Get("/listing-versions", a.fetchUrlListingVersions)
+		r.Get("/manifest", a.fetchUrlVersionManifest)
+	})
 
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
 		r.Use(a.appGetKeyCtx)
@@ -235,6 +244,7 @@ func (a *ApplicationRoutes) getListingVersions(w http.ResponseWriter, r *http.Re
 	listing, _, err := a.AppModel.GetAppUrlListing(app.AppID)
 	if err != nil {
 		returnError(w, err)
+		return
 	}
 
 	// consider bailing if urldata has new url set?
@@ -242,6 +252,40 @@ func (a *ApplicationRoutes) getListingVersions(w http.ResponseWriter, r *http.Re
 	sorted, err := appops.GetSortedVersions(listing.Versions)
 	if err != nil {
 		returnError(w, err)
+		return
+	}
+
+	writeJSON(w, sorted) // for now we just send an array of versions. We have no other data anywyas.
+}
+
+func (a *ApplicationRoutes) fetchUrlListingVersions(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	listingFetch, err := a.RemoteAppGetter.FetchValidListing(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if listingFetch.NewURL != "" || listingFetch.Listing.NewURL != "" {
+		newUrl := listingFetch.NewURL
+		if newUrl == "" {
+			newUrl = listingFetch.Listing.NewURL
+		}
+		http.Error(w, "listing is available at a new URL: "+newUrl, http.StatusBadRequest)
+		return
+	}
+
+	sorted, err := appops.GetSortedVersions(listingFetch.Listing.Versions)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	writeJSON(w, sorted) // for now we just send an array of versions. We have no other data anywyas.
@@ -260,6 +304,31 @@ func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.
 	manifestMeta, err := a.RemoteAppGetter.FetchNewVersionManifest(app.AppID, domain.Version(v))
 	if err != nil {
 		returnError(w, err)
+	}
+
+	writeJSON(w, manifestMeta)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionManifest(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	}
+
+	manifestMeta, err := a.RemoteAppGetter.FetchUrlVersionManifest(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	writeJSON(w, manifestMeta)
@@ -715,6 +784,25 @@ func (a *ApplicationRoutes) appGetKeyCtx(next http.Handler) http.Handler {
 		}
 
 		r = r.WithContext(domain.CtxWithAppGetKey(r.Context(), appGetKey))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *ApplicationRoutes) appUrlCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, err := url.PathUnescape(chi.URLParam(r, "app-url"))
+		if err != nil {
+			returnError(w, errBadRequest)
+			return
+		}
+		err = validator.HttpURL(u)
+		if err != nil {
+			returnError(w, errBadRequest)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppUrl(r.Context(), u))
 
 		next.ServeHTTP(w, r)
 	})

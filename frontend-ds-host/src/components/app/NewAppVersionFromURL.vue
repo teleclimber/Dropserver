@@ -2,7 +2,6 @@
 import { ref, Ref, watch } from "vue";
 import { useRouter } from 'vue-router';
 import { useAppsStore, AppGetMeta } from '@/stores/apps';
-import ViewWrap from '@/components/ViewWrap.vue';
 import AppCard from "./AppCard.vue";
 import Manifest from "./Manifest.vue";
 

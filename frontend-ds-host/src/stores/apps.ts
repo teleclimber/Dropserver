@@ -250,7 +250,7 @@ export type Warning = {
 }
 
 
-function rawToAppManifest(raw:any) :AppManifest|undefined {
+export function rawToAppManifest(raw:any) :AppManifest|undefined {
 	if( raw.version === "" ) return undefined;	// version is the only required part of manifest, if it's not set we just got a zero-value manifest.
 	const ret = Object.assign({}, raw);
 	Object.keys(ret).filter( k => k.includes("-") ).forEach( k => {

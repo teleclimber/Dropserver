@@ -17,6 +17,7 @@ import ManageRemoteAppspace from '../views/ManageRemoteAppspace.vue';
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
 import NewApp from '../views/NewApp.vue';
+import NewAppFromURL from '../views/NewAppFromURL.vue';
 import NewAppVersion from '../views/NewAppVersion.vue';
 import NewAppInProcess from '../views/NewAppInProcess.vue';
 
@@ -210,7 +211,24 @@ const routes: Array<RouteRecordRaw> = [
 			title: "New App"
 		}
 	},{
-		path: '/new-app/:app_get_key',
+		path: '/new-app/:url',
+		name: 'new-app-from-url',
+		component: NewAppFromURL,
+		props: route => {
+			let u = route.params.url;
+			if( Array.isArray(u) ) u = u[0];
+			let v = '';
+			if( route.query['version'] && !Array.isArray(route.query['version']) ) v = route.query['version'];
+			return {
+				url: u,
+				version: v
+			}
+		},
+		meta: {
+			title: "New App From URL"
+		}
+	},{
+		path: '/processing-app/:app_get_key',
 		name: 'new-app-in-process',
 		component: NewAppInProcess,
 		props: true,

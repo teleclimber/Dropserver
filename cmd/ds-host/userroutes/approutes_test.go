@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -204,6 +205,34 @@ func TestInvalidAppVersionCtx(t *testing.T) {
 
 	if rr.Result().StatusCode != http.StatusNotFound {
 		t.Errorf("expected Not Found got status %v", rr.Result().Status) // we should really validate vesion string and return bad request instead.
+	}
+}
+
+func TestAppUrlCtx(t *testing.T) {
+	testUrl := "https://abc.com/app/app-listing.json"
+	a := ApplicationRoutes{}
+
+	router := chi.NewMux()
+	router.With(a.appUrlCtx).Get("/in-process/{app-url}", func(w http.ResponseWriter, r *http.Request) {
+		u, ok := domain.CtxAppUrl(r.Context())
+		if !ok {
+			t.Error("did not get URL")
+		}
+		if u != testUrl {
+			t.Errorf("expected url: %s, got %s", testUrl, u)
+		}
+	})
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/in-process/%s", url.PathEscape(testUrl)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("status not OK %v", rr.Result().Status)
 	}
 }
 

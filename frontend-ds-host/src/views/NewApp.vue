@@ -42,13 +42,9 @@ const url_message = computed( () => {
 	return "OK";
 });
 
-const submitting = ref(false);
 async function submitFromURL() {
 	if( from_url_valid.value !== "" ) return;
-	submitting.value = true;
-	const app_get_key = await appsStore.getNewAppFromURL(from_url_normalized.value);
-	submitting.value = false;
-	router.push({name: 'new-app-in-process', params:{app_get_key}});
+	router.push({name: 'new-app-from-url', params:{url:from_url.value}});
 }
 
 </script>
@@ -75,7 +71,7 @@ async function submitFromURL() {
 				<div class="px-4 pb-5 sm:px-6 flex justify-end items-center">
 					<input type="submit"
 						class="btn-blue"
-						:disabled="from_url === '' || from_url_valid !== '' || submitting"
+						:disabled="from_url === '' || from_url_valid !== ''"
 						value="Fetch App" />
 				</div>
 			</form>
