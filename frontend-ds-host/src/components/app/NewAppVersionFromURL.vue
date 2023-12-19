@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import { ref, Ref, watch } from "vue";
+import { ref, Ref, watch, computed } from "vue";
 import { useRouter } from 'vue-router';
 import { useAppsStore, AppGetMeta } from '@/stores/apps';
+import MessageSad from "@/components/ui/MessageSad.vue";
+import BigLoader from "@/components/ui/BigLoader.vue";
 import AppCard from "./AppCard.vue";
 import Manifest from "./Manifest.vue";
 
@@ -15,19 +17,26 @@ const router = useRouter();
 const appsStore = useAppsStore();
 
 const getMeta :Ref<AppGetMeta|undefined> = ref();
+const manifest_error = ref("");
 watch( props, async () => {
-	getMeta.value = await appsStore.fetchVersionManifest(props.app_id, props.version);
+	manifest_error.value = "";
+	try {
+		getMeta.value = await appsStore.fetchVersionManifest(props.app_id, props.version);
+	}
+	catch(e) {
+		manifest_error.value = "error fetching listing versions"
+	}
 }, {immediate: true});
 
 const listing_versions :Ref<string[]|undefined> = ref();
-const versions_error = ref("");
+const listing_error = ref("");
 watch( props, async () => {
 	try {
 		const resp = await fetch(`/api/application/${props.app_id}/listing-versions`);
 		listing_versions.value = <string[]>await resp.json();
 	}
 	catch(e) {
-		versions_error.value = "error fetching listing versions"
+		listing_error.value = "error fetching listing versions"
 	}
 }, {immediate: true});
 
@@ -45,7 +54,12 @@ watch( picked_version, () => {
 	}
 }, {immediate: true});
 
-const has_error = ref(false);	// TODO: true if there are any fatal errors in validation
+const has_error = computed( () => {	
+	if( listing_error.value !== "" ) return true;
+	if( manifest_error.value !== "" ) return true;
+
+	if( getMeta.value?.errors.length ) return true;
+});
 
 const submitting = ref(false);
 async function doInstall() {
@@ -78,7 +92,17 @@ async function cancel() {
 			</div>
 		</div>
 
-		<!-- fatal errors that prevent installation should be shown here. -->
+		<MessageSad v-if="listing_error" head="Problem fetching listing" class="m-6">
+			{{ listing_error }}
+		</MessageSad>
+		<MessageSad v-else-if="manifest_error" head="Problem fetching manifest" class="m-6">
+			{{ manifest_error }}
+		</MessageSad>
+		<BigLoader v-else-if="listing_versions === undefined"></BigLoader>
+
+		<MessageSad v-if="getMeta?.errors.length" head="Unable to install this version" class="m-6">
+			<p v-for="e in getMeta.errors">{{ e }}</p>
+		</MessageSad>
 
 		<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
 		<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>

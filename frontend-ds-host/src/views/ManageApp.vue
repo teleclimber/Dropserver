@@ -177,7 +177,7 @@ async function setAutomatic(auto :boolean) {
 						</button>
 						<span v-else class="text-gray-600 italic">hang on...</span>
 					</p>
-					<p v-if="app.cur_ver !== app.url_data.latest_version">
+					<p v-if="!app.url_data.new_url && app.cur_ver !== app.url_data.latest_version">
 						New version is available:
 						<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{ app.url_data.latest_version }}</span>
 						<router-link :to="{name:'new-app-version', query:{version:app.url_data.latest_version}}"
@@ -188,7 +188,7 @@ async function setAutomatic(auto :boolean) {
 						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
 						<!-- We could also show new versions or any relevant version in the versions listing. That seems like the best place? -->
 					</p>
-					<p v-else>
+					<p v-else-if="!app.url_data.new_url">
 						You have the latest version. 
 						<router-link :to="{name:'new-app-version', query:{version:undefined}}"
 							class="btn whitespace-nowrap ">

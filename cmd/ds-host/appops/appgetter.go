@@ -308,33 +308,14 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 	return data.key, nil
 }
 
-// TODO this needs to be pure function so we can relay situation before the user goes any further
-// Do this by setting fatal on warning!
 func (g *AppGetter) errorFromWarnings(key domain.AppGetKey, devOnly bool) {
 	meta, ok := g.GetResults(key)
 	if !ok {
 		return
 	}
-	//invalid migrations prevent app from running because we can't migrate to schema
-	if hasProblem("migrations", domain.ProblemInvalid, meta.Warnings) {
-		g.appendErrorResult(key, "invalid migrations")
-	}
-	// similar for schema. Any issue here is a dealbreaker
-	if hasWarnings("schema", meta.Warnings) {
-		g.appendErrorResult(key, "invalid schema")
-	}
-	// version sequence has to be clean
-	if hasProblem("version-sequence", domain.ProblemInvalid, meta.Warnings) {
-		g.appendErrorResult(key, "invalid version and schema sequence")
-	}
-
-	// if devOnly (like ds-dev) then don't trigger errors for remaining problems
-	if devOnly {
-		return
-	}
-
-	if hasWarnings("version", meta.Warnings) {
-		g.appendErrorResult(key, "problem with version string")
+	err := errorFromWarnings(meta.Warnings, devOnly)
+	if err != nil {
+		g.appendErrorResult(key, err.Error())
 	}
 }
 

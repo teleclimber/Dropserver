@@ -259,7 +259,9 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 		if newUrl == "" {
 			newUrl = urlData.NewURL
 		}
-		return domain.AppGetMeta{}, errors.New("listing is available at a different URL: " + newUrl)
+		return domain.AppGetMeta{
+			Errors: []string{"listing is available at a different URL: " + newUrl},
+		}, nil
 	}
 
 	// if version is not set, return the latest version:
@@ -273,24 +275,32 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 
 	manifest, err := r.fetchManifestFromListing(urlData.URL, listing, version)
 	if err != nil {
-		return domain.AppGetMeta{}, fmt.Errorf("error while fetching the app manifest: %w", err)
+		return domain.AppGetMeta{
+			Errors: []string{"error while fetching the app manifest: " + err.Error()},
+		}, nil
 	}
 
 	manifest, warnings := validateManifest(manifest)
 
 	appVersions, err := r.getVersionSemvers(appID)
 	if err != nil {
+		// this is an internal error
 		return domain.AppGetMeta{}, err
 	}
 	prev, next, warns := validateVersionSequence(manifest.Version, manifest.Schema, appVersions)
 	warnings = addWarning(warnings, warns...)
 
-	// TODO run through error trap ?
+	errStrs := make([]string, 0)
+	err = errorFromWarnings(warnings, false)
+	if err != nil {
+		errStrs = []string{err.Error()}
+	}
 
 	return domain.AppGetMeta{
 		AppID:           appID,
 		PrevVersion:     prev,
 		NextVersion:     next,
+		Errors:          errStrs,
 		Warnings:        warnings,
 		VersionManifest: manifest,
 	}, nil
@@ -324,9 +334,14 @@ func (r *RemoteAppGetter) FetchUrlVersionManifest(listingUrl string, version dom
 
 	manifest, warnings := validateManifest(manifest)
 
-	// TODO pass validated manifest through fatal errors check
+	errStrs := make([]string, 0)
+	err = errorFromWarnings(warnings, false)
+	if err != nil {
+		errStrs = []string{err.Error()}
+	}
 
 	return domain.AppGetMeta{
+		Errors:          errStrs,
 		Warnings:        warnings,
 		VersionManifest: manifest,
 	}, nil

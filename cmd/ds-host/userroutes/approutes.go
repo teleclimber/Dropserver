@@ -303,7 +303,8 @@ func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.
 
 	manifestMeta, err := a.RemoteAppGetter.FetchNewVersionManifest(app.AppID, domain.Version(v))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		returnError(w, err)
+		return
 	}
 
 	writeJSON(w, manifestMeta)

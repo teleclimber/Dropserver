@@ -1,6 +1,7 @@
 package appops
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"net/http"
@@ -629,6 +630,34 @@ func validatePackagePath(p string) (string, bool) {
 		p = p[1:]
 	}
 	return p, true
+}
+
+// errorFromWarnings returns an error if any warning
+// makes the app uninstallable
+func errorFromWarnings(warnings []domain.ProcessWarning, devOnly bool) error {
+	//invalid migrations prevent app from running because we can't migrate to schema
+	if hasProblem("migrations", domain.ProblemInvalid, warnings) {
+		return errors.New("invalid migrations")
+	}
+	// similar for schema. Any issue here is a dealbreaker
+	if hasWarnings("schema", warnings) {
+		return errors.New("invalid schema")
+	}
+	// version sequence has to be clean
+	if hasProblem("version-sequence", domain.ProblemInvalid, warnings) {
+		return errors.New("invalid version and schema sequence")
+	}
+
+	// if devOnly (like ds-dev) then don't trigger errors for remaining problems
+	if devOnly {
+		return nil
+	}
+
+	if hasWarnings("version", warnings) {
+		return errors.New("problem with version string")
+	}
+
+	return nil
 }
 
 func hasWarnings(field string, warnings []domain.ProcessWarning) bool {

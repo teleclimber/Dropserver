@@ -71,7 +71,7 @@ const has_error = computed( () => {
 	if( listing_error.value !== "" ) return true;
 	if( manifest_error.value !== "" ) return true;
 
-	// TODO: also true if there are any fatal errors in validation
+	if( getMeta.value?.errors.length ) return true;
 });
 
 const auto_refresh_listing = ref(true);
@@ -119,12 +119,9 @@ async function cancel() {
 			</MessageSad>
 			<BigLoader v-else-if="listing_versions === undefined"></BigLoader>
 
-
-			<!-- handle cases like non-2xx responses, new_url, timeouts etc... for remote. -->
-
-			
-
-			<!-- TODO fatal errors that prevent installation should be shown here. -->
+			<MessageSad v-if="getMeta?.errors.length" head="Unable to install this app" class="m-6">
+				<p v-for="e in getMeta.errors">{{ e }}</p>
+			</MessageSad>
 
 			<template v-if="getMeta?.version_manifest">
 				<AppCard  :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
