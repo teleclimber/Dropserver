@@ -18,15 +18,16 @@ import (
 )
 
 type appGetData struct {
-	key         domain.AppGetKey
-	url         string
-	locationKey string
-	userID      domain.UserID
-	hasAppID    bool
-	appID       domain.AppID
-	sandbox     domain.SandboxI
-	hasListing  bool                   // apparently unused
-	listing     domain.AppListingFetch // listing that we fetch at app creation time
+	key                domain.AppGetKey
+	url                string
+	locationKey        string
+	userID             domain.UserID
+	hasAppID           bool
+	appID              domain.AppID
+	sandbox            domain.SandboxI
+	hasListing         bool                   // apparently unused
+	listing            domain.AppListingFetch // listing that we fetch at app creation time
+	autoRefreshListing bool                   // user's choice on whether listing should be refreshed automatically
 }
 
 type subscriber struct {
@@ -108,10 +109,11 @@ func (g *AppGetter) Stop() {
 }
 
 // InstallFromURL installs a new app from a URL
-func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error) {
+func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, version domain.Version, autoRefreshListing bool) (domain.AppGetKey, error) {
 	data := g.set(appGetData{
-		url:    listingURL,
-		userID: userID,
+		url:                listingURL,
+		userID:             userID,
+		autoRefreshListing: autoRefreshListing,
 	})
 
 	go func() {
@@ -873,8 +875,7 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		if keyData.url == "" {
 			aID, err = g.AppModel.Create(keyData.userID) // Here we have to split depending on whether it's url or not.
 		} else {
-			aID, err = g.AppModel.CreateFromURL(keyData.userID, keyData.url, false, keyData.listing)
-			// TODO Where is "automatic" coming from??
+			aID, err = g.AppModel.CreateFromURL(keyData.userID, keyData.url, keyData.autoRefreshListing, keyData.listing)
 		}
 		if err != nil {
 			g.appendErrorResult(key, err.Error())

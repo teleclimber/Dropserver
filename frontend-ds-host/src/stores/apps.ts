@@ -138,8 +138,8 @@ export const useAppsStore = defineStore('apps', () => {
 	}
 
 	// fetch new app from the passed URL
-	async function getNewAppFromURL(url: string, version?: string) :Promise<string> {
-		const resp = await ax.post('/api/application', {url, version});
+	async function getNewAppFromURL(url: string, auto_refresh_listing:boolean, version?: string) :Promise<string> {
+		const resp = await ax.post('/api/application', {url, auto_refresh_listing, version});
 		const data = <PostNewAppResp>resp.data;
 		return data.app_get_key;
 	}

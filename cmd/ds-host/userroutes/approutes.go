@@ -37,8 +37,8 @@ type Versions struct {
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppGetter interface {
-		InstallFromURL(userID domain.UserID, listingURL string, version domain.Version) (domain.AppGetKey, error)
-		InstallNewVersionFromURL(userID domain.UserID, appID domain.AppID, version domain.Version) (domain.AppGetKey, error)
+		InstallFromURL(domain.UserID, string, domain.Version, bool) (domain.AppGetKey, error)
+		InstallNewVersionFromURL(domain.UserID, domain.AppID, domain.Version) (domain.AppGetKey, error)
 		InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
 		GetLocationKey(key domain.AppGetKey) (string, bool)
@@ -384,8 +384,9 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 }
 
 type InstallAppFromURLRequest struct {
-	URL     string         `json:"url"`
-	Version domain.Version `json:"version"`
+	URL                string         `json:"url"`
+	Version            domain.Version `json:"version"`
+	AutoRefreshListing bool           `json:"auto_refresh_listing"`
 }
 
 // postNewApplication is for Post with no app-id
@@ -403,7 +404,7 @@ func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Re
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		appGetKey, err := a.AppGetter.InstallFromURL(userID, reqData.URL, reqData.Version)
+		appGetKey, err := a.AppGetter.InstallFromURL(userID, reqData.URL, reqData.Version, reqData.AutoRefreshListing)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return

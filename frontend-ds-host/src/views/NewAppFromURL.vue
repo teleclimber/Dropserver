@@ -74,12 +74,14 @@ const has_error = computed( () => {
 	// TODO: also true if there are any fatal errors in validation
 });
 
+const auto_refresh_listing = ref(true);
+
 const submitting = ref(false);
 async function doInstall() {
 	let version = props.version || getMeta.value?.version_manifest?.version;
 	if( !version ) return;
 	submitting.value = true;
-	const app_get_key = await appsStore.getNewAppFromURL(props.url, version);
+	const app_get_key = await appsStore.getNewAppFromURL(props.url, auto_refresh_listing.value, version);
 	submitting.value = false;
 	router.push({name: 'new-app-in-process', params:{app_get_key}});
 }
@@ -127,9 +129,11 @@ async function cancel() {
 			<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
 			<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
 
-			<!-- add UI to specify automatic refresh of listing or not. -->
-
 			<form @submit.prevent="doInstall" @keyup.esc="cancel">
+				<label class="block mx-4 my-5 sm:mx-6 py-2 px-4 border rounded">
+					<input type="checkbox" v-model="auto_refresh_listing">
+					Automatically check for new versions
+				</label>
 				<div class="px-4 py-5 sm:px-6 flex justify-between">
 					<input type="button" class="btn" @click="cancel" value="Cancel" />
 					<input
