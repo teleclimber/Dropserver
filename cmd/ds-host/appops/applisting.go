@@ -93,6 +93,9 @@ type semverListing struct {
 
 // GetLatestVersion should maybe be pulled out into reusable utility package?
 func GetLatestVersion(versions map[domain.Version]domain.AppListingVersion) (domain.Version, error) {
+	if len(versions) == 0 {
+		return domain.Version(""), errors.New("unable to get latest version when versions map is empty")
+	}
 	sorted, err := GetSortedVersions(versions)
 	if err != nil {
 		return domain.Version(""), err

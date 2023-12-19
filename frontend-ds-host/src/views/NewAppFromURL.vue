@@ -114,36 +114,38 @@ async function cancel() {
 			<MessageSad v-if="listing_error" head="Problem fetching listing" class="m-6">
 				{{ listing_error }}
 			</MessageSad>
+			<MessageSad v-else-if="manifest_error" head="Problem fetching manifest" class="m-6">
+				{{ manifest_error }}
+			</MessageSad>
 			<BigLoader v-else-if="listing_versions === undefined"></BigLoader>
 
 
 			<!-- handle cases like non-2xx responses, new_url, timeouts etc... for remote. -->
 
-			<MessageSad v-if="manifest_error" head="Problem fetching manifest" class="m-6">
-				{{ manifest_error }}
-			</MessageSad>
-			<BigLoader v-else-if="getMeta === undefined"></BigLoader>
+			
 
 			<!-- TODO fatal errors that prevent installation should be shown here. -->
 
-			<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
-			<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
+			<template v-if="getMeta?.version_manifest">
+				<AppCard  :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+				<Manifest :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
 
-			<form @submit.prevent="doInstall" @keyup.esc="cancel">
-				<label class="block mx-4 my-5 sm:mx-6 py-2 px-4 border rounded">
-					<input type="checkbox" v-model="auto_refresh_listing">
-					Automatically check for new versions
-				</label>
-				<div class="px-4 py-5 sm:px-6 flex justify-between">
-					<input type="button" class="btn" @click="cancel" value="Cancel" />
-					<input
-						ref="create_button"
-						type="submit"
-						class="btn-blue"
-						:disabled="has_error || submitting"
-						value="Install" />
-				</div>
-			</form>
+				<form @submit.prevent="doInstall" @keyup.esc="cancel">
+					<label class="block mx-4 my-5 sm:mx-6 py-2 px-4 border rounded">
+						<input type="checkbox" v-model="auto_refresh_listing">
+						Automatically check for new versions
+					</label>
+					<div class="px-4 py-5 sm:px-6 flex justify-between">
+						<input type="button" class="btn" @click="cancel" value="Cancel" />
+						<input
+							ref="create_button"
+							type="submit"
+							class="btn-blue"
+							:disabled="has_error || submitting"
+							value="Install" />
+					</div>
+				</form>
+			</template>
 
 		</div>
 	</ViewWrap>

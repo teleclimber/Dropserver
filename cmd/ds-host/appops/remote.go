@@ -259,46 +259,21 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 		if newUrl == "" {
 			newUrl = urlData.NewURL
 		}
-		return domain.AppGetMeta{
-			AppID: appID,
-			Warnings: []domain.ProcessWarning{{
-				Field:   "listing",
-				Problem: domain.ProblemInvalid,
-				Message: "listing is available at a different URL: " + newUrl,
-				// TODO mark as Fatal
-			}},
-		}, nil
+		return domain.AppGetMeta{}, errors.New("listing is available at a different URL: " + newUrl)
 	}
 
 	// if version is not set, return the latest version:
 	if version == domain.Version("") {
-		version, err = GetLatestVersion(listing.Versions)
+		version, err = GetLatestVersion(listing.Versions) // the listing has to be valid, including that it contains at least one version.
 		if err != nil {
-			return domain.AppGetMeta{
-				AppID: appID,
-				Warnings: []domain.ProcessWarning{{
-					Field:   "listing",
-					Problem: domain.ProblemError,
-					Message: "Error while determining latest version in app listing: " + err.Error(),
-					// TODO mark as Fatal
-				}},
-			}, nil
+			r.getLogger("FetchNewVersionManifest, GetLatestVersion()").Error(err)
+			return domain.AppGetMeta{}, fmt.Errorf("unexpected error while determining latest version in app listing: %w", err)
 		}
 	}
 
 	manifest, err := r.fetchManifestFromListing(urlData.URL, listing, version)
 	if err != nil {
-		if err != nil {
-			return domain.AppGetMeta{
-				AppID: appID,
-				Warnings: []domain.ProcessWarning{{
-					Field:   "manifest",
-					Problem: domain.ProblemError,
-					Message: "Error while fetching the app manifest: " + err.Error(),
-					// TODO mark as Fatal
-				}},
-			}, nil
-		}
+		return domain.AppGetMeta{}, fmt.Errorf("error while fetching the app manifest: %w", err)
 	}
 
 	manifest, warnings := validateManifest(manifest)
@@ -310,13 +285,14 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 	prev, next, warns := validateVersionSequence(manifest.Version, manifest.Schema, appVersions)
 	warnings = addWarning(warnings, warns...)
 
+	// TODO run through error trap ?
+
 	return domain.AppGetMeta{
 		AppID:           appID,
 		PrevVersion:     prev,
 		NextVersion:     next,
 		Warnings:        warnings,
 		VersionManifest: manifest,
-		// TODO: convey errors as well, but requires more refactoring
 	}, nil
 }
 
@@ -325,25 +301,11 @@ func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version do
 func (r *RemoteAppGetter) FetchUrlVersionManifest(listingUrl string, version domain.Version) (domain.AppGetMeta, error) {
 	listingFetch, err := r.FetchCachedListing(listingUrl)
 	if err != nil {
-		return domain.AppGetMeta{
-			Warnings: []domain.ProcessWarning{{
-				Field:   "listing",
-				Problem: domain.ProblemInvalid,
-				Message: "Error fetching app listing: " + err.Error(),
-				// TODO mark as Fatal
-			}},
-		}, nil
+		return domain.AppGetMeta{}, fmt.Errorf("error fetching app listing: %w", err)
 	}
 
 	if getNewURL(listingFetch) != "" {
-		return domain.AppGetMeta{
-			Warnings: []domain.ProcessWarning{{
-				Field:   "listing",
-				Problem: domain.ProblemNotFound,
-				Message: "App listing has moved to " + getNewURL(listingFetch),
-				// TODO mark as Fatal
-			}},
-		}, nil
+		return domain.AppGetMeta{}, fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
 	}
 
 	// if version is not set, return the latest version:
@@ -351,37 +313,22 @@ func (r *RemoteAppGetter) FetchUrlVersionManifest(listingUrl string, version dom
 		version, err = GetLatestVersion(listingFetch.Listing.Versions)
 		if err != nil {
 			r.getLogger("FetchUrlVersionManifest() GetLatestVersion()").Error(err)
-			return domain.AppGetMeta{
-				Warnings: []domain.ProcessWarning{{
-					Field:   "listing",
-					Problem: domain.ProblemError,
-					Message: "Error while determining latest version in app listing: " + err.Error(),
-					// TODO mark as Fatal
-				}},
-			}, nil
+			return domain.AppGetMeta{}, fmt.Errorf("error while determining latest version in app listing: %w", err)
 		}
 	}
 
 	manifest, err := r.fetchManifestFromListing(listingUrl, listingFetch.Listing, version)
 	if err != nil {
-		if err != nil {
-			return domain.AppGetMeta{
-				Warnings: []domain.ProcessWarning{{
-					Field:   "manifest",
-					Problem: domain.ProblemError,
-					Message: "Error while fetching the app manifest: " + err.Error(),
-					// TODO mark as Fatal
-				}},
-			}, nil
-		}
+		return domain.AppGetMeta{}, fmt.Errorf("error while fetching the app manifest: %w", err)
 	}
 
 	manifest, warnings := validateManifest(manifest)
 
+	// TODO pass validated manifest through fatal errors check
+
 	return domain.AppGetMeta{
 		Warnings:        warnings,
 		VersionManifest: manifest,
-		// TODO: convey errors as well, but requires more refactoring
 	}, nil
 }
 
@@ -400,31 +347,6 @@ func (r *RemoteAppGetter) getVersionSemvers(appID domain.AppID) ([]appVersionSem
 		ret[i] = appVersionSemver{*appVersion, sver}
 	}
 	return ret, nil
-}
-
-// FetchManifest fetches the manifest given ... ?
-// This should be used when we don't have an app installed.
-// So what's the reference?
-// We need the original listing URL, the listing Base, and the relative path of the version.
-// But sending the listing back up from the frontend is kind of lame?
-// If the listing was cached, we could just take the url + the version, re-request the listing and that gives everything we need.
-// Not bad, now?
-// Plus it would work for the initial request
-func (r *RemoteAppGetter) FetchManifest(listingURL string, version domain.Version) (domain.AppVersionManifest, []domain.ProcessWarning, error) {
-	// Here it would be good to have an HTP cache of some sort on listing,
-	listingFetch, err := r.fetchListing(listingURL, "")
-	if err != nil {
-		return domain.AppVersionManifest{}, []domain.ProcessWarning{}, err
-	}
-
-	manifest, err := r.fetchManifestFromListing(listingURL, listingFetch.Listing, version)
-	if err != nil {
-		return domain.AppVersionManifest{}, []domain.ProcessWarning{}, err
-	}
-
-	manifest, warnings := validateManifest(manifest)
-
-	return manifest, warnings, nil
 }
 
 func (r *RemoteAppGetter) fetchManifestFromListing(listingURL string, listing domain.AppListing, version domain.Version) (domain.AppVersionManifest, error) {
