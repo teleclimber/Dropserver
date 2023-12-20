@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { ref, Ref, watch, computed } from "vue";
+import { ref, Ref, watch, computed, watchEffect } from "vue";
 import { useRouter } from 'vue-router';
 import { useAppsStore, AppGetMeta } from '@/stores/apps';
 import MessageSad from "@/components/ui/MessageSad.vue";
 import BigLoader from "@/components/ui/BigLoader.vue";
 import AppCard from "./AppCard.vue";
+import Changelog from "./Changelog.vue";
 import Manifest from "./Manifest.vue";
 
 const props = defineProps<{
@@ -15,6 +16,7 @@ const props = defineProps<{
 const router = useRouter();
 
 const appsStore = useAppsStore();
+appsStore.loadApp(props.app_id);
 
 const getMeta :Ref<AppGetMeta|undefined> = ref();
 const manifest_error = ref("");
@@ -53,6 +55,26 @@ watch( picked_version, () => {
 		router.replace({name:'new-app-version', query:{version:picked_version.value}})
 	}
 }, {immediate: true});
+
+const changelog = ref("");
+const changelog_error = ref("");
+watchEffect( async () => {
+	const app = appsStore.getApp(props.app_id);
+	if( !app || !app.value.url_data ) return;
+	changelog.value = "";
+	changelog_error.value = "";
+	if( getMeta.value?.version_manifest?.version ) {
+		try {
+			const v = "version="+encodeURIComponent(getMeta.value?.version_manifest?.version);
+			const resp = await fetch(`/api/application/fetch/${encodeURIComponent(app.value.url_data.url)}/changelog?${v}`);
+			if( !resp.ok ) throw new Error(await resp.text());
+			changelog.value = await resp.text();
+		}
+		catch(e:any) {
+			changelog_error.value = e.message;
+		}
+	}
+});
 
 const has_error = computed( () => {	
 	if( listing_error.value !== "" ) return true;
@@ -105,6 +127,7 @@ async function cancel() {
 		</MessageSad>
 
 		<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+		<Changelog class="mb-6 mx-auto max-w-xl" :changelog="changelog" :error="changelog_error"></Changelog>
 		<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
 
 		<form @submit.prevent="doInstall" @keyup.esc="cancel">

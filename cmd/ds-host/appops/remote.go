@@ -405,6 +405,59 @@ func (r *RemoteAppGetter) fetchManifest(url string) (domain.AppVersionManifest, 
 	return manifest, err
 }
 
+// need fetch remote changelog here.
+func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Version) (string, error) { // stirng or reader? or writer?
+	listingFetch, err := r.FetchCachedListing(listingURL)
+	if err != nil {
+		return "", fmt.Errorf("error fetching app listing: %w", err)
+	}
+
+	if getNewURL(listingFetch) != "" {
+		return "", fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
+	}
+
+	versionListing, ok := listingFetch.Listing.Versions[version]
+	if !ok {
+		return "", errors.New("no such version in app listing")
+	}
+
+	if versionListing.Changelog == "" {
+		return "", nil
+	}
+
+	changelogURL, err := URLFromListing(listingURL, listingFetch.Listing.Base, versionListing.Changelog)
+	if err != nil {
+		r.getLogger("FetchChangelog(), URLFromListing()").Error(err)
+		return "", err
+	}
+
+	r.init()
+	resp, err := r.client.Get(changelogURL)
+	if err != nil {
+		// Error is of type url.Error: timeouts, etc...
+		// who needs to know about this error?
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("got response code: %s", resp.Status)
+	}
+
+	sVer, err := semver.Parse(string(version))
+	if err != nil {
+		// that is a Dropserver error. The version passed should be valid.
+		r.getLogger("FetchChangelog(), semver.Parse()").Error(err)
+		return "", err
+	}
+	validCl, err := getValidChangelog(&io.LimitedReader{R: resp.Body, N: domain.AppManifestMaxFileSize}, sVer) // TODO come up with max changelog size if we don't have it already
+	if err != nil {
+		// might be cl error or some other error...
+		return "", err
+	}
+
+	return validCl, nil
+}
+
 // FetchAppPackage from remote URL
 // Creates location and returns locationKey as string
 func (r *RemoteAppGetter) FetchPackageJob(url string) (string, error) {

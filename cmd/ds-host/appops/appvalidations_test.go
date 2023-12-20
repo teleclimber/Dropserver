@@ -2,6 +2,7 @@ package appops
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -299,6 +300,39 @@ func TestValidateSequencePrevNext(t *testing.T) {
 			}
 			if n != c.next {
 				t.Errorf("mismatched next: %v %v", n, c.next)
+			}
+		})
+	}
+}
+
+func TestGetValidChangelog(t *testing.T) {
+	cases := []struct {
+		in  string
+		ver string
+		out string
+	}{{
+		"blah\n0.0.1\nx\n1.2.3 \nabc",
+		"1.2.3",
+		"abc",
+	}, {
+		"1.2.3 \nabc \n2.3.4\nblah",
+		"1.2.3",
+		"abc",
+	}, {
+		"1.2.3 \n\nabc\n\ndef\nghi \n \n2.3.4\nblah",
+		"1.2.3",
+		"abc\n\ndef\nghi",
+	}}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			r := strings.NewReader(c.in)
+			sVer, _ := semver.ParseTolerant(c.ver)
+			result, err := getValidChangelog(r, sVer)
+			if err != nil {
+				t.Error(err)
+			}
+			if result != c.out {
+				t.Errorf("expected %v, got -%v-", c.out, result)
 			}
 		})
 	}

@@ -7,6 +7,7 @@ import MessageSad from "@/components/ui/MessageSad.vue";
 import BigLoader from "@/components/ui/BigLoader.vue";
 import AppCard from "@/components/app/AppCard.vue";
 import Manifest from "@/components/app/Manifest.vue";
+import Changelog from "@/components/app/Changelog.vue";
 
 const props = defineProps<{
 	url: string,
@@ -67,6 +68,24 @@ watchEffect( async () => {
 	else getMeta.value = undefined;
 });
 
+const changelog = ref("");
+const changelog_error = ref("");
+watchEffect( async () => {
+	changelog.value = "";
+	changelog_error.value = "";
+	if( getMeta.value?.version_manifest?.version ) {
+		try {
+			const v = "version="+encodeURIComponent(getMeta.value?.version_manifest?.version);
+			const resp = await fetch(`/api/application/fetch/${encodeURIComponent(props.url)}/changelog?${v}`);
+			if( !resp.ok ) throw new Error(await resp.text());
+			changelog.value = await resp.text();
+		}
+		catch(e:any) {
+			changelog_error.value = e.message;
+		}
+	}
+});
+
 const has_error = computed( () => {	
 	if( listing_error.value !== "" ) return true;
 	if( manifest_error.value !== "" ) return true;
@@ -125,6 +144,9 @@ async function cancel() {
 
 			<template v-if="getMeta?.version_manifest">
 				<AppCard  :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+
+				<Changelog class="mb-6 mx-auto max-w-xl" :changelog="changelog" :error="changelog_error"></Changelog>
+
 				<Manifest :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
 
 				<form @submit.prevent="doInstall" @keyup.esc="cancel">

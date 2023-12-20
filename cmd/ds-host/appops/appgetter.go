@@ -676,7 +676,7 @@ func (g *AppGetter) validateChangelog(keyData appGetData) error {
 	meta.VersionManifest.Changelog = clPath // set the normalized path to generated manifest
 	g.setManifestResult(keyData.key, meta.VersionManifest)
 
-	_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), clPath))
+	f, err := os.Open(filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), clPath))
 	if errors.Is(err, fs.ErrNotExist) {
 		g.setWarningResult(keyData.key, domain.ProcessWarning{
 			Field:    field,
@@ -687,26 +687,33 @@ func (g *AppGetter) validateChangelog(keyData appGetData) error {
 	} else if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "changelog", meta.VersionManifest.Changelog)
+	sVer, err := semver.Parse(string(meta.VersionManifest.Version))
 	if err != nil {
+		// this shouldn't happen. version should be valid.
+		g.getLogger("validateChangelog semver.Parse").Error(err)
 		return err
 	}
-
-	cl, ok, err := g.AppFilesModel.GetVersionChangelog(keyData.locationKey, meta.VersionManifest.Version)
-	if !ok {
+	cl, err := getValidChangelog(f, sVer)
+	if err != nil {
 		g.setWarningResult(keyData.key, domain.ProcessWarning{
-			Field:   field,
-			Problem: domain.ProblemInvalid,
-			Message: "There was a problem reading the changelog"})
-	} else if err != nil {
-		return err
+			Field:    field,
+			Problem:  domain.ProblemError,
+			Message:  "Error parsing the changelog: " + err.Error(),
+			BadValue: meta.VersionManifest.Changelog})
+		return nil
 	}
 	if cl == "" {
 		g.setWarningResult(keyData.key, domain.ProcessWarning{
 			Field:   field,
 			Problem: domain.ProblemEmpty,
 			Message: "There is no changelog for this version"})
+	}
+
+	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "changelog", meta.VersionManifest.Changelog)
+	if err != nil {
+		return err
 	}
 
 	return nil

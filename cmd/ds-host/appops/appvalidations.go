@@ -1,9 +1,11 @@
 package appops
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"image"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -463,6 +465,40 @@ func validateWebsite(url string) (string, bool) {
 		return "", false
 	}
 	return url, true
+}
+
+func getValidChangelog(r io.Reader, version semver.Version) (string, error) {
+	ret := ""
+	found := false
+	skipEmptyLine := false
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		l := strings.TrimSpace(scanner.Text())
+
+		parsedVer, verErr := semver.ParseTolerant(l)
+
+		if !found && verErr == nil && version.EQ(parsedVer) {
+			found = true
+		} else if found && verErr == nil {
+			break // found another version, so break
+		} else if found {
+			if l != "" || !skipEmptyLine {
+				ret += l + "\n"
+			}
+			if l == "" {
+				skipEmptyLine = true
+			} else {
+				skipEmptyLine = false
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err // An error while scanning is likely due to a bad changelog file.
+	}
+
+	return strings.TrimSpace(ret), nil
 }
 
 // validate icon should be able to work for both app get ops and before forwarding to frontend from remote.

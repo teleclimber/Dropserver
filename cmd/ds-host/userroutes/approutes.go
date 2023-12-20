@@ -3,6 +3,7 @@ package userroutes
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -52,6 +53,7 @@ type ApplicationRoutes struct {
 		RefreshAppListing(domain.AppID) error
 		FetchNewVersionManifest(domain.AppID, domain.Version) (domain.AppGetMeta, error)
 		FetchUrlVersionManifest(string, domain.Version) (domain.AppGetMeta, error)
+		FetchChangelog(listingURL string, version domain.Version) (string, error)
 	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
@@ -89,6 +91,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Use(a.appUrlCtx)
 		r.Get("/listing-versions", a.fetchUrlListingVersions)
 		r.Get("/manifest", a.fetchUrlVersionManifest)
+		r.Get("/changelog", a.fetchUrlVersionChangelog)
 	})
 
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
@@ -333,6 +336,34 @@ func (a *ApplicationRoutes) fetchUrlVersionManifest(w http.ResponseWriter, r *ht
 	}
 
 	writeJSON(w, manifestMeta)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionChangelog(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	} else {
+		http.Error(w, "missing version in query parameters", http.StatusBadRequest)
+	}
+
+	cl, err := a.RemoteAppGetter.FetchChangelog(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Fprint(w, cl)
 }
 
 func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {
@@ -642,6 +673,7 @@ func (a *ApplicationRoutes) getChangelog(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *ApplicationRoutes) respondWithChangelog(w http.ResponseWriter, locationKey string, version domain.Version) {
+	// maybe this could take a file stream from app model and push that to repsonse so long as it's the reight version?
 	cl, _, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
 	if err != nil {
 		returnError(w, err)
