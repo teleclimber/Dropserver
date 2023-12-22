@@ -54,6 +54,7 @@ type ApplicationRoutes struct {
 		FetchNewVersionManifest(domain.AppID, domain.Version) (domain.AppGetMeta, error)
 		FetchUrlVersionManifest(string, domain.Version) (domain.AppGetMeta, error)
 		FetchChangelog(listingURL string, version domain.Version) (string, error)
+		FetchIcon(string, domain.Version) ([]byte, error)
 	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
@@ -92,6 +93,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Get("/listing-versions", a.fetchUrlListingVersions)
 		r.Get("/manifest", a.fetchUrlVersionManifest)
 		r.Get("/changelog", a.fetchUrlVersionChangelog)
+		r.Get("/icon", a.fetchUrlVersionIcon)
 	})
 
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
@@ -354,6 +356,7 @@ func (a *ApplicationRoutes) fetchUrlVersionChangelog(w http.ResponseWriter, r *h
 		v = vs[0]
 	} else {
 		http.Error(w, "missing version in query parameters", http.StatusBadRequest)
+		return
 	}
 
 	cl, err := a.RemoteAppGetter.FetchChangelog(url, domain.Version(v))
@@ -364,6 +367,41 @@ func (a *ApplicationRoutes) fetchUrlVersionChangelog(w http.ResponseWriter, r *h
 
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, cl)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionIcon(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	} else {
+		http.Error(w, "missing version in query parameters", http.StatusBadRequest)
+		return
+	}
+
+	iconBytes, err := a.RemoteAppGetter.FetchIcon(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(iconBytes) == 0 {
+		returnError(w, errNotFound)
+		return
+	}
+
+	mimeType := http.DetectContentType(iconBytes)
+	w.Header().Set("Content-Type", mimeType)
+
+	io.Copy(w, bytes.NewBuffer(iconBytes))
 }
 
 func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {

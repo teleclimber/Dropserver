@@ -59,11 +59,10 @@ watch( picked_version, () => {
 const changelog = ref("");
 const changelog_error = ref("");
 watchEffect( async () => {
-	const app = appsStore.getApp(props.app_id);
-	if( !app || !app.value.url_data ) return;
 	changelog.value = "";
 	changelog_error.value = "";
-	if( getMeta.value?.version_manifest?.version ) {
+	const app = appsStore.getApp(props.app_id);
+	if( app?.value.url_data && getMeta.value?.version_manifest?.version ) {
 		try {
 			const v = "version="+encodeURIComponent(getMeta.value?.version_manifest?.version);
 			const resp = await fetch(`/api/application/fetch/${encodeURIComponent(app.value.url_data.url)}/changelog?${v}`);
@@ -74,6 +73,15 @@ watchEffect( async () => {
 			changelog_error.value = e.message;
 		}
 	}
+});
+
+const icon_url = computed( () => {
+	const app = appsStore.getApp(props.app_id);
+	if( app?.value.url_data && getMeta.value?.version_manifest?.version ) {
+		const v = "version="+encodeURIComponent(getMeta.value?.version_manifest?.version);
+		return `/api/application/fetch/${encodeURIComponent(app.value.url_data.url)}/icon?${v}`
+	} 
+	return '';
 });
 
 const has_error = computed( () => {	
@@ -126,7 +134,7 @@ async function cancel() {
 			<p v-for="e in getMeta.errors">{{ e }}</p>
 		</MessageSad>
 
-		<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+		<AppCard v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :icon_url="icon_url"></AppCard>
 		<Changelog class="mb-6 mx-auto max-w-xl" :changelog="changelog" :error="changelog_error"></Changelog>
 		<Manifest v-if="getMeta?.version_manifest" :manifest="getMeta.version_manifest" :warnings="getMeta.warnings"></Manifest>
 

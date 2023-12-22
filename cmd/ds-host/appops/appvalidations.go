@@ -2,12 +2,12 @@ package appops
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	"io"
 	"net/http"
-	"os"
 	"path"
 	"slices"
 	"sort"
@@ -21,7 +21,6 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/github/go-spdx/v2/spdxexp"
-	"github.com/inhies/go-bytesize"
 	"github.com/kettek/apng"
 	"github.com/mazznoer/csscolorparser"
 	"github.com/rivo/uniseg"
@@ -501,51 +500,10 @@ func getValidChangelog(r io.Reader, version semver.Version) (string, error) {
 	return strings.TrimSpace(ret), nil
 }
 
-// validate icon should be able to work for both app get ops and before forwarding to frontend from remote.
-func validateIcon(iconPath string) []domain.ProcessWarning {
+func validateIcon(byteSlice []byte) []domain.ProcessWarning {
 	field := "icon"
 
-	f, err := os.Open(iconPath)
-	if os.IsNotExist(err) {
-		return []domain.ProcessWarning{{
-			Field:   field,
-			Problem: domain.ProblemNotFound,
-			Message: "Icon file does not exist.",
-		}}
-	}
-	if err != nil {
-		return []domain.ProcessWarning{{
-			Field:   field,
-			Problem: domain.ProblemError,
-			Message: "Error opening app icon:  " + err.Error(),
-		}}
-	}
-	defer f.Close()
-
-	fInfo, err := f.Stat()
-	if err != nil {
-		return []domain.ProcessWarning{{
-			Field:   field,
-			Problem: domain.ProblemError,
-			Message: "Error getting icon file info:  " + err.Error(),
-		}}
-	}
-	if fInfo.IsDir() {
-		return []domain.ProcessWarning{{
-			Field:   field,
-			Problem: domain.ProblemInvalid,
-			Message: "Icon path is a directory",
-		}}
-	}
-
-	mimeType, err := getFileMimeType(iconPath)
-	if err != nil {
-		return []domain.ProcessWarning{{
-			Field:   field,
-			Problem: domain.ProblemError,
-			Message: "Error getting app icon mime type:  " + err.Error(),
-		}}
-	}
+	mimeType := http.DetectContentType(byteSlice)
 
 	mimeTypes := []string{"image/jpeg", "image/png", "image/svg+xml", "image/webp"}
 	typeOk := false
@@ -564,8 +522,9 @@ func validateIcon(iconPath string) []domain.ProcessWarning {
 
 	// get w and h and check: is square and then size.
 	var config image.Config
+	var err error
 	if mimeType == "image/jpeg" || mimeType == "image/png" {
-		config, _, err = image.DecodeConfig(f)
+		config, _, err = image.DecodeConfig(bytes.NewReader(byteSlice))
 		if err != nil {
 			return []domain.ProcessWarning{{
 				Field:   field,
@@ -574,7 +533,7 @@ func validateIcon(iconPath string) []domain.ProcessWarning {
 			}}
 		}
 	} else if mimeType == "image/webp" {
-		config, err = webp.DecodeConfig(f)
+		config, err = webp.DecodeConfig(bytes.NewReader(byteSlice))
 		if err != nil {
 			return []domain.ProcessWarning{{
 				Field:   field,
@@ -599,27 +558,8 @@ func validateIcon(iconPath string) []domain.ProcessWarning {
 		}
 	}
 
-	if fInfo.Size() > domain.AppIconMaxFileSize {
-		warnings = append(warnings, domain.ProcessWarning{
-			Field:   field,
-			Problem: domain.ProblemSmall,
-			Message: fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
-				bytesize.New(float64(fInfo.Size())), bytesize.New(float64(domain.AppIconMaxFileSize))),
-		})
-	}
-
 	if mimeType == "image/png" {
-		// need to open again so the decoder can work from the beginning
-		fPng, err := os.Open(iconPath)
-		if err != nil {
-			warnings = append(warnings, domain.ProcessWarning{
-				Field:   field,
-				Problem: domain.ProblemError,
-				Message: "Error opening PNG app icon: " + err.Error()})
-			return warnings
-		}
-		defer fPng.Close()
-		a, err := apng.DecodeAll(fPng)
+		a, err := apng.DecodeAll(bytes.NewReader(byteSlice))
 		if err != nil {
 			warnings = append(warnings, domain.ProcessWarning{
 				Field:   field,
@@ -636,21 +576,6 @@ func validateIcon(iconPath string) []domain.ProcessWarning {
 	}
 
 	return warnings
-}
-
-func getFileMimeType(p string) (string, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return "", err
-	}
-	byteSlice := make([]byte, 512)
-	_, err = f.Read(byteSlice)
-	if err != nil {
-		return "", fmt.Errorf("error reading bytes from file: %w", err)
-	}
-	contentType := http.DetectContentType(byteSlice)
-
-	return contentType, nil
 }
 
 func validatePackagePath(p string) (string, bool) {

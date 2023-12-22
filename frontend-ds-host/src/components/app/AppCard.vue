@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { AppManifest } from '@/stores/types';
 
 const props = defineProps<{
@@ -8,7 +8,9 @@ const props = defineProps<{
 }>();
 
 const icon_error = ref(false);
-
+watch( () => props.icon_url, () => {
+	icon_error.value = false;
+});
 
 const accent_color = computed( () => {
 	if( props.manifest.accent_color ) return props.manifest.accent_color;

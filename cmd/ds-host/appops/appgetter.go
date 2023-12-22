@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/inhies/go-bytesize"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -805,7 +807,57 @@ func (g *AppGetter) validateAppIcon(keyData appGetData) error {
 	}
 
 	icon = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), icon)
-	warns := validateIcon(icon)
+	f, err := os.Open(icon)
+	if os.IsNotExist(err) {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemNotFound,
+			Message: "Icon file does not exist."})
+		return nil
+	}
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error opening app icon:  " + err.Error()})
+		return nil
+	}
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error getting icon file info:  " + err.Error()})
+		return nil
+	}
+	if fInfo.IsDir() {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemInvalid,
+			Message: "Icon path is a directory"})
+		return nil
+	}
+	if fInfo.Size() > domain.AppIconMaxFileSize {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemBig,
+			Message: fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
+				bytesize.New(float64(fInfo.Size())), bytesize.New(float64(domain.AppIconMaxFileSize))),
+		})
+		return nil
+	}
+
+	iconBytes, err := io.ReadAll(&io.LimitedReader{R: f, N: domain.AppIconMaxFileSize})
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error reading icon file:  " + err.Error()})
+		return nil
+	}
+	warns := validateIcon(iconBytes)
 	g.setWarningResult(keyData.key, warns...)
 	ok = true
 	for _, w := range warns {

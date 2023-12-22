@@ -458,6 +458,62 @@ func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Versi
 	return validCl, nil
 }
 
+func (r *RemoteAppGetter) FetchIcon(listingURL string, version domain.Version) ([]byte, error) {
+	listingFetch, err := r.FetchCachedListing(listingURL)
+	if err != nil {
+		return []byte{}, fmt.Errorf("error fetching app listing: %w", err)
+	}
+
+	if getNewURL(listingFetch) != "" {
+		return []byte{}, fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
+	}
+
+	versionListing, ok := listingFetch.Listing.Versions[version]
+	if !ok {
+		return []byte{}, errors.New("no such version in app listing")
+	}
+
+	if versionListing.Icon == "" {
+		return []byte{}, nil
+	}
+
+	iconURL, err := URLFromListing(listingURL, listingFetch.Listing.Base, versionListing.Icon)
+	if err != nil {
+		r.getLogger("FetchIcon(), URLFromListing()").Error(err)
+		return []byte{}, err
+	}
+
+	r.init()
+	resp, err := r.client.Get(iconURL)
+	if err != nil {
+		// Error is of type url.Error: timeouts, etc...
+		// who needs to know about this error?
+		return []byte{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return []byte{}, fmt.Errorf("got response code: %s", resp.Status)
+	}
+
+	max := domain.AppIconMaxFileSize + 10
+	iconBytes, err := io.ReadAll(&io.LimitedReader{R: resp.Body, N: max})
+	if err != nil {
+		return []byte{}, fmt.Errorf("error fetching icon: %w", err)
+	}
+	if len(iconBytes) > int(domain.AppIconMaxFileSize) {
+		return []byte{}, fmt.Errorf("icon file is too big")
+	}
+
+	warns := validateIcon(iconBytes)
+	for _, w := range warns {
+		if w.Problem != domain.ProblemPoorExperience && w.Problem != domain.ProblemSmall {
+			return []byte{}, errors.New(w.Message)
+		}
+	}
+
+	return iconBytes, nil
+}
+
 // FetchAppPackage from remote URL
 // Creates location and returns locationKey as string
 func (r *RemoteAppGetter) FetchPackageJob(url string) (string, error) {

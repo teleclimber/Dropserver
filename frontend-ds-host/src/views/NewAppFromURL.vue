@@ -86,6 +86,14 @@ watchEffect( async () => {
 	}
 });
 
+const icon_url = computed( () => {
+	if( getMeta.value?.version_manifest?.version ) {
+		const v = "version="+encodeURIComponent(getMeta.value?.version_manifest?.version);
+		return `/api/application/fetch/${encodeURIComponent(props.url)}/icon?${v}`
+	} 
+	return '';
+});
+
 const has_error = computed( () => {	
 	if( listing_error.value !== "" ) return true;
 	if( manifest_error.value !== "" ) return true;
@@ -143,7 +151,7 @@ async function cancel() {
 			</MessageSad>
 
 			<template v-if="getMeta?.version_manifest">
-				<AppCard  :manifest="getMeta.version_manifest" :icon_url="''"></AppCard>
+				<AppCard  :manifest="getMeta.version_manifest" :icon_url="icon_url"></AppCard>
 
 				<Changelog class="mb-6 mx-auto max-w-xl" :changelog="changelog" :error="changelog_error"></Changelog>
 
