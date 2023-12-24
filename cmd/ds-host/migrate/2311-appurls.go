@@ -14,7 +14,8 @@ func appsFromURLsUp(args *stepArgs) error {
 		"etag" TEXT,
 		"latest_version" TEXT
 	)`)
-	// Don't need indices because we're always joining on app_id
+	// create an idex that facilitaes fetching the listings that need refreshing:
+	args.dbExec(`CREATE UNIQUE INDEX app_urls_auto ON app_urls (automatic, last_dt)`)
 
 	return args.dbErr
 }

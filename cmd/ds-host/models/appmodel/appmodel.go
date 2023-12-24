@@ -30,6 +30,7 @@ type AppModel struct {
 	stmt struct {
 		selectID               *sqlx.Stmt
 		selectOwner            *sqlx.Stmt
+		selectAutoURlData      *sqlx.Stmt
 		selectVersion          *sqlx.Stmt
 		selectVersionForUI     *sqlx.Stmt
 		selectVersionManifest  *sqlx.Stmt
@@ -69,6 +70,8 @@ func (m *AppModel) PrepareStatements() {
 
 	//get for a given owner user ID
 	m.stmt.selectOwner = p.exec(`SELECT * FROM apps WHERE owner_id = ?`)
+
+	m.stmt.selectAutoURlData = p.exec(`SELECT app_id FROM app_urls WHERE automatic = ? AND last_dt <= ?`)
 
 	// get version
 	// This one is intended for internal use (like running a sandbox)
@@ -352,6 +355,18 @@ func (m *AppModel) GetAppUrlListing(appID domain.AppID) (domain.AppListing, doma
 	}
 
 	return listing, urlData, nil
+}
+
+// GetAutoUrlDataByLastDt returns the app IDs that have automatic
+// refresh enabled and haven't been refreshed since last
+func (m *AppModel) GetAutoUrlDataByLastDt(last time.Time) ([]domain.AppID, error) {
+	ret := []domain.AppID{}
+	err := m.stmt.selectAutoURlData.Select(&ret, true, last)
+	if err != nil {
+		m.getLogger("GetAutoUrlDataByLastDt()").Error(err)
+		return nil, err
+	}
+	return ret, nil
 }
 
 // UpdateAutomatic to set the value of the automatic column in app url data

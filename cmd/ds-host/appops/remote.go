@@ -25,6 +25,7 @@ type RemoteAppGetter struct {
 	AppModel interface {
 		GetAppUrlData(domain.AppID) (domain.AppURLData, error)
 		GetAppUrlListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
+		GetAutoUrlDataByLastDt(time.Time) ([]domain.AppID, error)
 		SetLastFetch(domain.AppID, time.Time, string) error
 		SetListing(domain.AppID, domain.AppListingFetch) error
 		SetNewUrl(domain.AppID, string, nulltypes.NullTime) error
@@ -33,7 +34,37 @@ type RemoteAppGetter struct {
 
 	client *http.Client
 
+	ticker *time.Ticker
+	stop   chan struct{}
+
 	listingCache map[string]domain.AppListingFetch
+}
+
+const refreshTickerInterval = time.Hour
+const refreshLastDtDuration = -time.Minute * (23*60 + 30)
+
+// Init the periodic refreshing of app listings
+func (r *RemoteAppGetter) Init() {
+	r.ticker = time.NewTicker(refreshTickerInterval)
+	r.stop = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-r.stop:
+				return
+			case <-r.ticker.C:
+				r.autoRefreshListings()
+			}
+		}
+	}()
+}
+
+// Stop the periodic refreshing of app listings
+func (r *RemoteAppGetter) Stop() {
+	if r.ticker != nil {
+		r.ticker.Stop()
+		r.stop <- struct{}{}
+	}
 }
 
 func (r *RemoteAppGetter) init() {
@@ -92,6 +123,19 @@ func getPrefix(og string) netip.Prefix {
 		panic("unable to process allowed IP into prefix: " + og)
 	}
 	return p
+}
+
+func (r *RemoteAppGetter) autoRefreshListings() {
+	t := time.Now().Add(refreshLastDtDuration)
+	appIDs, err := r.AppModel.GetAutoUrlDataByLastDt(t)
+	if err != nil {
+		r.getLogger("autoRefreshListings GetAutoUrlDataByLastDt").Error(err)
+		return
+	}
+	r.getLogger("autoRefreshListings").Log(fmt.Sprintf("Refreshing app listings for %v apps.", len(appIDs)))
+	for _, a := range appIDs {
+		r.RefreshAppListing(a)
+	}
 }
 
 func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {

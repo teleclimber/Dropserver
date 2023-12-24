@@ -389,6 +389,49 @@ func TestCreateAppUrlData(t *testing.T) {
 	}
 }
 
+func TestGetAutoUrlDataByLastDt(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	// Test with no data:
+	_, err := appModel.GetAutoUrlDataByLastDt(time.Now())
+	if err != nil {
+		t.Error(err)
+	}
+
+	appID := domain.AppID(7)
+
+	last := time.Now().Add(-time.Second)
+
+	tx, _ := h.Beginx()
+	createAppUrlData(appID, "abc", true, tx)
+	setLast(appID, "ok", last, tx)
+	tx.Commit()
+
+	appIDs, err := appModel.GetAutoUrlDataByLastDt(last.Add(-time.Second))
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appIDs) != 0 {
+		t.Errorf("expected no app ids, got %v", appIDs)
+	}
+
+	appIDs, err = appModel.GetAutoUrlDataByLastDt(time.Now())
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appIDs) != 1 {
+		t.Errorf("expected one app ids, got %v", appIDs)
+	}
+}
+
 func TestAppUrlUpdates(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
