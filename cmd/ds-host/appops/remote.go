@@ -493,7 +493,7 @@ func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Versi
 		r.getLogger("FetchChangelog(), semver.Parse()").Error(err)
 		return "", err
 	}
-	validCl, err := getValidChangelog(&io.LimitedReader{R: resp.Body, N: domain.AppManifestMaxFileSize}, sVer) // TODO come up with max changelog size if we don't have it already
+	validCl, err := getValidChangelog(&io.LimitedReader{R: resp.Body, N: domain.AppCompleteChangelogMaxSize}, sVer)
 	if err != nil {
 		// might be cl error or some other error...
 		return "", err
