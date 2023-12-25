@@ -459,7 +459,7 @@ type AppVersionUI struct {
 type AppGetKey string
 
 // ProcessProblem are consts that enable checking for
-// a specific problem at processing time.
+// a specific type of problem at processing time.
 type ProcessProblem string
 
 const ProblemEmpty ProcessProblem = "empty"
@@ -472,7 +472,7 @@ const ProblemNotFound ProcessProblem = "not-found"
 const ProblemError ProcessProblem = "error"
 
 // ProblemPoorExperience indicate the value is usable but does
-// not meet best practices
+// not meet best practices and affects the user's experience
 const ProblemPoorExperience ProcessProblem = "poor-experience"
 
 type ProcessWarning struct {
@@ -480,7 +480,6 @@ type ProcessWarning struct {
 	Problem  ProcessProblem `json:"problem"`   // Problem for classification
 	BadValue string         `json:"bad_value"` // BadValue of field for safe display
 	Message  string         `json:"message"`   // Message for user or developer
-	// Add Fatal field to indicate that process failed and this is why?
 }
 
 // AppGetMeta has app version data and any errors found in it
