@@ -336,6 +336,7 @@ func main() {
 		AppFilesModel: appFilesModel,
 		AppModel:      appModel,
 	}
+	remoteAppGetter.Init()
 
 	appGetter := &appops.AppGetter{
 		AppFilesModel:    appFilesModel,
@@ -614,6 +615,7 @@ func main() {
 
 		restoreAppspace.DeleteAll()
 
+		remoteAppGetter.Stop()
 		appGetter.Stop()
 
 		server.Shutdown()
@@ -625,7 +627,6 @@ func main() {
 			panic(err)
 		}
 
-		//os.Exit(0)
 		exit <- struct{}{}
 	}()
 
