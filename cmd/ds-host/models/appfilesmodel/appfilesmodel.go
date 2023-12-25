@@ -2,7 +2,6 @@ package appfilesmodel
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
 	"encoding/json"
 	"errors"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
@@ -261,67 +261,30 @@ func validateLinkName(linkName string) {
 
 // GetVersionChangelog returns the changelog at location key for the version.
 // Note this function is duplicated in the ds-dev version of AppFilesModel!
-func (a *AppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error) {
+func (a *AppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, error) {
 	p := a.GetLinkPath(locationKey, "changelog")
 	if p == "" { // no changelog file, no changelog.
-		return "", true, nil
+		return "", nil
 	}
 	f, err := os.Open(p)
 	if err != nil {
 		a.getLogger("GetVersionChangelog").AddNote("os.Open").Error(err)
-		return "", false, err
+		return "", err
 	}
 	defer f.Close()
 
-	ret, ok, err := GetVersionChangelog(f, version)
+	targetVer, err := semver.ParseTolerant(string(version))
+	if err != nil {
+		return "", err // definitely a Dropserver error
+	}
+
+	ret, err := appops.GetValidChangelog(f, targetVer)
 	if err != nil {
 		a.getLogger("GetVersionChangelog").AddNote("getVersionChangelog").Error(err)
-		return "", ok, err
+		return "", err
 	}
 
-	return ret, ok, nil
-}
-
-// GetVersionChangelog parses the changelog at reader
-// and returns the portion that corresponds to ver
-// It returns false if an error is likley due to bad input data
-func GetVersionChangelog(r io.Reader, ver domain.Version) (string, bool, error) {
-	ret := ""
-	found := false
-	skipEmptyLine := false
-
-	targetVer, err := semver.ParseTolerant(string(ver))
-	if err != nil {
-		return "", true, err // definitely a Dropserver error
-	}
-
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		l := strings.TrimSpace(scanner.Text())
-
-		parsedVer, verErr := semver.ParseTolerant(l)
-
-		if !found && verErr == nil && targetVer.EQ(parsedVer) {
-			found = true
-		} else if found && verErr == nil {
-			break // found another version, so break
-		} else if found {
-			if l != "" || !skipEmptyLine {
-				ret += l + "\n"
-			}
-			if l == "" {
-				skipEmptyLine = true
-			} else {
-				skipEmptyLine = false
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", false, err // An error while scanning is likely due to a bad changelog file. send "not ok".
-	}
-
-	return strings.TrimSpace(ret), true, nil
+	return ret, nil
 }
 
 // Delete removes the files from the system

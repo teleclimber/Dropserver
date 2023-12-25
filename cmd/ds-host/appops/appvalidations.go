@@ -466,7 +466,7 @@ func validateWebsite(url string) (string, bool) {
 	return url, true
 }
 
-func getValidChangelog(r io.Reader, version semver.Version) (string, error) {
+func GetValidChangelog(r io.Reader, version semver.Version) (string, error) {
 	ret := ""
 	found := false
 	skipEmptyLine := false

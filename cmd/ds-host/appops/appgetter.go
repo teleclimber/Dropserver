@@ -48,7 +48,6 @@ type AppGetter struct {
 		ExtractPackage(locationKey string) error
 		GetManifestSize(string) (int64, error)
 		ReadManifest(string) (domain.AppVersionManifest, error)
-		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
 		WriteRoutes(string, []byte) error
 		WriteFileLink(string, string, string) error
 		Delete(string) error
@@ -697,7 +696,7 @@ func (g *AppGetter) validateChangelog(keyData appGetData) error {
 		g.getLogger("validateChangelog semver.Parse").Error(err)
 		return err
 	}
-	cl, err := getValidChangelog(f, sVer)
+	cl, err := GetValidChangelog(f, sVer)
 	if err != nil {
 		g.setWarningResult(keyData.key, domain.ProcessWarning{
 			Field:    field,

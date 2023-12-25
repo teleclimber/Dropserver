@@ -327,7 +327,7 @@ func TestGetValidChangelog(t *testing.T) {
 		t.Run(c.in, func(t *testing.T) {
 			r := strings.NewReader(c.in)
 			sVer, _ := semver.ParseTolerant(c.ver)
-			result, err := getValidChangelog(r, sVer)
+			result, err := GetValidChangelog(r, sVer)
 			if err != nil {
 				t.Error(err)
 			}

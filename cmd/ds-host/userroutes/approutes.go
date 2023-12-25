@@ -62,7 +62,7 @@ type ApplicationRoutes struct {
 	} `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
-		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
+		GetVersionChangelog(locationKey string, version domain.Version) (string, error)
 		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppModel interface {
@@ -712,7 +712,7 @@ func (a *ApplicationRoutes) getChangelog(w http.ResponseWriter, r *http.Request)
 
 func (a *ApplicationRoutes) respondWithChangelog(w http.ResponseWriter, locationKey string, version domain.Version) {
 	// maybe this could take a file stream from app model and push that to repsonse so long as it's the reight version?
-	cl, _, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
+	cl, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
 	if err != nil {
 		returnError(w, err)
 		return

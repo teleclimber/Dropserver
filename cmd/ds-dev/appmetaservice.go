@@ -11,7 +11,7 @@ import (
 type AppMetaService struct {
 	DevAppModel   *DevAppModel `checkinject:"required"`
 	AppFilesModel interface {
-		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
+		GetVersionChangelog(locationKey string, version domain.Version) (string, error)
 	} `checkinject:"required"`
 	DevAppProcessEvents interface {
 		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
@@ -78,10 +78,8 @@ func (s *AppMetaService) sendManifest(twine *twine.Twine) {
 }
 
 func (s *AppMetaService) sendChangelog(twine *twine.Twine) {
-	cl, ok, err := s.AppFilesModel.GetVersionChangelog("", s.DevAppModel.Manifest.Version)
-	if !ok {
-		cl = "Error reading changelog"
-	} else if err != nil {
+	cl, err := s.AppFilesModel.GetVersionChangelog("", s.DevAppModel.Manifest.Version)
+	if err != nil {
 		fmt.Println("sendChangelog GetVersionChangelog Error: " + err.Error())
 	}
 	_, err = twine.SendBlock(appDataService, appChangelogCmd, []byte(cl))

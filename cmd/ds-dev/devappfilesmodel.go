@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/blang/semver/v4"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 )
@@ -45,19 +47,24 @@ func (a *DevAppFilesModel) GetLinkPath(locationKey string, linkName string) stri
 	return filepath.Join(a.AppLocation2Path.Files(locationKey), p)
 }
 
-func (a *DevAppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error) {
+func (a *DevAppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, error) {
 	p := a.GetLinkPath(locationKey, "changelog")
 	if p == "" { // no changelog file, no changelog.
-		return "", true, nil
+		return "", nil
 	}
 	f, err := os.Open(p)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	defer f.Close()
 
-	ret, ok, err := appfilesmodel.GetVersionChangelog(f, version)
-	return ret, ok, err
+	targetVer, err := semver.ParseTolerant(string(version))
+	if err != nil {
+		return "", err // definitely a Dropserver error
+	}
+
+	ret, err := appops.GetValidChangelog(f, targetVer)
+	return ret, err
 }
 
 func (a *DevAppFilesModel) Delete(locationKey string) error {
