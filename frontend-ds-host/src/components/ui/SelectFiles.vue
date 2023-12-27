@@ -86,7 +86,7 @@ async function submit() {
 			class="border-2 p-1 mt-4 rounded-lg bg-red-50 border-red-400 text-red-700">
 			Incorrect file type: {{ selected_file.type }}
 		</p>
-		<p v-else class="border-2 p-1 mt-4 rounded-lg border-transparent">&nbsp;</p>
+		<p v-else class="border-2 p-1 mt-4 rounded-lg border-transparent bg-gray-50">&nbsp;</p>
 
 		<div class="py-5 flex items-baseline justify-end">
 			<input

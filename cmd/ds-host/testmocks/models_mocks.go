@@ -584,6 +584,21 @@ func (mr *MockAppModelMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppModel)(nil).Create), arg0)
 }
 
+// CreateFromURL mocks base method
+func (m *MockAppModel) CreateFromURL(arg0 domain.UserID, arg1 string, arg2 bool, arg3 domain.AppListingFetch) (domain.AppID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFromURL", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(domain.AppID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateFromURL indicates an expected call of CreateFromURL
+func (mr *MockAppModelMockRecorder) CreateFromURL(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromURL", reflect.TypeOf((*MockAppModel)(nil).CreateFromURL), arg0, arg1, arg2, arg3)
+}
+
 // CreateVersion mocks base method
 func (m *MockAppModel) CreateVersion(arg0 domain.AppID, arg1 string, arg2 domain.AppVersionManifest) (domain.AppVersion, error) {
 	m.ctrl.T.Helper()
@@ -625,6 +640,37 @@ func (m *MockAppModel) DeleteVersion(arg0 domain.AppID, arg1 domain.Version) err
 func (mr *MockAppModelMockRecorder) DeleteVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVersion", reflect.TypeOf((*MockAppModel)(nil).DeleteVersion), arg0, arg1)
+}
+
+// GetAppUrlData mocks base method
+func (m *MockAppModel) GetAppUrlData(arg0 domain.AppID) (domain.AppURLData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppUrlData", arg0)
+	ret0, _ := ret[0].(domain.AppURLData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppUrlData indicates an expected call of GetAppUrlData
+func (mr *MockAppModelMockRecorder) GetAppUrlData(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppUrlData", reflect.TypeOf((*MockAppModel)(nil).GetAppUrlData), arg0)
+}
+
+// GetAppUrlListing mocks base method
+func (m *MockAppModel) GetAppUrlListing(arg0 domain.AppID) (domain.AppListing, domain.AppURLData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppUrlListing", arg0)
+	ret0, _ := ret[0].(domain.AppListing)
+	ret1, _ := ret[1].(domain.AppURLData)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetAppUrlListing indicates an expected call of GetAppUrlListing
+func (mr *MockAppModelMockRecorder) GetAppUrlListing(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppUrlListing", reflect.TypeOf((*MockAppModel)(nil).GetAppUrlListing), arg0)
 }
 
 // GetCurrentVersion mocks base method
@@ -730,6 +776,76 @@ func (m *MockAppModel) GetVersionsForUIForApp(arg0 domain.AppID) ([]domain.AppVe
 func (mr *MockAppModelMockRecorder) GetVersionsForUIForApp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVersionsForUIForApp", reflect.TypeOf((*MockAppModel)(nil).GetVersionsForUIForApp), arg0)
+}
+
+// SetLastFetch mocks base method
+func (m *MockAppModel) SetLastFetch(arg0 domain.AppID, arg1 time.Time, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLastFetch", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLastFetch indicates an expected call of SetLastFetch
+func (mr *MockAppModelMockRecorder) SetLastFetch(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLastFetch", reflect.TypeOf((*MockAppModel)(nil).SetLastFetch), arg0, arg1, arg2)
+}
+
+// SetListing mocks base method
+func (m *MockAppModel) SetListing(arg0 domain.AppID, arg1 domain.AppListingFetch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetListing", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetListing indicates an expected call of SetListing
+func (mr *MockAppModelMockRecorder) SetListing(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetListing", reflect.TypeOf((*MockAppModel)(nil).SetListing), arg0, arg1)
+}
+
+// SetNewUrl mocks base method
+func (m *MockAppModel) SetNewUrl(arg0 domain.AppID, arg1 string, arg2 nulltypes.NullTime) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetNewUrl", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetNewUrl indicates an expected call of SetNewUrl
+func (mr *MockAppModelMockRecorder) SetNewUrl(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNewUrl", reflect.TypeOf((*MockAppModel)(nil).SetNewUrl), arg0, arg1, arg2)
+}
+
+// UpdateAutomatic mocks base method
+func (m *MockAppModel) UpdateAutomatic(arg0 domain.AppID, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAutomatic", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAutomatic indicates an expected call of UpdateAutomatic
+func (mr *MockAppModelMockRecorder) UpdateAutomatic(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAutomatic", reflect.TypeOf((*MockAppModel)(nil).UpdateAutomatic), arg0, arg1)
+}
+
+// UpdateURL mocks base method
+func (m *MockAppModel) UpdateURL(arg0 domain.AppID, arg1 string, arg2 domain.AppListingFetch) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateURL", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateURL indicates an expected call of UpdateURL
+func (mr *MockAppModelMockRecorder) UpdateURL(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateURL", reflect.TypeOf((*MockAppModel)(nil).UpdateURL), arg0, arg1, arg2)
 }
 
 // MockAppspaceModel is a mock of AppspaceModel interface

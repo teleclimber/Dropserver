@@ -6,8 +6,22 @@ import type {AxiosResponse, AxiosError} from 'axios';
 
 import twineClient from '../twine-services/twine_client';
 import {SentMessageI} from 'twine-web';
-import { LoadState, App, AppVersion, AppVersionUI, AppManifest } from './types';
+import { LoadState, App, AppVersionUI, AppManifest, AppUrlData } from './types';
 import { Loadable, attachLoadState, setLoadState, getLoadState } from './loadable';
+
+export function appUrlDataFromRaw(raw:any) :AppUrlData {
+	return {
+		app_id: Number(raw.app_id),
+		url: raw.url+'',
+		automatic: !!raw.automatic,
+		last_dt: new Date(raw.last_dt),
+		last_result: raw.last_result+'',
+		new_url: raw.new_url + '',
+		new_url_dt: raw.new_url_dt ? new Date(raw.new_url_dt) : undefined,
+		listing_dt: new Date(raw.listing_dt),
+		latest_version: raw.latest_version+''
+	}
+}
 
 export function appVersionUIFromRaw(raw:any) :AppVersionUI {
 	return {
@@ -33,12 +47,13 @@ function appFromRaw(raw:any) :App {
 	return {
 		app_id,
 		created_dt,
+		url_data: raw.url_data ? appUrlDataFromRaw(raw.url_data) : undefined,
 		cur_ver,
 		ver_data: cur_ver ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
 }
 
-export type UploadResp = {
+export type PostNewAppResp = {
 	app_get_key: string
 }
 
@@ -64,6 +79,22 @@ export const useAppsStore = defineStore('apps', () => {
 			load_state.value = LoadState.Loaded;
 		}
 	}
+	async function loadApp(app_id:number) {
+		const resp = await ax.get('/api/application/'+app_id);
+		const app_in = appFromRaw(resp.data);
+		const app_ex = apps.value.get(app_id);
+		if( app_ex === undefined ) {
+			apps.value.set(app_id, shallowRef(app_in));
+			apps.value = new Map(apps.value);
+		}
+		else {
+			app_ex.value = app_in;
+		}
+	}
+	function setReload() {
+		// ugh.
+		load_state.value = LoadState.NotLoaded;
+	}
 
 	function getApp(app_id: number) :ShallowRef<App> | undefined {
 		return apps.value.get(app_id);
@@ -84,11 +115,10 @@ export const useAppsStore = defineStore('apps', () => {
 		return ret;
 	}
 	async function loadAppVersions(app_id:number) :Promise<void> {
-		if( app_versions.has(app_id) ) return;
-		const av :Loadable<AppVersionUI[]> = shallowReactive(attachLoadState([], LoadState.Loading));
-		console.log("is reactive at creation:", isReactive(av));
-		app_versions.set(app_id, av);
+		if( !app_versions.has(app_id) ) app_versions.set(app_id, shallowReactive(attachLoadState([], LoadState.Loading)));
+		const av = app_versions.get(app_id)!;
 		const resp = await ax.get(`/api/application/${app_id}/version`);
+		av.splice(0, av.length);	//empty it
 		resp.data.forEach( (raw:any) => {
 			av.push(appVersionUIFromRaw(raw));
 		});
@@ -102,8 +132,20 @@ export const useAppsStore = defineStore('apps', () => {
 		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application', form_data);
-		const data = <UploadResp>resp.data;
+		const data = <PostNewAppResp>resp.data;
 
+		return data.app_get_key;
+	}
+
+	// fetch new app from the passed URL
+	async function getNewAppFromURL(url: string, auto_refresh_listing:boolean, version?: string) :Promise<string> {
+		const resp = await ax.post('/api/application', {url, auto_refresh_listing, version});
+		const data = <PostNewAppResp>resp.data;
+		return data.app_get_key;
+	}
+	async function getNewVersionFromURL(app_id :number, version: string) :Promise<string> {
+		const resp = await ax.post('/api/application/'+app_id+'/version', {version});
+		const data = <PostNewAppResp>resp.data;
 		return data.app_get_key;
 	}
 
@@ -121,7 +163,7 @@ export const useAppsStore = defineStore('apps', () => {
 		form_data.append('package', package_file, package_file.name);
 
 		const resp = await ax.post('/api/application/'+app_id+'/version', form_data);
-		const data = <UploadResp>resp.data;
+		const data = <PostNewAppResp>resp.data;
 
 		return data.app_get_key;
 	}
@@ -135,6 +177,18 @@ export const useAppsStore = defineStore('apps', () => {
 		const v = av[v_index];
 		if( v === undefined ) throw new Error("did not find the version");
 		av.splice(v_index, 1);
+
+		// When deleting a version, the cur_ver may change.
+		const app  = mustGetApp(app_id);
+		if( app.value.cur_ver === version ) {
+			app.value.cur_ver = "";
+			app.value.ver_data = undefined;
+			if( av.length ) {
+				app.value.cur_ver = av[0].version;
+				app.value.ver_data = av[0];
+			}
+			app.value = Object.assign({}, app.value);
+		}
 	}
 	
 	async function deleteApp(app_id: number) {
@@ -144,16 +198,38 @@ export const useAppsStore = defineStore('apps', () => {
 		app_versions.delete(app_id);
 	}
 
+	async function refreshListing(app_id:number) :Promise<string> {
+		const resp = await ax.post('/api/application/'+app_id+'/refresh-listing');
+		loadApp(app_id);
+		return resp.data+'';
+	}
+
+	async function changeAutomaticListingFetch(app_id: number, automatic:boolean) {
+		const app = mustGetApp(app_id);
+		if( !app.value.url_data ) return;	 // maybe an error would be better?
+		await ax.post('/api/application/'+app_id+'/automatic-listing-fetch', {automatic});
+		app.value.url_data.automatic = automatic;
+	}
+
+	async function fetchVersionManifest(app_id:number, version:string|undefined ) :Promise<AppGetMeta> {
+		const resp = await ax.get(`/api/application/${app_id}/fetch-version-manifest?version=${version || ""}`);
+		const data = <AppGetMeta>resp.data;
+		data.version_manifest = rawToAppManifest(data.version_manifest);
+		return data;
+	}
+
 	return {
-		is_loaded, 
-		loadData, apps, getApp, mustGetApp, deleteApp,
+		is_loaded, setReload,
+		loadData, apps, loadApp, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
-		uploadNewApplication, commitNewApplication, uploadNewAppVersion
+		uploadNewApplication, getNewAppFromURL, getNewVersionFromURL, commitNewApplication, uploadNewAppVersion,
+		refreshListing, changeAutomaticListingFetch,
+		fetchVersionManifest
 	};
 });
 
 
-// NewAppVersionResp is returned by the server when it reads the contents of a new app code
+// AppGetMeta is returned by the server when it reads the contents of a new app code
 // (whether it's a new version or an all new app).
 // It returns any errors / problems found in the files, and the app version data if passable.
 export type AppGetMeta = {
@@ -161,12 +237,21 @@ export type AppGetMeta = {
 	prev_version: string,
 	next_version: string,
 	errors: string[],	// maybe array of strings?
-	warnings: Record<string, string>,
-	version_manifest?: AppManifest
+	warnings: Warning[],
+	version_manifest?: AppManifest,
+	app_id: number
+}
+
+export type Warning = {
+	field: string,
+	problem: string,
+	bad_value: string,
+	message: string
 }
 
 
-function rawToAppManifest(raw:any) :AppManifest {
+export function rawToAppManifest(raw:any) :AppManifest|undefined {
+	if( raw.version === "" ) return undefined;	// version is the only required part of manifest, if it's not set we just got a zero-value manifest.
 	const ret = Object.assign({}, raw);
 	Object.keys(ret).filter( k => k.includes("-") ).forEach( k => {
 		const new_k = k.replaceAll("-", "_");
@@ -193,7 +278,7 @@ function rawToAppManifest(raw:any) :AppManifest {
 type AppGetEvent = {
 	key: string,
 	done: boolean,
-	error: boolean,
+	input: string,
 	step: string
 }
 type InProcessResp = {
@@ -223,12 +308,11 @@ export class AppGetter {
 		for await (const m of this.subMessage.incomingMessages()) {
 			switch (m.command) {
 				case 11:	//event
-					this.last_event.value = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
+					const ev = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
 					m.sendOK();
-					if(this.last_event.value.done && this.meta.value === undefined ) {
-						this.loadInProcess();
-						this.unsubscribeKey();
-					}
+					if( ev.done ) this.unsubscribeKey();
+					if( ev.done || ev.input ) this.loadInProcess();
+					else this.last_event.value = ev;
 					break;
 			
 				default:
@@ -253,7 +337,11 @@ export class AppGetter {
 		const data = <InProcessResp>resp.data;
 		if( data.meta.version_manifest ) data.meta.version_manifest = rawToAppManifest(data.meta.version_manifest);
 		this.last_event.value = data.last_event;
-		if( this.last_event.value.done ) this.meta.value = data.meta;
+		this.meta.value = data.meta;
+		if( this.done && !this.has_error ) {
+			const appStore = useAppsStore();
+			appStore.setReload();	// temporary until we can lazy-load apps.
+		}
 	}
 	async unsubscribeKey() {
 		if( !this.subMessage ) return;
@@ -262,17 +350,29 @@ export class AppGetter {
 		await m.refSendBlock(13, undefined);
 	}
 
-	get done() :boolean {
-		if( this.meta.value ) return true;
-		else return !!this.last_event.value?.done;
+	get done() :boolean {	// Note we changed what "done" means on the backend, sort of. It now means the process is completely finished.
+		return !!this.last_event.value?.done
 	}
-	get canCommit() :boolean {
-		return !!this.meta.value && this.meta.value.errors.length === 0;
+	get expects_input() :boolean {
+		return !!this.last_event.value?.input;
+	}
+	get must_confirm() :boolean {
+		return !this.done && this.last_event.value?.input === "commit";
+	}
+	get has_error() :boolean {
+		return this.meta.value?.errors.length !== 0;
+	}
+	get version_manifest() :AppManifest|undefined {
+		return this.meta.value?.version_manifest;
 	}
 
 	async cancel() {
-		if( this.not_found ) return;
+		if( this.not_found.value ) return;
 		try {
+			await this.unsubscribeKey();
+			this.not_found.value = true;
+			this.last_event.value = undefined;
+			this.meta.value = undefined;
 			await ax.delete('/api/application/in-process/'+this.key.value);
 		}
 		catch(e) {

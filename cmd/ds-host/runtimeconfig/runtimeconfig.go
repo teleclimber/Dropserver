@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,9 @@ var configDefault = []byte(`{
 	},
 	"manage-certificates": {
 		"issuer-endpoint": "https://acme-v02.api.letsencrypt.org/directory"
+	},
+	"internal-network": {
+		"allowed-ips": []
 	},
 	"sandbox": {
 		"use-bubblewrap" : true,
@@ -149,6 +153,15 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 	if rtc.ExternalAccess.Port == 0 {
 		panic("port can not be zero")
+	}
+
+	// AllowedIPs must be either an IP address or an IP range
+	for _, s := range rtc.InternalNetwork.AllowedIPs {
+		_, errA := netip.ParseAddr(s)
+		_, errP := netip.ParsePrefix(s)
+		if errA != nil && errP != nil {
+			panic("allowed IP does not parse: " + s)
+		}
 	}
 
 	// ManageTLSCertificates

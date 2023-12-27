@@ -62,7 +62,15 @@ type AppModel interface {
 	GetFromID(domain.AppID) (domain.App, error)
 	GetForOwner(domain.UserID) ([]*domain.App, error)
 	Create(domain.UserID) (domain.AppID, error)
+	CreateFromURL(domain.UserID, string, bool, domain.AppListingFetch) (domain.AppID, error)
 	Delete(appID domain.AppID) error
+	GetAppUrlData(domain.AppID) (domain.AppURLData, error)
+	GetAppUrlListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
+	UpdateAutomatic(domain.AppID, bool) error
+	SetLastFetch(domain.AppID, time.Time, string) error
+	SetListing(domain.AppID, domain.AppListingFetch) error
+	SetNewUrl(domain.AppID, string, nulltypes.NullTime) error
+	UpdateURL(domain.AppID, string, domain.AppListingFetch) error
 	GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 	GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 	GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)

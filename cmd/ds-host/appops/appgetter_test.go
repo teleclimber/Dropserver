@@ -4,11 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/blang/semver/v4"
-	"github.com/golang/mock/gomock"
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestSetKey(t *testing.T) {
@@ -23,6 +18,23 @@ func TestSetKey(t *testing.T) {
 	}
 	if data.locationKey != "abc" {
 		t.Error("data not set correctly")
+	}
+}
+
+func TestGetMeta(t *testing.T) {
+	g := &AppGetter{}
+	g.Init()
+
+	keyData := g.set(appGetData{})
+	m, ok := g.GetResults(keyData.key)
+	if !ok {
+		t.Fatal("expected meta should exist")
+	}
+
+	g.appendErrorResult(keyData.key, "some error")
+	m3, _ := g.GetResults(keyData.key)
+	if len(m3.Errors) != 1 || m3.Errors[0] != "some error" {
+		t.Fatalf("expected error to be in meta: %v", m.Errors)
 	}
 }
 
@@ -68,152 +80,52 @@ func TestGetDefaultEntryPoint(t *testing.T) {
 	g := &AppGetter{
 		AppLocation2Path: &l2p{appFiles: dir},
 	}
-	m := domain.AppGetMeta{
-		Errors:          make([]string, 0),
-		VersionManifest: domain.AppVersionManifest{},
-	}
+	g.Init()
+	keyData := g.set(appGetData{})
 
 	// getEntrypoint when there are no files:
-	err = g.getEntrypoint("", &m)
+	err = g.getEntrypoint(keyData)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(m.Errors) != 1 {
+	result, ok := g.GetResults(keyData.key)
+	if !ok {
+		t.Fatal("expected there to be results")
+	}
+	if len(result.Errors) != 1 {
 		t.Error("expected Meta.Error because no app js or ts in files")
 	}
 
 	// now put app.js
+	keyData = g.set(appGetData{})
 	err = os.WriteFile(filepath.Join(g.AppLocation2Path.Files(""), "app.js"), []byte("app"), 0644)
 	if err != nil {
 		t.Error(err)
 	}
-	m.Errors = make([]string, 0)
-	err = g.getEntrypoint("", &m)
+	err = g.getEntrypoint(keyData)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(m.Errors) != 0 {
-		t.Errorf("expected no Meta.Error %v", m.Errors)
+	result, _ = g.GetResults(keyData.key)
+	if len(result.Errors) != 0 {
+		t.Errorf("expected no Meta.Error %v", result.Errors)
 	}
-	if m.VersionManifest.Entrypoint != "app.js" {
+	if result.VersionManifest.Entrypoint != "app.js" {
 		t.Error("expected entrypoint to be app.js")
 	}
 
 	// now with both app.js and app.ts
+	keyData = g.set(appGetData{})
 	err = os.WriteFile(filepath.Join(g.AppLocation2Path.Files(""), "app.ts"), []byte("app"), 0644)
 	if err != nil {
 		t.Error(err)
 	}
-	m.VersionManifest.Entrypoint = ""
-	m.Errors = make([]string, 0)
-	err = g.getEntrypoint("", &m)
+	err = g.getEntrypoint(keyData)
 	if err != nil {
 		t.Error(err)
 	}
-	if len(m.Errors) != 1 {
+	result, _ = g.GetResults(keyData.key)
+	if len(result.Errors) != 1 {
 		t.Errorf("expected one Meta.Error")
-	}
-}
-
-func TestVersionSort(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appID := domain.AppID(7)
-	ver, _ := semver.New("0.5.0")
-
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-
-	g := &AppGetter{
-		AppModel: appModel,
-	}
-
-	// basic sorting:
-	appModel.EXPECT().GetVersionsForApp(appID).Return([]*domain.AppVersion{
-		{Version: domain.Version("0.8.1")},
-		{Version: domain.Version("0.2.1")},
-	}, nil)
-	vers, appErr, err := g.getVersions(appID, *ver)
-	if err != nil {
-		t.Error(err)
-	}
-	if appErr != "" {
-		t.Error(appErr)
-	}
-	if vers[0].appVersion.Version != domain.Version("0.2.1") {
-		t.Error("sort order is wrong")
-	}
-
-	// dupe version
-	appModel.EXPECT().GetVersionsForApp(appID).Return([]*domain.AppVersion{
-		{Version: domain.Version("0.8.1")},
-		{Version: domain.Version("0.5.0")},
-	}, nil)
-	_, appErr, err = g.getVersions(appID, *ver)
-	if err != nil {
-		t.Error(err)
-	}
-	if appErr == "" {
-		t.Error("expected an error")
-	}
-}
-
-func TestValidateSequence(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appID := domain.AppID(7)
-
-	appModel := testmocks.NewMockAppModel(mockCtrl)
-
-	g := &AppGetter{
-		AppModel: appModel,
-	}
-
-	cases := []struct {
-		desc        string
-		appVersions []*domain.AppVersion
-		numErr      int
-	}{
-		{"incrementing schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 2},
-			{Version: domain.Version("0.2.1"), Schema: 0},
-		}, 0},
-		{"same schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 1},
-			{Version: domain.Version("0.2.1"), Schema: 1},
-		}, 0},
-		{"next has lower schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 0},
-			{Version: domain.Version("0.2.1"), Schema: 1},
-		}, 1},
-		{"prev has higher schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 1},
-			{Version: domain.Version("0.2.1"), Schema: 2},
-		}, 1},
-		{"prev only increment schema", []*domain.AppVersion{
-			{Version: domain.Version("0.2.1"), Schema: 0},
-		}, 0},
-		{"next only increment schema", []*domain.AppVersion{
-			{Version: domain.Version("0.8.1"), Schema: 2},
-		}, 0},
-	}
-
-	for _, c := range cases {
-		appGetMeta := domain.AppGetMeta{
-			VersionManifest: domain.AppVersionManifest{
-				Version: domain.Version("0.5.0"),
-				Schema:  1,
-			},
-		}
-		appModel.EXPECT().GetVersionsForApp(appID).Return(c.appVersions, nil)
-		err := g.validateVersionSequence(appID, &appGetMeta)
-		if err != nil {
-			t.Error(c.desc, err)
-		}
-		if len(appGetMeta.Errors) != c.numErr {
-			t.Log(appGetMeta.Errors)
-			t.Error(c.desc, "got unexpected errors")
-		}
 	}
 }

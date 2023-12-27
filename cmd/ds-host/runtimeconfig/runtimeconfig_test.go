@@ -95,6 +95,14 @@ func TestValidateServerTLS(t *testing.T) {
 	}
 }
 
+// TODO test allowed IP stuff
+func TestDefaultAllowedIPs(t *testing.T) {
+	rtc := loadDefault()
+	if rtc.InternalNetwork.AllowedIPs == nil {
+		t.Error("default config should have an empty array for allowed IPs")
+	}
+}
+
 func TestValidateCertManageEnable(t *testing.T) {
 	rtc := getPassingDefault()
 	rtc.Server.NoTLS = false

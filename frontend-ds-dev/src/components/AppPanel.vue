@@ -4,6 +4,7 @@ import { reactive, ref, computed, watch, onMounted } from 'vue';
 import baseData from '../models/base-data';
 import LiveLog from '../models/appspace-log-data';
 import appData from '../models/app-data';
+import type { Warning } from '../models/app-data'
 
 import Log from './Log.vue';
 import AppRoutes from './AppRoutes.vue';
@@ -29,6 +30,23 @@ onMounted( () => {
 watch( p_event, () => {
 	if( p_event.value.errors.length ) show_process_log.value = true;
 	app_icon.value = "app-icon?"+Date.now();
+});
+
+const warnings = computed( () => {
+	const ret :Record<string,Warning[]> = {};
+	p_event.value.warnings.forEach(w => {
+		const f = w.field;
+		if( !ret[f] ) ret[f] = [];
+		ret[f].push(w);
+	});
+	return ret;
+});
+const bad_values = computed( () => {
+	const ret :Record<string,string> = {};
+	p_event.value.warnings.forEach(w => {
+		if( w.bad_value ) ret[w.field] = w.bad_value;
+	});
+	return ret;
 });
 
 const none_classes = ['italic', 'text-gray-500'];
@@ -96,35 +114,38 @@ const none_classes = ['italic', 'text-gray-500'];
 			<div class="my-4 ">
 				<DataDef field="Name:">
 					“{{appData.name}}”
-					<SmallMessage mood="warn" v-if="p_event.warnings.name">
-						{{ p_event.warnings.name }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['name']">{{ w.message }}</SmallMessage>
 				</DataDef>
-				<DataDef field="Version:">{{appData.version}}</DataDef>
-				<DataDef field="Schema:">{{appData.schema}}</DataDef>
-				<DataDef field="Entrypoint:">{{ appData.entrypoint }}</DataDef>
+				<DataDef field="Version:">
+					{{ appData.version || bad_values['name'] }}
+					<SmallMessage mood="warn" v-for="w in warnings['version']">{{ w.message }}</SmallMessage>
+				</DataDef>
+				<DataDef field="Schema:">
+					{{ appData.schema }}
+					<SmallMessage mood="warn" v-for="w in warnings['schema']">{{ w.message }}</SmallMessage>
+				</DataDef>
+				<DataDef field="Entrypoint:">
+					{{ appData.entrypoint || bad_values['entrypoint'] }}
+					<SmallMessage mood="warn" v-for="w in warnings['entrypoint']">{{ w.message }}</SmallMessage>
+				</DataDef>
 				<DataDef field="Migrations:">
 					<MigrationsGrid :migrations="appData.migrations"></MigrationsGrid>
-					<SmallMessage mood="warn" v-if="p_event.warnings.migrations" class="mt-1">
-						{{ p_event.warnings.migrations }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['migrations']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="App Icon:">
 					{{ appData.manifest?.icon|| "(none)" }}
 					<img v-if="appData.manifest?.icon" :src="app_icon" class="border border-gray-300 h-20 w-20"/>
-					<SmallMessage mood="warn" v-if="p_event.warnings.icon" class="mt-1">
-						{{ p_event.warnings.icon }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['icon']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Accent Color:">
 					<span v-if="accent_color" class="rounded inline-block w-20 leading-3" :style="'background-color:'+accent_color">&nbsp;</span>
+					<span v-else-if="bad_values['accent-color']">{{ bad_values['accent-color'] }}</span>
 					<span v-else :class="none_classes">(none)</span>
+					<SmallMessage mood="warn" v-for="w in warnings['accent-color']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Short Description:">
 					“{{ appData.manifest?.short_description }}”
-					<SmallMessage mood="warn" v-if="p_event.warnings['short-description']">
-						{{ p_event.warnings['short-description'] }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['short-description']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Authors:">
 					<div v-for="a in appData.manifest?.authors">
@@ -133,56 +154,50 @@ const none_classes = ['italic', 'text-gray-500'];
 						<a class="text-blue-600 underline" :href="a.url">{{ a.url }}</a>
 					</div>
 					<div v-if="!appData.manifest?.authors?.length" :class="none_classes">(none)</div>
-					<SmallMessage mood="warn" v-if="p_event.warnings.authors">
-						{{ p_event.warnings.authors }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['authors']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Website:">
 					<a v-if="appData.manifest?.website" :href="appData.manifest.website" class="text-blue-600 underline">
-						{{  appData.manifest.website }}
+						{{ appData.manifest.website }}
 					</a>
+					<span v-else-if="bad_values['website']">{{ bad_values['website'] }}</span>
 					<span v-else :class="none_classes">(none)</span>
-					<SmallMessage mood="warn" v-if="p_event.warnings.website">
-						{{ p_event.warnings.website }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['website']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Code Repo:">
 					<a v-if="appData.manifest?.code" :href="appData.manifest.code" class="text-blue-600 underline">
-						{{  appData.manifest.code }}
+						{{ appData.manifest.code }}
 					</a>
+					<span v-else-if="bad_values['code']">{{ bad_values['code'] }}</span>
 					<span v-else :class="none_classes">(none)</span>
-					<SmallMessage mood="warn" v-if="p_event.warnings.code">
-						{{ p_event.warnings.code }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['code']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Funding:">
 					<a v-if="appData.manifest?.funding" :href="appData.manifest.funding" class="text-blue-600 underline">
-						{{  appData.manifest.funding }}
+						{{ appData.manifest.funding }}
 					</a>
+					<span v-else-if="bad_values['funding']">{{ bad_values['funding'] }}</span>
 					<span v-else :class="none_classes">(none)</span>
-					<SmallMessage mood="warn" v-if="p_event.warnings.funding">
-						{{ p_event.warnings.funding }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['funding']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="License:">
 					<span v-if="appData.manifest?.license">
-						{{  appData.manifest.license }}
+						{{ appData.manifest.license }}
 					</span>
 					<span v-else :class="none_classes">(none specified)</span>
-					<span v-if="appData.manifest?.license_file" class="pl-2">File: {{appData.manifest.license_file}}</span>
+					<span v-if="appData.manifest?.license_file" class="pl-2">
+						File: {{ appData.manifest.license_file || bad_values['license-file'] }}
+					</span>
 					<span v-else class="pl-2" :class="none_classes">(no license file specified)</span>
-					<SmallMessage mood="warn" v-if="p_event.warnings.license">
-						{{ p_event.warnings.license }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['license']">{{ w.message }}</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['license-file']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Changelog:">
 					<span v-if="appData.manifest?.changelog" class="pr-2">
-						File: {{  appData.manifest.changelog }}
+						File: {{ appData.manifest.changelog || bad_values['changelog'] }}
 					</span>
 					<span v-else class="pr-2" :class="none_classes">(none specified)</span>
-					<SmallMessage mood="warn" v-if="p_event.warnings.changelog">
-						{{ p_event.warnings.changelog }}
-					</SmallMessage>
+					<SmallMessage mood="warn" v-for="w in warnings['changelog']">{{ w.message }}</SmallMessage>
 				</DataDef>
 			</div>
 			<div class="border-l-4 border-gray-800  my-8">

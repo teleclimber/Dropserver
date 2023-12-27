@@ -3,13 +3,16 @@ package userroutes
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -22,7 +25,8 @@ type GetAppsResp struct {
 
 type ApplicationResp struct {
 	domain.App
-	CurVer     domain.Version      `json:"cur_ver"`
+	UrlData    *domain.AppURLData  `json:"url_data,omitempty"`
+	CurVer     domain.Version      `json:"cur_ver"` // CurVer is the latest locally installed version
 	VesionData domain.AppVersionUI `json:"ver_data"`
 }
 
@@ -34,6 +38,8 @@ type Versions struct {
 // ApplicationRoutes handles routes for applications uploading, creating, deleting.
 type ApplicationRoutes struct {
 	AppGetter interface {
+		InstallFromURL(domain.UserID, string, domain.Version, bool) (domain.AppGetKey, error)
+		InstallNewVersionFromURL(domain.UserID, domain.AppID, domain.Version) (domain.AppGetKey, error)
 		InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error)
 		GetUser(key domain.AppGetKey) (domain.UserID, bool)
 		GetLocationKey(key domain.AppGetKey) (string, bool)
@@ -42,18 +48,29 @@ type ApplicationRoutes struct {
 		Commit(domain.AppGetKey) (domain.AppID, domain.Version, error)
 		Delete(domain.AppGetKey)
 	} `checkinject:"required"`
+	RemoteAppGetter interface {
+		FetchValidListing(string) (domain.AppListingFetch, error)
+		RefreshAppListing(domain.AppID) error
+		FetchNewVersionManifest(domain.AppID, domain.Version) (domain.AppGetMeta, error)
+		FetchUrlVersionManifest(string, domain.Version) (domain.AppGetMeta, error)
+		FetchChangelog(listingURL string, version domain.Version) (string, error)
+		FetchIcon(string, domain.Version) ([]byte, error)
+	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
 		DeleteVersion(appID domain.AppID, version domain.Version) error
 	} `checkinject:"required"`
 	AppFilesModel interface {
 		SavePackage(io.Reader) (string, error)
-		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
+		GetVersionChangelog(locationKey string, version domain.Version) (string, error)
 		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetForOwner(domain.UserID) ([]*domain.App, error)
+		GetAppUrlData(appID domain.AppID) (domain.AppURLData, error)
+		GetAppUrlListing(appID domain.AppID) (domain.AppListing, domain.AppURLData, error)
+		UpdateAutomatic(appID domain.AppID, auto bool) error
 		GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error) // maybe no longer necessary?
 		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
@@ -69,7 +86,15 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Use(mustBeAuthenticated)
 
 	r.Get("/", a.getApplications)
-	r.Post("/", a.postNewApplication) // could this be same route for new app and new version? Just include app id in metadata.
+	r.Post("/", a.postNewApplication)
+
+	r.Route("/fetch/{app-url}", func(r chi.Router) {
+		r.Use(a.appUrlCtx)
+		r.Get("/listing-versions", a.fetchUrlListingVersions)
+		r.Get("/manifest", a.fetchUrlVersionManifest)
+		r.Get("/changelog", a.fetchUrlVersionChangelog)
+		r.Get("/icon", a.fetchUrlVersionIcon)
+	})
 
 	r.Route("/in-process/{app-get-key}", func(r chi.Router) {
 		r.Use(a.appGetKeyCtx)
@@ -84,6 +109,10 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 	r.Route("/{application}", func(r chi.Router) {
 		r.Use(a.applicationCtx)
 		r.Get("/", a.getApplication)
+		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
+		r.Post("/refresh-listing", a.refreshListing)
+		r.Get("/listing-versions", a.getListingVersions)
+		r.Get("/fetch-version-manifest", a.fetchVersionManifest)
 		r.Delete("/", a.delete)
 		r.Get("/version", a.getVersions)
 		r.Post("/version", a.postNewVersion)
@@ -100,7 +129,18 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 func (a *ApplicationRoutes) getApplication(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
 
-	appResp := ApplicationResp{app, "", domain.AppVersionUI{}}
+	appResp := ApplicationResp{app, nil, "", domain.AppVersionUI{}}
+
+	urlData, err := a.AppModel.GetAppUrlData(app.AppID)
+	if err == domain.ErrNoRowsInResultSet {
+		// no-op
+	} else if err != nil {
+		httpInternalServerError(w)
+		return
+	} else {
+		appResp.UrlData = &urlData
+	}
+
 	curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
 	if err == nil {
 		appResp.CurVer = curVer
@@ -141,21 +181,34 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 
 	fail := false
 	for i, app := range apps {
+		appI := ApplicationResp{*app, nil, "", domain.AppVersionUI{}}
+
+		urlData, err := a.AppModel.GetAppUrlData(app.AppID)
+		if err == domain.ErrNoRowsInResultSet {
+			// no-op
+		} else if err != nil {
+			fail = true
+			break
+		} else {
+			appI.UrlData = &urlData
+		}
+
 		curVer, err := a.AppModel.GetCurrentVersion(app.AppID)
 		if err == domain.ErrNoRowsInResultSet {
-			respData.Apps[i] = ApplicationResp{*app, "", domain.AppVersionUI{}}
-			continue
-		}
-		if err != nil {
+			// no-op
+		} else if err != nil {
 			fail = true
 			break
+		} else {
+			ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
+			if err != nil {
+				fail = true
+				break
+			}
+			appI.CurVer = curVer
+			appI.VesionData = ver
 		}
-		ver, err := a.AppModel.GetVersionForUI(app.AppID, curVer)
-		if err != nil {
-			fail = true
-			break
-		}
-		respData.Apps[i] = ApplicationResp{*app, curVer, ver}
+		respData.Apps[i] = appI
 	}
 	if fail {
 		httpInternalServerError(w)
@@ -163,6 +216,192 @@ func (a *ApplicationRoutes) getAllApplications(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSON(w, respData)
+}
+
+func (a *ApplicationRoutes) postAutomaticListingFetch(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	var reqData struct {
+		Automatic bool `json:"automatic"`
+	}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = a.AppModel.UpdateAutomatic(app.AppID, reqData.Automatic)
+	if err != nil {
+		returnError(w, err)
+	}
+}
+
+func (a *ApplicationRoutes) refreshListing(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	err := a.RemoteAppGetter.RefreshAppListing(app.AppID)
+	if err != nil {
+		// treat any error here as something to show the user
+		// because it's most likely an error with the fetch or validation of returned data
+		w.Write([]byte(err.Error()))
+	}
+}
+
+func (a *ApplicationRoutes) getListingVersions(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	listing, _, err := a.AppModel.GetAppUrlListing(app.AppID)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	// consider bailing if urldata has new url set?
+
+	sorted, err := appops.GetSortedVersions(listing.Versions)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	writeJSON(w, sorted) // for now we just send an array of versions. We have no other data anywyas.
+}
+
+func (a *ApplicationRoutes) fetchUrlListingVersions(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	listingFetch, err := a.RemoteAppGetter.FetchValidListing(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if listingFetch.NewURL != "" || listingFetch.Listing.NewURL != "" {
+		newUrl := listingFetch.NewURL
+		if newUrl == "" {
+			newUrl = listingFetch.Listing.NewURL
+		}
+		http.Error(w, "listing is available at a new URL: "+newUrl, http.StatusBadRequest)
+		return
+	}
+
+	sorted, err := appops.GetSortedVersions(listingFetch.Listing.Versions)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, sorted) // for now we just send an array of versions. We have no other data anywyas.
+}
+
+func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	}
+
+	manifestMeta, err := a.RemoteAppGetter.FetchNewVersionManifest(app.AppID, domain.Version(v))
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	writeJSON(w, manifestMeta)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionManifest(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	}
+
+	manifestMeta, err := a.RemoteAppGetter.FetchUrlVersionManifest(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writeJSON(w, manifestMeta)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionChangelog(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	} else {
+		http.Error(w, "missing version in query parameters", http.StatusBadRequest)
+		return
+	}
+
+	cl, err := a.RemoteAppGetter.FetchChangelog(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Fprint(w, cl)
+}
+
+func (a *ApplicationRoutes) fetchUrlVersionIcon(w http.ResponseWriter, r *http.Request) {
+	url, _ := domain.CtxAppUrl(r.Context())
+
+	err := validator.HttpURL(url)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var v string
+	query := r.URL.Query()
+	vs, ok := query["version"]
+	if ok && len(vs) == 1 {
+		v = vs[0]
+	} else {
+		http.Error(w, "missing version in query parameters", http.StatusBadRequest)
+		return
+	}
+
+	iconBytes, err := a.RemoteAppGetter.FetchIcon(url, domain.Version(v))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(iconBytes) == 0 {
+		returnError(w, errNotFound)
+		return
+	}
+
+	mimeType := http.DetectContentType(iconBytes)
+	w.Header().Set("Content-Type", mimeType)
+
+	io.Copy(w, bytes.NewBuffer(iconBytes))
 }
 
 func (a *ApplicationRoutes) delete(w http.ResponseWriter, r *http.Request) {
@@ -214,10 +453,10 @@ func (a *ApplicationRoutes) getAppVersions(w http.ResponseWriter, r *http.Reques
 	http.Error(w, "query params not supported", http.StatusNotImplemented)
 }
 
-// NewAppResp returns the new app and nversion metadata
-type NewAppResp struct {
-	App     domain.App        `json:"app"`
-	Version domain.AppVersion `json:"app_version"`
+type InstallAppFromURLRequest struct {
+	URL                string         `json:"url"`
+	Version            domain.Version `json:"version"`
+	AutoRefreshListing bool           `json:"auto_refresh_listing"`
 }
 
 // postNewApplication is for Post with no app-id
@@ -226,14 +465,56 @@ type NewAppResp struct {
 // if there are no files but there is a key, then create a new app with files found at key.
 func (a *ApplicationRoutes) postNewApplication(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
-	a.handlePackageUpload(r, w, userID)
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/json" {
+		reqData := InstallAppFromURLRequest{}
+		err := readJSON(r, &reqData)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		appGetKey, err := a.AppGetter.InstallFromURL(userID, reqData.URL, reqData.Version, reqData.AutoRefreshListing)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		writeJSON(w, FilesUploadResp{Key: appGetKey})
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		a.handlePackageUpload(r, w, userID)
+	} else {
+		writeBadRequest(w, "Content Type", "expected application/json or multipart/form-data, got "+contentType)
+	}
+}
+
+type InstallNewVersionFromURLRequest struct {
+	Version domain.Version `json:"version"`
 }
 
 func (a *ApplicationRoutes) postNewVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID, _ := domain.CtxAuthUserID(ctx)
 	app, _ := domain.CtxAppData(ctx)
-	a.handlePackageUpload(r, w, userID, app.AppID)
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "application/json" {
+		reqData := InstallNewVersionFromURLRequest{}
+		err := readJSON(r, &reqData)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		appGetKey, err := a.AppGetter.InstallNewVersionFromURL(userID, app.AppID, reqData.Version)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		writeJSON(w, FilesUploadResp{Key: appGetKey})
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		a.handlePackageUpload(r, w, userID, app.AppID)
+	} else {
+		writeBadRequest(w, "Content Type", "expected application/json or multipart/form-data, got "+contentType)
+	}
 }
 
 type FilesUploadResp struct {
@@ -246,6 +527,8 @@ func (a *ApplicationRoutes) handlePackageUpload(r *http.Request, w http.Response
 		http.Error(w, "unable to get package file from multipart: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer f.Close()
+
 	// if we capture the header above, we can know the original package filename and propagate as desired.
 
 	loc, err := a.AppFilesModel.SavePackage(f)
@@ -317,15 +600,11 @@ func (a *ApplicationRoutes) getInProcess(w http.ResponseWriter, r *http.Request)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	meta := domain.AppGetMeta{}
-	if lastEvent.Done {
-		meta, ok = a.AppGetter.GetResults(appGetKey)
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	meta, ok := a.AppGetter.GetResults(appGetKey)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
-
 	writeJSON(w, InProcessResp{LastEvent: lastEvent, Meta: meta})
 }
 
@@ -333,7 +612,7 @@ func (a *ApplicationRoutes) getInProcessLog(w http.ResponseWriter, r *http.Reque
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -353,7 +632,7 @@ func (a *ApplicationRoutes) getInProcessChangelog(w http.ResponseWriter, r *http
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -382,7 +661,7 @@ func (a *ApplicationRoutes) getInProcessFile(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	appGetKey, _ := domain.CtxAppGetKey(ctx)
 	locationKey, ok := a.AppGetter.GetLocationKey(appGetKey)
-	if !ok {
+	if !ok || locationKey == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -432,7 +711,8 @@ func (a *ApplicationRoutes) getChangelog(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *ApplicationRoutes) respondWithChangelog(w http.ResponseWriter, locationKey string, version domain.Version) {
-	cl, _, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
+	// maybe this could take a file stream from app model and push that to repsonse so long as it's the reight version?
+	cl, err := a.AppFilesModel.GetVersionChangelog(locationKey, version)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -576,6 +856,25 @@ func (a *ApplicationRoutes) appGetKeyCtx(next http.Handler) http.Handler {
 		}
 
 		r = r.WithContext(domain.CtxWithAppGetKey(r.Context(), appGetKey))
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *ApplicationRoutes) appUrlCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, err := url.PathUnescape(chi.URLParam(r, "app-url"))
+		if err != nil {
+			returnError(w, errBadRequest)
+			return
+		}
+		err = validator.HttpURL(u)
+		if err != nil {
+			returnError(w, errBadRequest)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppUrl(r.Context(), u))
 
 		next.ServeHTTP(w, r)
 	})

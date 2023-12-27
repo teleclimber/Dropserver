@@ -82,6 +82,20 @@ func CtxAppGetKey(ctx context.Context) (AppGetKey, bool) {
 	return t, ok
 }
 
+// App processing commit key
+const appUrlCtxKey = ctxKey("application from URL key")
+
+// CtxWithAppUrl sets the app url on context
+func CtxWithAppUrl(ctx context.Context, url string) context.Context {
+	return context.WithValue(ctx, appUrlCtxKey, url)
+}
+
+// CtxAppUrl gets the app url from context
+func CtxAppUrl(ctx context.Context) (string, bool) {
+	t, ok := ctx.Value(appUrlCtxKey).(string)
+	return t, ok
+}
+
 // Appspace Data
 const appspaceDataCtxKey = ctxKey("appspace data")
 

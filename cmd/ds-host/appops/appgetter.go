@@ -9,23 +9,27 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/github/go-spdx/v2/spdxexp"
+	"github.com/inhies/go-bytesize"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 type appGetData struct {
-	key         domain.AppGetKey
-	locationKey string
-	userID      domain.UserID
-	hasAppID    bool
-	appID       domain.AppID
-	sandbox     domain.SandboxI
+	key                domain.AppGetKey
+	url                string
+	locationKey        string
+	userID             domain.UserID
+	hasAppID           bool
+	appID              domain.AppID
+	sandbox            domain.SandboxI
+	hasListing         bool                   // apparently unused
+	listing            domain.AppListingFetch // listing that we fetch at app creation time
+	autoRefreshListing bool                   // user's choice on whether listing should be refreshed automatically
 }
 
 type subscriber struct {
@@ -41,11 +45,9 @@ type subscriber struct {
 // And it can commit files to become an actual app version
 type AppGetter struct {
 	AppFilesModel interface {
-		SavePackage(io.Reader) (string, error)
 		ExtractPackage(locationKey string) error
 		GetManifestSize(string) (int64, error)
 		ReadManifest(string) (domain.AppVersionManifest, error)
-		GetVersionChangelog(locationKey string, version domain.Version) (string, bool, error)
 		WriteRoutes(string, []byte) error
 		WriteFileLink(string, string, string) error
 		Delete(string) error
@@ -55,11 +57,17 @@ type AppGetter struct {
 	} `checkinject:"required"`
 	AppModel interface {
 		Create(domain.UserID) (domain.AppID, error)
+		CreateFromURL(domain.UserID, string, bool, domain.AppListingFetch) (domain.AppID, error)
+		GetAppUrlListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
 		CreateVersion(domain.AppID, string, domain.AppVersionManifest) (domain.AppVersion, error)
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 	AppLogger interface {
 		Log(locationKey string, source string, message string)
+	} `checkinject:"required"`
+	RemoteAppGetter interface {
+		FetchValidListing(url string) (domain.AppListingFetch, error)
+		FetchPackageJob(url string) (string, error)
 	} `checkinject:"required"`
 	SandboxManager interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
@@ -101,6 +109,151 @@ func (g *AppGetter) Stop() {
 	}
 }
 
+// InstallFromURL installs a new app from a URL
+func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, version domain.Version, autoRefreshListing bool) (domain.AppGetKey, error) {
+	data := g.set(appGetData{
+		url:                listingURL,
+		userID:             userID,
+		autoRefreshListing: autoRefreshListing,
+	})
+
+	go func() {
+		g.sendEvent(data, domain.AppGetEvent{Step: "Fetching listing"})
+
+		// re-validate listing URL? Make sure it parses or we'll get a fail somewhere down the line.
+		err := validator.HttpURL(listingURL)
+		if err != nil {
+			g.appendErrorResult(data.key, fmt.Sprintf("Error validating listing URL %v: %v", listingURL, err.Error()))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		listingFetch, err := g.RemoteAppGetter.FetchValidListing(listingURL)
+		if err != nil {
+			g.appendErrorResult(data.key, err.Error())
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+		if getNewURL(listingFetch) != "" {
+			g.appendErrorResult(data.key, "App listing has moved. New URL: "+getNewURL(listingFetch))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		g.setListing(data.key, listingFetch)
+
+		var versionListing domain.AppListingVersion
+		var ok bool
+		if version == domain.Version("") {
+			version = listingFetch.LatestVersion
+		}
+		versionListing, ok = listingFetch.Listing.Versions[version]
+		if !ok {
+			g.appendErrorResult(data.key, "Unable to find the requested version in the app listing: "+string(version))
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		// Later we'll use an actual job to fetch and install the app version to prevent duplicates
+		// (Although since this is a new app install, a dedupe job is not necessary?)
+
+		packageURL, err := URLFromListing(listingURL, listingFetch.Listing.Base, versionListing.Package)
+		if err != nil {
+			// Shouldn't happen. All URLs should be checked before we get to this step.
+			g.getLogger("InstallFromURL").AddNote("Unexpected error fron URLFromListing").Error(err)
+			g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
+			return
+		}
+
+		g.installFromURL(data.key, packageURL)
+	}()
+
+	return data.key, nil
+}
+
+func (g *AppGetter) InstallNewVersionFromURL(userID domain.UserID, appID domain.AppID, version domain.Version) (domain.AppGetKey, error) {
+	listing, urlData, err := g.AppModel.GetAppUrlListing(appID)
+	if err != nil {
+		return domain.AppGetKey(""), err
+	}
+	data := g.set(appGetData{
+		url:      urlData.URL,
+		userID:   userID,
+		hasAppID: true,
+		appID:    appID,
+	})
+
+	versionListing, ok := listing.Versions[version]
+	if !ok {
+		g.appendErrorResult(data.key, "Unable to find the requested version in the app listing: "+string(version))
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return data.key, err
+	}
+
+	packageURL, err := URLFromListing(urlData.URL, listing.Base, versionListing.Package)
+	if err != nil {
+		// Shouldn't happen. All URLs should be checked before we get to this step.
+		g.getLogger("InstallFromURL").AddNote("Unexpected error fron URLFromListing").Error(err)
+		g.appendErrorResult(data.key, "Unexpected error. This is a problem in Dropserver. Please check the logs and file a bug.")
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return data.key, err
+	}
+
+	go g.installFromURL(data.key, packageURL)
+
+	return data.key, nil
+}
+
+func (g *AppGetter) installFromURL(key domain.AppGetKey, packageURL string) {
+	data, ok := g.get(key)
+	if !ok {
+		return //error?
+	}
+	g.sendEvent(data, domain.AppGetEvent{Step: "Fetching app package"})
+
+	locationKey, err := g.RemoteAppGetter.FetchPackageJob(packageURL)
+	if locationKey != "" {
+		data, ok = g.setLocationKey(data.key, locationKey)
+		if !ok {
+			return
+		}
+	}
+	if err != nil {
+		g.appendErrorResult(data.key, fmt.Sprintf("Error fetching package at %v: %v", packageURL, err.Error()))
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return
+	}
+
+	g.sendEvent(data, domain.AppGetEvent{Step: "Extracting app package"})
+
+	err = g.AppFilesModel.ExtractPackage(locationKey)
+	if err != nil {
+		g.appendErrorResult(data.key, "Error extracting app package: "+err.Error())
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+		return
+	}
+
+	g.processApp(data)
+
+	g.errorFromWarnings(data.key, false)
+
+	results, ok := g.GetResults(data.key)
+	if !ok {
+		return
+	}
+
+	if len(results.Errors) == 0 && len(results.Warnings) != 0 {
+		g.sendEvent(data, domain.AppGetEvent{Input: "commit"}) // user commit installation since there are warnings.
+	} else {
+		_, _, err = g.Commit(data.key)
+		if err != nil {
+			g.appendErrorResult(data.key, "Error committing app: "+err.Error())
+		}
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+	}
+}
+
 // InstallPackage extracts the package at location key and
 // begins process of extracting and verifying all data.
 func (g *AppGetter) InstallPackage(userID domain.UserID, locationKey string, appIDs ...domain.AppID) (domain.AppGetKey, error) {
@@ -119,11 +272,13 @@ func (g *AppGetter) InstallPackage(userID domain.UserID, locationKey string, app
 	go func() {
 		err := g.AppFilesModel.ExtractPackage(locationKey)
 		if err != nil {
-			g.setResults(data.key, domain.AppGetMeta{Key: data.key, Errors: []string{err.Error()}})
-			g.sendEvent(data, domain.AppGetEvent{Done: true, Error: true})
+			g.appendErrorResult(data.key, err.Error())
+			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return
 		}
 		g.processApp(data)
+		g.errorFromWarnings(data.key, false)
+		g.sendEvent(data, domain.AppGetEvent{Input: "commit"})
 	}()
 
 	return data.key, nil
@@ -145,9 +300,24 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 
 	g.sendEvent(data, domain.AppGetEvent{Step: "Starting reprocess"})
 
-	go g.processApp(data)
+	go func() {
+		g.processApp(data)
+		g.errorFromWarnings(data.key, true)
+		g.sendEvent(data, domain.AppGetEvent{Done: true})
+	}()
 
 	return data.key, nil
+}
+
+func (g *AppGetter) errorFromWarnings(key domain.AppGetKey, devOnly bool) {
+	meta, ok := g.GetResults(key)
+	if !ok {
+		return
+	}
+	err := errorFromWarnings(meta.Warnings, devOnly)
+	if err != nil {
+		g.appendErrorResult(key, err.Error())
+	}
 }
 
 // GetUser returns the user associated with the key
@@ -163,105 +333,101 @@ func (g *AppGetter) GetLocationKey(key domain.AppGetKey) (string, bool) {
 }
 
 func (g *AppGetter) processApp(keyData appGetData) {
-	meta := domain.AppGetMeta{Key: keyData.key, Errors: make([]string, 0), Warnings: make(map[string]string)}
-
-	err := g.readFilesManifest(keyData, &meta)
-	abort := g.checkStep(keyData, meta, err, "error reading file manifest")
+	err := g.readFilesManifest(keyData)
+	abort := g.checkStep(keyData, err, "error reading file manifest")
 	if abort {
 		return
 	}
 
-	err = g.getEntrypoint(keyData.locationKey, &meta)
-	abort = g.checkStep(keyData, meta, err, "error determining app entrypoint")
+	err = g.getEntrypoint(keyData)
+	abort = g.checkStep(keyData, err, "error determining app entrypoint")
 	if abort {
 		return
 	}
 
-	err = g.getDataFromSandbox(keyData, &meta)
-	abort = g.checkStep(keyData, meta, err, "error getting data from sandbox")
+	err = g.getDataFromSandbox(keyData)
+	abort = g.checkStep(keyData, err, "error getting data from sandbox")
 	if abort {
 		return
 	}
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Validating data"})
 
-	err = validateMigrationSteps(&meta)
-	abort = g.checkStep(keyData, meta, err, "error validating migrations")
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return
+	}
+
+	cleanManifest, warns := validateManifest(meta.VersionManifest)
+	g.setWarningResult(keyData.key, warns...)
+	g.setManifestResult(keyData.key, cleanManifest)
+
+	if keyData.hasAppID {
+		appVersions, err := g.getVersionSemvers(keyData.appID)
+		abort = g.checkStep(keyData, err, "error getting app versions")
+		if abort {
+			return
+		}
+		prev, next, warns := validateVersionSequence(cleanManifest.Version, cleanManifest.Schema, appVersions)
+		g.setWarningResult(keyData.key, warns...)
+		g.setPrevNextResult(keyData.key, prev, next)
+	}
+
+	// we may get duplicate warnings for some of these because we are validating twice
+	// once in genral manifest validation, and once again in the deeper full-paclage validation
+	err = g.validateChangelog(keyData)
+	abort = g.checkStep(keyData, err, "error validating changelog")
 	if abort {
 		return
 	}
 
-	err = g.validateAppVersion(keyData, &meta)
-	abort = g.checkStep(keyData, meta, err, "error validating app version")
+	err = g.validateLicense(keyData)
+	abort = g.checkStep(keyData, err, "error validating app license")
 	if abort {
 		return
 	}
 
-	err = g.validateChangelog(keyData.locationKey, &meta)
-	abort = g.checkStep(keyData, meta, err, "error validating changelog")
+	err = g.validateAppIcon(keyData)
+	abort = g.checkStep(keyData, err, "error validating app icon")
 	if abort {
 		return
 	}
-
-	err = g.validateLicense(keyData.locationKey, &meta)
-	abort = g.checkStep(keyData, meta, err, "error validating app license")
-	if abort {
-		return
-	}
-
-	err = g.validateAppIcon(keyData, &meta)
-	abort = g.checkStep(keyData, meta, err, "error validating app icon")
-	if abort {
-		return
-	}
-	err = validateAccentColor(&meta)
-	abort = g.checkStep(keyData, meta, err, "error validating accent color")
-	if abort {
-		return
-	}
-
-	validateSoftData(&meta)
 
 	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
-
-	g.setResults(keyData.key, meta)
-	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 }
-func (g *AppGetter) checkStep(keyData appGetData, meta domain.AppGetMeta, err error, errStr string) bool {
+func (g *AppGetter) checkStep(keyData appGetData, err error, errStr string) bool {
 	if err != nil {
 		if errStr != "" {
 			err = fmt.Errorf("%s: %w", errStr, err)
 		}
-		meta.Errors = append(meta.Errors, "internal error while processing app")
+		g.appendErrorResult(keyData.key, "internal error while processing app")
 		// Yes, it's internal error. Log or console output makes sense.
 		// Still need to let user know why it all went wrong.
-		g.setResults(keyData.key, meta)
 		g.getLogger("processApp").Error(err)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return true
 	}
-	if len(meta.Errors) != 0 {
+	if g.resultHasError(keyData.key) {
 		// errors in processing app meta data, probably app fault.
-		g.setResults(keyData.key, meta)
-		g.sendEvent(keyData, domain.AppGetEvent{Done: true, Error: true})
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return true
 	}
 	return false
 }
 
-func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMeta) error {
+func (g *AppGetter) readFilesManifest(keyData appGetData) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Reading manifest from app files"})
 
 	size, err := g.AppFilesModel.GetManifestSize(keyData.locationKey)
 	if err != nil {
 		if err == domain.ErrAppManifestNotFound {
-			meta.Errors = append(meta.Errors, "Application manifest file not found")
+			g.appendErrorResult(keyData.key, "Application manifest file not found")
 			return nil
 		}
 		return err
 	}
 	if size > domain.AppManifestMaxFileSize {
-		meta.Errors = append(meta.Errors, "Application manifest file is too large")
+		g.appendErrorResult(keyData.key, "Application manifest file is too large")
 		return nil
 	}
 
@@ -269,44 +435,57 @@ func (g *AppGetter) readFilesManifest(keyData appGetData, meta *domain.AppGetMet
 	if err != nil {
 		return err
 	}
-	meta.VersionManifest = manifest
+
+	g.setManifestResult(keyData.key, manifest)
+
 	return nil
 }
 
-func (g *AppGetter) getEntrypoint(locationKey string, meta *domain.AppGetMeta) error {
+func (g *AppGetter) getEntrypoint(keyData appGetData) error {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return errors.New("could not get results metadata")
+	}
 	entry, ok := validatePackagePath(meta.VersionManifest.Entrypoint)
 	if !ok {
-		meta.Errors = append(meta.Errors, "Application entrypoint is invalid")
+		g.appendErrorResult(keyData.key, "Application entrypoint is invalid")
 		return nil
 	} else if entry != "" {
 		meta.VersionManifest.Entrypoint = entry
+		g.setManifestResult(keyData.key, meta.VersionManifest)
 		return nil
 	}
 
 	for _, d := range []string{"app.ts", "app.js"} {
-		_, err := os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), d))
+		_, err := os.Stat(filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), d))
 		if os.IsNotExist(err) {
 			// file not there, no op.
 		} else if err != nil {
 			return err
 		} else if entry != "" {
-			meta.Errors = append(meta.Errors, "Application contains both app.js and app.ts and does not specify which one to use in the manifest")
+			g.appendErrorResult(keyData.key, "Application contains both app.js and app.ts and does not specify which one to use in the manifest")
 			return nil
 		} else {
 			entry = d
 		}
 	}
 	if entry == "" {
-		meta.Errors = append(meta.Errors, "Application has neither app.js or app.ts and no entrypoint in the manifest")
+		g.appendErrorResult(keyData.key, "Application has neither app.js or app.ts and no entrypoint in the manifest")
 		return nil
 	}
 	meta.VersionManifest.Entrypoint = entry
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 	return nil
 }
 
 // This will become a readAppMeta to get routes and migrations and all other data.
-func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMeta) error {
+func (g *AppGetter) getDataFromSandbox(keyData appGetData) error {
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Starting sandbox to get app data"})
+
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return errors.New("could not get results metadata")
+	}
 
 	s, err := g.SandboxManager.ForApp(&domain.AppVersion{
 		LocationKey: keyData.locationKey,
@@ -318,7 +497,7 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 	}
 	defer s.Graceful()
 
-	ok := g.setSandbox(keyData.key, s)
+	keyData, ok = g.setSandbox(keyData.key, s)
 	if !ok {
 		err = errors.New("unable to set sandbox to app get data")
 		g.getLogger("getDataFromSandbox, g.setSandbox").Error(err)
@@ -336,15 +515,15 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting migrations"})
 
-	err = g.getMigrations(keyData, meta, s)
+	err = g.getMigrations(keyData, s)
 	if err != nil {
 		return err
 	}
 
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Getting routes"})
 
-	routesData, err := g.getRoutes(keyData, s) // maybe pass meta so getRoutes can set app Errors?
-	if err != nil {                            // assume any error returned is internal and fatal.
+	routesData, err := g.getRoutes(s) // maybe pass meta so getRoutes can set app Errors?
+	if err != nil {                   // assume any error returned is internal and fatal.
 		return err
 	}
 
@@ -369,7 +548,7 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData, meta *domain.AppGetMe
 	return nil
 }
 
-func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s domain.SandboxI) error {
+func (g *AppGetter) getMigrations(keyData appGetData, s domain.SandboxI) error {
 	sent, err := s.SendMessage(domain.SandboxMigrateService, 12, nil)
 	if err != nil {
 		g.getLogger("getMigrations, s.SendMessage").Error(err)
@@ -385,7 +564,6 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 	err = reply.Error()
 	if err != nil {
 		// that's an error while running the code
-		meta.Errors = append(meta.Errors, err.Error())
 		return nil
 	}
 	reply.SendOK()
@@ -397,16 +575,22 @@ func (g *AppGetter) getMigrations(data appGetData, meta *domain.AppGetMeta, s do
 	err = json.Unmarshal(reply.Payload(), &migrations)
 	if err != nil {
 		g.getLogger("getMigrations, json.Unmarshal").Error(err)
-		meta.Errors = append(meta.Errors, fmt.Sprintf("failed to parse json migrations data: %v", err))
+		g.appendErrorResult(keyData.key, fmt.Sprintf("failed to parse json migrations data: %v", err))
 		return nil
 	}
+
+	schema := getSchemaFromMigrations(migrations)
+
+	meta, _ := g.GetResults(keyData.key)
 	meta.VersionManifest.Migrations = migrations
+	meta.VersionManifest.Schema = schema
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 
 	return nil
 }
 
 // Note this is a versioned API
-func (g *AppGetter) getRoutes(data appGetData, s domain.SandboxI) ([]domain.V0AppRoute, error) {
+func (g *AppGetter) getRoutes(s domain.SandboxI) ([]domain.V0AppRoute, error) {
 	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
 	if err != nil {
 		g.getLogger("getRoutes, s.SendMessage").Error(err)
@@ -435,159 +619,123 @@ func (g *AppGetter) getRoutes(data appGetData, s domain.SandboxI) ([]domain.V0Ap
 	return routes, nil
 }
 
-func (g *AppGetter) validateAppVersion(keyData appGetData, meta *domain.AppGetMeta) error {
-	err := validateVersion(meta)
-	if err != nil {
-		return err
-	}
-	if keyData.hasAppID {
-		err = g.validateVersionSequence(keyData.appID, meta)
-	}
-	return err
-}
-
-// validateVersionSequence ensures the candidate app version fits
-// with existing versions already on system.
-func (g *AppGetter) validateVersionSequence(appID domain.AppID, meta *domain.AppGetMeta) error {
-	ver, _ := semver.New(string(meta.VersionManifest.Version)) // already validated in validateVersion
-	schema := meta.VersionManifest.Schema
-
-	semVersions, appErr, err := g.getVersions(appID, *ver)
-	if err != nil {
-		return err
-	}
-	if appErr != "" {
-		meta.Errors = append(meta.Errors, appErr)
-		return nil
-	}
-
-	verIndex, _ := getVerIndex(semVersions, *ver)
-	if verIndex != 0 {
-		prev := semVersions[verIndex-1]
-		if prev.appVersion.Schema > schema {
-			meta.Errors = append(meta.Errors, "Previous version has a higher schema")
-		}
-		meta.PrevVersion = prev.appVersion.Version
-	}
-	if verIndex != len(semVersions)-1 {
-		next := semVersions[verIndex+1]
-		if next.appVersion.Schema < schema {
-			meta.Errors = append(meta.Errors, "Next version has a lower schema")
-		}
-		meta.NextVersion = next.appVersion.Version
-	}
-
-	return nil
-}
-
-type semverAppVersion struct {
-	semver     semver.Version
-	appVersion *domain.AppVersion
-}
-
-func (g *AppGetter) getVersions(appID domain.AppID, newVer semver.Version) ([]semverAppVersion, string, error) {
-
+func (g *AppGetter) getVersionSemvers(appID domain.AppID) ([]appVersionSemver, error) {
 	appVersions, err := g.AppModel.GetVersionsForApp(appID)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-
-	semVersions := make([]semverAppVersion, len(appVersions)+1)
-	semVersions[0] = semverAppVersion{semver: newVer}
+	ret := make([]appVersionSemver, len(appVersions))
 	for i, appVersion := range appVersions {
-		sver, err := semver.New(string(appVersion.Version))
+		sver, err := semver.Parse(string(appVersion.Version))
 		if err != nil {
-			// couldn't parse semver of existing version.
-			return nil, "", err
+			g.getLogger("getVersionSemvers() semver.Parse").AppID(appID).AddNote(fmt.Sprintf("bad version: %v", appVersion.Version)).Error(err)
+			return nil, err
 		}
-		cmp := sver.Compare(newVer)
-		if cmp == 0 {
-			return nil, fmt.Sprintf("Version %s of the app aleady exists on the system", newVer), nil
-		}
-		semVersions[i+1] = semverAppVersion{semver: *sver, appVersion: appVersion}
+		ret[i] = appVersionSemver{*appVersion, sver}
 	}
-
-	sort.Slice(semVersions, func(i, j int) bool {
-		return semVersions[i].semver.Compare(semVersions[j].semver) == -1
-	})
-	return semVersions, "", nil
+	return ret, nil
 }
 
-func getVerIndex(semVers []semverAppVersion, ver semver.Version) (int, bool) {
-	for i, v := range semVers {
-		if v.semver.Compare(ver) == 0 {
-			return i, true
-		}
+func (g *AppGetter) validateChangelog(keyData appGetData) error {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return errors.New("could not get results metadata")
 	}
-	return 0, false
-}
 
-func (g *AppGetter) validateChangelog(locationKey string, meta *domain.AppGetMeta) error {
-	err := g.AppFilesModel.WriteFileLink(locationKey, "changelog", "")
+	field := "changelog"
+
+	err := g.AppFilesModel.WriteFileLink(keyData.locationKey, "changelog", "")
 	if err != nil {
 		return err
 	}
 
 	// if no changelog specified, look for changelog.txt file by default.
 	if meta.VersionManifest.Changelog == "" {
-		_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), "changelog.txt"))
+		_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), "changelog.txt"))
 		if errors.Is(err, fs.ErrNotExist) {
-			meta.Warnings["changelog"] = "changelog.txt not found and no changelog file specified"
+			g.setWarningResult(keyData.key, domain.ProcessWarning{
+				Field:   field,
+				Problem: domain.ProblemEmpty,
+				Message: "changelog.txt not found and no changelog file specified"})
 			return nil
 		} else if err != nil {
 			return err
 		}
 		meta.VersionManifest.Changelog = "changelog.txt"
+		g.setManifestResult(keyData.key, meta.VersionManifest)
 	}
 
 	clPath, ok := validatePackagePath(meta.VersionManifest.Changelog)
 	if !ok {
-		meta.Warnings["changelog"] = "Changelog path is invalid"
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:    field,
+			Problem:  domain.ProblemInvalid,
+			Message:  "Changelog path is invalid.",
+			BadValue: meta.VersionManifest.Changelog})
 		return nil
 	}
 	meta.VersionManifest.Changelog = clPath // set the normalized path to generated manifest
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 
-	_, err = os.Stat(filepath.Join(g.AppLocation2Path.Files(locationKey), clPath))
+	f, err := os.Open(filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), clPath))
 	if errors.Is(err, fs.ErrNotExist) {
-		meta.Warnings["changelog"] = "Changelog path is incorrect"
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:    field,
+			Problem:  domain.ProblemNotFound,
+			Message:  "Changelog not found at path.",
+			BadValue: meta.VersionManifest.Changelog})
 		return nil
 	} else if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	err = g.AppFilesModel.WriteFileLink(locationKey, "changelog", meta.VersionManifest.Changelog)
+	sVer, err := semver.Parse(string(meta.VersionManifest.Version))
 	if err != nil {
+		// this shouldn't happen. version should be valid.
+		g.getLogger("validateChangelog semver.Parse").Error(err)
 		return err
 	}
-
-	cl, ok, err := g.AppFilesModel.GetVersionChangelog(locationKey, meta.VersionManifest.Version)
-	if !ok {
-		meta.Warnings["changelog"] = "There was a problem reading the changelog."
-	} else if err != nil {
-		return err
+	cl, err := GetValidChangelog(f, sVer)
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:    field,
+			Problem:  domain.ProblemError,
+			Message:  "Error parsing the changelog: " + err.Error(),
+			BadValue: meta.VersionManifest.Changelog})
+		return nil
 	}
 	if cl == "" {
-		meta.Warnings["changelog"] = "Changelog is blank for this version"
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemEmpty,
+			Message: "There is no changelog for this version"})
+	}
+
+	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "changelog", meta.VersionManifest.Changelog)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (g *AppGetter) validateLicense(locationKey string, meta *domain.AppGetMeta) error {
+func (g *AppGetter) validateLicense(keyData appGetData) error {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return errors.New("could not get results metadata")
+	}
+
+	fileField := "license-file"
+
 	// first delete the license file link, if any
-	err := g.AppFilesModel.WriteFileLink(locationKey, "license-file", "")
+	err := g.AppFilesModel.WriteFileLink(keyData.locationKey, "license-file", "")
 	if err != nil {
 		return err
 	}
 
-	if meta.VersionManifest.License == "" && meta.VersionManifest.LicenseFile == "" {
-		meta.Warnings["license"] = "No license information provided"
-		return nil
-	}
-	ok, _ := spdxexp.ValidateLicenses([]string{meta.VersionManifest.License})
-	if !ok {
-		meta.Warnings["license"] = "License is not a recognized SPDX identifier"
-	}
+	warning := validateLicenseFields(meta.VersionManifest.License, meta.VersionManifest.LicenseFile)
+	g.setWarningResult(keyData.key, warning)
 
 	if meta.VersionManifest.LicenseFile == "" {
 		return nil
@@ -595,29 +743,47 @@ func (g *AppGetter) validateLicense(locationKey string, meta *domain.AppGetMeta)
 
 	lPath, ok := validatePackagePath(meta.VersionManifest.LicenseFile)
 	if !ok {
-		meta.Errors = append(meta.Errors, "License file path is invalid")
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:    fileField,
+			Problem:  domain.ProblemInvalid,
+			Message:  "Invalid path for license file.",
+			BadValue: meta.VersionManifest.LicenseFile})
 		return nil
 	}
 	meta.VersionManifest.LicenseFile = lPath
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 
-	lFile := filepath.Join(g.AppLocation2Path.Files(locationKey), lPath)
+	lFile := filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), lPath)
 	_, err = os.Stat(lFile)
 	if os.IsNotExist(err) {
-		meta.Warnings["license"] = "License file not found at package path " + meta.VersionManifest.LicenseFile
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   fileField,
+			Message: "License file not found at path.",
+			Problem: domain.ProblemNotFound})
 		return nil
 	} else if err != nil {
-		meta.Warnings["license"] = "Error opening license file:  " + err.Error()
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   fileField,
+			Problem: domain.ProblemError,
+			Message: "Error opening license file:  " + err.Error()})
 		return nil
 	}
 
-	err = g.AppFilesModel.WriteFileLink(locationKey, "license-file", lPath)
+	err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "license-file", lPath)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta) error {
+func (g *AppGetter) validateAppIcon(keyData appGetData) error {
+	meta, ok := g.GetResults(keyData.key)
+	if !ok {
+		return errors.New("could not get results metadata")
+	}
+
+	field := "icon"
+
 	// start by removing any app icon link in case this is a reprocess and it was not correctly removed
 	err := g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", "")
 	if err != nil {
@@ -626,16 +792,80 @@ func (g *AppGetter) validateAppIcon(keyData appGetData, meta *domain.AppGetMeta)
 
 	icon, ok := validatePackagePath(meta.VersionManifest.Icon)
 	if !ok {
-		meta.Errors = append(meta.Errors, "App icon path is invalid")
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:    field,
+			Problem:  domain.ProblemInvalid,
+			Message:  "Icon path is invalid",
+			BadValue: meta.VersionManifest.Icon})
 		return nil
 	}
 	meta.VersionManifest.Icon = icon // set the normalized path to generated manifest
+	g.setManifestResult(keyData.key, meta.VersionManifest)
 	if meta.VersionManifest.Icon == "" {
 		return nil
 	}
 
 	icon = filepath.Join(g.AppLocation2Path.Files(keyData.locationKey), icon)
-	if validateIcon(meta, icon) {
+	f, err := os.Open(icon)
+	if os.IsNotExist(err) {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemNotFound,
+			Message: "Icon file does not exist."})
+		return nil
+	}
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error opening app icon:  " + err.Error()})
+		return nil
+	}
+	defer f.Close()
+
+	fInfo, err := f.Stat()
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error getting icon file info:  " + err.Error()})
+		return nil
+	}
+	if fInfo.IsDir() {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemInvalid,
+			Message: "Icon path is a directory"})
+		return nil
+	}
+	if fInfo.Size() > domain.AppIconMaxFileSize {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemBig,
+			Message: fmt.Sprintf("App icon file is large: %s (under %s is recommended).",
+				bytesize.New(float64(fInfo.Size())), bytesize.New(float64(domain.AppIconMaxFileSize))),
+		})
+		return nil
+	}
+
+	iconBytes, err := io.ReadAll(&io.LimitedReader{R: f, N: domain.AppIconMaxFileSize})
+	if err != nil {
+		g.setWarningResult(keyData.key, domain.ProcessWarning{
+			Field:   field,
+			Problem: domain.ProblemError,
+			Message: "Error reading icon file:  " + err.Error()})
+		return nil
+	}
+	warns := validateIcon(iconBytes)
+	g.setWarningResult(keyData.key, warns...)
+	ok = true
+	for _, w := range warns {
+		if w.Problem != domain.ProblemPoorExperience && w.Problem != domain.ProblemSmall {
+			ok = false
+			break
+		}
+	}
+	if ok {
 		err = g.AppFilesModel.WriteFileLink(keyData.locationKey, "app-icon", meta.VersionManifest.Icon)
 		if err != nil {
 			return err
@@ -653,31 +883,56 @@ func (g *AppGetter) Commit(key domain.AppGetKey) (domain.AppID, domain.Version, 
 		g.getLogger("Commit, g.get(key)").Error(err)
 		return domain.AppID(0), domain.Version(""), err
 	}
-	// Here there is a slight chance Delete will be called while this function is running.
+	// Here there is a chance Delete will be called while this function is running.
 	// We could set a "committing" flag on that keyData to prevent this from happening.
 	meta, ok := g.GetResults(key)
 	if !ok {
 		err := errors.New("results does not exist")
-		g.getLogger("Commt, g.getResults").Error(err)
+		g.getLogger("Commit, g.getResults").Error(err)
 		return domain.AppID(0), domain.Version(""), err
 	}
+
+	ev, ok := g.GetLastEvent(key)
+	if !ok {
+		err := errors.New("last event does not exist")
+		g.getLogger("Commit, g.GetLastEvent").Error(err)
+		return domain.AppID(0), domain.Version(""), err
+	}
+	if ev.Done {
+		err := errors.New("trying to commit when already Done")
+		g.getLogger("Commit").Error(err)
+		return domain.AppID(0), domain.Version(""), err
+	}
+
+	g.sendEvent(keyData, domain.AppGetEvent{Step: "Committing..."})
 
 	appID := keyData.appID
 
 	if !keyData.hasAppID {
-		aID, err := g.AppModel.Create(keyData.userID)
+		var aID domain.AppID
+		var err error
+		if keyData.url == "" {
+			aID, err = g.AppModel.Create(keyData.userID) // Here we have to split depending on whether it's url or not.
+		} else {
+			aID, err = g.AppModel.CreateFromURL(keyData.userID, keyData.url, keyData.autoRefreshListing, keyData.listing)
+		}
 		if err != nil {
+			g.appendErrorResult(key, err.Error())
+			g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 			return domain.AppID(0), domain.Version(""), err
 		}
+		g.setAppIDResult(key, aID)
 		appID = aID
 	}
 
 	version, err := g.AppModel.CreateVersion(appID, keyData.locationKey, meta.VersionManifest)
 	if err != nil {
+		g.appendErrorResult(key, err.Error())
+		g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 		return appID, domain.Version(""), err
 	}
 
-	g.DeleteKeyData(key)
+	g.sendEvent(keyData, domain.AppGetEvent{Done: true})
 
 	return appID, version.Version, nil
 }
@@ -689,14 +944,21 @@ func (g *AppGetter) Delete(key domain.AppGetKey) {
 		return
 	}
 
+	ev, ok := g.GetLastEvent(key)
+	if ok && ev.Done {
+		return // do not delete files if done. Have to go through app delete.
+	}
+
 	if appGetData.sandbox != nil && appGetData.sandbox.Status() < domain.SandboxDead {
 		appGetData.sandbox.Kill()
 	}
 
-	err := g.AppFilesModel.Delete(appGetData.locationKey)
-	if err != nil {
-		// should be logged by afm. just return.
-		return
+	if appGetData.locationKey != "" {
+		err := g.AppFilesModel.Delete(appGetData.locationKey)
+		if err != nil {
+			// should be logged by afm. just return.
+			return
+		}
 	}
 
 	g.DeleteKeyData(key)
@@ -710,10 +972,8 @@ func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 		return
 	}
 
-	results, _ := g.GetResults(key)
-
 	// Send one last event in case there are any subscribers
-	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Error: len(results.Errors) > 0, Step: "Deleting processing data"})
+	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Step: "Deleting processing data"})
 	// unsubscribe the channels listenning for updates to the key
 	g.unsubscribeKey(appGetData.key)
 	// delete the last_event
@@ -727,7 +987,7 @@ func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 }
 
 // keys functions:
-func (g *AppGetter) set(d appGetData) appGetData {
+func (g *AppGetter) set(d appGetData) appGetData { // createKey
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
 	var key domain.AppGetKey
@@ -741,19 +1001,51 @@ func (g *AppGetter) set(d appGetData) appGetData {
 	d.key = key
 	g.keys[key] = d
 
+	// then init the results map for this key
+	g.results[key] = domain.AppGetMeta{
+		Key:      key,
+		AppID:    d.appID,
+		Errors:   make([]string, 0),
+		Warnings: make([]domain.ProcessWarning, 0),
+	}
+
 	return d
 }
-func (g *AppGetter) setSandbox(key domain.AppGetKey, sb domain.SandboxI) bool {
+func (g *AppGetter) setLocationKey(key domain.AppGetKey, locationKey string) (appGetData, bool) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
 	data, ok := g.keys[key]
 	if !ok {
-		return false
+		return appGetData{}, false
+	}
+	data.locationKey = locationKey
+	g.keys[key] = data
+	return data, true
+}
+func (g *AppGetter) setSandbox(key domain.AppGetKey, sb domain.SandboxI) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	if !ok {
+		return appGetData{}, false
 	}
 	data.sandbox = sb
 	g.keys[key] = data
-	return true
+	return data, true
 }
+func (g *AppGetter) setListing(key domain.AppGetKey, listing domain.AppListingFetch) (appGetData, bool) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	data, ok := g.keys[key]
+	if !ok {
+		return appGetData{}, false
+	}
+	data.hasListing = true
+	data.listing = listing
+	g.keys[key] = data
+	return data, true
+}
+
 func (g *AppGetter) get(key domain.AppGetKey) (appGetData, bool) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
@@ -771,10 +1063,57 @@ func (g *AppGetter) del(key domain.AppGetKey) (appGetData, bool) {
 }
 
 // results functions:
-func (g *AppGetter) setResults(key domain.AppGetKey, meta domain.AppGetMeta) {
+func (g *AppGetter) appendErrorResult(key domain.AppGetKey, errStr string) {
 	g.keysMux.Lock()
 	defer g.keysMux.Unlock()
-	g.results[key] = meta
+	result, ok := g.results[key]
+	if ok {
+		result.Errors = append(result.Errors, errStr)
+		g.results[key] = result
+	}
+}
+func (g *AppGetter) resultHasError(key domain.AppGetKey) bool {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	return ok && len(result.Errors) > 0
+}
+func (g *AppGetter) setWarningResult(key domain.AppGetKey, warnings ...domain.ProcessWarning) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	if ok {
+		result.Warnings = addWarning(result.Warnings, warnings...)
+		g.results[key] = result
+	}
+}
+func (g *AppGetter) setManifestResult(key domain.AppGetKey, manifest domain.AppVersionManifest) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	if ok {
+		result.VersionManifest = manifest
+		g.results[key] = result
+	}
+}
+func (g *AppGetter) setPrevNextResult(key domain.AppGetKey, prev, next domain.Version) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	if ok {
+		result.PrevVersion = prev
+		result.NextVersion = next
+		g.results[key] = result
+	}
+}
+func (g *AppGetter) setAppIDResult(key domain.AppGetKey, appID domain.AppID) {
+	g.keysMux.Lock()
+	defer g.keysMux.Unlock()
+	result, ok := g.results[key]
+	if ok {
+		result.AppID = appID
+		g.results[key] = result
+	}
 }
 func (g *AppGetter) GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool) {
 	g.keysMux.Lock()
@@ -809,6 +1148,10 @@ func (g *AppGetter) sendEvent(getData appGetData, ev domain.AppGetEvent) {
 	ev.Key = getData.key
 	g.eventsMux.Lock()
 	defer g.eventsMux.Unlock()
+
+	// TODO Here we could check the last event to ensure we're not sending conflicting signals.
+	// But what happens if we do send conflicing signals?
+	// Maybe just log it? We can investigate further if we see this in logs.
 
 	g.lastEvent[ev.Key] = ev
 

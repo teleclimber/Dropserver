@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, Ref, computed } from 'vue';
+import type { Appspace, App } from '@/stores/types';
+import { useAppsStore } from '@/stores/apps';
 
-import type { Appspace } from '@/stores/types';
+import MinimalAppUrlData from './appspace/MinimalAppUrlData.vue';
+import { RouterLink } from 'vue-router';
 
 const props = defineProps<{
 	appspace: Appspace
 }>();
+
+const appsStore = useAppsStore();
+const app :Ref<App|undefined> = computed( () => {
+	const a = appsStore.getApp(props.appspace.app_id);
+	if( a !== undefined ) return a.value;
+	return undefined;
+});
 
 const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name));
 
@@ -44,7 +54,7 @@ const app_icon = computed( () => {
 
 		<div class=" flex">
 			<div class="my-2 __border-b __border-l-2 pr-2 flex items-center" :style="'border-color:'+(appspace?.ver_data?.color || 'rgb(135, 151, 164)')" >
-				<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-10 h-10" />
+				<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-10 h-10 self-start" />
 				<div v-else class="w-10 h-10 text-gray-300 __border flex justify-center items-center">
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
@@ -52,10 +62,13 @@ const app_icon = computed( () => {
 				</div>
 				<div class="flex flex-col md:flex-row items-baseline">
 					<p class="ml-1">
-						<span class="font-medium text-lg">{{appspace.ver_data?.name}}</span>
+						<router-link :to="{name: 'manage-app', params:{id:appspace.app_id}}" class="font-medium text-lg text-blue-600 underline">
+							{{appspace.ver_data?.name}}
+						</router-link>
 						<span class="bg-gray-200 text-gray-600 px-1 rounded-md ml-1">{{appspace.app_version}}</span>
 					</p>
-					<span v-if="appspace.upgrade_version" class="ml-1">
+					<MinimalAppUrlData v-if="app?.url_data" :cur_ver="appspace.app_version" :url_data="app.url_data" class="self-baseline"></MinimalAppUrlData>
+					<span v-else-if="appspace.upgrade_version" class="ml-1">
 						Upgrade available: <span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{appspace.upgrade_version}}</span>
 					</span>
 				</div>

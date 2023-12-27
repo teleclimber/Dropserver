@@ -25,6 +25,7 @@ export default defineConfig({
 			"/login": prox,
 			"/logout": prox,
 			"/signup": prox,
+			"/static": prox,
 			"/appspacelogin": prox,
 			"/api": prox,
 			"/twine/": {

@@ -1,7 +1,10 @@
 package appspacestatus
 
 import (
+	"github.com/blang/semver/v4"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 // TODO: instead of loading everything from the DB, cache migrations and listen to events from app model to update.
@@ -13,47 +16,69 @@ import (
 type MigrationMinder struct {
 	AppModel interface {
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
-	} `checkinject:"required"`
-	AppspaceModel interface {
-		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
+		GetAppUrlListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
 	} `checkinject:"required"`
 }
 
-// GetAllForOwner checks each appspace for potential migration available
-// Rerutns a map containing newest app version for appspaces that have one
-func (m *MigrationMinder) GetAllForOwner(ownerID domain.UserID) (map[domain.AppspaceID]domain.AppVersion, error) {
-	appspaces, err := m.AppspaceModel.GetForOwner(ownerID)
+// GetForAppspace looks at installed versions and remote listing versions
+// and returns the latest available version for the appspace.
+func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.Version, bool, error) {
+	var latest domain.Version
+	isRemote := false
+
+	cmpSemver, err := semver.Parse(string(appspace.AppVersion))
 	if err != nil {
-		return nil, err
+		m.getLogger("GetForAppspace() Parse current").Error(err)
+		return domain.Version(""), isRemote, err
 	}
-
-	ret := make(map[domain.AppspaceID]domain.AppVersion)
-	for _, appspace := range appspaces {
-		appVersion, ok, err := m.GetForAppspace(*appspace)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			ret[appspace.AppspaceID] = appVersion
-		}
-	}
-	return ret, nil
-}
-
-// GetForAppspace returns the latest app version for an appspace
-// OK is false if appspace is on the latest version
-func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.AppVersion, bool, error) {
-	var latest domain.AppVersion
 
 	versions, err := m.AppModel.GetVersionsForApp(appspace.AppID)
 	if err != nil {
-		return latest, false, err
+		return domain.Version(""), isRemote, err
+	}
+	if len(versions) != 0 {
+		li := *versions[len(versions)-1]
+		latestInstalled, err := semver.Parse(string(li.Version))
+		if err != nil {
+			m.getLogger("GetForAppspace() Parse latest installed").Error(err)
+			return domain.Version(""), isRemote, err
+		}
+		if latestInstalled.GT(cmpSemver) {
+			cmpSemver = latestInstalled
+			latest = li.Version
+		}
 	}
 
-	latest = *versions[len(versions)-1]
-	if appspace.AppVersion != latest.Version {
-		// migration possible.
-		return latest, true, nil
+	// Now get remote listing versions, if any, and see if there is anything new
+	listing, _, err := m.AppModel.GetAppUrlListing(appspace.AppID)
+	if err == domain.ErrNoRowsInResultSet {
+		// no-op
+	} else if err != nil {
+		return domain.Version(""), isRemote, err
+	} else {
+		remote, err := appops.GetLatestVersion(listing.Versions)
+		if err != nil {
+			m.getLogger("GetForAppspace() GetLatestVersion").Error(err)
+			return domain.Version(""), isRemote, err
+		}
+		latestRemote, err := semver.Parse(string(remote))
+		if err != nil {
+			m.getLogger("GetForAppspace() parse latest remote").Error(err)
+			return domain.Version(""), isRemote, err
+		}
+		if latestRemote.GT(cmpSemver) {
+			latest = remote
+			isRemote = true
+		}
 	}
-	return latest, false, nil
+
+	return latest, isRemote, nil
+}
+
+func (m *MigrationMinder) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("MigrationMinder")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

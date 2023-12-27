@@ -43,7 +43,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
 
 	if len(results.Warnings) != 0 {
 		for k, w := range results.Warnings {
-			fmt.Printf("Warning: %s: %s\n", k, w)
+			fmt.Printf("Warning: %v: %s\n", k, w)
 		}
 	}
 

@@ -28,8 +28,8 @@ type UserService struct {
 		Remove(locationKey string, fn string) error
 	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
-		Subscribe(chan<- domain.AppspaceID)
-		Unsubscribe(chan<- domain.AppspaceID)
+		Subscribe() <-chan domain.AppspaceID
+		Unsubscribe(<-chan domain.AppspaceID)
 	} `checkinject:"required"`
 
 	usersChangedEvents PureEvent
@@ -40,8 +40,7 @@ type UserService struct {
 
 // Start creates listeners and then shuts everything down when twine exits
 func (u *UserService) Start(t *twine.Twine) {
-	asFilesCh := make(chan domain.AppspaceID)
-	u.AppspaceFilesEvents.Subscribe(asFilesCh)
+	asFilesCh := u.AppspaceFilesEvents.Subscribe()
 	go func() {
 		for range asFilesCh {
 			u.sendUsers(t)
@@ -74,7 +73,6 @@ func (u *UserService) Start(t *twine.Twine) {
 	fmt.Println("closing user service")
 
 	u.AppspaceFilesEvents.Unsubscribe(asFilesCh)
-	close(asFilesCh)
 
 	u.usersChangedEvents.Unsubscribe(usersChangedCh)
 	u.userSelectedEvents.Unsubscribe(userSelectedCh)

@@ -155,6 +155,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
+	appUrlDataEvents := &events.AppUrlDataEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -186,7 +187,8 @@ func main() {
 		Config:           runtimeConfig}
 
 	appModel := &appmodel.AppModel{
-		DB: db}
+		DB:               db,
+		AppUrlDataEvents: appUrlDataEvents}
 	appModel.PrepareStatements()
 
 	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
@@ -329,11 +331,19 @@ func main() {
 		AppspaceLogger:     appspaceLogger,
 	}
 
+	remoteAppGetter := &appops.RemoteAppGetter{
+		Config:        runtimeConfig,
+		AppFilesModel: appFilesModel,
+		AppModel:      appModel,
+	}
+	remoteAppGetter.Init()
+
 	appGetter := &appops.AppGetter{
 		AppFilesModel:    appFilesModel,
 		AppLocation2Path: appLocation2Path,
 		AppModel:         appModel,
 		AppLogger:        appLogger,
+		RemoteAppGetter:  remoteAppGetter,
 		SandboxManager:   sandboxManager,
 		V0AppRoutes:      v0AppRoutes,
 	}
@@ -399,8 +409,7 @@ func main() {
 	deleteAppspace.AppspaceStatus = appspaceStatus
 
 	migrationMinder := &appspacestatus.MigrationMinder{
-		AppModel:      appModel,
-		AppspaceModel: appspaceModel,
+		AppModel: appModel,
 	}
 
 	appspaceAvatars := &appspaceops.Avatars{
@@ -449,11 +458,12 @@ func main() {
 		UserInvitationModel: userInvitationModel}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
-		AppGetter:     appGetter,
-		DeleteApp:     deleteApp,
-		AppFilesModel: appFilesModel,
-		AppModel:      appModel,
-		AppLogger:     appLogger}
+		AppGetter:       appGetter,
+		RemoteAppGetter: remoteAppGetter,
+		DeleteApp:       deleteApp,
+		AppFilesModel:   appFilesModel,
+		AppModel:        appModel,
+		AppLogger:       appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
 		AppspaceUsersModelV0:  appspaceUsersModelV0,
@@ -605,6 +615,7 @@ func main() {
 
 		restoreAppspace.DeleteAll()
 
+		remoteAppGetter.Stop()
 		appGetter.Stop()
 
 		server.Shutdown()
@@ -616,7 +627,6 @@ func main() {
 			panic(err)
 		}
 
-		//os.Exit(0)
 		exit <- struct{}{}
 	}()
 

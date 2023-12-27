@@ -47,7 +47,10 @@ type RuntimeConfig struct {
 		Port      int16  `json:"port"` // default to 443
 	} `json:"external-access"`
 	// TrustCert is used in ds2ds
-	TrustCert             string `json:"trust-cert"`
+	TrustCert       string `json:"trust-cert"`
+	InternalNetwork struct {
+		AllowedIPs []string `json:"allowed-ips"` // Allowed IP addresses, or CIDR ranges.
+	} `json:"internal-network"`
 	ManageTLSCertificates struct {
 		Enable              bool   `json:"enable"`
 		Email               string `json:"acme-account-email"`
@@ -365,6 +368,63 @@ type App struct {
 	Created time.Time `db:"created" json:"created_dt"`
 }
 
+// AppListingFetch is the app listing along with some fetch metadata
+type AppListingFetch struct {
+	// NotModified is true if the remote endpoint returned the Not-Modified header
+	NotModified bool
+	// NewURL is set if remote endpoint return a permanent redirect
+	// or if listing contains new url? (although that could be determined by Listing.NewURL)
+	NewURL string
+	// Listing is the last successfully fetched app listing
+	// Maybe this should not be in here? Get it separately if you actually want the listing data?
+	Listing AppListing
+	// ListingDatetime for HTTP cache purposes
+	ListingDatetime time.Time
+	// Etag of fetched listing for caching purposes
+	Etag string
+	// LatestVersion is the highest stable semver of all versions in listing.
+	// I wonder if maybe latest version should be somewhere else?
+	// It's not really "fetch"-related. It's interpretation of listing.
+	LatestVersion Version
+}
+
+// AppURLData contains all metadata related to fetching the app listing
+type AppURLData struct {
+	AppID AppID `db:"app_id" json:"app_id"`
+
+	// URL of the app listing JSON file
+	// It should not need redirecting
+	URL string `db:"url" json:"url"`
+
+	// Automatic fetch of the app listing
+	Automatic bool `db:"automatic" json:"automatic"`
+
+	// Last fetch attempted
+	Last time.Time `db:"last_dt" json:"last_dt"` // Not null, this struct can onle exist after created after inital fetch?
+	// LastResult values:
+	// - "ok": fetch succeeded with new listing
+	// - "not-modified": remote returned that resource not modified
+	// - "new-url": remote indicated there is a new url to fetch things from (details?) (But we already have a new url field in DB?)
+	// - "error": some error happened. But would love to stash the actual error as well.
+	LastResult string `db:"last_result" json:"last_result"`
+
+	// NewURL from which the app listing should be fetched.
+	// This is set when the original URL returns a permanent redirect
+	// or the "new-url" field is set in the listing
+	// and the new URL requires confirmation from the user.
+	NewURL string `db:"new_url" json:"new_url"`
+	// NewUrlDatetime timestamp of when the new URL was initially discovered (is this necessary?)
+	NewUrlDatetime nulltypes.NullTime `db:"new_url_dt" json:"new_url_dt"`
+
+	// ListingDatetime
+	ListingDatetime time.Time `db:"listing_dt" json:"listing_dt"`
+	// Etag of fetched listing for caching purposes
+	Etag string `db:"etag"` // do we need the etag in JSON?
+
+	// LatestVersion is the highest stable semver of all versions in listing.
+	LatestVersion Version `db:"latest_version" json:"latest_version"`
+}
+
 // AppVersion represents a set of version of an app
 // This struct is meant for backend use, like starting a sandbox.
 type AppVersion struct {
@@ -396,90 +456,54 @@ type AppVersionUI struct {
 	License          string           `db:"license" json:"license"`
 }
 
-// MetadataLinkedFile for when metadata references a file. used by:
-// - Icon (must be included?),
-// - Long Description (should be included),
-// - License File (either package with app or let the spdx speak for itself.)
-// - Release Notes. Does not fit, except that the notes for the current release make sense to include.
-
-type MetadataLinkedFile struct {
-	Source string // The originally specified location
-	Local  string // The location based off of app metadata dir of some sort? Empty if not loaded
-	// Should we have a retrieveal date?
-}
-
-type ManifestAuthor struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	URL   string `json:"url"`
-}
-
-type AppVersionManifest struct {
-	// Name of the application. Optional.
-	Name string `json:"name"` // L10N? Also should have omitempty?
-	// ShortDescription is a 10-15 words used to tell prsopective users what this is does.
-	ShortDescription string `json:"short-description"` // I18N string.
-	// Version in semver format. Required.
-	Version Version `json:"version"`
-	// Entrypoint is the script that runs the app. Optional. If ommitted system will look for app.ts or app.js.
-	Entrypoint string `json:"entrypoint"`
-	// Schema is the verion of the appspace data schema.
-	// This is determined automatically by the system.
-	Schema int `json:"schema"`
-	// Migrations is list of migrations provided by this app version
-	Migrations []MigrationStep `json:"migrations"`
-
-	// Icon is a package-relative path to an icon file to display within the installer instance UI.
-	Icon string `json:"icon"`
-	//AccentColor is a CSS color used to differentiate the app in the Dropserver UI
-	AccentColor string `json:"accent-color"`
-
-	// Both of these are not currently handled.
-	// Description  string `json:"description"`   // link to markdown file? I18N??
-
-	// Changelog is a package-relative path to a text file that contains release notes
-	Changelog string `json:"changelog"`
-
-	// Authors
-	Authors []ManifestAuthor `json:"authors"`
-
-	// Code is the URL of the code repository
-	Code string `json:"code"`
-	// Website for the app
-	Website string `json:"website"`
-	// Funding website or site where funding situation is explained
-	Funding string `json:"funding"` // should maybe not be a string only...
-	// License in SPDX string form
-	License string `json:"license"`
-	// LicenseFile is a package-relative path to a txt file containing the license text.
-	LicenseFile string `json:"license-file"` // Rel path to license file within package.
-
-	//ReleaseDate YYYY-MM-DD of software release date. Should be set automatically by packaging code.
-	ReleaseDate string `json:"release-date"` // date of packaging.
-
-	// Size of the installed package in bytes (except that additional space will be taken up when fetching remote modules if applicable)
-	// Although maybe the actual installed size can be measured by the packaging system?
-	// Size int `json:"size"`
-}
-
 type AppGetKey string
+
+// ProcessProblem are consts that enable checking for
+// a specific type of problem at processing time.
+type ProcessProblem string
+
+const ProblemEmpty ProcessProblem = "empty"
+const ProblemInvalid ProcessProblem = "invalid"
+const ProblemBig ProcessProblem = "big"
+const ProblemSmall ProcessProblem = "small" // maybe roll this into poor experience
+const ProblemNotFound ProcessProblem = "not-found"
+
+// ProblemError implies an error took place while processing
+const ProblemError ProcessProblem = "error"
+
+// ProblemPoorExperience indicate the value is usable but does
+// not meet best practices and affects the user's experience
+const ProblemPoorExperience ProcessProblem = "poor-experience"
+
+type ProcessWarning struct {
+	Field    string         `json:"field"`     // Field indicates area of problem. It can be the json key from manifest or something else
+	Problem  ProcessProblem `json:"problem"`   // Problem for classification
+	BadValue string         `json:"bad_value"` // BadValue of field for safe display
+	Message  string         `json:"message"`   // Message for user or developer
+}
 
 // AppGetMeta has app version data and any errors found in it
 type AppGetMeta struct {
-	Key             AppGetKey          `json:"key"`
-	PrevVersion     Version            `json:"prev_version"`
-	NextVersion     Version            `json:"next_version"`
-	Errors          []string           `json:"errors"`
-	Warnings        map[string]string  `json:"warnings"`
-	VersionManifest AppVersionManifest `json:"version_manifest,omitempty"`
+	Key         AppGetKey        `json:"key"`
+	PrevVersion Version          `json:"prev_version"`
+	NextVersion Version          `json:"next_version"`
+	Errors      []string         `json:"errors"`
+	Warnings    []ProcessWarning `json:"warnings"`
+	// VersionManifest is currently the manifest as determined by the app processing steps.
+	VersionManifest AppVersionManifest `json:"version_manifest"`
+	// AppID of the app if getting a new version, or of the created app if new app
+	AppID AppID `json:"app_id"`
 }
 
 // AppGetEvent contains updates to an app getter process
 type AppGetEvent struct {
-	Key   AppGetKey `json:"key"`
-	Done  bool      `json:"done"`
-	Error bool      `json:"error"` // TODO maybe add Warning flag so that event recipeints can act accordingly? Or remove Error because every caller should just get the full dump of the process?
-	Step  string    `json:"step"`
+	Key AppGetKey `json:"key"`
+	// Done means the entire process is finished, nothing more is going to happen.
+	Done bool `json:"done"`
+	// Input is non-empty string when user input is needed (like "commit", or "see warnings then continue")
+	Input string `json:"input"`
+	// Step is user-readable strings that give an indication of the steps taken.
+	Step string `json:"step"`
 }
 
 // Appspace represents the data structure for App spaces.

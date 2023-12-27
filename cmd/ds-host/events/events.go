@@ -10,7 +10,7 @@ import (
 /////////////////////////////////////////
 // migration job events
 
-//MigrationJobEvents forwards events related to migration jobs
+// MigrationJobEvents forwards events related to migration jobs
 type MigrationJobEvents struct {
 	subsMux             sync.Mutex
 	subscribers         []chan domain.MigrationJob
@@ -93,38 +93,32 @@ func (e *MigrationJobEvents) removeSubscriber(ch <-chan domain.MigrationJob) {
 // have been written to outside of normal appspace use.
 // Usually this means they were imported, or a backup restored
 type AppspaceFilesEvents struct {
-	subscribers []chan<- domain.AppspaceID
+	subscribers *eventSubs[domain.AppspaceID]
 }
 
 // Send sends an appspace paused or unpaused event
 func (e *AppspaceFilesEvents) Send(appspaceID domain.AppspaceID) {
-	for _, ch := range e.subscribers {
-		ch <- appspaceID
+	if e.subscribers != nil {
+		e.subscribers.send(appspaceID)
 	}
 }
 
 // Subscribe to an event for when an appspace is paused or unpaused
-func (e *AppspaceFilesEvents) Subscribe(ch chan<- domain.AppspaceID) {
-	e.removeSubscriber(ch)
-	e.subscribers = append(e.subscribers, ch)
+func (e *AppspaceFilesEvents) Subscribe() <-chan domain.AppspaceID {
+	if e.subscribers == nil {
+		e.subscribers = &eventSubs[domain.AppspaceID]{} // makeEventSubs[domain.AppspaceID]()
+	}
+	return e.subscribers.subscribe()
 }
 
 // Unsubscribe to an event for when an appspace is paused or unpaused
-func (e *AppspaceFilesEvents) Unsubscribe(ch chan<- domain.AppspaceID) {
-	e.removeSubscriber(ch)
-}
-
-func (e *AppspaceFilesEvents) removeSubscriber(ch chan<- domain.AppspaceID) {
-	// get a feeling you'll need a mutex to cover subscribers?
-	for i, c := range e.subscribers {
-		if c == ch {
-			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
-			e.subscribers = e.subscribers[:len(e.subscribers)-1]
-		}
+func (e *AppspaceFilesEvents) Unsubscribe(ch <-chan domain.AppspaceID) {
+	if e.subscribers != nil {
+		e.subscribers.unsubscribe(ch)
 	}
 }
 
-////////////////////////////////////////
+// //////////////////////////////////////
 // Appspace Status events
 type appspaceStatusSubscriber struct {
 	appspaceID domain.AppspaceID
@@ -215,4 +209,28 @@ func (e *AppspaceRouteHitEvents) removeSubscriber(ch chan<- *domain.AppspaceRout
 			e.subscribers = e.subscribers[:len(e.subscribers)-1]
 		}
 	}
+}
+
+// AppUrlDataEvents sends AppURLData
+type AppUrlDataEvents struct {
+	ownerSubs eventIDSubs[domain.UserID, domain.AppURLData]
+	appSubs   eventIDSubs[domain.AppID, domain.AppURLData]
+}
+
+func (e *AppUrlDataEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.AppURLData {
+	return e.appSubs.subscribe(domain.AppID(ownerID))
+}
+
+func (e *AppUrlDataEvents) SubscribeApp(appID domain.AppID) <-chan domain.AppURLData {
+	return e.appSubs.subscribe(appID)
+}
+
+func (e *AppUrlDataEvents) Unsubscribe(ch <-chan domain.AppURLData) {
+	e.appSubs.unsubscribe(ch)
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppUrlDataEvents) Send(ownerID domain.UserID, data domain.AppURLData) {
+	e.ownerSubs.send(ownerID, data)
+	e.appSubs.send(data.AppID, data)
 }

@@ -105,7 +105,7 @@ func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be 
 				Processing: true,
 				Step:       e.Step,
 				Errors:     []string{},
-				Warnings:   map[string]string{}})
+				Warnings:   []domain.ProcessWarning{}})
 		}
 		if !reloading && e.Done {
 			reloading = true

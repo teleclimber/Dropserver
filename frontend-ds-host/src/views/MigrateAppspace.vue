@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, watch, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, watch, reactive, ref, Ref } from 'vue';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
 import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
-import type { AppspaceMigrationJob } from '@/stores/types';
+import type { AppspaceMigrationJob, App } from '@/stores/types';
 
 import { AppspaceStatus } from '../twine-services/appspace_status';
 
@@ -16,6 +16,7 @@ import DataDef from '@/components/ui/DataDef.vue';
 import UnderConstruction from '@/components/ui/UnderConstruction.vue';
 import AppLicense from '@/components/app/AppLicense.vue';
 import SmallMessage from '@/components/ui/SmallMessage.vue';
+import MinimalAppUrlData from '@/components/appspace/MinimalAppUrlData.vue';
 
 const props = defineProps<{
 	appspace_id: number,
@@ -56,6 +57,15 @@ const appspace = computed( () => {
 watch( appspace, () => {
 	if( appspace.value ) appsStore.loadAppVersions(appspace.value.app_id);
 });
+
+const app :Ref<App|undefined> = ref();
+watch( () => appspace.value?.app_id, async () => {
+	app.value = undefined;
+	if( appspace.value === undefined ) return;
+	await appsStore.loadApp(appspace.value.app_id);
+	const a = appsStore.getApp(appspace.value.app_id);
+	if( a !== undefined ) app.value = a.value;
+}, {immediate: true});
 
 const app_versions = computed( () => {
 	if( !appspace.value ) return;
@@ -203,16 +213,23 @@ const small_msg_classes = ['inline-block', 'mt-1'];
 				</div>
 			</div>
 			<div v-else-if="show_all_versions" class="px-4 my-5 sm:px-6">
-				<div class="flex my-5">
-					<img v-if="cur_app_icon" :src="cur_app_icon" @error="cur_app_icon_error = true" class="w-10 h-10" />
+				<div class="flex items-baseline flex-col md:flex-row my-5">
+					<img v-if="cur_app_icon" :src="cur_app_icon" @error="cur_app_icon_error = true" class="w-10 h-10 self-center" />
 					<div v-else class="w-10 h-10 text-gray-300  flex justify-center items-center">
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-14 h-14">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
 						</svg>
 					</div>
-					<div class="self-center">
-						<h3 class="text-xl font-medium text-gray-900">{{cur_app_version?.name}}</h3>
-					</div>
+						<router-link v-if="cur_app_version" :to="{name: 'manage-app', params:{id:cur_app_version?.app_id}}" class="font-medium text-xl text-blue-600 underline">
+							{{cur_app_version?.name}}
+						</router-link>
+						<MinimalAppUrlData v-if="app?.url_data" :url_data="app.url_data" :cur_ver="cur_app_version?.version"></MinimalAppUrlData>
+				</div>
+				<div class="flex justify-between items-baseline">
+					<h4 class="text-xl">Installed versions:</h4>
+					<router-link v-if="app?.url_data" :to="{name:'new-app-version', params:{id:app.url_data.app_id}}" class="btn">
+						get other versions
+					</router-link>
 				</div>
 				<PickVersion 
 						v-if="app_versions && appspace"

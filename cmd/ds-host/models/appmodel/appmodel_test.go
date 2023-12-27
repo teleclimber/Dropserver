@@ -3,11 +3,13 @@ package appmodel
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -21,6 +23,47 @@ func TestPrepareStatements(t *testing.T) {
 		DB: db}
 
 	appModel.PrepareStatements()
+}
+
+// TestTxRollback tests that the code pattern used for creating transactions
+// and rolling them back on error does actually work as intended.
+// This is the recommended pattern, but I just want to be sure.
+func TestTxRollback(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appID, err := appModel.CreateFromURL(11, "abc.com/app", true, domain.AppListingFetch{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	func() {
+		tx, err := h.Beginx()
+		if err != nil {
+			t.Error(err)
+		}
+		defer tx.Rollback()
+
+		err = setNewUrl(appID, "new.url/app", nulltypes.NewTime(time.Now(), true), tx)
+		if err != nil {
+			t.Error(err)
+		}
+		// imagine more setters getting called...
+		// if an error is detected, the function returns early and tx.Commit() never gets called.
+		// tx.Commit()	// commented on purpose.
+	}()
+
+	urlData, err := appModel.GetAppUrlData(appID)
+	if err != nil {
+		t.Error(err)
+	}
+	if urlData.NewURL != "" {
+		t.Error("expected rollback to prevent new_ulr col from being written")
+	}
 }
 
 func TestGetFromNonExistentID(t *testing.T) {
@@ -159,6 +202,34 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestDeleteWithAppUrl(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	appID, err := appModel.CreateFromURL(7, "abc.com", true, domain.AppListingFetch{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = appModel.Delete(appID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = appModel.GetAppUrlData(appID)
+	if err != domain.ErrNoRowsInResultSet {
+		t.Error("expecte err no rows")
+	}
+}
+
 func TestDeleteWithVersions(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
@@ -185,6 +256,410 @@ func TestDeleteWithVersions(t *testing.T) {
 	err = appModel.Delete(appID)
 	if err == nil {
 		t.Error("expected error")
+	}
+}
+
+func TestGetUrlDataNone(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	urlData, err := appModel.GetAppUrlData(domain.AppID(1))
+	if err == nil {
+		t.Log(urlData)
+		t.Error("expected error because there is no row")
+	} else if err != domain.ErrNoRowsInResultSet {
+		t.Errorf("expected no rows in result set error, got %v", err)
+	}
+
+	listing, urlData, err := appModel.GetAppUrlListing(domain.AppID(1))
+	if err == nil {
+		t.Log(urlData, listing)
+		t.Error("expected error because there is no row")
+	} else if err != domain.ErrNoRowsInResultSet {
+		t.Errorf("expected no rows in result set error, got %v", err)
+	}
+}
+
+func TestInternalCreateAppUrlData(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	tx, err := h.Beginx()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = createAppUrlData(domain.AppID(1), "abc.com/app", true, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		t.Error(err)
+	}
+
+	urlData, err := appModel.GetAppUrlData(domain.AppID(1))
+	if err == nil {
+		t.Log(urlData)
+		t.Error("expected error because we haven't populated all the columns")
+	}
+}
+
+func TestCreateAppUrlData(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	dt := time.Now()
+	expected := domain.AppURLData{
+		URL:             "abc.com/app",
+		Automatic:       true,
+		Last:            dt,
+		LastResult:      "ok",
+		NewURL:          "",
+		NewUrlDatetime:  nulltypes.NewTime(time.Time{}, false),
+		ListingDatetime: dt,
+		Etag:            "etag-abc",
+		LatestVersion:   "1.2.3"}
+
+	expectedListing := domain.AppListing{
+		Base: "abc.com/app",
+		Versions: map[domain.Version]domain.AppListingVersion{
+			domain.Version("1.2.3"): {
+				Manifest:  "manifest-1.2.3.json",
+				Package:   "manifest-1.2.3.tar.gz",
+				Changelog: "changelog-1.2.3.txt",
+				Icon:      "icon-1.2.3.gif"},
+			domain.Version("1.5.0"): {
+				Manifest:  "manifest-1.5.0.json",
+				Package:   "manifest-1.5.0.tar.gz",
+				Changelog: "changelog-1.5.0.txt",
+				Icon:      "icon-1.5.0.gif"},
+		},
+	}
+
+	lf := domain.AppListingFetch{
+		Listing:         expectedListing,
+		ListingDatetime: dt,
+		Etag:            expected.Etag,
+		LatestVersion:   expected.LatestVersion}
+
+	appID, err := appModel.CreateFromURL(domain.UserID(1), expected.URL, expected.Automatic, lf)
+	if err != nil {
+		t.Error(err)
+	}
+	expected.AppID = appID
+
+	urlData, err := appModel.GetAppUrlData(appID)
+	if err != nil {
+		t.Error(err)
+	}
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+
+	listing, urlData, err := appModel.GetAppUrlListing(appID)
+	if err != nil {
+		t.Error(err)
+	}
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+	if !cmp.Equal(listing, expectedListing) {
+		t.Error(cmp.Diff(listing, expectedListing))
+	}
+}
+
+func TestGetAutoUrlDataByLastDt(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	// Test with no data:
+	_, err := appModel.GetAutoUrlDataByLastDt(time.Now())
+	if err != nil {
+		t.Error(err)
+	}
+
+	appID := domain.AppID(7)
+
+	last := time.Now().Add(-time.Second)
+
+	tx, _ := h.Beginx()
+	createAppUrlData(appID, "abc", true, tx)
+	setLast(appID, "ok", last, tx)
+	tx.Commit()
+
+	appIDs, err := appModel.GetAutoUrlDataByLastDt(last.Add(-time.Second))
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appIDs) != 0 {
+		t.Errorf("expected no app ids, got %v", appIDs)
+	}
+
+	appIDs, err = appModel.GetAutoUrlDataByLastDt(time.Now())
+	if err != nil {
+		t.Error(err)
+	}
+	if len(appIDs) != 1 {
+		t.Errorf("expected one app ids, got %v", appIDs)
+	}
+}
+
+func TestAppUrlUpdates(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	dt1 := time.Now()
+	url := "abc.com/app"
+
+	lf := domain.AppListingFetch{
+		Listing:         domain.AppListing{},
+		ListingDatetime: dt1,
+		Etag:            "etag1",
+		LatestVersion:   "0.0.1"}
+
+	appID, err := appModel.CreateFromURL(domain.UserID(1), url, false, lf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Test UpdtaeAutomatic
+	err = appModel.UpdateAutomatic(appID, true)
+	if err != nil {
+		t.Error(err)
+	}
+	urlData, err := appModel.GetAppUrlData(appID)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := domain.AppURLData{
+		AppID:           appID,
+		URL:             url,
+		Automatic:       true,
+		Last:            dt1,
+		LastResult:      "ok",
+		NewURL:          "",
+		NewUrlDatetime:  nulltypes.NewTime(time.Time{}, false),
+		ListingDatetime: dt1,
+		Etag:            "etag1",
+		LatestVersion:   "0.0.1"}
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+
+	// Test SetLastFetch
+	dt2 := dt1.Add(time.Second)
+	err = appModel.SetLastFetch(appID, dt2, "no-change")
+	if err != nil {
+		t.Error(err)
+	}
+	expected.Last = dt2
+	expected.LastResult = "no-change"
+	urlData, _ = appModel.GetAppUrlData(appID)
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+
+	// Test SetNewURL
+	dt3 := dt2.Add(time.Second)
+	newUrl := "abc.new/app"
+	err = appModel.SetNewUrl(appID, newUrl, nulltypes.NewTime(dt3, true))
+	if err != nil {
+		t.Error(err)
+	}
+	expected.NewURL = newUrl
+	expected.NewUrlDatetime = nulltypes.NewTime(dt3, true)
+	urlData, _ = appModel.GetAppUrlData(appID)
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+}
+
+func TestSetListing(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	dt1 := time.Now()
+	url := "abc.com/app"
+
+	lf := domain.AppListingFetch{
+		Listing:         domain.AppListing{},
+		ListingDatetime: dt1,
+		Etag:            "etag1",
+		LatestVersion:   "0.0.1"}
+
+	appID, err := appModel.CreateFromURL(domain.UserID(1), url, false, lf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// set New URL so we can check that gets reset
+	err = setNewUrl(appID, "new.url/app", nulltypes.NewTime(dt1, true), db.Handle)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Test SetListing
+	dt2 := dt1.Add(time.Second)
+	expectedListing := domain.AppListing{
+		Base: "abc.com/app",
+		Versions: map[domain.Version]domain.AppListingVersion{
+			domain.Version("1.2.3"): {
+				Manifest:  "manifest-1.2.3.json",
+				Package:   "manifest-1.2.3.tar.gz",
+				Changelog: "changelog-1.2.3.txt",
+				Icon:      "icon-1.2.3.gif"},
+			domain.Version("1.5.0"): {
+				Manifest:  "manifest-1.5.0.json",
+				Package:   "manifest-1.5.0.tar.gz",
+				Changelog: "changelog-1.5.0.txt",
+				Icon:      "icon-1.5.0.gif"},
+		},
+	}
+	lf.Listing = expectedListing
+	lf.ListingDatetime = dt2
+	lf.Etag = "etag2"
+	lf.LatestVersion = domain.Version("1.5.0")
+
+	err = appModel.SetListing(appID, lf)
+	if err != nil {
+		t.Error(err)
+	}
+	listing, urlData, _ := appModel.GetAppUrlListing(appID)
+	expected := domain.AppURLData{
+		AppID:           appID,
+		URL:             url,
+		Automatic:       false,
+		Last:            dt2,
+		LastResult:      "ok",
+		NewURL:          "",
+		NewUrlDatetime:  nulltypes.NewTime(time.Time{}, false),
+		ListingDatetime: dt2,
+		Etag:            "etag2",
+		LatestVersion:   "1.5.0"}
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+	if !cmp.Equal(listing, expectedListing) {
+		t.Error(cmp.Diff(listing, expectedListing))
+	}
+}
+
+func TestUpdateUrl(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+	appModel := &AppModel{
+		DB: db}
+
+	appModel.PrepareStatements()
+
+	dt1 := time.Now()
+	url1 := "abc.com/app"
+	url2 := "new.site/app"
+
+	lf := domain.AppListingFetch{
+		Listing:         domain.AppListing{},
+		ListingDatetime: dt1,
+		Etag:            "etag1",
+		LatestVersion:   "0.0.1"}
+
+	appID, err := appModel.CreateFromURL(domain.UserID(1), url1, false, lf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// set New URL so we can check that gets reset
+	err = setNewUrl(appID, url2, nulltypes.NewTime(dt1, true), db.Handle)
+	if err != nil {
+		t.Error(err)
+	}
+
+	dt2 := dt1.Add(time.Second)
+	expectedListing := domain.AppListing{
+		Base: "abc.com/app",
+		Versions: map[domain.Version]domain.AppListingVersion{
+			domain.Version("1.2.3"): {
+				Manifest:  "manifest-1.2.3.json",
+				Package:   "manifest-1.2.3.tar.gz",
+				Changelog: "changelog-1.2.3.txt",
+				Icon:      "icon-1.2.3.gif"},
+			domain.Version("1.5.0"): {
+				Manifest:  "manifest-1.5.0.json",
+				Package:   "manifest-1.5.0.tar.gz",
+				Changelog: "changelog-1.5.0.txt",
+				Icon:      "icon-1.5.0.gif"},
+		},
+	}
+	lf.Listing = expectedListing
+	lf.ListingDatetime = dt2
+	lf.Etag = "etag2"
+	lf.LatestVersion = domain.Version("1.5.0")
+
+	err = appModel.UpdateURL(appID, url2, lf)
+	if err != nil {
+		t.Error(err)
+	}
+	listing, urlData, _ := appModel.GetAppUrlListing(appID)
+	expected := domain.AppURLData{
+		AppID:           appID,
+		URL:             url2,
+		Automatic:       false,
+		Last:            dt2,
+		LastResult:      "ok",
+		NewURL:          "",
+		NewUrlDatetime:  nulltypes.NewTime(time.Time{}, false),
+		ListingDatetime: dt2,
+		Etag:            "etag2",
+		LatestVersion:   "1.5.0"}
+	if !cmp.Equal(urlData, expected) {
+		t.Error(cmp.Diff(urlData, expected))
+	}
+	if !cmp.Equal(listing, expectedListing) {
+		t.Error(cmp.Diff(listing, expectedListing))
 	}
 }
 

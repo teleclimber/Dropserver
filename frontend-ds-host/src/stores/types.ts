@@ -92,6 +92,19 @@ export interface App {
 	created_dt: Date,
 	cur_ver: string | undefined,
 	ver_data: AppVersionUI | undefined
+	url_data: AppUrlData | undefined
+}
+
+export type AppUrlData = {
+	app_id: number,
+	url: string,
+	automatic: boolean,
+	last_dt: Date,
+	last_result: string,
+	new_url: string,
+	new_url_dt: Date|undefined,
+	listing_dt: Date
+	latest_version: string
 }
 
 export type SelectedFile = {

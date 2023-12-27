@@ -4,7 +4,9 @@ package domain
 // 1Gb for now.
 const AppExtractedPackageMaxSize = int64(1 << 30)
 
+const AppListingMaxFileSize = int64(1 << 10 * 10)  // 10kb
 const AppManifestMaxFileSize = int64(1 << 10 * 10) // 10kb
+const AppCompleteChangelogMaxSize = int64(1 << 19) // ~500+kB
 
 const AppNameMaxLength = 30
 const AppShortDescriptionMaxLength = 60
