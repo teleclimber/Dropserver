@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -106,7 +105,7 @@ func (a *AppspaceRoutes) appspaceCtx(next http.Handler) http.Handler {
 
 		appspace, err := a.AppspaceModel.GetFromID(appspaceID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == domain.ErrNoRowsInResultSet {
 				returnError(w, errNotFound)
 			} else {
 				returnError(w, err)

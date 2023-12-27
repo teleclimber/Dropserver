@@ -72,12 +72,13 @@ func (m *AppspaceModel) GetFromID(appspaceID domain.AppspaceID) (*domain.Appspac
 	err := m.stmt.selectID.QueryRowx(appspaceID).StructScan(&appspace)
 	if err != nil {
 		log := m.getLogger("GetFromID()").AppspaceID(appspaceID)
-		if err != sql.ErrNoRows {
-			log.Error(err)
-		} else {
+		if err == sql.ErrNoRows {
 			log.Debug(err.Error())
+			return nil, domain.ErrNoRowsInResultSet
+		} else {
+			log.Error(err)
+			return nil, err
 		}
-		return nil, err
 	}
 
 	return &appspace, nil

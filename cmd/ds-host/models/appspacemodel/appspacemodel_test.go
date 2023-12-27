@@ -1,7 +1,6 @@
 package appspacemodel
 
 import (
-	"database/sql"
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
@@ -388,7 +387,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	_, err = model.GetFromID(appspace.AppspaceID)
-	if err != sql.ErrNoRows {
+	if err != domain.ErrNoRowsInResultSet {
 		t.Error("expected no rows in result set error")
 	}
 }

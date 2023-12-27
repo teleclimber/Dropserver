@@ -106,7 +106,10 @@ func (j *MigrationJobRoutes) getJobsQuery(w http.ResponseWriter, r *http.Request
 		// Here we have to ensure that appspace id is authorized for user.
 		// so have to load appspace, and compare
 		appspace, err := j.AppspaceModel.GetFromID(appspaceID)
-		if err != nil {
+		if err == domain.ErrNoRowsInResultSet {
+			returnError(w, errNotFound)
+			return
+		} else if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}

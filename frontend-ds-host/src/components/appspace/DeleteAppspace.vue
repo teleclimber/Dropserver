@@ -29,7 +29,7 @@ async function del() {
 	deleting.value = true;
 	await appspacesStore.deleteAppspace(props.appspace.appspace_id);
 
-	router.back();
+	router.replace({name:"appspaces"});
 }
 </script>
 

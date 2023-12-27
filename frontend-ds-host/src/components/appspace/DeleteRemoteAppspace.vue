@@ -15,7 +15,7 @@ const deleting = ref(false);
 async function del() {
 	deleting.value = true;
 	await remoteAppspaceStore.deleteAppspace(props.domain);
-	router.back();
+	router.replace({name:"appspaces"});
 }
 
 </script>
