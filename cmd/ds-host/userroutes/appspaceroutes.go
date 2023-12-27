@@ -125,8 +125,13 @@ func (a *AppspaceRoutes) appspaceCtx(next http.Handler) http.Handler {
 
 func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
-
 	respData := a.makeAppspaceMeta(appspace)
+
+	if appspace.AppVersion == domain.Version("") { // at appspace creation time, AppVersion can be empty.
+		writeJSON(w, respData)
+		return
+	}
+
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

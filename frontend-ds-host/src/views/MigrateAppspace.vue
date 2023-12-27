@@ -27,11 +27,7 @@ const props = defineProps<{
 
 const router = useRouter();
 
-// Plenty of opportunities to clean up how we load data in this component.
-// -> only load the appspace data for the appspace in question.
-
 const appspacesStore = useAppspacesStore();
-appspacesStore.loadData();
 
 const appsStore = useAppsStore();
 
@@ -50,8 +46,9 @@ const status = reactive(new AppspaceStatus) as AppspaceStatus;
 status.connectStatus(props.appspace_id);
 
 const appspace = computed( () => {
-	if( !appspacesStore.is_loaded ) return;
-	return appspacesStore.mustGetAppspace(props.appspace_id).value;
+	const a = appspacesStore.getAppspace(props.appspace_id);
+	if( a === undefined ) return a;
+	return a.value;
 });
 
 watch( appspace, () => {
