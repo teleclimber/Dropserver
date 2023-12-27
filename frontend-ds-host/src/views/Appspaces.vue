@@ -8,12 +8,16 @@ import BigLoader from '../components/ui/BigLoader.vue';
 import MessageSad from '../components/ui/MessageSad.vue';
 import AppspaceListItem from '../components/AppspaceListItem.vue';
 import RemoteAppspaceListItem from '../components/RemoteAppspaceListItem.vue';
+import { useAppsStore } from '@/stores/apps';
 
 const appspacesStore = useAppspacesStore();
 appspacesStore.loadData();
 
 const remoteAppspacesStore = useRemoteAppspacesStore();
 remoteAppspacesStore.loadData();
+
+const appsStore = useAppsStore();
+appsStore.loadData();
 
 onMounted( () => {
 	appspacesStore.loadData();

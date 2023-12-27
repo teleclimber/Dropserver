@@ -125,20 +125,16 @@ onUnmounted( async () => {
 						<span class="flex items-center">
 							<span class="w-0">&nbsp;</span><!-- needed to make baseline allignment work -->
 							<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-10 h-10" />
-							<h3 class="text-lg font-medium text-gray-900">{{appspace.ver_data?.name}}</h3>
+							<router-link :to="{name: 'manage-app', params:{id:appspace.app_id}}" class="font-medium text-lg text-blue-600 underline">
+								{{appspace.ver_data?.name}}
+							</router-link>
 						</span>
 					</DataDef>
 
 					<DataDef field="App Version:">
 						<span class="bg-gray-200 text-gray-600 px-1 rounded-md inline-block mr-1">{{appspace.app_version}}</span>
-						<router-link v-if="appspace.upgrade_version" :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{to_version:appspace.upgrade_version}}"
-							class="btn">
-							<svg class="inline align-bottom w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
-							</svg>
-							{{appspace.upgrade_version}} available
-						</router-link>
-						<router-link v-else :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">change version</router-link>
+						<span v-if="appspace.upgrade_version">{{appspace.upgrade_version}} available </span>
+						<router-link :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">change version</router-link>
 					</DataDef>
 
 					<DataDef field="Data Schema:">
