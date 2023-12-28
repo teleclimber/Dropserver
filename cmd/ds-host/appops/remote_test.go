@@ -68,11 +68,11 @@ func TestGetSSRF(t *testing.T) {
 	}
 }
 
-func TestCacheFresh(t *testing.T) {
-	if !cacheFresh(cachedListing{fetchDt: time.Now()}) {
-		t.Error("cache for time.Now should be fresh")
+func TestIsFresh(t *testing.T) {
+	if !isFresh(time.Now()) {
+		t.Error("time.Now should be fresh")
 	}
-	if cacheFresh(cachedListing{fetchDt: time.Now().Add(-cacheDuration).Add(-time.Minute * 5)}) {
+	if isFresh(time.Now().Add(-cacheDuration).Add(-time.Minute * 5)) {
 		t.Error("cache should not be fresh")
 	}
 }

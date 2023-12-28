@@ -478,12 +478,27 @@ func (m *AppModel) SetListing(appID domain.AppID, listingFetch domain.AppListing
 }
 
 // SetNewUrl sets the new url that the remote site says future requests should go
-func (m *AppModel) SetNewUrl(appID domain.AppID, url string, dt nulltypes.NullTime) error {
-	err := setNewUrl(appID, url, dt, m.DB.Handle)
+func (m *AppModel) SetNewUrl(appID domain.AppID, url string, dt time.Time) error {
+	tx, err := m.DB.Handle.Beginx()
+	if err != nil {
+		m.getLogger("SetNewUrl(), Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	err = setNewUrl(appID, url, nulltypes.NewTime(dt, true), tx)
 	if err != nil {
 		m.getLogger("SetNewUrl(), setNewUrl()").AppID(appID).Error(err)
 		return err
 	}
+
+	err = setLast(appID, "ok", dt, tx)
+	if err != nil {
+		m.getLogger("SetNewUrl(), setLast()").AppID(appID).Error(err)
+		return err
+	}
+
+	tx.Commit()
 	m.sendAppURLDataEvent(appID)
 	return nil
 }

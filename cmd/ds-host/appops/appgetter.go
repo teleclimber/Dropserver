@@ -66,6 +66,7 @@ type AppGetter struct {
 		Log(locationKey string, source string, message string)
 	} `checkinject:"required"`
 	RemoteAppGetter interface {
+		EnsureFreshListing(domain.AppID) (domain.AppListing, domain.AppURLData, error)
 		FetchValidListing(url string) (domain.AppListingFetch, error)
 		FetchPackageJob(url string) (string, error)
 	} `checkinject:"required"`
@@ -173,9 +174,12 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 }
 
 func (g *AppGetter) InstallNewVersionFromURL(userID domain.UserID, appID domain.AppID, version domain.Version) (domain.AppGetKey, error) {
-	listing, urlData, err := g.AppModel.GetAppUrlListing(appID)
+	listing, urlData, err := g.RemoteAppGetter.EnsureFreshListing(appID)
 	if err != nil {
 		return domain.AppGetKey(""), err
+	}
+	if urlData.LastResult == "error" {
+		return domain.AppGetKey(""), errors.New("unable to proceed because the last attempt to fetch the app listing resulted in an error")
 	}
 	data := g.set(appGetData{
 		url:      urlData.URL,

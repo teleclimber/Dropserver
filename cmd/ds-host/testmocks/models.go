@@ -69,7 +69,7 @@ type AppModel interface {
 	UpdateAutomatic(domain.AppID, bool) error
 	SetLastFetch(domain.AppID, time.Time, string) error
 	SetListing(domain.AppID, domain.AppListingFetch) error
-	SetNewUrl(domain.AppID, string, nulltypes.NullTime) error
+	SetNewUrl(domain.AppID, string, time.Time) error
 	UpdateURL(domain.AppID, string, domain.AppListingFetch) error
 	GetCurrentVersion(appID domain.AppID) (domain.Version, error)
 	GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)

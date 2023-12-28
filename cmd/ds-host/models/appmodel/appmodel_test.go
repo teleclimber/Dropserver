@@ -497,12 +497,14 @@ func TestAppUrlUpdates(t *testing.T) {
 	// Test SetNewURL
 	dt3 := dt2.Add(time.Second)
 	newUrl := "abc.new/app"
-	err = appModel.SetNewUrl(appID, newUrl, nulltypes.NewTime(dt3, true))
+	err = appModel.SetNewUrl(appID, newUrl, dt3)
 	if err != nil {
 		t.Error(err)
 	}
+	expected.Last = dt3
 	expected.NewURL = newUrl
 	expected.NewUrlDatetime = nulltypes.NewTime(dt3, true)
+	expected.LastResult = "ok"
 	urlData, _ = appModel.GetAppUrlData(appID)
 	if !cmp.Equal(urlData, expected) {
 		t.Error(cmp.Diff(urlData, expected))

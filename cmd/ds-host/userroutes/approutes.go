@@ -308,7 +308,7 @@ func (a *ApplicationRoutes) fetchVersionManifest(w http.ResponseWriter, r *http.
 
 	manifestMeta, err := a.RemoteAppGetter.FetchNewVersionManifest(app.AppID, domain.Version(v))
 	if err != nil {
-		returnError(w, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

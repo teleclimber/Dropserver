@@ -807,7 +807,7 @@ func (mr *MockAppModelMockRecorder) SetListing(arg0, arg1 interface{}) *gomock.C
 }
 
 // SetNewUrl mocks base method
-func (m *MockAppModel) SetNewUrl(arg0 domain.AppID, arg1 string, arg2 nulltypes.NullTime) error {
+func (m *MockAppModel) SetNewUrl(arg0 domain.AppID, arg1 string, arg2 time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetNewUrl", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

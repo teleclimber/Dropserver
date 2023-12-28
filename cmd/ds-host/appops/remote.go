@@ -14,7 +14,6 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
 type cachedListing struct {
@@ -35,7 +34,7 @@ type RemoteAppGetter struct {
 		GetAutoUrlDataByLastDt(time.Time) ([]domain.AppID, error)
 		SetLastFetch(domain.AppID, time.Time, string) error
 		SetListing(domain.AppID, domain.AppListingFetch) error
-		SetNewUrl(domain.AppID, string, nulltypes.NullTime) error
+		SetNewUrl(domain.AppID, string, time.Time) error
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 
@@ -161,7 +160,7 @@ func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
 		return nil
 	}
 	if getNewURL(listingFetch) != "" {
-		r.AppModel.SetNewUrl(appID, getNewURL(listingFetch), nulltypes.NewTime(time.Now(), true))
+		r.AppModel.SetNewUrl(appID, getNewURL(listingFetch), time.Now())
 		return errors.New("app listing has moved, new URL: " + getNewURL(listingFetch))
 	}
 
@@ -184,6 +183,22 @@ func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
 	r.AppModel.SetListing(appID, listingFetch)
 
 	return nil
+}
+
+func (r *RemoteAppGetter) EnsureFreshListing(appID domain.AppID) (listing domain.AppListing, urlData domain.AppURLData, err error) {
+	listing, urlData, err = r.AppModel.GetAppUrlListing(appID)
+	if err != nil {
+		return
+	}
+	if isFresh(urlData.Last) {
+		return
+	}
+	err = r.RefreshAppListing(appID)
+	if err != nil {
+		return
+	}
+	listing, urlData, err = r.AppModel.GetAppUrlListing(appID)
+	return
 }
 
 func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch, error) {
@@ -228,15 +243,15 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 func (r *RemoteAppGetter) FetchCachedListing(url string) (domain.AppListingFetch, error) {
 	r.init()
 	cached, ok := r.listingCache[url]
-	if ok && cacheFresh(cached) {
+	if ok && isFresh(cached.fetchDt) {
 		return cached.listingFetch, nil
 	}
 	listingFetch, err := r.FetchValidListing(url)
 	return listingFetch, err
 }
 
-func cacheFresh(cached cachedListing) bool {
-	return time.Now().Add(-cacheDuration).Before(cached.fetchDt)
+func isFresh(t time.Time) bool {
+	return time.Now().Add(-cacheDuration).Before(t)
 }
 
 // fetchListing fetches the listing and returns
@@ -307,9 +322,15 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 }
 
 func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version domain.Version) (domain.AppGetMeta, error) {
-	listing, urlData, err := r.AppModel.GetAppUrlListing(appID)
+	listing, urlData, err := r.EnsureFreshListing(appID)
 	if err != nil {
 		return domain.AppGetMeta{}, err
+	}
+
+	if urlData.LastResult == "error" {
+		return domain.AppGetMeta{
+			Errors: []string{"Unable to proceed because the last attempt to fetch the app listing resulted in an error"},
+		}, nil
 	}
 
 	if listing.NewURL != "" || urlData.NewURL != "" {
@@ -464,7 +485,7 @@ func (r *RemoteAppGetter) fetchManifest(url string) (domain.AppVersionManifest, 
 }
 
 // need fetch remote changelog here.
-func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Version) (string, error) { // stirng or reader? or writer?
+func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Version) (string, error) {
 	listingFetch, err := r.FetchCachedListing(listingURL)
 	if err != nil {
 		return "", fmt.Errorf("error fetching app listing: %w", err)
@@ -476,7 +497,7 @@ func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Versi
 
 	versionListing, ok := listingFetch.Listing.Versions[version]
 	if !ok {
-		return "", errors.New("no such version in app listing")
+		return "", fmt.Errorf("no such version in app listing: %v", version)
 	}
 
 	if versionListing.Changelog == "" {
