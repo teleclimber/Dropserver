@@ -3,6 +3,7 @@ package appops
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
@@ -64,5 +65,14 @@ func TestGetSSRF(t *testing.T) {
 	err = s.Safe("tcp4", "192.168.1.10:443", nil)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestCacheFresh(t *testing.T) {
+	if !cacheFresh(cachedListing{fetchDt: time.Now()}) {
+		t.Error("cache for time.Now should be fresh")
+	}
+	if cacheFresh(cachedListing{fetchDt: time.Now().Add(-cacheDuration).Add(-time.Minute * 5)}) {
+		t.Error("cache should not be fresh")
 	}
 }

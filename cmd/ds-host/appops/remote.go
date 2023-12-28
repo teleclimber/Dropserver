@@ -17,6 +17,13 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
+type cachedListing struct {
+	listingFetch domain.AppListingFetch
+	fetchDt      time.Time
+}
+
+const cacheDuration = time.Minute * 10
+
 type RemoteAppGetter struct {
 	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppFilesModel interface {
@@ -37,7 +44,7 @@ type RemoteAppGetter struct {
 	ticker *time.Ticker
 	stop   chan struct{}
 
-	listingCache map[string]domain.AppListingFetch
+	listingCache map[string]cachedListing
 }
 
 const refreshTickerInterval = time.Hour
@@ -87,7 +94,7 @@ func (r *RemoteAppGetter) init() {
 		Transport: transport,
 	}
 
-	r.listingCache = make(map[string]domain.AppListingFetch)
+	r.listingCache = make(map[string]cachedListing)
 }
 
 func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
@@ -210,7 +217,9 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 	}
 	listingFetch.LatestVersion = latestVersion
 
-	r.listingCache[url] = listingFetch
+	r.listingCache[url] = cachedListing{
+		listingFetch: listingFetch,
+		fetchDt:      time.Now()}
 
 	return listingFetch, nil
 }
@@ -218,11 +227,16 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 // FetchCachedListing always gets from cached listing if it's available
 func (r *RemoteAppGetter) FetchCachedListing(url string) (domain.AppListingFetch, error) {
 	r.init()
-	if listingFetch, ok := r.listingCache[url]; ok {
-		return listingFetch, nil
+	cached, ok := r.listingCache[url]
+	if ok && cacheFresh(cached) {
+		return cached.listingFetch, nil
 	}
 	listingFetch, err := r.FetchValidListing(url)
 	return listingFetch, err
+}
+
+func cacheFresh(cached cachedListing) bool {
+	return time.Now().Add(-cacheDuration).Before(cached.fetchDt)
 }
 
 // fetchListing fetches the listing and returns
