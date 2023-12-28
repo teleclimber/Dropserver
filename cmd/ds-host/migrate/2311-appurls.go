@@ -14,7 +14,7 @@ func appsFromURLsUp(args *stepArgs) error {
 		"etag" TEXT,
 		"latest_version" TEXT
 	)`)
-	// create an idex that facilitaes fetching the listings that need refreshing:
+	// create an index that facilitates fetching the listings that should be automatically refreshed:
 	args.dbExec(`CREATE UNIQUE INDEX app_urls_auto ON app_urls (automatic, last_dt)`)
 
 	return args.dbErr
@@ -22,7 +22,7 @@ func appsFromURLsUp(args *stepArgs) error {
 
 func appsFromURLsDown(args *stepArgs) error {
 
-	args.dbExec(`ALTER TABLE apps DROP COLUMN url`)
+	args.dbExec(`DROP TABLE app_urls`)
 
 	return args.dbErr
 }
