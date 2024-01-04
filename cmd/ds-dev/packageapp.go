@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +32,7 @@ type AppPackager struct {
 	}
 }
 
-func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
+func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	checkOutputDir(outDir)
 
 	results := p.loadAppData()
@@ -83,7 +84,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
 		os.Exit(1)
 	}
 
-	base = fmt.Sprintf("%s-%s", base, string(results.VersionManifest.Version))
+	base := fmt.Sprintf("%s-%s", appName, string(results.VersionManifest.Version))
 	appFd, err := getAppFile(outDir, base)
 	if err != nil {
 		fmt.Println("Error creating package file: ", err)
@@ -104,6 +105,13 @@ func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
 		os.Exit(1)
 	}
 	results.VersionManifest.Changelog = clFilename
+
+	iconFilename, err := writeIconFile(appDir, results.VersionManifest.Icon, outDir, appName)
+	if err != nil {
+		fmt.Println("Error writing icon file: ", err)
+		os.Exit(1)
+	}
+	results.VersionManifest.Icon = iconFilename
 
 	err = writeManifestFile(results.VersionManifest, outDir, base)
 	if err != nil {
@@ -327,6 +335,33 @@ func writeChangelogFile(appDir string, changelogPath string, version domain.Vers
 		return "", err
 	}
 	return filename, nil
+}
+
+func writeIconFile(appDir string, iconPath string, outDir, appName string) (string, error) {
+	if iconPath == "" {
+		return "", nil
+	}
+	f, err := os.ReadFile(filepath.Join(appDir, iconPath))
+	if err != nil {
+		return "", err
+	}
+	h := fmt.Sprintf("%x", md5.Sum(f))
+	fileName := fmt.Sprintf("%s-icon-%s%s", appName, h[:8], filepath.Ext(iconPath))
+	fullPath := filepath.Join(outDir, fileName)
+	fd, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		// not an error in this case!
+		return fileName, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+	_, err = fd.Write(f)
+	if err != nil {
+		return "", err
+	}
+	return fileName, nil
 }
 
 func writeManifestFile(manifest domain.AppVersionManifest, outDir, base string) error {
