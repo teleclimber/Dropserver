@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
+	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
@@ -94,6 +96,14 @@ func (p *AppPackager) PackageApp(appDir, outDir string, base string) {
 		fmt.Println("Error gzipping: ", err)
 		os.Exit(1)
 	}
+
+	// Here take the app icon and changelog info from the manifest and generate these files as appropriate
+	clFilename, err := writeChangelogFile(appDir, results.VersionManifest.Changelog, results.VersionManifest.Version, outDir, base)
+	if err != nil {
+		fmt.Println("Error writing changelog file: ", err)
+		os.Exit(1)
+	}
+	results.VersionManifest.Changelog = clFilename
 
 	err = writeManifestFile(results.VersionManifest, outDir, base)
 	if err != nil {
@@ -277,6 +287,46 @@ func getAppFile(outDir, base string) (*os.File, error) {
 		return nil, err
 	}
 	return fd, nil
+}
+
+func writeChangelogFile(appDir string, changelogPath string, version domain.Version, outDir, base string) (string, error) {
+	if changelogPath == "" {
+		return "", nil
+	}
+	f, err := os.Open(filepath.Join(appDir, changelogPath))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	targetVer, err := semver.ParseTolerant(string(version))
+	if err != nil {
+		return "", err
+	}
+	cl, err := appops.GetValidChangelog(f, targetVer)
+	if err != nil {
+		return "", err
+	}
+	if cl == "" {
+		return "", nil
+	}
+	// Re-add the version as the first line of the changelog text
+	// This makes the generated changelog file valid on its own.
+	cl = string(version) + "\n" + cl
+	filename := base + "-changes.txt"
+	fullPath := filepath.Join(outDir, filename)
+	fd, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		return "", errors.New("File already exists: " + fullPath)
+	}
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+	_, err = fd.Write([]byte(cl))
+	if err != nil {
+		return "", err
+	}
+	return filename, nil
 }
 
 func writeManifestFile(manifest domain.AppVersionManifest, outDir, base string) error {

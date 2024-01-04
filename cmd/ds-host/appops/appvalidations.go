@@ -466,6 +466,9 @@ func validateWebsite(url string) (string, bool) {
 	return url, true
 }
 
+// GetValidChangelog returns the part of the changelog readable from r
+// that matches version as a string. The line containing the version
+// is not included in the returned string.
 func GetValidChangelog(r io.Reader, version semver.Version) (string, error) {
 	ret := ""
 	found := false

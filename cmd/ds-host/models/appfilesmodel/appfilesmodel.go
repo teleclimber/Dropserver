@@ -260,7 +260,6 @@ func validateLinkName(linkName string) {
 }
 
 // GetVersionChangelog returns the changelog at location key for the version.
-// Note this function is duplicated in the ds-dev version of AppFilesModel!
 func (a *AppFilesModel) GetVersionChangelog(locationKey string, version domain.Version) (string, error) {
 	p := a.GetLinkPath(locationKey, "changelog")
 	if p == "" { // no changelog file, no changelog.
