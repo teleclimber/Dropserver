@@ -9,8 +9,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
@@ -21,8 +23,6 @@ func generateListing(packagesDir string) error {
 	if err != nil {
 		return err
 	}
-
-	// validate version sequence here? or in getVersions?
 
 	listing := domain.AppListing{
 		Base:     "", // TODO
@@ -55,15 +55,12 @@ func generateListing(packagesDir string) error {
 
 type versionData struct {
 	version       domain.Version
+	schema        int
 	packagePath   string
 	manifestPath  string
 	iconPath      string
 	changelogPath string
 }
-
-// TODO we should validate version sequence too.
-// if we include the schema in versionData that should be doable
-// however we don't have a function that does this already it seems.
 
 func getVersions(packagesDir string) (map[domain.Version]versionData, error) {
 	files, err := os.ReadDir(packagesDir)
@@ -87,6 +84,11 @@ func getVersions(packagesDir string) (map[domain.Version]versionData, error) {
 	}
 	if len(versions) == 0 {
 		return versions, errors.New("found zero versions in directory")
+	}
+
+	err = validateVersionSequence(versions)
+	if err != nil {
+		return versions, err
 	}
 
 	for _, f := range files {
@@ -137,9 +139,38 @@ func getPackageData(basePath, packagePath string) (versionData, error) {
 
 	ret := versionData{
 		version:     packagedManifest.Version,
+		schema:      packagedManifest.Schema,
 		packagePath: packagePath}
 
 	return ret, nil
+}
+
+type sortableVersion struct {
+	sv     semver.Version
+	schema int
+}
+
+func validateVersionSequence(versions map[domain.Version]versionData) error {
+	s := make([]sortableVersion, len(versions))
+	for _, v := range versions {
+		sv, err := semver.Parse(string(v.version))
+		if err != nil {
+			return err
+		}
+		s = append(s, sortableVersion{sv, v.schema})
+	}
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].sv.Compare(s[j].sv) == -1
+	})
+	schema := 0
+	for _, ss := range s {
+		if ss.schema >= schema {
+			schema = ss.schema
+		} else {
+			return fmt.Errorf("incorrect version sequence: schema of %v in version %s is less than earlier schema", ss.schema, ss.sv.String())
+		}
+	}
+	return nil
 }
 
 func getPackageFile(r io.Reader, name string) ([]byte, error) {

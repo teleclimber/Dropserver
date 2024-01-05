@@ -6,6 +6,8 @@ import (
 	"compress/gzip"
 	"io"
 	"testing"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 func TestGetPackageFile(t *testing.T) {
@@ -63,4 +65,32 @@ func createPackage(files fileList) io.Reader {
 	gzw.Close()
 
 	return &outBuf
+}
+
+func TestValidateVersionSequence(t *testing.T) {
+	versions := setVersionData(map[domain.Version]versionData{
+		domain.Version("2.0.0"): {schema: 2},
+		domain.Version("1.0.0"): {schema: 1},
+		domain.Version("3.0.0"): {schema: 2},
+	})
+	err := validateVersionSequence(versions)
+	if err != nil {
+		t.Error(err)
+	}
+
+	vData := versions[domain.Version("2.0.0")]
+	vData.schema = 4
+	versions[domain.Version("2.0.0")] = vData
+	err = validateVersionSequence(versions)
+	if err == nil {
+		t.Error("expected error")
+	}
+}
+
+func setVersionData(versions map[domain.Version]versionData) map[domain.Version]versionData {
+	for v, d := range versions {
+		d.version = v
+		versions[v] = d
+	}
+	return versions
 }
