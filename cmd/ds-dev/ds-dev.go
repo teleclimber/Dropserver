@@ -40,6 +40,7 @@ var createPackageFlag = flag.String("create-package", "", "create package and ou
 var packageNameFlag = flag.String("package-name", "dropapp", "specify the basename of the package file")
 
 var createListingFlag = flag.String("create-listing", "", "create app listing for packages found at this directory")
+var listingBaseURLFlag = flag.String("base-url", "", "set the base URL for the app listing")
 
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
@@ -54,7 +55,7 @@ func main() {
 	flag.Parse()
 
 	if *createListingFlag != "" {
-		err := generateListing(*createListingFlag)
+		err := generateListing(*createListingFlag, *listingBaseURLFlag)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)

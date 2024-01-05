@@ -18,14 +18,14 @@ import (
 
 // generateListing generates a listing json for the pacakges found in pacakgesDir
 // It outputs the listing in that directory.
-func generateListing(packagesDir string) error {
+func generateListing(packagesDir string, baseURL string) error {
 	versions, err := getVersions(packagesDir)
 	if err != nil {
 		return err
 	}
 
 	listing := domain.AppListing{
-		Base:     "", // TODO
+		Base:     baseURL,
 		Versions: make(map[domain.Version]domain.AppListingVersion),
 	}
 
