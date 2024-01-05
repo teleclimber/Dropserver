@@ -39,6 +39,8 @@ var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with
 var createPackageFlag = flag.String("create-package", "", "create package and output at directory")
 var packageNameFlag = flag.String("package-name", "dropapp", "specify the basename of the package file")
 
+var createListingFlag = flag.String("create-listing", "", "create app listing for packages found at this directory")
+
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
 const ownerID = domain.UserID(7)
@@ -50,6 +52,15 @@ func main() {
 	fmt.Println("ds-dev version: " + cmd_version)
 
 	flag.Parse()
+
+	if *createListingFlag != "" {
+		err := generateListing(*createListingFlag)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	appOrigin := makeAbsolute(*appFlag) // assumes this is not a URL!
 	appOriginType := ResolveAppOrigin(*appFlag)
