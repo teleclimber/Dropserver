@@ -8,6 +8,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8
 	github.com/caddyserver/certmagic v0.17.2
+	github.com/cbroglie/mustache v1.4.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/github/go-spdx/v2 v2.1.2
 	github.com/go-chi/chi/v5 v5.0.8

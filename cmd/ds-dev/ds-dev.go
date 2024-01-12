@@ -32,6 +32,9 @@ var cmd_version = "unspecified"
 //go:embed avatars
 var avatarsFS embed.FS
 
+//go:embed distsite
+var distsiteFS embed.FS
+
 var appFlag = flag.String("app", "", "specify root directory of app code or location of packaged app") // "... or URL"
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
 var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with additional import mappings")
@@ -41,6 +44,7 @@ var packageNameFlag = flag.String("package-name", "dropapp", "specify the basena
 
 var createListingFlag = flag.String("create-listing", "", "create app listing for packages found at this directory")
 var listingBaseURLFlag = flag.String("base-url", "", "set the base URL for the app listing")
+var htmlTemplateFlag = flag.String("html-template", "", "use this HTML mustache template")
 
 var checkInjectOut = flag.String("checkinject-out", "", "dump checkinject data to specified file")
 
@@ -56,6 +60,11 @@ func main() {
 
 	if *createListingFlag != "" {
 		err := generateListing(*createListingFlag, *listingBaseURLFlag)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		err = generateWebsite(*createListingFlag, *htmlTemplateFlag)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
