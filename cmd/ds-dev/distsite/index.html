@@ -60,8 +60,11 @@ body > header {
 	border-bottom: 8px solid grey;
 	display: grid;
 	--image-w: 5rem;
-	grid-template-columns: var(--image-w) 1fr;
+	grid-template-columns: 1fr;
 	grid-gap: 0.2rem;
+}
+body > header:has(img) {
+	grid-template-columns: var(--image-w) 1fr;
 }
 body > header img {
 	max-width: var(--image-w);
@@ -227,7 +230,9 @@ pre {
 </head>
 <body>
 	<header style="border-color: {{Latest.AccentColor}}">
+		{{#Latest.Icon}}
 		<img src="{{Latest.Icon}}" />
+		{{/Latest.Icon}}
 		<div>
 			<hgroup>
 				<h1>{{Latest.Name}}</h1>
