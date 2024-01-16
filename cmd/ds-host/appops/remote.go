@@ -159,9 +159,9 @@ func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
 		r.AppModel.SetLastFetch(appID, time.Now(), "not-modified")
 		return nil
 	}
-	if getNewURL(listingFetch) != "" {
-		r.AppModel.SetNewUrl(appID, getNewURL(listingFetch), time.Now())
-		return errors.New("app listing has moved, new URL: " + getNewURL(listingFetch))
+	if listingFetch.NewURL != "" {
+		r.AppModel.SetNewUrl(appID, listingFetch.NewURL, time.Now())
+		return errors.New("app listing has moved, new URL: " + listingFetch.NewURL)
 	}
 
 	err = ValidateListing(listingFetch.Listing)
@@ -214,7 +214,7 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 		// this shouldn't happen since we didn't send an etag, but we can't carry on.
 		return domain.AppListingFetch{}, errors.New("error fetching listing: endpoint returned last-modified, but we didn't send an etag")
 	}
-	if getNewURL(listingFetch) != "" {
+	if listingFetch.NewURL != "" {
 		return listingFetch, nil
 	}
 
@@ -280,12 +280,17 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 		return domain.AppListingFetch{}, err
 	}
 
-	// switch on resp status
-	// - 404: tell user wrong URL
-	// - basically 4xx and 5xx tell user with code
-	// - 3xx redirects? How to handle? Does it depend on whether it's the initial fetch or re-fetch? (redirects are handled by the client defined above)
-	// - 304 Not Modified will be relevant when we are re-checking for a changed listing
-	// For now anything but 200 is an error (this will have to change)
+	if resp.StatusCode == http.StatusMovedPermanently ||
+		resp.StatusCode == http.StatusFound ||
+		resp.StatusCode == http.StatusTemporaryRedirect ||
+		resp.StatusCode == http.StatusPermanentRedirect {
+		newURL := resp.Header.Get("Location")
+		if newURL == "" {
+			return domain.AppListingFetch{}, fmt.Errorf("got response code %v but the Location header is empty", resp.StatusCode)
+		}
+		// TODO chase redirects here?
+		return domain.AppListingFetch{NewURL: newURL}, nil
+	}
 	if resp.StatusCode == http.StatusNotModified {
 		return domain.AppListingFetch{NotModified: true}, nil
 	}
@@ -318,7 +323,9 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 	return domain.AppListingFetch{
 		Listing:         listing,
 		Etag:            newEtag,
-		ListingDatetime: newLastModified}, nil
+		ListingDatetime: newLastModified,
+		NewURL:          listing.NewURL,
+	}, nil
 }
 
 func (r *RemoteAppGetter) FetchNewVersionManifest(appID domain.AppID, version domain.Version) (domain.AppGetMeta, error) {
@@ -393,8 +400,8 @@ func (r *RemoteAppGetter) FetchUrlVersionManifest(listingUrl string, version dom
 		return domain.AppGetMeta{}, fmt.Errorf("error fetching app listing: %w", err)
 	}
 
-	if getNewURL(listingFetch) != "" {
-		return domain.AppGetMeta{}, fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
+	if listingFetch.NewURL != "" {
+		return domain.AppGetMeta{}, fmt.Errorf("app listing has moved to %s", listingFetch.NewURL)
 	}
 
 	// if version is not set, return the latest version:
@@ -491,8 +498,8 @@ func (r *RemoteAppGetter) FetchChangelog(listingURL string, version domain.Versi
 		return "", fmt.Errorf("error fetching app listing: %w", err)
 	}
 
-	if getNewURL(listingFetch) != "" {
-		return "", fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
+	if listingFetch.NewURL != "" {
+		return "", fmt.Errorf("app listing has moved to %s", listingFetch.NewURL)
 	}
 
 	versionListing, ok := listingFetch.Listing.Versions[version]
@@ -543,8 +550,8 @@ func (r *RemoteAppGetter) FetchIcon(listingURL string, version domain.Version) (
 		return []byte{}, fmt.Errorf("error fetching app listing: %w", err)
 	}
 
-	if getNewURL(listingFetch) != "" {
-		return []byte{}, fmt.Errorf("app listing has moved to %s", getNewURL(listingFetch))
+	if listingFetch.NewURL != "" {
+		return []byte{}, fmt.Errorf("app listing has moved to %s", listingFetch.NewURL)
 	}
 
 	versionListing, ok := listingFetch.Listing.Versions[version]
@@ -619,13 +626,4 @@ func (g *RemoteAppGetter) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
-}
-
-func getNewURL(listingFetch domain.AppListingFetch) string {
-	if listingFetch.NewURL != "" {
-		return listingFetch.NewURL
-	} else if listingFetch.Listing.NewURL != "" {
-		return listingFetch.Listing.NewURL
-	}
-	return ""
 }

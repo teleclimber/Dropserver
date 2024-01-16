@@ -372,8 +372,8 @@ type App struct {
 type AppListingFetch struct {
 	// NotModified is true if the remote endpoint returned the Not-Modified header
 	NotModified bool
-	// NewURL is set if remote endpoint return a permanent redirect
-	// or if listing contains new url? (although that could be determined by Listing.NewURL)
+	// NewURL is set if remote endpoint returns a redirect
+	// or if listing contains NewURL
 	NewURL string
 	// Listing is the last successfully fetched app listing
 	// Maybe this should not be in here? Get it separately if you actually want the listing data?

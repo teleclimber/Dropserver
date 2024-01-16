@@ -135,8 +135,8 @@ func (g *AppGetter) InstallFromURL(userID domain.UserID, listingURL string, vers
 			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return
 		}
-		if getNewURL(listingFetch) != "" {
-			g.appendErrorResult(data.key, "App listing has moved. New URL: "+getNewURL(listingFetch))
+		if listingFetch.NewURL != "" {
+			g.appendErrorResult(data.key, "App listing has moved. New URL: "+listingFetch.NewURL)
 			g.sendEvent(data, domain.AppGetEvent{Done: true})
 			return
 		}

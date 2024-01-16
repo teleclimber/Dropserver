@@ -278,12 +278,8 @@ func (a *ApplicationRoutes) fetchUrlListingVersions(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if listingFetch.NewURL != "" || listingFetch.Listing.NewURL != "" {
-		newUrl := listingFetch.NewURL
-		if newUrl == "" {
-			newUrl = listingFetch.Listing.NewURL
-		}
-		http.Error(w, "listing is available at a new URL: "+newUrl, http.StatusBadRequest)
+	if listingFetch.NewURL != "" {
+		http.Error(w, "listing is available at a new URL: "+listingFetch.NewURL, http.StatusBadRequest)
 		return
 	}
 
