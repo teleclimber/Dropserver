@@ -86,14 +86,19 @@ func (r *RemoteAppGetter) init() {
 		DialContext: dialer.DialContext,
 	}
 	r.client = &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// hmm we may have different redirect rules for different tasks.
-			return errors.New("no redirects please")
-		},
-		Transport: transport,
-	}
+		CheckRedirect: checkRedirect,
+		Transport:     transport}
 
 	r.listingCache = make(map[string]cachedListing)
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if req.Response != nil &&
+		(req.Response.StatusCode == http.StatusMovedPermanently ||
+			req.Response.StatusCode == http.StatusPermanentRedirect) {
+		return http.ErrUseLastResponse
+	}
+	return fmt.Errorf("redirect to %s blocked", req.URL.String())
 }
 
 func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
@@ -270,7 +275,7 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 	resp, err := r.client.Do(req)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
-		// who needs to know about this error?
+		// Also if a temporary redirect is received
 		return domain.AppListingFetch{}, err
 	}
 	defer resp.Body.Close()
@@ -279,16 +284,12 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 		// Unclear what kind of error this would be ? Something like "Error reading response..."
 		return domain.AppListingFetch{}, err
 	}
-
 	if resp.StatusCode == http.StatusMovedPermanently ||
-		resp.StatusCode == http.StatusFound ||
-		resp.StatusCode == http.StatusTemporaryRedirect ||
 		resp.StatusCode == http.StatusPermanentRedirect {
 		newURL := resp.Header.Get("Location")
 		if newURL == "" {
 			return domain.AppListingFetch{}, fmt.Errorf("got response code %v but the Location header is empty", resp.StatusCode)
 		}
-		// TODO chase redirects here?
 		return domain.AppListingFetch{NewURL: newURL}, nil
 	}
 	if resp.StatusCode == http.StatusNotModified {

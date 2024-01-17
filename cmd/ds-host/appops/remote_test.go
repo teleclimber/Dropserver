@@ -1,6 +1,8 @@
 package appops
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/netip"
 	"testing"
 	"time"
@@ -65,6 +67,46 @@ func TestGetSSRF(t *testing.T) {
 	err = s.Safe("tcp4", "192.168.1.10:443", nil)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestRedirect(t *testing.T) {
+	cases := []struct {
+		desc         string
+		responseCode int
+		err          bool
+	}{
+		{"status OK", http.StatusOK, false},
+		{"permanent redirect", http.StatusPermanentRedirect, false},
+		{"temporary redirect", http.StatusTemporaryRedirect, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if c.responseCode != http.StatusOK {
+					w.Header().Add("Location", "https://abc.com")
+				}
+				w.WriteHeader(c.responseCode)
+
+			}))
+			defer ts.Close()
+
+			client := &http.Client{CheckRedirect: checkRedirect}
+			resp, err := client.Get(ts.URL)
+			if c.err {
+				if err == nil {
+					t.Errorf("expected error got %v", resp.StatusCode)
+				}
+			} else {
+				if err != nil {
+					t.Error(err)
+				}
+				if resp.StatusCode != c.responseCode {
+					t.Errorf("expected code %v got %v", c.responseCode, resp.StatusCode)
+				}
+			}
+		})
 	}
 }
 
