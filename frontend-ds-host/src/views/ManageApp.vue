@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ComputedRef, ref, reactive, computed } from 'vue';
+import { ComputedRef, ref, Ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useAppsStore } from '@/stores/apps';
@@ -9,6 +9,8 @@ import { Appspace } from '@/stores/types';
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
+
+import URLInput, {ValidatedURL} from '@/components/ui/URLInput.vue';
 
 import AppLicense from '@/components/app/AppLicense.vue';
 import AppAuthorsSummary from '@/components/app/AppAuthorsSummary.vue';
@@ -90,15 +92,36 @@ async function delApp() {
 	router.push({name: 'apps'});
 }
 
-// TODO change url UI:
 const show_change_url = ref(false);
 const new_url = ref("");
-function showChangeURL(url:string) {
-	if( url != "" ) new_url.value = url;
+function showChangeURL() {
+	if( !app.value?.url_data ) return;
+	const ud = app.value?.url_data;
+	new_url.value = ud.url;
+	if( ud.new_url ) new_url.value = ud.new_url;
+	submitting_url_change.value = false;
 	show_change_url.value = true;
 }
-async function submitNewURL() {
+const from_url :Ref<ValidatedURL>= ref({
+	url: "",
+	valid: false,
+	message: "Please enter a link"
+});
 
+function urlChanged(data:ValidatedURL) {
+	from_url.value = data;
+}
+function cancelChangeURL() {
+	show_change_url.value = false;
+}
+const submitting_url_change = ref(false);
+async function submitChangeURL() {
+	if( !from_url.value.valid ) return;
+	submitting_url_change.value = true;
+	const problem = await appsStore.changeAppURL(props.app_id, from_url.value.url);
+	submitting_url_change.value = false;
+	if( problem !== '' ) alert(problem);
+	else show_change_url.value = false;
 }
 
 const last_check_str = computed( () => {
@@ -179,14 +202,34 @@ async function setAutomatic(auto :boolean) {
 					</div>
 				</div>
 				<div v-if="app.url_data" class="my-2">
-					<DataDef field="App Listing Address:">
-						<template v-if="show_change_url">
-						
-						</template>
-						<template v-else>
+					<template v-if="show_change_url">
+						<form @submit.prevent="submitChangeURL" @keyup.esc="cancelChangeURL">
+							<DataDef field="Change Link:" class="py-5">
+								<div class="bg-blue-100 p-2 rounded">
+									<URLInput @changed="urlChanged" :initial_value="new_url" ></URLInput>
+									<p class="my-2 py-1 px-3 rounded-lg bg-gray-100" >
+										{{ from_url.message }}
+									</p>
+									<div class="flex justify-between items-center">
+										<input type="button" class="btn" @click="cancelChangeURL" value="Cancel" />
+										<span v-if="submitting_url_change" class="text-gray-600">
+											hang on...
+										</span>
+										<input type="submit"
+											v-else
+											class="btn-blue"
+											:disabled="!from_url.valid"
+											value="Change Link" />
+									</div>
+								</div>
+							</DataDef>
+						</form>
+					</template>
+					<template v-else>
+						<DataDef field="App Listing Address:">
 							<p class="italic">
 								{{ app.url_data.url }}
-								<button v-if="!app.url_data.new_url" class="btn">change</button>
+								<button v-if="!app.url_data.new_url" class="btn" @click.stop.prevent="showChangeURL">change</button>
 							</p>
 							<template v-if="app.url_data.new_url">
 								<p class=" text-orange-600">
@@ -197,28 +240,28 @@ async function setAutomatic(auto :boolean) {
 								</p>
 								<p class="italic">
 									{{ app.url_data.new_url }}
-									<button class="btn">accept</button>
+									<button class="btn" @click.stop.prevent="showChangeURL">accept</button>
 								</p>
 							</template>
-						</template>
-					</DataDef>
-					<DataDef field="Last Refreshed:">
-						{{ last_check_str }}
-						<button href="#" class="btn" @click.stop.prevent="refreshListing">refresh listing</button>
-						<p v-if="app.url_data.last_result === 'error'" class=" text-orange-600">
-							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-bottom">
-								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-							</svg>
-							Last attempt to get app versions encountered an error.
-						</p>
-					</DataDef>
-					<DataDef field="Automatic Refresh:">
-						{{ app.url_data.automatic ? "automatic" : "manual" }}
-						<button v-if="!loading_automatic" class="btn" @click.stop.prevent="setAutomatic(!app?.url_data?.automatic)">
-							{{ app.url_data.automatic ? "disable" : "enable" }}
-						</button>
-						<span v-else class="text-gray-600 italic">hang on...</span>
-					</DataDef>
+						</DataDef>
+						<DataDef field="Last Refreshed:">
+							{{ last_check_str }}
+							<button href="#" class="btn" @click.stop.prevent="refreshListing">refresh listing</button>
+							<p v-if="app.url_data.last_result === 'error'" class=" text-orange-600">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-bottom">
+									<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+								</svg>
+								Last attempt to get app versions encountered an error.
+							</p>
+						</DataDef>
+						<DataDef field="Automatic Refresh:">
+							{{ app.url_data.automatic ? "automatic" : "manual" }}
+							<button v-if="!loading_automatic" class="btn" @click.stop.prevent="setAutomatic(!app?.url_data?.automatic)">
+								{{ app.url_data.automatic ? "disable" : "enable" }}
+							</button>
+							<span v-else class="text-gray-600 italic">hang on...</span>
+						</DataDef>
+					</template>
 				</div>
 				<div class="grid grid-cols-4 items-stretch">
 					<div></div>

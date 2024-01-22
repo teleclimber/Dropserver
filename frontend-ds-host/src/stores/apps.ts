@@ -211,6 +211,14 @@ export const useAppsStore = defineStore('apps', () => {
 		app.value.url_data.automatic = automatic;
 	}
 
+	async function changeAppURL(app_id:number, url :string) :Promise<string> {	// should maybe pass the URL user is accepting just to be sure
+		const app = mustGetApp(app_id);
+		if( !app.value.url_data ) return "";	 // maybe an error would be better?
+		const resp = await ax.post('/api/application/'+app_id+'/url', {url});
+		loadApp(app_id);	//reload the app to get the latest data
+		return resp.data+'';
+	}
+
 	async function fetchVersionManifest(app_id:number, version:string|undefined ) :Promise<AppGetMeta> {
 		const resp = await ax.get(`/api/application/${app_id}/fetch-version-manifest?version=${version || ""}`);
 		const data = <AppGetMeta>resp.data;
@@ -223,7 +231,7 @@ export const useAppsStore = defineStore('apps', () => {
 		loadData, apps, loadApp, getApp, mustGetApp, deleteApp,
 		loadAppVersions, getAppVersions, mustGetAppVersions, deleteAppVersion,
 		uploadNewApplication, getNewAppFromURL, getNewVersionFromURL, commitNewApplication, uploadNewAppVersion,
-		refreshListing, changeAutomaticListingFetch,
+		changeAppURL, refreshListing, changeAutomaticListingFetch,
 		fetchVersionManifest
 	};
 });

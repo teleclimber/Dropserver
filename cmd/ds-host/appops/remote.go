@@ -35,6 +35,7 @@ type RemoteAppGetter struct {
 		SetLastFetch(domain.AppID, time.Time, string) error
 		SetListing(domain.AppID, domain.AppListingFetch) error
 		SetNewUrl(domain.AppID, string, time.Time) error
+		UpdateURL(appID domain.AppID, url string, listingFetch domain.AppListingFetch) error
 		GetVersionsForApp(domain.AppID) ([]*domain.AppVersion, error)
 	} `checkinject:"required"`
 
@@ -257,6 +258,21 @@ func (r *RemoteAppGetter) FetchCachedListing(url string) (domain.AppListingFetch
 
 func isFresh(t time.Time) bool {
 	return time.Now().Add(-cacheDuration).Before(t)
+}
+
+func (r *RemoteAppGetter) ChangeURL(appID domain.AppID, url string) error {
+	newFetch, err := r.FetchValidListing(url)
+	if err != nil {
+		return fmt.Errorf("error fetching listing at new URL: %w", err)
+	}
+	if newFetch.NewURL != "" {
+		return fmt.Errorf("the server at %s indicates it has moved. The new new URL is: %s", url, newFetch.NewURL)
+	}
+	err = r.AppModel.UpdateURL(appID, url, newFetch)
+	if err != nil {
+		return fmt.Errorf("error saving new url and data: %w", err)
+	}
+	return nil
 }
 
 // fetchListing fetches the listing and returns

@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-import { ref, computed } from "vue";
+import { ref, Ref } from "vue";
 import { useRouter } from 'vue-router';
 import { useAppsStore } from '@/stores/apps';
 import DataDef from '@/components/ui/DataDef.vue';
 import ViewWrap from '../components/ViewWrap.vue';
+import URLInput, {ValidatedURL} from "@/components/ui/URLInput.vue";
 import SelectFiles from '../components/ui/SelectFiles.vue';
 
 const router = useRouter();
@@ -11,40 +12,19 @@ const router = useRouter();
 const appsStore = useAppsStore();
 appsStore.loadData();
 
-const from_url = ref("");
-
-const from_url_normalized = computed( () => {
-	if( from_url.value === "" ) return "";
-	let u = from_url.value.trim().toLowerCase();
-	if( !u.startsWith("http://") && !u.startsWith("https://") ) u = "https://"+u;
-	return u;
+const from_url :Ref<ValidatedURL>= ref({
+	url: "",
+	valid: false,
+	message: "Please enter a link"
 });
 
-const from_url_valid = computed( () => {
-	if( from_url_normalized.value === "" ) return "";
-	let u :URL|undefined;
-	try {
-		u = new URL(from_url_normalized.value);
-	}
-	catch {
-		return "Please check the link, it appears to be invalid.";
-	}
-	if( u.protocol !== "https:" ) {
-		return "Please use a secure https:// URL.";
-	}
-	return "";
-});
-
-const url_message = computed( () => {
-	if( from_url.value.trim() === "" ) return "Please enter a link";
-	if( from_url_valid.value !== "" ) return from_url_valid.value;
-	if( from_url.value.toLowerCase() !== from_url_normalized.value ) return "OK: "+from_url_normalized.value;
-	return "OK";
-});
+function urlChanged(data:ValidatedURL) {
+	from_url.value = data;
+}
 
 async function submitFromURL() {
-	if( from_url_valid.value !== "" ) return;
-	router.push({name: 'new-app-from-url', params:{url:from_url.value}});
+	if( !from_url.value.valid ) return;
+	router.push({name: 'new-app-from-url', params:{url:from_url.value.url}});
 }
 
 </script>
@@ -63,15 +43,15 @@ async function submitFromURL() {
 			</div>
 			<form @submit.prevent="submitFromURL">
 				<DataDef field="Link:" class="py-5">
-					<input type="text" v-model="from_url" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+					<URLInput @changed="urlChanged"></URLInput>
 					<p class="mt-2 py-1 px-3 rounded-lg bg-gray-100" >
-						{{ url_message }}
+						{{ from_url.message }}
 					</p>
 				</DataDef>
 				<div class="px-4 pb-5 sm:px-6 flex justify-end items-center">
 					<input type="submit"
 						class="btn-blue"
-						:disabled="from_url === '' || from_url_valid !== ''"
+						:disabled="!from_url.valid"
 						value="Fetch App" />
 				</div>
 			</form>

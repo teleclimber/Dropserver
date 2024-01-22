@@ -55,6 +55,7 @@ type ApplicationRoutes struct {
 		FetchUrlVersionManifest(string, domain.Version) (domain.AppGetMeta, error)
 		FetchChangelog(listingURL string, version domain.Version) (string, error)
 		FetchIcon(string, domain.Version) ([]byte, error)
+		ChangeURL(appID domain.AppID, url string) error
 	} `checkinject:"required"`
 	DeleteApp interface {
 		Delete(appID domain.AppID) error
@@ -111,6 +112,7 @@ func (a *ApplicationRoutes) subRouter() http.Handler {
 		r.Get("/", a.getApplication)
 		r.Post("/automatic-listing-fetch", a.postAutomaticListingFetch)
 		r.Post("/refresh-listing", a.refreshListing)
+		r.Post("/url", a.postURL)
 		r.Get("/listing-versions", a.getListingVersions)
 		r.Get("/fetch-version-manifest", a.fetchVersionManifest)
 		r.Delete("/", a.delete)
@@ -237,6 +239,24 @@ func (a *ApplicationRoutes) postAutomaticListingFetch(w http.ResponseWriter, r *
 func (a *ApplicationRoutes) refreshListing(w http.ResponseWriter, r *http.Request) {
 	app, _ := domain.CtxAppData(r.Context())
 	err := a.RemoteAppGetter.RefreshAppListing(app.AppID)
+	if err != nil {
+		// treat any error here as something to show the user
+		// because it's most likely an error with the fetch or validation of returned data
+		w.Write([]byte(err.Error()))
+	}
+}
+
+func (a *ApplicationRoutes) postURL(w http.ResponseWriter, r *http.Request) {
+	app, _ := domain.CtxAppData(r.Context())
+	var reqData struct {
+		URL string `json:"url"`
+	}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = a.RemoteAppGetter.ChangeURL(app.AppID, reqData.URL)
 	if err != nil {
 		// treat any error here as something to show the user
 		// because it's most likely an error with the fetch or validation of returned data
