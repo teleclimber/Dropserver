@@ -193,14 +193,14 @@ function cancel() {
 		<form @submit.prevent="create" @keyup.esc="cancel">
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
-					<h3 class="text-lg leading-6 font-medium text-gray-900">Appspace App:</h3>
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Application:</h3>
 					<div>
-						<router-link :to="{name: 'new-app'}" class="btn">Upload New Application</router-link>
+						<router-link :to="{name: 'new-app'}" class="btn">Get New Application</router-link>
 					</div>
 				</div>
 				<div class="py-5 ">
 					<MessageSad head="No Apps" v-if="appsStore.apps.size === 0" class="mb-4 md:mx-4 md:rounded-lg">
-						You do not have any apps. Click "Upload new application" above.
+						You do not have any apps. Click "Get new application" above.
 					</MessageSad>
 					<DataDef field="Choose Application:">
 						<select ref="app_pick_elem" v-model="app_pick" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">

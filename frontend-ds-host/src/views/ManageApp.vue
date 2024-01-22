@@ -13,6 +13,7 @@ import MessageSad from '@/components/ui/MessageSad.vue';
 import AppLicense from '@/components/app/AppLicense.vue';
 import AppAuthorsSummary from '@/components/app/AppAuthorsSummary.vue';
 import AppLinksCompact from '@/components/app/AppLinksCompact.vue';
+import DataDef from '@/components/ui/DataDef.vue';
 
 const router = useRouter();
 
@@ -89,6 +90,17 @@ async function delApp() {
 	router.push({name: 'apps'});
 }
 
+// TODO change url UI:
+const show_change_url = ref(false);
+const new_url = ref("");
+function showChangeURL(url:string) {
+	if( url != "" ) new_url.value = url;
+	show_change_url.value = true;
+}
+async function submitNewURL() {
+
+}
+
 const last_check_str = computed( () => {
 	if( !app.value?.url_data ) return '';
 	let time_ago = Math.round((Date.now() - app.value.url_data.last_dt.getTime())/1000/60);
@@ -148,54 +160,65 @@ async function setAutomatic(auto :boolean) {
 				<div class="px-4 pt-5 pb-2 sm:px-6 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Versions</h3>
 					<div>
-						<div v-if="app.url_data">
-							<span class="italic text-gray-500 mr-2">last checked {{ last_check_str }}</span>
-							<a href="#" class="btn" @click.stop.prevent="refreshListing">check for upgrades</a>
-						</div>
-						<router-link v-else :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn">Upload New Version</router-link>
+						<router-link v-if="!app.url_data" :to="{name: 'new-app-version', params:{id:app.app_id}}" class="btn">Upload New Version</router-link>
+						<template v-else-if="!app.url_data.new_url && app.url_data.last_result !== 'error'">
+							<p v-if="app.cur_ver !== app.url_data.latest_version">
+								<span class="bg-yellow-100 px-1">New version: {{ app.url_data.latest_version }}</span>
+								<router-link :to="{name:'new-app-version', query:{version:app.url_data.latest_version}}"
+									class="btn whitespace-nowrap ">
+									Get it
+								</router-link>
+							</p>
+							<p v-else>
+								<router-link :to="{name:'new-app-version', query:{version:undefined}}"
+									class="btn whitespace-nowrap ">
+									Get a different version
+								</router-link>
+							</p>
+						</template>
 					</div>
 				</div>
-				<div v-if="app.url_data" class="px-4 sm:px-6 py-2">
-					<p>This app is distributed from a website:</p>
-					<p class="text-gray-800 italic">{{ app.url_data.url }}</p>
-					<p v-if="app.url_data.last_result === 'error'">
-						Last attempt to get app versions resulted in a problem: {{ app.url_data.last_result }}
-					</p>
-					<p v-if="app.url_data.new_url">
-						The app listing is now available at a new address: {{ app.url_data.new_url }}
-						<!-- need a button to accept the new URL. -->
-					</p>
-					<p>
-						<span v-if="app.url_data.automatic">
-							The app listing is refreshed automatically to show new versions.
-						</span>
-						<span v-else>
-							The app listing must be refreshed manually. Enable automatic refresh:
-						</span>
+				<div v-if="app.url_data" class="my-2">
+					<DataDef field="App Listing Address:">
+						<template v-if="show_change_url">
+						
+						</template>
+						<template v-else>
+							<p class="italic">
+								{{ app.url_data.url }}
+								<button v-if="!app.url_data.new_url" class="btn">change</button>
+							</p>
+							<template v-if="app.url_data.new_url">
+								<p class=" text-orange-600">
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-bottom">
+										<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+									</svg>
+									The app listing is now available at a new address:
+								</p>
+								<p class="italic">
+									{{ app.url_data.new_url }}
+									<button class="btn">accept</button>
+								</p>
+							</template>
+						</template>
+					</DataDef>
+					<DataDef field="Last Refreshed:">
+						{{ last_check_str }}
+						<button href="#" class="btn" @click.stop.prevent="refreshListing">refresh listing</button>
+						<p v-if="app.url_data.last_result === 'error'" class=" text-orange-600">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline-block align-bottom">
+								<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+							</svg>
+							Last attempt to get app versions encountered an error.
+						</p>
+					</DataDef>
+					<DataDef field="Automatic Refresh:">
+						{{ app.url_data.automatic ? "automatic" : "manual" }}
 						<button v-if="!loading_automatic" class="btn" @click.stop.prevent="setAutomatic(!app?.url_data?.automatic)">
 							{{ app.url_data.automatic ? "disable" : "enable" }}
 						</button>
 						<span v-else class="text-gray-600 italic">hang on...</span>
-					</p>
-					<p v-if="!app.url_data.new_url && app.cur_ver !== app.url_data.latest_version">
-						New version is available:
-						<span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{ app.url_data.latest_version }}</span>
-						<router-link :to="{name:'new-app-version', query:{version:app.url_data.latest_version}}"
-							class="btn whitespace-nowrap ">
-							Get it
-						</router-link>
-						<!-- this goes wrong if latest version becomes unavailable. -->
-						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
-						<!-- We could also show new versions or any relevant version in the versions listing. That seems like the best place? -->
-					</p>
-					<p v-else-if="!app.url_data.new_url">
-						You have the latest version. 
-						<router-link :to="{name:'new-app-version', query:{version:undefined}}"
-							class="btn whitespace-nowrap ">
-							Get a different version
-						</router-link>
-						<!-- it's likely that we have to block new version installation while "new_url" is there? -->
-					</p>
+					</DataDef>
 				</div>
 				<div class="grid grid-cols-4 items-stretch">
 					<div></div>

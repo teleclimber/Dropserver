@@ -3,6 +3,7 @@ import { ref, Ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppspaceUsersStore } from '@/stores/appspace_users';
+import { useAppsStore } from '@/stores/apps';
 
 import { fetchAppspaceSummary } from '../models/usage';
 import type {SandboxSums} from '../models/usage';
@@ -20,6 +21,7 @@ import DataDef from '../components/ui/DataDef.vue';
 import UsageSummaryValue from '../components/UsageSummaryValue.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
+import MinimalAppUrlData from '@/components/appspace/MinimalAppUrlData.vue';
 
 const props = defineProps<{
 	appspace_id: number
@@ -32,6 +34,16 @@ const appspace = computed( () => {
 	if( a === undefined ) return;
 	return a.value;
 });
+const appsStore = useAppsStore();
+watch( () => appspace.value?.app_id, () => {
+	if( appspace.value ) appsStore.loadApp(appspace.value.app_id);
+} );
+const app = computed( () => {
+	if( !appspace.value ) return;
+	const a = appsStore.getApp(appspace.value.app_id);
+	if( a ) return a.value;
+});
+
 
 onMounted( () => {
 	appspacesStore.loadAppspace(props.appspace_id);
@@ -135,6 +147,7 @@ onUnmounted( async () => {
 						<span class="bg-gray-200 text-gray-600 px-1 rounded-md inline-block mr-1">{{appspace.app_version}}</span>
 						<span v-if="appspace.upgrade_version">{{appspace.upgrade_version}} available </span>
 						<router-link :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">change version</router-link>
+						<MinimalAppUrlData v-if="app?.url_data" :url_data="app?.url_data" :cur_ver="appspace.app_version"></MinimalAppUrlData>
 					</DataDef>
 
 					<DataDef field="Data Schema:">
