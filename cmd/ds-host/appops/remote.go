@@ -100,7 +100,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
 	prefixes4 := make([]netip.Prefix, 0)
 	prefixes6 := make([]netip.Prefix, 0)
-	for _, a := range r.Config.InternalNetwork.AllowedIPs {
+	for _, a := range r.Config.LocalNetwork.AllowedIPs {
 		p := getPrefix(a)
 		if p.Addr().Is4() {
 			prefixes4 = append(prefixes4, p)
@@ -109,7 +109,7 @@ func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
 		}
 	}
 	return ssrf.New(
-		ssrf.WithPorts(443), // HTTPS only
+		ssrf.WithAnyPort(),
 		ssrf.WithAllowedV4Prefixes(prefixes4...),
 		ssrf.WithAllowedV6Prefixes(prefixes6...))
 }

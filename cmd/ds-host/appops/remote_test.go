@@ -42,27 +42,27 @@ func TestGetPrefix6Single(t *testing.T) {
 
 func TestGetSSRF(t *testing.T) {
 	cfg := domain.RuntimeConfig{}
-	cfg.InternalNetwork.AllowedIPs = make([]string, 0)
+	cfg.LocalNetwork.AllowedIPs = make([]string, 0)
 	r := &RemoteAppGetter{
 		Config: &cfg,
 	}
 
 	s := r.getSSRF()
 
-	err := s.Safe("tcp4", "54.84.236.175:443", nil)
+	err := s.Safe("tcp4", "54.84.236.175:443", nil) // 54.84.236.175 is a public IP
 	if err != nil {
 		t.Error(err)
 	}
-	err = s.Safe("tcp4", "54.84.236.175:80", nil)
-	if err == nil {
-		t.Error("expected error (prohibited port)")
+	err = s.Safe("tcp4", "54.84.236.175:5000", nil)
+	if err != nil {
+		t.Error(err)
 	}
 	err = s.Safe("tcp4", "192.168.1.10:443", nil)
 	if err == nil {
 		t.Error("expected error (prohibited ip)")
 	}
 
-	cfg.InternalNetwork.AllowedIPs = []string{"192.168.1.10"}
+	cfg.LocalNetwork.AllowedIPs = []string{"192.168.1.10"}
 	s = r.getSSRF()
 	err = s.Safe("tcp4", "192.168.1.10:443", nil)
 	if err != nil {

@@ -32,9 +32,9 @@ import (
 type RuntimeConfig struct {
 	DataDir string `json:"data-dir"`
 	Server  struct {
-		TLSPort  int16 `json:"tls-port"`  // defaults to 443.
-		HTTPPort int16 `json:"http-port"` // defaults to 80.
-		NoTLS    bool  `json:"no-tls"`    // do not start HTTPS server
+		TLSPort  uint16 `json:"tls-port"`  // defaults to 443.
+		HTTPPort uint16 `json:"http-port"` // defaults to 80.
+		NoTLS    bool   `json:"no-tls"`    // do not start HTTPS server
 		// TLS cert and key for the HTTPS server (if any).
 		// Leave empty if using ManageTLSCertificates
 		TLSCert string `json:"tls-cert"`
@@ -44,13 +44,13 @@ type RuntimeConfig struct {
 		Scheme    string `json:"scheme"`    // http or https // default to https
 		Subdomain string `json:"subdomain"` // for users login // default to dropid
 		Domain    string `json:"domain"`
-		Port      int16  `json:"port"` // default to 443
+		Port      uint16 `json:"port"` // default to 443
 	} `json:"external-access"`
 	// TrustCert is used in ds2ds
-	TrustCert       string `json:"trust-cert"`
-	InternalNetwork struct {
+	TrustCert    string `json:"trust-cert"`
+	LocalNetwork struct {
 		AllowedIPs []string `json:"allowed-ips"` // Allowed IP addresses, or CIDR ranges.
-	} `json:"internal-network"`
+	} `json:"local-network"`
 	ManageTLSCertificates struct {
 		Enable              bool   `json:"enable"`
 		Email               string `json:"acme-account-email"`

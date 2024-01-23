@@ -30,7 +30,7 @@ var configDefault = []byte(`{
 	"manage-certificates": {
 		"issuer-endpoint": "https://acme-v02.api.letsencrypt.org/directory"
 	},
-	"internal-network": {
+	"local-network": {
 		"allowed-ips": []
 	},
 	"sandbox": {
@@ -156,7 +156,7 @@ func validateConfig(rtc *domain.RuntimeConfig) {
 	}
 
 	// AllowedIPs must be either an IP address or an IP range
-	for _, s := range rtc.InternalNetwork.AllowedIPs {
+	for _, s := range rtc.LocalNetwork.AllowedIPs {
 		_, errA := netip.ParseAddr(s)
 		_, errP := netip.ParsePrefix(s)
 		if errA != nil && errP != nil {
