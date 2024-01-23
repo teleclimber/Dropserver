@@ -370,6 +370,8 @@ type App struct {
 
 // AppListingFetch is the app listing along with some fetch metadata
 type AppListingFetch struct {
+	// FetchDatetime is the time that the fetch was performed
+	FetchDatetime time.Time
 	// NotModified is true if the remote endpoint returned the Not-Modified header
 	NotModified bool
 	// NewURL is set if remote endpoint returns a redirect

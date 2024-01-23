@@ -215,7 +215,7 @@ func (m *AppModel) CreateFromURL(ownerID domain.UserID, url string, auto bool, l
 		return domain.AppID(0), err
 	}
 
-	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	err = setLast(appID, "ok", listingFetch.FetchDatetime, tx)
 	if err != nil {
 		m.getLogger("CreateFromURL(), setLast()").Error(err)
 		return domain.AppID(0), err
@@ -452,7 +452,7 @@ func (m *AppModel) SetListing(appID domain.AppID, listingFetch domain.AppListing
 	defer tx.Rollback()
 
 	// set last fetch data
-	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	err = setLast(appID, "ok", listingFetch.FetchDatetime, tx)
 	if err != nil {
 		m.getLogger("SetListing(), setLast()").AppID(appID).Error(err)
 		return err
@@ -504,7 +504,7 @@ func (m *AppModel) SetNewUrl(appID domain.AppID, url string, dt time.Time) error
 }
 
 // UpdateURL of app listing and set the listing.
-func (m *AppModel) UpdateURL(appID domain.AppID, url string, listingFetch domain.AppListingFetch) error { // this should include the listing found at theat url and any relevant meta, like when updating listing
+func (m *AppModel) UpdateURL(appID domain.AppID, url string, listingFetch domain.AppListingFetch) error {
 	tx, err := m.DB.Handle.Beginx()
 	if err != nil {
 		m.getLogger("SetListing(), Beginx()").Error(err)
@@ -524,7 +524,7 @@ func (m *AppModel) UpdateURL(appID domain.AppID, url string, listingFetch domain
 	}
 
 	// set last fetch data
-	err = setLast(appID, "ok", listingFetch.ListingDatetime, tx)
+	err = setLast(appID, "ok", listingFetch.FetchDatetime, tx)
 	if err != nil {
 		m.getLogger("UpdateURL(), setLast()").AppID(appID).Error(err)
 		return err

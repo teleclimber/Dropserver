@@ -358,6 +358,7 @@ func TestCreateAppUrlData(t *testing.T) {
 	}
 
 	lf := domain.AppListingFetch{
+		FetchDatetime:   dt,
 		Listing:         expectedListing,
 		ListingDatetime: dt,
 		Etag:            expected.Etag,
@@ -447,6 +448,7 @@ func TestAppUrlUpdates(t *testing.T) {
 	url := "abc.com/app"
 
 	lf := domain.AppListingFetch{
+		FetchDatetime:   dt1,
 		Listing:         domain.AppListing{},
 		ListingDatetime: dt1,
 		Etag:            "etag1",
@@ -526,6 +528,7 @@ func TestSetListing(t *testing.T) {
 	url := "abc.com/app"
 
 	lf := domain.AppListingFetch{
+		FetchDatetime:   dt1,
 		Listing:         domain.AppListing{},
 		ListingDatetime: dt1,
 		Etag:            "etag1",
@@ -559,6 +562,7 @@ func TestSetListing(t *testing.T) {
 				Icon:      "icon-1.5.0.gif"},
 		},
 	}
+	lf.FetchDatetime = dt2
 	lf.Listing = expectedListing
 	lf.ListingDatetime = dt2
 	lf.Etag = "etag2"
@@ -604,6 +608,7 @@ func TestUpdateUrl(t *testing.T) {
 	url2 := "new.site/app"
 
 	lf := domain.AppListingFetch{
+		FetchDatetime:   dt1,
 		Listing:         domain.AppListing{},
 		ListingDatetime: dt1,
 		Etag:            "etag1",
@@ -636,6 +641,7 @@ func TestUpdateUrl(t *testing.T) {
 				Icon:      "icon-1.5.0.gif"},
 		},
 	}
+	lf.FetchDatetime = dt2
 	lf.Listing = expectedListing
 	lf.ListingDatetime = dt2
 	lf.Etag = "etag2"

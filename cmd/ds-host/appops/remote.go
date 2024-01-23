@@ -16,11 +16,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
-type cachedListing struct {
-	listingFetch domain.AppListingFetch
-	fetchDt      time.Time
-}
-
 const cacheDuration = time.Minute * 10
 
 type RemoteAppGetter struct {
@@ -44,7 +39,7 @@ type RemoteAppGetter struct {
 	ticker *time.Ticker
 	stop   chan struct{}
 
-	listingCache map[string]cachedListing
+	listingCache map[string]domain.AppListingFetch
 }
 
 const refreshTickerInterval = time.Hour
@@ -90,7 +85,7 @@ func (r *RemoteAppGetter) init() {
 		CheckRedirect: checkRedirect,
 		Transport:     transport}
 
-	r.listingCache = make(map[string]cachedListing)
+	r.listingCache = make(map[string]domain.AppListingFetch)
 }
 
 func checkRedirect(req *http.Request, via []*http.Request) error {
@@ -162,17 +157,17 @@ func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
 		return err
 	}
 	if listingFetch.NotModified {
-		r.AppModel.SetLastFetch(appID, time.Now(), "not-modified")
+		r.AppModel.SetLastFetch(appID, listingFetch.FetchDatetime, "not-modified")
 		return nil
 	}
 	if listingFetch.NewURL != "" {
-		r.AppModel.SetNewUrl(appID, listingFetch.NewURL, time.Now())
+		r.AppModel.SetNewUrl(appID, listingFetch.NewURL, listingFetch.FetchDatetime)
 		return errors.New("app listing has moved, new URL: " + listingFetch.NewURL)
 	}
 
 	err = ValidateListing(listingFetch.Listing)
 	if err != nil {
-		r.AppModel.SetLastFetch(appID, time.Now(), "error")
+		r.AppModel.SetLastFetch(appID, listingFetch.FetchDatetime, "error")
 		err = fmt.Errorf("error validating listing from %v: %w", appUrlData.URL, err)
 		return err
 	}
@@ -180,7 +175,7 @@ func (r *RemoteAppGetter) RefreshAppListing(appID domain.AppID) error {
 	latestVersion, err := GetLatestVersion(listingFetch.Listing.Versions)
 	if err != nil {
 		// this is a coding error: we validated the listing earlier so there is no reason to get an error here.
-		r.AppModel.SetLastFetch(appID, time.Now(), "error")
+		r.AppModel.SetLastFetch(appID, listingFetch.FetchDatetime, "error")
 		r.getLogger("RefreshAppListing").AddNote("Unexpected error fron GetLatestVersion").Error(err)
 		return fmt.Errorf("unexpected error: %w", err)
 	}
@@ -238,9 +233,7 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 	}
 	listingFetch.LatestVersion = latestVersion
 
-	r.listingCache[url] = cachedListing{
-		listingFetch: listingFetch,
-		fetchDt:      time.Now()}
+	r.listingCache[url] = listingFetch
 
 	return listingFetch, nil
 }
@@ -249,8 +242,8 @@ func (r *RemoteAppGetter) FetchValidListing(url string) (domain.AppListingFetch,
 func (r *RemoteAppGetter) FetchCachedListing(url string) (domain.AppListingFetch, error) {
 	r.init()
 	cached, ok := r.listingCache[url]
-	if ok && isFresh(cached.fetchDt) {
-		return cached.listingFetch, nil
+	if ok && isFresh(cached.FetchDatetime) {
+		return cached, nil
 	}
 	listingFetch, err := r.FetchValidListing(url)
 	return listingFetch, err
@@ -288,6 +281,8 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 		req.Header.Set("If-None-Match", etag)
 	}
 
+	fetchDt := time.Now()
+
 	resp, err := r.client.Do(req)
 	if err != nil {
 		// Error is of type url.Error: timeouts, etc...
@@ -306,10 +301,10 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 		if newURL == "" {
 			return domain.AppListingFetch{}, fmt.Errorf("got response code %v but the Location header is empty", resp.StatusCode)
 		}
-		return domain.AppListingFetch{NewURL: newURL}, nil
+		return domain.AppListingFetch{FetchDatetime: fetchDt, NewURL: newURL}, nil
 	}
 	if resp.StatusCode == http.StatusNotModified {
-		return domain.AppListingFetch{NotModified: true}, nil
+		return domain.AppListingFetch{FetchDatetime: fetchDt, NotModified: true}, nil
 	}
 	if resp.StatusCode != http.StatusOK {
 		return domain.AppListingFetch{}, fmt.Errorf("got response code: %v", resp.Status)
@@ -317,7 +312,7 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 
 	newEtag := resp.Header.Get("ETag")
 	lm := resp.Header.Get("Last-Modified")
-	newLastModified := time.Now()
+	newLastModified := fetchDt
 	if lm != "" {
 		lmt, err := http.ParseTime(lm)
 		if err != nil {
@@ -338,6 +333,7 @@ func (r *RemoteAppGetter) fetchListing(url string, etag string) (domain.AppListi
 	}
 
 	return domain.AppListingFetch{
+		FetchDatetime:   fetchDt,
 		Listing:         listing,
 		Etag:            newEtag,
 		ListingDatetime: newLastModified,
