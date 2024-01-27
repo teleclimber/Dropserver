@@ -652,15 +652,6 @@ func (a *ApplicationRoutes) getInProcessChangelog(w http.ResponseWriter, r *http
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	lastEvent, ok := a.AppGetter.GetLastEvent(appGetKey)
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	if !lastEvent.Done {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
 	meta, ok := a.AppGetter.GetResults(appGetKey)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)

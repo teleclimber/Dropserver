@@ -36,19 +36,6 @@ const app_icon = computed( () => {
 	return `/api/application/in-process/${props.app_get_key}/file/app-icon`;
 });
 
-const show_log = ref(false);
-const live_log = reactive(new LiveLog);
-watch( () => appGetter.done, () => {
-	if( appGetter.done ) live_log.initInProcessAppLog(props.app_get_key);
-});
-
-const changelog = ref("");
-watch( () => appGetter.done, async () => {
-	changelog.value = "";
-	const resp = await fetch(`/api/application/in-process/${props.app_get_key}/changelog`);
-	changelog.value = await resp.text();
-}, { immediate: true });
-
 const create_button :Ref<HTMLInputElement|undefined> = ref();
 onMounted( () => {
 	if( create_button.value ) create_button.value.focus();
@@ -76,6 +63,20 @@ watchEffect( () => {
 const show_details = computed( () => {
 	if( appGetter.version_manifest === undefined ) return false;
 	return (appGetter.done && appGetter.has_error) || appGetter.must_confirm;
+});
+
+const changelog = ref("");
+watch( show_details, async () => {
+	if( !show_details.value ) return;
+	changelog.value = "";
+	const resp = await fetch(`/api/application/in-process/${props.app_get_key}/changelog`);
+	changelog.value = await resp.text();
+}, { immediate: true });
+
+const show_log = ref(false);
+const live_log = reactive(new LiveLog);
+watch( show_details, () => {
+	if( show_details.value ) live_log.initInProcessAppLog(props.app_get_key);
 });
 
 async function startOver() {
