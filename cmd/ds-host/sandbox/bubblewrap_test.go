@@ -169,8 +169,8 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
-	cfg.Exec.AppspacesPath = filepath.Join(dir, "appspaces")
+	cfg.Exec.AppsPath = getAppsPath()
+	cfg.Exec.AppspacesPath = getAppspacesPath()
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
 	cfg.Exec.DenoFullPath = getDenoAbsPath()
 
@@ -182,8 +182,11 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	appID := domain.AppID(33)
 	version := domain.Version("0.1.2")
 	appspaceID := domain.AppspaceID(11)
-	appLoc := "app5678"
-	asLoc := "as1234"
+	appLoc := "app-as"
+	asLoc := "basic"
+
+	defer cleanApp(appLoc)
+	defer cleanAppspace(asLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -225,24 +228,6 @@ func TestStartAppspaceBwrap(t *testing.T) {
 		AppLocation2Path:      appl2p,
 		AppspaceLocation2Path: asl2p,
 		waitStatusSub:         make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
-
-	os.MkdirAll(appl2p.Files(appLoc), 0700)
-	os.MkdirAll(asl2p.Files(asLoc), 0700)
-	os.MkdirAll(asl2p.Avatars(asLoc), 0700)
-
-	appspaceTxt := []byte("appspace-data-5678")
-	err = os.WriteFile(filepath.Join(asl2p.Files(asLoc), "asdat.txt"), appspaceTxt, 0600)
-	if err != nil {
-		t.Error(err)
-	}
-	// app code has to setCallback to trigger sandbox ready
-	app_code := "//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback();\n"
-	app_code += "console.log(await Deno.readTextFile('/appspace-data/files/asdat.txt'));"
-	app_code += "console.log('hw');"
-	err = os.WriteFile(filepath.Join(appl2p.Files(appLoc), "app.ts"), []byte(app_code), 0600)
-	if err != nil {
-		t.Error(err)
-	}
 
 	err = s.doStart()
 	if err != nil {

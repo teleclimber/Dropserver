@@ -324,6 +324,12 @@ func (s *Sandbox) doStart() error {
 		appspaceData = s.paths.sandboxPath("appspace-data")
 	}
 
+	cwd := ""
+	if s.appspace != nil {
+		cwd = s.paths.sandboxPath("appspace-files")
+	}
+	fmt.Println("cwd", cwd)
+
 	runArgs := []string{
 		typeCheck,
 		"--import-map=" + s.paths.sandboxPath("import-map"),
@@ -361,6 +367,9 @@ func (s *Sandbox) doStart() error {
 			"--new-session", // to protect against TIOCSTI
 			"--json-status-fd", "3",
 		}
+		if cwd != "" {
+			bwrapArgs = append(bwrapArgs, "--chdir", cwd)
+		}
 		for _, p := range s.Config.Sandbox.BwrapMapPaths {
 			bwrapArgs = append(bwrapArgs, "--ro-bind", p, p)
 		}
@@ -372,6 +381,7 @@ func (s *Sandbox) doStart() error {
 		s.cmd.ExtraFiles = []*os.File{bwrapStatus.GetFile()}
 	} else {
 		s.cmd = exec.Command(s.paths.sandboxPath("deno"), denoArgs...)
+		s.cmd.Dir = cwd
 	}
 
 	stdout, err := s.cmd.StdoutPipe()

@@ -252,39 +252,6 @@ func TestStatusWaitMultiple(t *testing.T) {
 	wg.Wait()
 }
 
-// func TestStatusSubRemoval(t *testing.T) {
-
-// }
-
-// test blocking channel?
-// is that situation even possible?
-
-// func TestCWD(t *testing.T) {
-// 	_, caller, _, _ := runtime.Caller(0) // see https://stackoverflow.com/questions/23847003/golang-tests-and-working-directory
-// 	fmt.Println("Test caller", caller)
-
-// 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	fmt.Println("CWD:", dir)
-
-// 	// let's try to touch the ds-runtime JS:
-// 	jsRuntime := path.Join(dir, "../../../install/files/ds-sandbox-runner.js")
-// 	_, err = os.Open(jsRuntime)
-// 	if os.IsNotExist(err) {
-// 		fmt.Println("got it wrong", jsRuntime)
-// 	}
-// 	if err != nil {
-// 		fmt.Println("error:", err)
-// 	}
-// 	if err == nil {
-// 		fmt.Println("looks good")
-// 	}
-
-// 	t.Fail()
-// }
-
 func TestRunnerScriptError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -374,8 +341,8 @@ func TestStart(t *testing.T) {
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
-	cfg.Exec.AppspacesPath = filepath.Join(dir, "appspaces")
+	cfg.Exec.AppsPath = getAppsPath()
+	cfg.Exec.AppspacesPath = getAppspacesPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 	asl2p := &runtimeconfig.AppspaceLocation2Path{Config: cfg}
@@ -385,8 +352,11 @@ func TestStart(t *testing.T) {
 	appID := domain.AppID(33)
 	version := domain.Version("0.1.2")
 	appspaceID := domain.AppspaceID(11)
-	appLoc := "app5678"
-	asLoc := "as1234"
+	appLoc := "app-as"
+	asLoc := "basic"
+
+	defer cleanApp(appLoc)
+	defer cleanAppspace(asLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -428,24 +398,6 @@ func TestStart(t *testing.T) {
 		AppspaceLocation2Path: asl2p,
 		Logger:                log,
 		waitStatusSub:         make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
-
-	os.MkdirAll(appl2p.Files(appLoc), 0700)
-	os.MkdirAll(asl2p.Files(asLoc), 0700)
-
-	asDatTxt := []byte("appspace-data-5678")
-	asDatFile := filepath.Join(asl2p.Files(asLoc), "asdat.txt")
-	err = os.WriteFile(asDatFile, asDatTxt, 0600)
-	if err != nil {
-		t.Error(err)
-	}
-	// app code has to setCallback to trigger sandbox ready
-	app_code := "//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback();\n"
-	app_code += "console.log(await Deno.readTextFile('" + asDatFile + "'));"
-	app_code += "console.log('hw');"
-	err = os.WriteFile(filepath.Join(appl2p.Files(appLoc), "app.ts"), []byte(app_code), 0600)
-	if err != nil {
-		t.Error(err)
-	}
 
 	err = s.doStart()
 	if err != nil {
@@ -689,6 +641,33 @@ func getSandboxCodePath() string {
 		log.Fatal(err)
 	}
 	return filepath.Join(dir, "../../../denosandboxcode/")
+}
+
+func getAppsPath() string {
+	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
+	if err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(dir, "/testfixtures/apps/")
+}
+
+func cleanApp(loc string) {
+	dir := filepath.Join(getAppsPath(), loc)
+	os.Remove(filepath.Join(dir, "bootstrap.js"))
+}
+
+func getAppspacesPath() string {
+	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
+	if err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(dir, "/testfixtures/appspaces/")
+}
+
+func cleanAppspace(loc string) {
+	dir := filepath.Join(getAppspacesPath(), loc)
+	os.Remove(filepath.Join(dir, "import-paths.json"))
+	os.RemoveAll(filepath.Join(dir, "deno-dir"))
 }
 
 // test logger
