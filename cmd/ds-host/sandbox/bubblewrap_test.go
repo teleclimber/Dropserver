@@ -80,8 +80,8 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.DenoFullPath = getDenoAbsPath()
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
+	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
+	cfg.Exec.AppsPath = testGetAppsPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 
@@ -89,7 +89,9 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 	op := opAppInit
 	appID := domain.AppID(33)
 	version := domain.Version("0.1.2")
-	appLoc := "app5678"
+	appLoc := "app-only"
+
+	defer testCleanApp(appLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -129,13 +131,6 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 
 	os.MkdirAll(appl2p.Files(appLoc), 0700)
 
-	// app code has to setCallback to trigger sandbox ready
-	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = os.WriteFile(filepath.Join(appl2p.Files(appLoc), "app.ts"), app_code, 0600)
-	if err != nil {
-		t.Error(err)
-	}
-
 	err = s.doStart()
 	if err != nil {
 		t.Fatal(err)
@@ -169,9 +164,9 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
-	cfg.Exec.AppsPath = getAppsPath()
-	cfg.Exec.AppspacesPath = getAppspacesPath()
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
+	cfg.Exec.AppsPath = testGetAppsPath()
+	cfg.Exec.AppspacesPath = testGetAppspacesPath()
+	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
 	cfg.Exec.DenoFullPath = getDenoAbsPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
@@ -185,8 +180,8 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	appLoc := "app-as"
 	asLoc := "basic"
 
-	defer cleanApp(appLoc)
-	defer cleanAppspace(asLoc)
+	defer testCleanApp(appLoc)
+	defer testCleanAppspace(asLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{

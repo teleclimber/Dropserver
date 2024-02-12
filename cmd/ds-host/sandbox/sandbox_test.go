@@ -252,7 +252,7 @@ func TestStatusWaitMultiple(t *testing.T) {
 	wg.Wait()
 }
 
-func TestRunnerScriptError(t *testing.T) {
+func TestRunnerFailedStart(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -264,8 +264,9 @@ func TestRunnerScriptError(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
-	cfg.Exec.AppspacesPath = filepath.Join(dir, "appspaces")
+	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
+	cfg.Exec.AppsPath = testGetAppsPath()
+	cfg.Exec.AppspacesPath = testGetAppspacesPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 	asl2p := &runtimeconfig.AppspaceLocation2Path{Config: cfg}
@@ -275,8 +276,11 @@ func TestRunnerScriptError(t *testing.T) {
 	appID := domain.AppID(33)
 	version := domain.Version("0.1.2")
 	appspaceID := domain.AppspaceID(11)
-	appLoc := "app5678"
-	asLoc := "as1234"
+	appLoc := "app-error"
+	asLoc := "basic"
+
+	defer testCleanApp(appLoc)
+	defer testCleanAppspace(asLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -304,14 +308,6 @@ func TestRunnerScriptError(t *testing.T) {
 		AppLocation2Path:      appl2p,
 		AppspaceLocation2Path: asl2p}
 
-	os.MkdirAll(appl2p.Files(appLoc), 0700)
-	os.MkdirAll(asl2p.Files(asLoc), 0700)
-
-	err = os.WriteFile(filepath.Join(appl2p.Files("app5678"), "app.ts"), []byte("setTimeout(hello.world, 100);"), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	err = s.doStart()
 	if err == nil {
 		t.Error("expected error from sandbox")
@@ -328,7 +324,7 @@ func TestRunnerScriptError(t *testing.T) {
 	s.WaitFor(domain.SandboxCleanedUp)
 }
 
-func TestStart(t *testing.T) {
+func TestStartAppspace(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -340,9 +336,9 @@ func TestStart(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.AppsPath = getAppsPath()
-	cfg.Exec.AppspacesPath = getAppspacesPath()
+	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
+	cfg.Exec.AppsPath = testGetAppsPath()
+	cfg.Exec.AppspacesPath = testGetAppspacesPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 	asl2p := &runtimeconfig.AppspaceLocation2Path{Config: cfg}
@@ -355,8 +351,8 @@ func TestStart(t *testing.T) {
 	appLoc := "app-as"
 	asLoc := "basic"
 
-	defer cleanApp(appLoc)
-	defer cleanAppspace(asLoc)
+	defer testCleanApp(appLoc)
+	defer testCleanAppspace(asLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -430,8 +426,8 @@ func TestStartAppOnly(t *testing.T) {
 
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
-	cfg.Exec.SandboxCodePath = getSandboxCodePath()
-	cfg.Exec.AppsPath = filepath.Join(dir, "apps")
+	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
+	cfg.Exec.AppsPath = testGetAppsPath()
 
 	appl2p := &runtimeconfig.AppLocation2Path{Config: cfg}
 
@@ -439,7 +435,9 @@ func TestStartAppOnly(t *testing.T) {
 	op := opAppInit
 	appID := domain.AppID(33)
 	version := domain.Version("0.1.2")
-	appLoc := "app5678"
+	appLoc := "app-only"
+
+	defer testCleanApp(appLoc)
 
 	sandboxRuns := testmocks.NewMockSandboxRuns(mockCtrl)
 	sandboxRuns.EXPECT().Create(domain.SandboxRunIDs{
@@ -470,15 +468,6 @@ func TestStartAppOnly(t *testing.T) {
 		Config:           cfg,
 		AppLocation2Path: appl2p,
 		waitStatusSub:    make(map[domain.SandboxStatus][]chan domain.SandboxStatus)}
-
-	os.MkdirAll(appl2p.Files(appLoc), 0700)
-
-	// app code has to setCallback to trigger sandbox ready
-	app_code := []byte("//@ts-ignore\nwindow.DROPSERVER.appRoutes.setCallback(); console.log('hw');")
-	err = os.WriteFile(filepath.Join(appl2p.Files(appLoc), "app.ts"), app_code, 0600)
-	if err != nil {
-		t.Error(err)
-	}
 
 	err = s.doStart()
 	if err != nil {
@@ -635,7 +624,7 @@ func TestStartAppOnly(t *testing.T) {
 // 	s.Graceful()
 // }
 
-func getSandboxCodePath() string {
+func testGetSandboxCodePath() string {
 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
 	if err != nil {
 		log.Fatal(err)
@@ -643,20 +632,22 @@ func getSandboxCodePath() string {
 	return filepath.Join(dir, "../../../denosandboxcode/")
 }
 
-func getAppsPath() string {
-	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
+func testGetAppsPath() string {
+	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 	return filepath.Join(dir, "/testfixtures/apps/")
 }
 
-func cleanApp(loc string) {
-	dir := filepath.Join(getAppsPath(), loc)
+func testCleanApp(loc string) {
+	dir := filepath.Join(testGetAppsPath(), loc)
 	os.Remove(filepath.Join(dir, "bootstrap.js"))
+	os.Remove(filepath.Join(dir, "import-paths.json"))
+	os.RemoveAll(filepath.Join(dir, "deno-dir"))
 }
 
-func getAppspacesPath() string {
+func testGetAppspacesPath() string {
 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir
 	if err != nil {
 		log.Fatal(err)
@@ -664,8 +655,8 @@ func getAppspacesPath() string {
 	return filepath.Join(dir, "/testfixtures/appspaces/")
 }
 
-func cleanAppspace(loc string) {
-	dir := filepath.Join(getAppspacesPath(), loc)
+func testCleanAppspace(loc string) {
+	dir := filepath.Join(testGetAppspacesPath(), loc)
 	os.Remove(filepath.Join(dir, "import-paths.json"))
 	os.RemoveAll(filepath.Join(dir, "deno-dir"))
 }
@@ -678,42 +669,3 @@ type testLogger2 struct {
 func (l *testLogger2) Log(source string, message string) {
 	l.log(source, message)
 }
-
-// l2p Location2Path standin
-// type appl2p struct {
-// 	base string
-// }
-
-// func (l *appl2p) Base(loc string) string {
-// 	return filepath.Join(l.base, loc)
-// }
-// func (l *appl2p) Meta(loc string) string {
-// 	return filepath.Join(l.base, loc)
-// }
-// func (l *appl2p) Files(loc string) string {
-// 	return filepath.Join(l.base, loc, "app")
-// }
-// func (l *appl2p) ImportMap(loc string) string {
-// 	return filepath.Join(l.base, loc, "import-map.json")
-// }
-
-// // l2p Location2Path standin
-// type appspacel2p struct {
-// 	base string
-// }
-
-// func (l *appspacel2p) Base(loc string) string {
-// 	return filepath.Join(l.base, loc)
-// }
-// func (l *appspacel2p) Files(loc string) string {
-// 	return filepath.Join(l.base, loc, "app")
-// }
-// func (l *appspacel2p) Data(loc string) string {
-// 	return filepath.Join(l.base, loc, "app")
-// }
-// func (l *appspacel2p) Avatars(loc string) string {
-// 	return filepath.Join(l.base, loc, "avatars")
-// }
-// func (l *appspacel2p) ImportMap(loc string) string {
-// 	return filepath.Join(l.base, loc, "import-map.json")
-// }
