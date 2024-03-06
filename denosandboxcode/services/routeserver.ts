@@ -5,70 +5,47 @@ import {Context, RouteType} from 'https://deno.land/x/dropserver_lib_support@v0.
 import DsServices from './services.ts';
 import type AppRoutes from '../approutes.ts';
 
-// Some of this is heavily inspired by Deno std lib's server.ts:
-// https://github.com/denoland/deno_std/blob/main/http/server.ts
+interface RequestEvent {
+	readonly request: Request
+	respondWith: (r: Response | PromiseLike<Response>) => Promise<void>
+}
 
 export default class DsRouteServer {
-	private listener :Deno.Listener|undefined;
 
-	private httpConnections: Set<Deno.HttpConn> = new Set();
-
-	private stop_resolve :undefined | ((value?: unknown) => void);
+	private server : Deno.HttpServer | undefined;
 
 	constructor(private services:DsServices, private appRoutes: AppRoutes) {}
 
-	async startServer(sockPath: string) {
-		const sockFile = path.join(sockPath, 'server.sock');
+	startServer(sockPath: string) {
+		if( this.server !== undefined ) throw new Error("server already started");
 
-		this.listener = await Deno.listen({ path: sockFile, transport: "unix" });
-
-		this.listen();
-
-		this.services.serverReady();
-
-	}
-	private async listen() {
-		if( this.listener === undefined ) throw new Error("no listener");
-		for await (const conn of this.listener) {
-			this.serveHttp(conn);
-		}
-		if( this.stop_resolve != undefined ) {
-			this.stop_resolve();
-		}
-	}
-	stopServer() {
-		return new Promise((resolve, reject) => {
-			if( this.stop_resolve != undefined ) {
-				reject("stop already called");
-				return;
+		this.server = Deno.serve({ 
+			path: path.join(sockPath, 'server.sock'),
+			onListen: () => {
+				this.services.serverReady();
+			},
+			onError: (err:unknown) => {
+				console.error("error in handler:", err);
+				return new Response("error in handler", {status: 500});
 			}
-			this.listener?.close();
-			for (const httpConn of this.httpConnections) {
-				this.closeHttpConn(httpConn);
-			}
-			this.httpConnections.clear();
-			this.stop_resolve = resolve;
+		}, (req) :Promise<Response> => {
+			return new Promise((resolve) => {
+				const reqEvent:RequestEvent = {
+					request: req,
+					respondWith: async (resp:Response | PromiseLike<Response>) :Promise<void> => {
+						const r = await Promise.resolve(resp);	// wrap in try-catch and reject on error?
+						resolve(r);
+					}
+				};
+				this.handleRequest(reqEvent);
+			});
 		});
 	}
-
-	async serveHttp(conn: Deno.Conn) {
-		const httpConn = Deno.serveHttp(conn);
-		this.httpConnections.add(httpConn);
-		for await (const requestEvent of httpConn ) {
-			this.handleRequest(requestEvent);
-		}
-		this.closeHttpConn(httpConn);
-	}
-	closeHttpConn(httpConn:Deno.HttpConn) {
-		this.httpConnections.delete(httpConn);
-		try {
-			httpConn.close();
-		} catch{
-			// already closed
-		}
+	async stopServer() {
+		await this.server?.shutdown();
 	}
 
-	async handleRequest(reqEvent: Deno.RequestEvent) {
+	async handleRequest(reqEvent: RequestEvent) {
 		const t0 = performance.now();
 
 		if( !this.appRoutes ) {	// should no longer happen
@@ -143,7 +120,7 @@ export default class DsRouteServer {
 		console.log(`request took ${t1 - t0} milliseconds.`);
 	}
 
-	replyError(reqEvent :Deno.RequestEvent, message :string) {
+	replyError(reqEvent :RequestEvent, message :string) {
 		console.error(message);
 		reqEvent.respondWith( new Response(message,{status: 500}));
 	}

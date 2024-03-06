@@ -307,7 +307,7 @@ func (s *Sandbox) doStart() error {
 
 	// Probably need to think more about flags we pass, such as --no-remote?
 	denoArgs := make([]string, 0, 10)
-	denoArgs = append(denoArgs, "run", "--unstable")
+	denoArgs = append(denoArgs, "run")
 	if s.inspect {
 		denoArgs = append(denoArgs, "--inspect-brk")
 	}
@@ -577,7 +577,6 @@ func (s *Sandbox) Graceful() {
 	s.setStatus(domain.SandboxKilling)
 
 	go func() {
-		// it seems this SendBlock does not return. Bug in twine?
 		reply, err := s.twine.SendBlock(sandboxService, 13, nil)
 		if err != nil {
 			// ???
