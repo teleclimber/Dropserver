@@ -19,6 +19,9 @@ type BwrapJsonStatus struct {
 	f        *os.File
 	filename string
 
+	inotifyFd        int
+	inotifyWatchdesc int
+
 	pidMux sync.Mutex
 	pidCh  chan struct{}
 	pidSet bool
@@ -62,12 +65,23 @@ func (b *BwrapJsonStatus) Stop() {
 	}
 	b.pidMux.Unlock()
 
+	success, err := unix.InotifyRmWatch(b.inotifyFd, uint32(b.inotifyWatchdesc))
+	if err != nil {
+		b.getLogger("Stop() unix.InotifyRmWatch()").Error(err)
+	}
+	if success == -1 {
+		b.getLogger("Stop() unix.InotifyRmWatch()").Log("success is -1")
+	}
 	os.RemoveAll(b.filename)
 }
 
 func (b *BwrapJsonStatus) follow() error {
-	fd, _ := unix.InotifyInit()
-	_, err := unix.InotifyAddWatch(fd, b.filename, unix.IN_MODIFY)
+	fd, err := unix.InotifyInit() // Note that we could create just one inotify instance and reuse it for all sandboxes
+	if err != nil {
+		return err
+	}
+	b.inotifyFd = fd
+	b.inotifyWatchdesc, err = unix.InotifyAddWatch(fd, b.filename, unix.IN_MODIFY)
 	if err != nil && err != io.EOF {
 		return err
 	}
