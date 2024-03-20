@@ -7,13 +7,12 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/netip"
 	"time"
 
-	"code.dny.dev/ssrf"
 	"github.com/blang/semver/v4"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
 )
 
 const cacheDuration = time.Minute * 10
@@ -74,7 +73,7 @@ func (r *RemoteAppGetter) init() {
 		return
 	}
 
-	s := r.getSSRF()
+	s := runtimeconfig.GetSSRFGuardian(*r.Config)
 	dialer := &net.Dialer{
 		Control: s.Safe,
 	}
@@ -95,41 +94,6 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	return fmt.Errorf("redirect to %s blocked", req.URL.String())
-}
-
-func (r *RemoteAppGetter) getSSRF() *ssrf.Guardian {
-	prefixes4 := make([]netip.Prefix, 0)
-	prefixes6 := make([]netip.Prefix, 0)
-	for _, a := range r.Config.LocalNetwork.AllowedIPs {
-		p := getPrefix(a)
-		if p.Addr().Is4() {
-			prefixes4 = append(prefixes4, p)
-		} else if p.Addr().Is6() {
-			prefixes6 = append(prefixes6, p)
-		}
-	}
-	return ssrf.New(
-		ssrf.WithAnyPort(),
-		ssrf.WithAllowedV4Prefixes(prefixes4...),
-		ssrf.WithAllowedV6Prefixes(prefixes6...))
-}
-
-func getPrefix(og string) netip.Prefix {
-	a := og
-	addr, err := netip.ParseAddr(a)
-	if err == nil {
-		if addr.Is4() {
-			a = a + "/32"
-		} else if addr.Is6() {
-			a = a + "/128"
-		}
-	}
-	p, err := netip.ParsePrefix(a)
-	if err != nil {
-		// this should never happen because these strings should be validated as parseable
-		panic("unable to process allowed IP into prefix: " + og)
-	}
-	return p
 }
 
 func (r *RemoteAppGetter) autoRefreshListings() {
