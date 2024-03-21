@@ -81,6 +81,7 @@ type RuntimeConfig struct {
 		UserRoutesDomain string
 		DenoFullPath     string
 		DenoVersion      string
+		RuntimeFilesPath string
 		SandboxCodePath  string
 		AppsPath         string
 		AppspacesPath    string

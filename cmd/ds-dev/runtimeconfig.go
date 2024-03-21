@@ -83,7 +83,8 @@ func GetConfig(appPath string, tempDir string) *domain.RuntimeConfig {
 
 	rtc.Exec.AppsPath = appPath
 
-	rtc.Exec.SandboxCodePath = filepath.Join(tempDir, "sandbox-code")
+	rtc.Exec.RuntimeFilesPath = filepath.Join(tempDir, "runtime-files")
+	rtc.Exec.SandboxCodePath = filepath.Join(rtc.Exec.RuntimeFilesPath, "sandbox-code")
 	rtc.Exec.AppspacesPath = filepath.Join(tempDir, "appspace")
 
 	return rtc

@@ -118,7 +118,7 @@ func TestSetExec(t *testing.T) {
 	rtc.ExternalAccess.Domain = "somedomain.com"
 	rtc.ExternalAccess.Subdomain = "user-accounts"
 	setExec(rtc)
-	assertEqStr(t, "/a/b/c/sandbox-code", rtc.Exec.SandboxCodePath)
+	assertEqStr(t, "/a/b/c/runtime-files/sandbox-code", rtc.Exec.SandboxCodePath)
 	assertEqStr(t, "/a/b/c/apps", rtc.Exec.AppsPath)
 	assertEqStr(t, "/a/b/c/appspaces", rtc.Exec.AppspacesPath)
 	assertEqStr(t, "/a/b/c/certificates", rtc.Exec.CertificatesPath)

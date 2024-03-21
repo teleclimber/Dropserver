@@ -107,6 +107,7 @@ func main() {
 	// make all the dirs
 	dirs := []string{
 		runtimeConfig.Exec.AppspacesPath,
+		runtimeConfig.Exec.RuntimeFilesPath,
 		runtimeConfig.Exec.SandboxCodePath,
 		runtimeConfig.Sandbox.SocketsDir,
 		appMetaDir}

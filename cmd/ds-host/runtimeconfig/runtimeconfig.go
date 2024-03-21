@@ -227,7 +227,8 @@ func setExec(rtc *domain.RuntimeConfig) {
 	rtc.Exec.DenoVersion = denoVer
 
 	// set up runtime paths
-	rtc.Exec.SandboxCodePath = filepath.Join(rtc.DataDir, "sandbox-code")
+	rtc.Exec.RuntimeFilesPath = filepath.Join(rtc.DataDir, "runtime-files")
+	rtc.Exec.SandboxCodePath = filepath.Join(rtc.Exec.RuntimeFilesPath, "sandbox-code")
 
 	// set up user data paths:
 	rtc.Exec.AppsPath = filepath.Join(rtc.DataDir, "apps")

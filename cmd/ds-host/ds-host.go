@@ -48,9 +48,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
-	"github.com/teleclimber/DropServer/denosandboxcode"
 	"github.com/teleclimber/DropServer/internal/checkinject"
-	"github.com/teleclimber/DropServer/internal/embedutils"
 )
 
 // cmd_version holds the version string (current git tag, etc...) and is set at build time
@@ -96,19 +94,7 @@ func main() {
 		record.ExposePromMetrics(*runtimeConfig)
 	}
 
-	// copy sandbox code path to disk:
-	err = os.RemoveAll(runtimeConfig.Exec.SandboxCodePath)
-	if err != nil {
-		panic(err)
-	}
-	err = os.MkdirAll(runtimeConfig.Exec.SandboxCodePath, 0744)
-	if err != nil {
-		panic(err)
-	}
-	err = embedutils.DirToDisk(denosandboxcode.SandboxCode, ".", runtimeConfig.Exec.SandboxCodePath)
-	if err != nil {
-		panic(err)
-	}
+	copyEmbeddedFiles(*runtimeConfig)
 
 	appLocation2Path := &runtimeconfig.AppLocation2Path{
 		Config: runtimeConfig}
