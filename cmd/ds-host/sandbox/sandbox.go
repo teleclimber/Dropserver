@@ -148,6 +148,7 @@ type Sandbox struct {
 	cmd              *exec.Cmd
 	twine            *twine.Twine
 	Services         domain.ReverseServiceI
+	outProxy         *OutProxy
 	statusMux        sync.Mutex
 	status           domain.SandboxStatus
 	statusSub        []chan domain.SandboxStatus
@@ -228,6 +229,14 @@ func (s *Sandbox) Start() {
 	}()
 }
 
+// envkv stores the key and value pairs for environment variables
+type envkv struct{ key, val string }
+
+// forCmd returns a string suitable for exec.Command.Env array
+func (e *envkv) forCmd() string {
+	return fmt.Sprintf("%s=%s", e.key, e.val)
+}
+
 func (s *Sandbox) doStart() error {
 	logger := s.getLogger("doStart()").AddNote(fmt.Sprintf("Sandbox %v", s.id))
 	logger.Debug("starting...")
@@ -299,22 +308,29 @@ func (s *Sandbox) doStart() error {
 
 	tStr += fmt.Sprintf(" Start Twine: %s", time.Since(tRef))
 
-	err = os.Setenv("NO_COLOR", "true")
-	if err != nil {
-		logger.AddNote("os.Setenv").Error(err)
-		return err // return user-centered error
-	}
+	denoEnvs := []envkv{{"NO_COLOR", "true"}}
+	denoArgs := []string{"run"}
 
-	// Probably need to think more about flags we pass, such as --no-remote?
-	denoArgs := make([]string, 0, 10)
-	denoArgs = append(denoArgs, "run")
 	if s.inspect {
 		denoArgs = append(denoArgs, "--inspect-brk")
 	}
 
-	typeCheck := "--no-check"
+	// Deno run by default does not type check. We'd like to type check on app init:
 	if s.operation == opAppInit {
-		typeCheck = "--check"
+		denoArgs = append(denoArgs, "--check")
+	}
+
+	if s.operation == opAppspaceRun { // && some degree of allow net is set for this appspace
+		tRef = time.Now()
+		s.outProxy = &OutProxy{}
+		httpProxyPort := s.outProxy.Start(*s.Config)
+		tStr += fmt.Sprintf(" Start OutProxy: %s", time.Since(tRef))
+		denoEnvs = append(denoEnvs,
+			envkv{"HTTP_PROXY", fmt.Sprintf("localhost:%d", httpProxyPort)},
+			envkv{"HTTPS_PROXY", fmt.Sprintf("localhost:%d", httpProxyPort)})
+		denoArgs = append(denoArgs,
+			"--allow-net", // TODO temporary
+			"--cert="+s.paths.sandboxPath("goproxy-cert"))
 	}
 
 	// We have to pass an appspace data dir to the sandbox runner even in app-only mode
@@ -328,20 +344,15 @@ func (s *Sandbox) doStart() error {
 	if s.appspace != nil {
 		cwd = s.paths.sandboxPath("appspace-files")
 	}
-	fmt.Println("cwd", cwd)
 
-	runArgs := []string{
-		typeCheck,
-		"--import-map=" + s.paths.sandboxPath("import-map"),
-		"--allow-read=" + s.paths.denoAllowRead(),
-		"--allow-write=" + s.paths.denoAllowWrite(),
+	denoArgs = append(denoArgs,
+		"--import-map="+s.paths.sandboxPath("import-map"),
+		"--allow-read="+s.paths.denoAllowRead(),
+		"--allow-write="+s.paths.denoAllowWrite(),
 		s.paths.sandboxPath("bootstrap"),
 		s.paths.sandboxPath("sockets"),
 		s.paths.sandboxPath("app-files"),
-		appspaceData,
-	}
-
-	denoArgs = append(denoArgs, runArgs...)
+		appspaceData)
 
 	var bwrapStatus BwrapStatusJsonI
 	if s.Config.Sandbox.UseBubblewrap {
@@ -351,11 +362,14 @@ func (s *Sandbox) doStart() error {
 			return err // user centered error
 		}
 
-		// --hostname?
-		bwrapArgs := []string{
-			"--clearenv",
+		bwrapArgs := []string{"--clearenv",
 			"--setenv", "DENO_DIR", s.paths.sandboxPath("deno-dir"),
-			"--setenv", "NO_COLOR", "true",
+		}
+		for _, e := range denoEnvs {
+			bwrapArgs = append(bwrapArgs, "--setenv", e.key, e.val)
+		}
+
+		bwrapArgs = append(bwrapArgs,
 			//"--unshare-all", "--share-net", // temporary
 			"--unshare-user-try",
 			"--unshare-ipc",
@@ -365,8 +379,8 @@ func (s *Sandbox) doStart() error {
 			"--proc", "/proc",
 			"--die-with-parent",
 			"--new-session", // to protect against TIOCSTI
-			"--json-status-fd", "3",
-		}
+			"--json-status-fd", "3")
+
 		if cwd != "" {
 			bwrapArgs = append(bwrapArgs, "--chdir", cwd)
 		}
@@ -382,6 +396,12 @@ func (s *Sandbox) doStart() error {
 	} else {
 		s.cmd = exec.Command(s.paths.sandboxPath("deno"), denoArgs...)
 		s.cmd.Dir = cwd
+
+		cmdEnvs := []string{}
+		for _, e := range denoEnvs {
+			cmdEnvs = append(cmdEnvs, e.forCmd())
+		}
+		s.cmd.Env = cmdEnvs
 	}
 
 	stdout, err := s.cmd.StdoutPipe()
@@ -663,6 +683,10 @@ func (s *Sandbox) cleanup(runDBIDCh chan runDBIDData) {
 		if err != nil {
 			s.getLogger("Stop(), s.CGroups.RemoveCGroup").Error(err)
 		}
+	}
+
+	if s.outProxy != nil {
+		s.outProxy.Stop()
 	}
 
 	s.getLogger("cleanup()").Log(fmt.Sprintf("Sandbox %v cleanup complete", s.id))

@@ -75,11 +75,14 @@ func TestStartAppOnlyBwrap(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	testDumpGoproxyCert(dir)
+
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.DenoFullPath = getDenoAbsPath()
+	cfg.Exec.RuntimeFilesPath = dir
 	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
 	cfg.Exec.AppsPath = testGetAppsPath()
 
@@ -160,12 +163,15 @@ func TestStartAppspaceBwrap(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	testDumpGoproxyCert(dir)
+
 	cfg := &domain.RuntimeConfig{}
 	cfg.Sandbox.SocketsDir = dir
 	cfg.Sandbox.UseBubblewrap = true
 	cfg.Sandbox.BwrapMapPaths = getBwrapMappedPaths()
 	cfg.Exec.AppsPath = testGetAppsPath()
 	cfg.Exec.AppspacesPath = testGetAppspacesPath()
+	cfg.Exec.RuntimeFilesPath = dir
 	cfg.Exec.SandboxCodePath = testGetSandboxCodePath()
 	cfg.Exec.DenoFullPath = getDenoAbsPath()
 

@@ -76,6 +76,12 @@ func (p *paths) init() {
 		importMap: true, // apparently it's needed
 	})
 
+	p.add("goproxy-cert", pathData{
+		host:      filepath.Join(p.Config.Exec.RuntimeFilesPath, "goproxy-ca-cert.pem"),
+		bwrap:     "/goproxy-ca-cert.pem",
+		bwrapRead: true,
+	})
+
 	p.add("sandbox-runner", pathData{
 		host:      trailingSlash(p.Config.Exec.SandboxCodePath),
 		bwrap:     "/deno-sandbox-runner/",

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elazarl/goproxy"
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
@@ -623,6 +624,13 @@ func TestStartAppOnly(t *testing.T) {
 
 // 	s.Graceful()
 // }
+
+func testDumpGoproxyCert(dir string) {
+	err := os.WriteFile(filepath.Join(dir, "goproxy-ca-cert.pem"), goproxy.CA_CERT, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func testGetSandboxCodePath() string {
 	dir, err := os.Getwd() // Apparently the CWD of tests is the package dir

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/elazarl/goproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
@@ -118,6 +119,10 @@ func main() {
 		}
 	}
 
+	err = os.WriteFile(filepath.Join(runtimeConfig.Exec.RuntimeFilesPath, "goproxy-ca-cert.pem"), goproxy.CA_CERT, 0644)
+	if err != nil {
+		panic(err)
+	}
 	err = embedutils.DirToDisk(denosandboxcode.SandboxCode, ".", runtimeConfig.Exec.SandboxCodePath)
 	if err != nil {
 		panic(err)

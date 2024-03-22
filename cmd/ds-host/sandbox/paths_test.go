@@ -126,6 +126,7 @@ func TestAppBwrapMaps(t *testing.T) {
 	expected := []string{
 		"--ro-bind", "/path/to/deno", "/deno",
 		"--ro-bind", "/app-f1les-base/av-loc-77/bootstrap.js", "/bootstrap.js",
+		"--ro-bind", "goproxy-ca-cert.pem", "/goproxy-ca-cert.pem",
 		"--ro-bind", "/sandb0x-runner/", "/deno-sandbox-runner/",
 		"--bind", "/s0ckets/", "/sockets/",
 		"--ro-bind", "/app-f1les-base/av-loc-77/app/", "/app-files/",
@@ -159,6 +160,7 @@ func TestAppspaceBwrapMaps(t *testing.T) {
 	expected := []string{
 		"--ro-bind", "/path/to/deno", "/deno",
 		"--ro-bind", "/app-f1les-base/av-loc-77/bootstrap.js", "/bootstrap.js",
+		"--ro-bind", "goproxy-ca-cert.pem", "/goproxy-ca-cert.pem",
 		"--ro-bind", "/sandb0x-runner/", "/deno-sandbox-runner/",
 		"--bind", "/s0ckets/", "/sockets/",
 		"--ro-bind", "/app-f1les-base/av-loc-77/app/", "/app-files/",
