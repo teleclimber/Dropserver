@@ -12,22 +12,28 @@ import (
 )
 
 type OutProxy struct {
-	AppspaceID domain.AppspaceID
-	server     *http.Server
+	Log    func(string)
+	server *http.Server
+	port   int
 }
 
-func (o *OutProxy) Start(config domain.RuntimeConfig) int {
+func (o *OutProxy) Start(config domain.RuntimeConfig, mitm bool) error {
 
 	proxy := goproxy.NewProxyHttpServer()
-	//proxy.Verbose = true
 
 	proxy.OnRequest().DoFunc(
-		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			// for now just output the URL:
-			fmt.Println(r.URL)
-			return r, nil
+		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			o.Log(fmt.Sprintf("Request: %s %s %s %s", req.Proto, req.Method, req.Host, req.URL))
+			return req, nil
 		})
-	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	proxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		o.Log(fmt.Sprintf("TLS Connect to: %s", host))
+		return goproxy.OkConnect, host
+	})
+
+	if mitm { //not used yet
+		proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	}
 
 	s := runtimeconfig.GetSSRFGuardian(config)
 
@@ -38,8 +44,9 @@ func (o *OutProxy) Start(config domain.RuntimeConfig) int {
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		panic(err)
+		return err
 	}
+	o.port = listener.Addr().(*net.TCPAddr).Port
 
 	o.server = &http.Server{
 		Handler: proxy,
@@ -47,10 +54,16 @@ func (o *OutProxy) Start(config domain.RuntimeConfig) int {
 
 	go func() {
 		err := o.server.Serve(listener)
-		fmt.Println(err)
+		if err != nil && err != http.ErrServerClosed {
+			o.Log(fmt.Sprintf("error from outproxy server: %s", err.Error()))
+		}
 	}()
 
-	return listener.Addr().(*net.TCPAddr).Port
+	return nil
+}
+
+func (o *OutProxy) Port() int {
+	return o.port
 }
 
 func (o *OutProxy) Stop() {

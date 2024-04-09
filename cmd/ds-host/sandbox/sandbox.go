@@ -144,11 +144,15 @@ type Sandbox struct {
 		GetMetrics(string) (domain.CGroupData, error)
 		RemoveCGroup(string) error
 	}
-	Logger           interface{ Log(string, string) }
-	cmd              *exec.Cmd
-	twine            *twine.Twine
-	Services         domain.ReverseServiceI
-	outProxy         *OutProxy
+	Logger   interface{ Log(string, string) }
+	cmd      *exec.Cmd
+	twine    *twine.Twine
+	Services domain.ReverseServiceI
+	outProxy interface {
+		Port() int
+		Stop()
+	}
+	outProxyMITM     bool // not used yet
 	statusMux        sync.Mutex
 	status           domain.SandboxStatus
 	statusSub        []chan domain.SandboxStatus
@@ -320,17 +324,18 @@ func (s *Sandbox) doStart() error {
 		denoArgs = append(denoArgs, "--check")
 	}
 
-	if s.operation == opAppspaceRun { // && some degree of allow net is set for this appspace
-		tRef = time.Now()
-		s.outProxy = &OutProxy{}
-		httpProxyPort := s.outProxy.Start(*s.Config)
-		tStr += fmt.Sprintf(" Start OutProxy: %s", time.Since(tRef))
-		denoEnvs = append(denoEnvs,
-			envkv{"HTTP_PROXY", fmt.Sprintf("localhost:%d", httpProxyPort)},
-			envkv{"HTTPS_PROXY", fmt.Sprintf("localhost:%d", httpProxyPort)})
-		denoArgs = append(denoArgs,
-			"--allow-net", // TODO temporary
-			"--cert="+s.paths.sandboxPath("goproxy-cert"))
+	tRef = time.Now()
+	err = s.startOutProxy()
+	if err != nil {
+		return fmt.Errorf("error starting outproxy: %w", err)
+	}
+	tStr += fmt.Sprintf(" Start OutProxy: %s", time.Since(tRef))
+
+	denoEnvs = append(denoEnvs,
+		envkv{"HTTP_PROXY", fmt.Sprintf("localhost:%d", s.outProxy.Port())},
+		envkv{"HTTPS_PROXY", fmt.Sprintf("localhost:%d", s.outProxy.Port())})
+	if s.outProxyMITM {
+		denoArgs = append(denoArgs, "--cert="+s.paths.sandboxPath("goproxy-cert"))
 	}
 
 	// We have to pass an appspace data dir to the sandbox runner even in app-only mode
@@ -474,6 +479,18 @@ func (s *Sandbox) doStart() error {
 	}()
 
 	return nil
+}
+
+func (s *Sandbox) startOutProxy() error {
+	outProxy := &OutProxy{
+		Log: func(logString string) {
+			if s.Logger != nil && !reflect.ValueOf(s.Logger).IsNil() {
+				go s.Logger.Log(fmt.Sprintf("sandbox-%v-outproxy", s.id), logString)
+			}
+		},
+	}
+	s.outProxy = outProxy
+	return outProxy.Start(*s.Config, s.outProxyMITM)
 }
 
 // monitor waits for cmd to end or an error gets sent
