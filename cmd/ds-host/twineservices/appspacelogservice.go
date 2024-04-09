@@ -248,7 +248,7 @@ func (s *logService) sendInitialChunk() {
 		s.entriesCh = nil
 	}
 
-	chunk, entriesCh, err := s.logger.SubscribeEntries(4 * 1024)
+	chunk, entriesCh, err := s.logger.SubscribeEntries(16 * 1024)
 	if err != nil {
 		// maybe log is closed, but if we send error, this closes the message, so quiet.
 		return
