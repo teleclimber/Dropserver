@@ -313,7 +313,7 @@ func (s *Sandbox) doStart() error {
 	tStr += fmt.Sprintf(" Start Twine: %s", time.Since(tRef))
 
 	denoEnvs := []envkv{{"NO_COLOR", "true"}}
-	denoArgs := []string{"run"}
+	denoArgs := []string{"run", "--unstable-kv"}
 
 	if s.inspect {
 		denoArgs = append(denoArgs, "--inspect-brk")
