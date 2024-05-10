@@ -43,9 +43,6 @@ type RestoreAppspace struct {
 	AppspaceMetaDB interface {
 		CloseConn(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
-	AppspaceDB interface {
-		CloseAppspace(appspaceID domain.AppspaceID)
-	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
 		Close(appspaceID domain.AppspaceID)
@@ -244,8 +241,6 @@ func (r *RestoreAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	if err != nil {
 		return err
 	}
-
-	r.AppspaceDB.CloseAppspace(appspaceID)
 
 	r.AppspaceLogger.Close(appspaceID)
 

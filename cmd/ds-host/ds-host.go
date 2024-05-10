@@ -12,7 +12,6 @@ import (
 	"syscall"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogin"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
@@ -216,11 +215,6 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb,
 	}
 
-	appspaceDB := &appspacedb.AppspaceDB{
-		Config: runtimeConfig,
-	}
-	appspaceDB.Init()
-
 	v0AppRoutes := &appspacerouter.V0AppRoutes{
 		AppModel:      appModel,
 		AppFilesModel: appFilesModel,
@@ -271,7 +265,6 @@ func main() {
 		SandboxManager:        sandboxManager,
 		AppspaceStatus:        nil,
 		AppspaceMetaDB:        appspaceMetaDb,
-		AppspaceDB:            appspaceDB,
 		AppspaceLogger:        appspaceLogger,
 		AppspaceLocation2Path: appspaceLocation2Path,
 	}
@@ -281,7 +274,6 @@ func main() {
 		AppspaceFilesModel:    appspaceFilesModel,
 		AppspaceStatus:        nil,
 		AppspaceMetaDB:        appspaceMetaDb,
-		AppspaceDB:            appspaceDB,
 		AppspaceLogger:        appspaceLogger,
 		AppspaceLocation2Path: appspaceLocation2Path,
 	}
@@ -574,8 +566,7 @@ func main() {
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
 	services := &vxservices.VXServices{
-		AppspaceUsersV0: appspaceUsersModelV0,
-		V0AppspaceDB:    appspaceDB.V0}
+		AppspaceUsersV0: appspaceUsersModelV0}
 	sandboxManager.Services = services
 
 	// Create server.

@@ -33,9 +33,6 @@ type BackupAppspace struct {
 	AppspaceMetaDB interface {
 		CloseConn(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
-	AppspaceDB interface {
-		CloseAppspace(appspaceID domain.AppspaceID)
-	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Log(appspaceID domain.AppspaceID, source string, message string)
 		Close(appspaceID domain.AppspaceID)
@@ -88,8 +85,6 @@ func (e *BackupAppspace) closeAll(appspaceID domain.AppspaceID) error {
 	if err != nil {
 		return err
 	}
-
-	e.AppspaceDB.CloseAppspace(appspaceID)
 
 	e.AppspaceLogger.Close(appspaceID)
 

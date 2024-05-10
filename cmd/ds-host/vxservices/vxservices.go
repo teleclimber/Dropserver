@@ -12,10 +12,9 @@ type VXServices struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	}
-	V0AppspaceDB serviceGetter
 }
 
-//Get returns a reverse service for the appspace
+// Get returns a reverse service for the appspace
 func (x *VXServices) Get(appspace *domain.Appspace, api domain.APIVersion) (service domain.ReverseServiceI) {
 	switch api {
 	case 0:
@@ -23,7 +22,6 @@ func (x *VXServices) Get(appspace *domain.Appspace, api domain.APIVersion) (serv
 			UsersModel: &UsersV0{
 				AppspaceUsersV0: x.AppspaceUsersV0,
 				appspaceID:      appspace.AppspaceID},
-			AppspaceDB: x.V0AppspaceDB.GetService(appspace),
 		}
 	}
 	return

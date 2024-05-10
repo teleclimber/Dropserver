@@ -39,9 +39,6 @@ type DropserverDevServer struct {
 	AppspaceMetaDB interface {
 		CloseConn(domain.AppspaceID) error
 	} `checkinject:"required"`
-	AppspaceDB interface {
-		CloseAppspace(domain.AppspaceID)
-	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Close(domain.AppspaceID)
 		Open(domain.AppspaceID) domain.LoggerI
@@ -201,7 +198,6 @@ func (s *DropserverDevServer) handleAppspaceCtrlMessage(m twine.ReceivedMessageI
 			return
 		}
 
-		s.AppspaceDB.CloseAppspace(appspaceID)
 		s.AppspaceLogger.Close(appspaceID)
 
 		m.RefSendBlock(11, []byte("Copying Files..."))

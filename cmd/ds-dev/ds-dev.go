@@ -10,7 +10,6 @@ import (
 
 	"github.com/elazarl/goproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appops"
-	"github.com/teleclimber/DropServer/cmd/ds-host/appspacedb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacelogger"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspacemetadb"
 	"github.com/teleclimber/DropServer/cmd/ds-host/appspaceops"
@@ -350,14 +349,8 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
-	appspaceDB := &appspacedb.AppspaceDB{
-		Config: runtimeConfig,
-	}
-	appspaceDB.Init()
-
 	services := &vxservices.VXServices{
-		AppspaceUsersV0: appspaceUsersModelV0,
-		V0AppspaceDB:    appspaceDB.V0}
+		AppspaceUsersV0: appspaceUsersModelV0}
 	devSandboxManager.Services = services
 
 	migrationJobController.Start()
@@ -407,7 +400,6 @@ func main() {
 		AppspaceFiles:         appspaceFiles,
 		PauseAppspace:         pauseAppspace,
 		AppspaceMetaDB:        appspaceMetaDb,
-		AppspaceDB:            appspaceDB,
 		AppspaceLogger:        appspaceLogger,
 		DevSandboxManager:     devSandboxManager,
 		MigrationJobModel:     devMigrationJobModel,

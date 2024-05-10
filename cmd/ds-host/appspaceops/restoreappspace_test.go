@@ -59,9 +59,6 @@ func TestReplaceData(t *testing.T) {
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDB.EXPECT().CloseConn(asID).Return(nil)
 
-	appspaceDB := testmocks.NewMockAppspaceDB(mockCtrl)
-	appspaceDB.EXPECT().CloseAppspace(asID)
-
 	appspaceLogger := testmocks.NewMockAppspaceLogger(mockCtrl)
 	appspaceLogger.EXPECT().Close(asID)
 
@@ -74,7 +71,6 @@ func TestReplaceData(t *testing.T) {
 	r := &RestoreAppspace{
 		AppspaceStatus:     appspaceStatus,
 		AppspaceMetaDB:     appspaceMetaDB,
-		AppspaceDB:         appspaceDB,
 		AppspaceLogger:     appspaceLogger,
 		AppspaceModel:      appspaceModel,
 		AppspaceFilesModel: appspaceFilesModels,
