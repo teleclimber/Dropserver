@@ -15,7 +15,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
-type userV0 struct {
+type appspaceUser struct {
 	ProxyID     domain.ProxyID     `db:"proxy_id"`
 	AuthType    string             `db:"auth_type"`
 	AuthID      string             `db:"auth_id"`
@@ -29,15 +29,15 @@ type userV0 struct {
 // ErrAuthIDExists is returned when the appspace already has a user with that auth_id string
 var ErrAuthIDExists = errors.New("auth ID (email or dropid) not unique in this appspace")
 
-// UsersV0 stores the user's DropIDs
-type UsersV0 struct {
+// UserModel stores the user's DropIDs
+type UserModel struct {
 	AppspaceMetaDB interface {
 		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
 	}
 }
 
 // Create an appspace user with provided auth.
-func (u *UsersV0) Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error) { // acutally should return the User, or at least the proxy id.
+func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error) { // acutally should return the User, or at least the proxy id.
 	var proxyID domain.ProxyID
 	var err error
 
@@ -75,7 +75,7 @@ func (u *UsersV0) Create(appspaceID domain.AppspaceID, authType string, authID s
 	return proxyID, nil
 }
 
-func (u *UsersV0) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
+func (u *UserModel) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
 	if authType != "email" && authType != "dropid" { // We could maybe have a type for auth types if we use this a bunch.
 		panic("invalid auth type " + authType)
 	}
@@ -100,8 +100,8 @@ func (u *UsersV0) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyI
 }
 
 // UpdateMeta updates the appspace-facing data for the user
-func (u *UsersV0) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {
-	err := validatePermissionsV0(permissions)
+func (u *UserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {
+	err := validatePermissions(permissions)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (u *UsersV0) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyI
 }
 
 // Get returns an AppspaceUser
-func (u *UsersV0) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
+func (u *UserModel) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error) {
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return domain.AppspaceUser{}, err
@@ -136,7 +136,7 @@ func (u *UsersV0) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (dom
 	p := sqlxprepper.NewPrepper(db)
 	stmt := p.Prep(`SELECT * FROM users WHERE proxy_id = ?`)
 
-	var user userV0
+	var user appspaceUser
 	err = stmt.QueryRowx(proxyID).StructScan(&user)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -145,12 +145,12 @@ func (u *UsersV0) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (dom
 		return domain.AppspaceUser{}, err
 	}
 
-	return u.toDomainUserV0(appspaceID, user), nil
+	return u.toDomainUser(appspaceID, user), nil
 }
 
 // GetByDropID returns an appspace that matches the dropid string
 // It returns sql.ErrNoRows if not found
-func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
+func (u *UserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return domain.AppspaceUser{}, err
@@ -158,7 +158,7 @@ func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (doma
 	p := sqlxprepper.NewPrepper(db)
 	stmt := p.Prep(`SELECT * FROM users WHERE auth_type = "dropid" AND auth_id = ?`)
 
-	var user userV0
+	var user appspaceUser
 	err = stmt.QueryRowx(dropID).StructScan(&user)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -167,11 +167,11 @@ func (u *UsersV0) GetByDropID(appspaceID domain.AppspaceID, dropID string) (doma
 		return domain.AppspaceUser{}, err
 	}
 
-	return u.toDomainUserV0(appspaceID, user), nil
+	return u.toDomainUser(appspaceID, user), nil
 }
 
 // GetAll returns an appspace's list of users.
-func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
+func (u *UserModel) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error) {
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, e
 	p := sqlxprepper.NewPrepper(db)
 	stmt := p.Prep(`SELECT * FROM users`)
 
-	users := []userV0{}
+	users := []appspaceUser{}
 	err = stmt.Select(&users)
 	if err != nil {
 		u.getLogger("GetAll()").AppspaceID(appspaceID).Error(err)
@@ -187,7 +187,7 @@ func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, e
 	}
 	ret := make([]domain.AppspaceUser, len(users))
 	for i, user := range users {
-		ret[i] = u.toDomainUserV0(appspaceID, user)
+		ret[i] = u.toDomainUser(appspaceID, user)
 	}
 	return ret, nil
 }
@@ -195,7 +195,7 @@ func (u *UsersV0) GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, e
 // Delete the appspace user
 // Note: need more thought on what it measn to "delete":
 // What happens with the user's data on the appspace?
-func (u *UsersV0) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error {
+func (u *UserModel) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error {
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
@@ -211,7 +211,7 @@ func (u *UsersV0) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) e
 	return nil
 }
 
-func (u *UsersV0) toDomainUserV0(appspaceID domain.AppspaceID, user userV0) domain.AppspaceUser {
+func (u *UserModel) toDomainUser(appspaceID domain.AppspaceID, user appspaceUser) domain.AppspaceUser {
 	// in Go, splitting an empty string return []string{""}, instead of []string{}
 	p := []string{}
 	if len(user.Permissions) > 0 {
@@ -230,24 +230,15 @@ func (u *UsersV0) toDomainUserV0(appspaceID domain.AppspaceID, user userV0) doma
 	}
 }
 
-// func (u *UsersV0) DeleteForAppspace(appspaceID domain.AppspaceID) error {
-// 	_, err := u.stmt.deleteAppspace.Exec(appspaceID)
-// 	if err != nil {
-// 		u.getLogger("DeleteForAppspace()").AppspaceID(appspaceID).Error(err)
-// 		return err
-// 	}
-// 	return nil
-// }
-
-func (u *UsersV0) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("UsersV0")
+func (u *UserModel) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("Appspace UserModel")
 	if note != "" {
 		r.AddNote(note)
 	}
 	return r
 }
 
-func validatePermissionsV0(permissions []string) error {
+func validatePermissions(permissions []string) error {
 	for _, p := range permissions {
 		err := validator.AppspacePermission(p)
 		if err != nil {

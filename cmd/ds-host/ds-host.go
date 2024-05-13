@@ -211,7 +211,7 @@ func main() {
 	appspaceInfoModel := &appspacemetadb.InfoModel{
 		AppspaceMetaDB: appspaceMetaDb}
 
-	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
+	appspaceUserModel := &appspacemetadb.UserModel{
 		AppspaceMetaDB: appspaceMetaDb,
 	}
 
@@ -294,7 +294,7 @@ func main() {
 		AppspaceModel:          appspaceModel,
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceMetaDB:         appspaceMetaDb,
-		AppspaceUsersModelV0:   appspaceUsersModelV0,
+		AppspaceUserModel:      appspaceUserModel,
 		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl}
@@ -338,10 +338,10 @@ func main() {
 	ds2ds.Init()
 
 	v0tokenManager := &appspacelogin.V0TokenManager{
-		Config:               *runtimeConfig,
-		DS2DS:                ds2ds,
-		AppspaceModel:        appspaceModel,
-		AppspaceUsersModelV0: appspaceUsersModelV0,
+		Config:            *runtimeConfig,
+		DS2DS:             ds2ds,
+		AppspaceModel:     appspaceModel,
+		AppspaceUserModel: appspaceUserModel,
 	}
 	v0tokenManager.Start()
 
@@ -444,7 +444,7 @@ func main() {
 		AppLogger:       appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
-		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		AppspaceUserModel:     appspaceUserModel,
 		Avatars:               appspaceAvatars,
 		Config:                runtimeConfig,
 		AppspaceLocation2Path: appspaceLocation2Path,
@@ -465,7 +465,6 @@ func main() {
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
 		DropIDModel:           dropIDModel,
 		MigrationMinder:       migrationMinder,
-		AppspaceMetaDB:        appspaceMetaDb,
 		CreateAppspace:        createAppspace,
 		PauseAppspace:         pauseAppspace,
 		DeleteAppspace:        deleteAppspace,
@@ -546,7 +545,7 @@ func main() {
 
 	v0appspaceRouter := &appspacerouter.V0{
 		V0AppRoutes:           v0AppRoutes,
-		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		AppspaceUserModel:     appspaceUserModel,
 		SandboxProxy:          sandboxProxy,
 		Authenticator:         authenticator,
 		V0TokenManager:        v0tokenManager,
@@ -566,7 +565,7 @@ func main() {
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
 	services := &vxservices.VXServices{
-		AppspaceUsersV0: appspaceUsersModelV0}
+		AppspaceUserModel: appspaceUserModel}
 	sandboxManager.Services = services
 
 	// Create server.

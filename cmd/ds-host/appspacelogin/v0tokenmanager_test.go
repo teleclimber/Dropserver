@@ -151,14 +151,14 @@ func TestSendToken(t *testing.T) {
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
-	appspaceUsersModelV0 := testmocks.NewMockUsersV0(mockCtrl)
-	appspaceUsersModelV0.EXPECT().GetByDropID(appspaceID, dropID).Return(domain.AppspaceUser{}, nil)
+	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
+	appspaceUserModel.EXPECT().GetByDropID(appspaceID, dropID).Return(domain.AppspaceUser{}, nil)
 
 	tokenManager := V0TokenManager{
-		Config:               config,
-		DS2DS:                ds2ds,
-		AppspaceModel:        appspaceModel,
-		AppspaceUsersModelV0: appspaceUsersModelV0}
+		Config:            config,
+		DS2DS:             ds2ds,
+		AppspaceModel:     appspaceModel,
+		AppspaceUserModel: appspaceUserModel}
 	tokenManager.Start()
 
 	server := httptest.NewServer(http.HandlerFunc(

@@ -240,7 +240,7 @@ func main() {
 	appspaceInfoModel := &appspacemetadb.InfoModel{
 		AppspaceMetaDB: appspaceMetaDb}
 
-	appspaceUsersModelV0 := &appspacemetadb.UsersV0{
+	appspaceUserModel := &appspacemetadb.UserModel{
 		AppspaceMetaDB: appspaceMetaDb,
 	}
 
@@ -320,7 +320,7 @@ func main() {
 		SandboxManager: devSandboxManager}
 
 	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceUsersModelV0:  appspaceUsersModelV0,
+		AppspaceUserModel:     appspaceUserModel,
 		V0AppRoutes:           v0AppRoutes,
 		SandboxProxy:          sandboxProxy,
 		Authenticator:         devAuth,
@@ -350,7 +350,7 @@ func main() {
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
 	services := &vxservices.VXServices{
-		AppspaceUsersV0: appspaceUsersModelV0}
+		AppspaceUserModel: appspaceUserModel}
 	devSandboxManager.Services = services
 
 	migrationJobController.Start()
@@ -373,13 +373,13 @@ func main() {
 	}
 	userService := &UserService{
 		DevAuthenticator:     devAuth,
-		AppspaceUsersModelV0: appspaceUsersModelV0,
+		AppspaceUsersModelV0: appspaceUserModel,
 		Avatars:              avatars,
 		AppspaceFilesEvents:  appspaceFilesEvents}
 
 	routeHitService := &RouteHitService{
 		RouteHitEvents:       routeHitEvents,
-		AppspaceUsersModelV0: appspaceUsersModelV0}
+		AppspaceUsersModelV0: appspaceUserModel}
 
 	migrationJobTwine := &twineservices.MigrationJobService{
 		AppspaceModel:      devAppspaceModel,

@@ -19,9 +19,9 @@ type SandboxUser struct {
 	Avatar      string         `json:"avatar"`
 }
 
-// UsersV0 responds to requests about appspace users for the appspace
-type UsersV0 struct {
-	AppspaceUsersV0 interface {
+// UsersService responds to requests about appspace users for the appspace
+type UsersService struct {
+	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	}
@@ -29,7 +29,7 @@ type UsersV0 struct {
 }
 
 // HandleMessage processes a command and payload from the reverse listener
-func (u *UsersV0) HandleMessage(message twine.ReceivedMessageI) {
+func (u *UsersService) HandleMessage(message twine.ReceivedMessageI) {
 	switch message.CommandID() {
 	case getUserCmd:
 		// from proxy id fetch user's name and permissions
@@ -43,9 +43,9 @@ func (u *UsersV0) HandleMessage(message twine.ReceivedMessageI) {
 	}
 }
 
-func (u *UsersV0) handleGetUserCommand(message twine.ReceivedMessageI) {
+func (u *UsersService) handleGetUserCommand(message twine.ReceivedMessageI) {
 	proxyID := domain.ProxyID(string(message.Payload()))
-	user, err := u.AppspaceUsersV0.Get(u.appspaceID, proxyID)
+	user, err := u.AppspaceUserModel.Get(u.appspaceID, proxyID)
 	if err != nil {
 		message.SendError(err.Error())
 		return
@@ -63,8 +63,8 @@ func (u *UsersV0) handleGetUserCommand(message twine.ReceivedMessageI) {
 	}
 }
 
-func (u *UsersV0) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
-	users, err := u.AppspaceUsersV0.GetAll(u.appspaceID)
+func (u *UsersService) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
+	users, err := u.AppspaceUserModel.GetAll(u.appspaceID)
 	if err != nil {
 		message.SendError(err.Error())
 		return
@@ -81,8 +81,8 @@ func (u *UsersV0) handleGetAllUsersCommand(message twine.ReceivedMessageI) {
 	message.Reply(14, bytes)
 }
 
-func (u *UsersV0) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("V0User")
+func (u *UsersService) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("UsersService")
 	if note != "" {
 		r.AddNote(note)
 	}

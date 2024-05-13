@@ -18,7 +18,7 @@ import (
 
 // V0 handles routes for appspaces.
 type V0 struct {
-	AppspaceUsersModelV0 interface {
+	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	SandboxProxy   http.Handler `checkinject:"required"` // versioned?
@@ -182,7 +182,7 @@ func (arV0 *V0) loadAppspaceUser(next http.Handler) http.Handler {
 			return
 		}
 
-		appspaceUser, err := arV0.AppspaceUsersModelV0.Get(appspace.AppspaceID, proxyID)
+		appspaceUser, err := arV0.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				next.ServeHTTP(w, r)

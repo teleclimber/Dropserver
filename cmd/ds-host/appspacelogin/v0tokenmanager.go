@@ -26,7 +26,7 @@ type V0TokenManager struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
-	AppspaceUsersModelV0 interface {
+	AppspaceUserModel interface {
 		GetByDropID(domain.AppspaceID, string) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 
@@ -125,7 +125,7 @@ func (m *V0TokenManager) purgeTokens() {
 
 // Get a login token for an appspace owned by the user
 func (m *V0TokenManager) GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error) {
-	user, err := m.AppspaceUsersModelV0.GetByDropID(appspaceID, dropID)
+	user, err := m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
 	if err != nil {
 		// this can happen if an appspace is imported without the new owner among its users.
 		m.getLogger("GetForOwner").Debug("appspace user dropid not found " + dropID)
@@ -151,7 +151,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 	// should we check to see if appspace is paused?
 
 	// if dropid not in appspace user, this returns no rows, so bail because you can't log them in
-	user, err := m.AppspaceUsersModelV0.GetByDropID(appspaceID, dropID)
+	user, err := m.AppspaceUserModel.GetByDropID(appspaceID, dropID)
 	if err != nil {
 		log.Debug("appspace user dropid not found " + dropID)
 		return err

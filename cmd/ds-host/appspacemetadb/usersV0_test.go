@@ -13,8 +13,8 @@ import (
 var asID = domain.AppspaceID(7)
 
 func TestToDomainStructPermissions(t *testing.T) {
-	u := &UsersV0{}
-	user := u.toDomainUserV0(domain.AppspaceID(7), userV0{
+	u := &UserModel{}
+	user := u.toDomainUser(domain.AppspaceID(7), appspaceUser{
 		Permissions: "",
 	})
 
@@ -27,7 +27,7 @@ func TestCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	_, err := u.Create(asID, "email", "me@me.com")
 	if err != nil {
@@ -45,7 +45,7 @@ func TestUpdateAuth(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	proxyID, err := u.Create(asID, "email", "me@me.com")
 	if err != nil {
@@ -76,7 +76,7 @@ func TestUpdateMeta(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	proxyID, err := u.Create(asID, "email", "me@me.com")
 	if err != nil {
@@ -111,7 +111,7 @@ func TestGetAll(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	_, err := u.Create(asID, "email", "me@me.com")
 	if err != nil {
@@ -136,7 +136,7 @@ func TestGetByDropID(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	dropID := "me.com/me"
 	_, err := u.Create(asID, "dropid", dropID)
@@ -157,7 +157,7 @@ func TestDelete(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUsersV0(mockCtrl)
+	u := makeUserModel(mockCtrl)
 
 	dropID := "me.com/me"
 	proxyID, err := u.Create(asID, "dropid", dropID)
@@ -179,11 +179,11 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func makeUsersV0(mockCtrl *gomock.Controller) *UsersV0 {
+func makeUserModel(mockCtrl *gomock.Controller) *UserModel {
 	db := getV0TestDBHandle()
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDB.EXPECT().GetHandle(asID).Return(db, nil).AnyTimes()
 
-	return &UsersV0{
+	return &UserModel{
 		AppspaceMetaDB: appspaceMetaDB}
 }

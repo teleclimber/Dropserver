@@ -63,9 +63,6 @@ type AppspaceRoutes struct {
 	MigrationMinder interface {
 		GetForAppspace(domain.Appspace) (domain.Version, bool, error)
 	} `checkinject:"required"`
-	AppspaceMetaDB interface {
-		Create(domain.AppspaceID, int) error
-	} `checkinject:"required"`
 }
 
 func (a *AppspaceRoutes) subRouter() http.Handler {
