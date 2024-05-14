@@ -42,11 +42,11 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/runtimeconfig"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandbox"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
+	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
-	sandboxservices "github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 )
 
