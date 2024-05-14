@@ -89,9 +89,6 @@ type RuntimeConfig struct {
 	}
 }
 
-// APIVersion is the Dropserver API version that a dropserver app interacts with
-type APIVersion int
-
 // DB is the global host database handler
 // OK, but it does not need to be wrapped in a struct!
 type DB struct {
@@ -431,13 +428,12 @@ type AppURLData struct {
 // AppVersion represents a set of version of an app
 // This struct is meant for backend use, like starting a sandbox.
 type AppVersion struct {
-	AppID       AppID      `db:"app_id" json:"app_id"`
-	Version     Version    `db:"version" json:"version"`
-	APIVersion  APIVersion `db:"api" json:"-"`
-	Schema      int        `db:"schema" json:"schema"`
-	Entrypoint  string     `db:"entrypoint" json:"entrypoint"`
-	Created     time.Time  `db:"created" json:"created"`
-	LocationKey string     `db:"location_key" json:"-"`
+	AppID       AppID     `db:"app_id" json:"app_id"`
+	Version     Version   `db:"version" json:"version"`
+	Schema      int       `db:"schema" json:"schema"`
+	Entrypoint  string    `db:"entrypoint" json:"entrypoint"`
+	Created     time.Time `db:"created" json:"created"`
+	LocationKey string    `db:"location_key" json:"-"`
 	// consider adding:
 	// - migrations (summarized, like up-from, down-to?, eventually requried for properly running migrations)
 	// -> maybe migrations could be a separate query, or load the whole manifest when that comes up.

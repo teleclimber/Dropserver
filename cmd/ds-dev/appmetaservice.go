@@ -61,7 +61,6 @@ type AppMetaResp struct {
 	AppName       string                 `json:"name"`
 	AppVersion    domain.Version         `json:"version"`
 	SchemaVersion int                    `json:"schema"`
-	APIVersion    domain.APIVersion      `json:"api_version"`
 	Migrations    []domain.MigrationStep `json:"migration_steps"`
 	Schemas       []int                  `json:"schemas"`
 }
