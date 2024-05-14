@@ -710,7 +710,7 @@ type AppspaceRouteModels interface {
 	GetV0(AppspaceID) V0RouteModel
 }
 
-// ReverseServiceI is a common interface for reverse services of all versions
+// ReverseServiceI is a common interface for sandbox services
 type ReverseServiceI interface {
 	HandleMessage(twine.ReceivedMessageI)
 }

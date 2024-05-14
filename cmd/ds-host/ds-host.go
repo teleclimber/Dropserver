@@ -46,7 +46,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
-	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	sandboxservices "github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 )
 
@@ -564,9 +564,9 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
-	services := &vxservices.VXServices{
+	services := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
-	sandboxManager.Services = services
+	sandboxManager.ServiceMaker = services
 
 	// Create server.
 	server := &server.Server{

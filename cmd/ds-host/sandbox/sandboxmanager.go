@@ -35,8 +35,8 @@ type Manager struct {
 	AppspaceLogger interface {
 		Open(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
-	Services interface {
-		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	ServiceMaker interface {
+		Get(appspace *domain.Appspace) domain.ReverseServiceI
 	} `checkinject:"required"`
 	AppLocation2Path interface {
 		Meta(string) string
@@ -114,7 +114,7 @@ func (m *Manager) GetForAppspace(appVersion *domain.AppVersion, appspace *domain
 		newS := NewSandbox(m.getNextID(), opAppspaceRun, appspace.OwnerID, appVersion, appspace)
 		newS.AppLocation2Path = m.AppLocation2Path
 		newS.AppspaceLocation2Path = m.AppspaceLocation2Path
-		newS.Services = m.Services.Get(appspace, appVersion.APIVersion)
+		newS.Services = m.ServiceMaker.Get(appspace)
 		newS.Logger = m.AppspaceLogger.Open(appspace.AppspaceID)
 		newS.taskTracker.lastActive = time.Now()
 
@@ -193,7 +193,7 @@ func (m *Manager) ForMigration(appVersion domain.AppVersion, appspace *domain.Ap
 	s := NewSandbox(m.getNextID(), opAppspaceMigration, appspace.OwnerID, &appVersion, appspace)
 	s.AppLocation2Path = m.AppLocation2Path
 	s.AppspaceLocation2Path = m.AppspaceLocation2Path
-	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
+	s.Services = m.ServiceMaker.Get(appspace)
 	s.Logger = m.AppspaceLogger.Open(appspace.AppspaceID)
 
 	m.startSandbox(s)

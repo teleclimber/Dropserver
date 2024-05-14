@@ -25,8 +25,8 @@ type DevSandboxManager struct {
 	AppspaceLogger interface {
 		Get(domain.AppspaceID) domain.LoggerI
 	} `checkinject:"required"`
-	Services interface {
-		Get(appspace *domain.Appspace, api domain.APIVersion) domain.ReverseServiceI
+	ServiceMaker interface {
+		Get(appspace *domain.Appspace) domain.ReverseServiceI
 	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Subscribe(chan<- string)
@@ -92,7 +92,7 @@ func (m *DevSandboxManager) GetForAppspace(appVersion *domain.AppVersion, appspa
 func (m *DevSandboxManager) startSandbox(appVersion *domain.AppVersion, appspace *domain.Appspace) {
 	s := sandbox.NewSandbox(m.getNextID(), opAppspaceRun, ownerID, appVersion, appspace)
 	s.SandboxRuns = m.SandboxRuns
-	s.Services = m.Services.Get(appspace, 0)
+	s.Services = m.ServiceMaker.Get(appspace)
 	s.Logger = m.AppspaceLogger.Get(appspace.AppspaceID)
 	s.AppLocation2Path = m.AppLocation2Path
 	s.AppspaceLocation2Path = m.AppspaceLocation2Path
@@ -168,7 +168,7 @@ func (m *DevSandboxManager) ForApp(appVersion *domain.AppVersion) (domain.Sandbo
 func (m *DevSandboxManager) ForMigration(appVersion domain.AppVersion, appspace *domain.Appspace) (domain.SandboxI, error) {
 	s := sandbox.NewSandbox(m.getNextID(), opAppspaceMigration, ownerID, &appVersion, appspace)
 	s.SandboxRuns = m.SandboxRuns
-	s.Services = m.Services.Get(appspace, appVersion.APIVersion)
+	s.Services = m.ServiceMaker.Get(appspace)
 	s.AppLocation2Path = m.AppLocation2Path
 	s.AppspaceLocation2Path = m.AppspaceLocation2Path
 	s.Logger = m.AppspaceLogger.Get(appspaceID)

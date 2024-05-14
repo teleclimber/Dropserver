@@ -1,4 +1,4 @@
-package vxservices
+package sandboxservices
 
 import (
 	"encoding/json"

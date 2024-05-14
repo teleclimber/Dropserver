@@ -20,7 +20,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
-	"github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
+	sandboxservices "github.com/teleclimber/DropServer/cmd/ds-host/vxservices"
 	"github.com/teleclimber/DropServer/denosandboxcode"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 	"github.com/teleclimber/DropServer/internal/embedutils"
@@ -349,9 +349,9 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
-	services := &vxservices.VXServices{
+	serviceMaker := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
-	devSandboxManager.Services = services
+	devSandboxManager.ServiceMaker = serviceMaker
 
 	migrationJobController.Start()
 
