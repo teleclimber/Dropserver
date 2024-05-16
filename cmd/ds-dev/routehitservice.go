@@ -16,12 +16,12 @@ type RequestJSON struct {
 	Method string `json:"method"`
 }
 type RouteHitEventJSON struct {
-	Timestamp     time.Time            `json:"timestamp"`
-	Request       RequestJSON          `json:"request"`
-	V0RouteConfig *domain.V0AppRoute   `json:"v0_route_config"` // this might be nil.OK?
-	User          *domain.AppspaceUser `json:"user"`            //make nil OK
-	Authorized    bool                 `json:"authorized"`
-	Status        int                  `json:"status"`
+	Timestamp   time.Time            `json:"timestamp"`
+	Request     RequestJSON          `json:"request"`
+	RouteConfig *domain.AppRoute     `json:"route_config"` // this might be nil.OK?
+	User        *domain.AppspaceUser `json:"user"`         //make nil OK
+	Authorized  bool                 `json:"authorized"`
+	Status      int                  `json:"status"`
 }
 
 // RouteHitService forwards route hit events to provided twine instance
@@ -30,7 +30,7 @@ type RouteHitService struct {
 		Subscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 		Unsubscribe(ch chan<- *domain.AppspaceRouteHitEvent)
 	} `checkinject:"required"`
-	AppspaceUsersModelV0 interface {
+	AppspaceUsersModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 }
@@ -63,15 +63,15 @@ func (s *RouteHitService) sendRouteEvent(twine *twine.Twine, routeEvent *domain.
 		Request: RequestJSON{
 			URL:    routeEvent.Request.URL.String(),
 			Method: routeEvent.Request.Method},
-		V0RouteConfig: routeEvent.V0RouteConfig,
-		Authorized:    routeEvent.Authorized,
-		Status:        routeEvent.Status}
+		RouteConfig: routeEvent.RouteConfig,
+		Authorized:  routeEvent.Authorized,
+		Status:      routeEvent.Status}
 
 	if routeEvent.Credentials.ProxyID != "" {
-		user, err := s.AppspaceUsersModelV0.Get(appspaceID, routeEvent.Credentials.ProxyID)
+		user, err := s.AppspaceUsersModel.Get(appspaceID, routeEvent.Credentials.ProxyID)
 		if err != nil {
 			// very possible the user is no loger in DB if appspace data was changed externally (re-imported for ex)
-			fmt.Println("sendRouteEvent s.AppspaceUsersModelV0.Get() Error: " + err.Error())
+			fmt.Println("sendRouteEvent s.AppspaceUsersModel.Get() Error: " + err.Error())
 		} else {
 			send.User = &user
 		}

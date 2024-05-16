@@ -18,8 +18,10 @@ import (
 
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
+	Config        *domain.RuntimeConfig `checkinject:"required"`
 	Authenticator interface {
 		AppspaceUserProxyID(http.Handler) http.Handler
+		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
@@ -28,13 +30,32 @@ type AppspaceRouter struct {
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
 	} `checkinject:"required"`
+	AppspaceUserModel interface {
+		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
+	} `checkinject:"required"`
+	V0TokenManager interface {
+		CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool)
 	} `checkinject:"required"`
 	DropserverRoutes interface {
 		Router() http.Handler
 	} `checkinject:"required"`
-	V0AppspaceRouter http.Handler `checkinject:"required"`
+	AppRoutes interface {
+		Match(appID domain.AppID, version domain.Version, method string, reqPath string) (domain.AppRoute, error)
+	} `checkinject:"required"`
+	SandboxProxy   http.Handler `checkinject:"required"` // versioned?
+	RouteHitEvents interface {
+		Send(*domain.AppspaceRouteHitEvent)
+	} `checkinject:"optional"`
+	AppLocation2Path interface {
+		Files(string) string
+	} `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Files(string) string
+		Avatars(string) string
+	} `checkinject:"required"`
 
 	liveCounterMux sync.Mutex
 	liveCounter    map[domain.AppspaceID]int
@@ -45,7 +66,7 @@ type AppspaceRouter struct {
 	mux *chi.Mux
 }
 
-// Init initializes data structures
+// Init initializes the router
 func (a *AppspaceRouter) Init() {
 	a.liveCounter = make(map[domain.AppspaceID]int)
 	a.subscribers = make(map[domain.AppspaceID][]chan<- int)
@@ -56,14 +77,13 @@ func (a *AppspaceRouter) Init() {
 	mux.Use(a.errorPage)
 	mux.Use(a.appspaceAvailable, a.countRequest)
 	mux.Use(a.loadApp)
-	// Not sure we need all these middlewares for all routes.
-	// - dropserver routes like get login token do not need appspace user, and may not care if available or to count request?
-	//   -> actually may need available + count because there may be side-effects to appspace, like recording last used or whatever
-	// - also does not need app and ap version
 
-	// first match dropserver routes
 	mux.Mount("/.dropserver", a.DropserverRoutes.Router())
-	mux.Handle("/*", http.HandlerFunc(a.branchToVersionedRouters))
+	mux.Route("/", func(r chi.Router) {
+		r.Use(a.securityHeaders)
+		r.Use(a.loadRouteConfig, a.routeHit, a.processLoginToken, a.loadAppspaceUser, a.authorizeRoute)
+		r.Handle("/*", http.HandlerFunc(a.handleRoute))
+	})
 
 	a.mux = mux
 }
@@ -149,11 +169,6 @@ func (a *AppspaceRouter) loadApp(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-func (a *AppspaceRouter) branchToVersionedRouters(w http.ResponseWriter, r *http.Request) {
-	// Here eventually we will branch off to different versions of appspace routers.
-	a.V0AppspaceRouter.ServeHTTP(w, r)
 }
 
 // errorPage shows an HTML error page for certian statuses

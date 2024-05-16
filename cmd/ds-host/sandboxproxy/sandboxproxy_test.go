@@ -69,7 +69,7 @@ type testMocks struct {
 	sandboxServer  *http.Server
 	appVersion     domain.AppVersion
 	appspace       domain.Appspace
-	routeConfig    domain.V0AppRoute
+	routeConfig    domain.AppRoute
 }
 
 func TestSandboxBadStart(t *testing.T) {
@@ -127,7 +127,7 @@ func TestServeHTTP200(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req = req.WithContext(domain.CtxWithV0RouteConfig(req.Context(), tm.routeConfig))
+	req = req.WithContext(domain.CtxWithRouteConfig(req.Context(), tm.routeConfig))
 
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
@@ -268,7 +268,7 @@ func createMocks(mockCtrl *gomock.Controller, sbHandler func(http.ResponseWriter
 		sandboxServer:  &server,
 		appVersion:     domain.AppVersion{},
 		appspace:       domain.Appspace{DomainName: "as1.ds.dev"},
-		routeConfig: domain.V0AppRoute{
+		routeConfig: domain.AppRoute{
 			ID:   "test-route-id",
 			Type: "function",
 		}}

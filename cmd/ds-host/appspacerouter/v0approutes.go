@@ -15,7 +15,7 @@ import (
 //
 
 type compiledRoute struct {
-	domain.V0AppRoute
+	domain.AppRoute
 	match func(string) (*pathToRegexp.MatchResult, error)
 }
 
@@ -24,7 +24,7 @@ type appVersionKey struct {
 	appVersion domain.Version
 }
 
-type V0AppRoutes struct {
+type AppRoutes struct {
 	AppModel interface {
 		GetVersion(appID domain.AppID, version domain.Version) (domain.AppVersion, error)
 	} `checkinject:"required"`
@@ -38,15 +38,15 @@ type V0AppRoutes struct {
 	// also track last usage timestamp so flush unused
 }
 
-func (r *V0AppRoutes) Init() {
+func (r *AppRoutes) Init() {
 	r.appRoutes = make(map[appVersionKey][]compiledRoute)
 }
 
-func (r *V0AppRoutes) Match(appID domain.AppID, version domain.Version, method string, reqPath string) (domain.V0AppRoute, error) {
+func (r *AppRoutes) Match(appID domain.AppID, version domain.Version, method string, reqPath string) (domain.AppRoute, error) {
 	k := appVersionKey{appID, version}
 	routes, err := r.load(k)
 	if err != nil {
-		return domain.V0AppRoute{}, err
+		return domain.AppRoute{}, err
 	}
 
 	method = strings.ToLower(method)
@@ -58,16 +58,16 @@ func (r *V0AppRoutes) Match(appID domain.AppID, version domain.Version, method s
 		m, err := route.match(reqPath)
 		if err != nil {
 			r.getLogger("Match").Error(err)
-			return domain.V0AppRoute{}, err
+			return domain.AppRoute{}, err
 		}
 		if m != nil {
-			return route.V0AppRoute, nil
+			return route.AppRoute, nil
 		}
 	}
-	return domain.V0AppRoute{}, nil
+	return domain.AppRoute{}, nil
 }
 
-func (r *V0AppRoutes) load(k appVersionKey) ([]compiledRoute, error) {
+func (r *AppRoutes) load(k appVersionKey) ([]compiledRoute, error) {
 	routes, ok := r.appRoutes[k]
 	if ok {
 		return routes, nil
@@ -83,7 +83,7 @@ func (r *V0AppRoutes) load(k appVersionKey) ([]compiledRoute, error) {
 		return []compiledRoute{}, err
 	}
 
-	var stored []domain.V0AppRoute
+	var stored []domain.AppRoute
 	err = json.Unmarshal(routesData, &stored)
 	if err != nil {
 		r.getLogger("load, json.Unmarshal").Error(err)
@@ -92,7 +92,7 @@ func (r *V0AppRoutes) load(k appVersionKey) ([]compiledRoute, error) {
 
 	return r.compile(stored)
 }
-func (r *V0AppRoutes) compile(storedRoutes []domain.V0AppRoute) ([]compiledRoute, error) {
+func (r *AppRoutes) compile(storedRoutes []domain.AppRoute) ([]compiledRoute, error) {
 
 	compiled := make([]compiledRoute, len(storedRoutes))
 
@@ -109,7 +109,7 @@ func (r *V0AppRoutes) compile(storedRoutes []domain.V0AppRoute) ([]compiledRoute
 }
 
 // ValidateRoutes validates routes passed to it
-func (r *V0AppRoutes) ValidateRoutes(routes []domain.V0AppRoute) error {
+func (r *AppRoutes) ValidateRoutes(routes []domain.AppRoute) error {
 	if len(routes) == 0 {
 		return errors.New("there should be at least one route")
 	}
@@ -123,7 +123,7 @@ func (r *V0AppRoutes) ValidateRoutes(routes []domain.V0AppRoute) error {
 	return nil
 }
 
-func (r *V0AppRoutes) validateStoredRoute(route domain.V0AppRoute) error {
+func (r *AppRoutes) validateStoredRoute(route domain.AppRoute) error {
 	// TODO validate mehod, route type, and Auth!
 
 	if route.Path.Path == "" {
@@ -144,21 +144,21 @@ func (r *V0AppRoutes) validateStoredRoute(route domain.V0AppRoute) error {
 	return nil
 }
 
-func (r *V0AppRoutes) getMatchFn(route domain.V0AppRoute) (func(string) (*pathToRegexp.MatchResult, error), error) {
+func (r *AppRoutes) getMatchFn(route domain.AppRoute) (func(string) (*pathToRegexp.MatchResult, error), error) {
 	options := getOptions(route)
 	matchFn, err := pathToRegexp.Match(route.Path.Path, &options)
 	return matchFn, err
 }
 
-func (r *V0AppRoutes) getLogger(note string) *record.DsLogger {
-	l := record.NewDsLogger().AddNote("V0AppRoutes")
+func (r *AppRoutes) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("AppRoutes")
 	if note != "" {
 		l.AddNote(note)
 	}
 	return l
 }
 
-func getOptions(route domain.V0AppRoute) pathToRegexp.Options {
+func getOptions(route domain.AppRoute) pathToRegexp.Options {
 	return pathToRegexp.Options{
 		End: &route.Path.End,
 	}

@@ -15,8 +15,8 @@ import (
 // UserService is a twine service that sets the desired user params
 // and keeps the frontend up to date with app's declared permissions
 type UserService struct {
-	DevAuthenticator     *DevAuthenticator `checkinject:"required"`
-	AppspaceUsersModelV0 interface {
+	DevAuthenticator   *DevAuthenticator `checkinject:"required"`
+	AppspaceUsersModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
@@ -85,7 +85,7 @@ const (
 )
 
 func (u *UserService) sendUsers(twine *twine.Twine) {
-	users, err := u.AppspaceUsersModelV0.GetAll(appspaceID)
+	users, err := u.AppspaceUsersModel.GetAll(appspaceID)
 	if err != nil {
 		fmt.Println("sendUsers error getting users: " + err.Error())
 	}
@@ -150,7 +150,7 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 	}
 
 	u.dummyDropidNum++
-	proxyID, err := u.AppspaceUsersModelV0.Create(appspaceID, "dropid", fmt.Sprintf("dropid.dummy.develop/%v", u.dummyDropidNum))
+	proxyID, err := u.AppspaceUsersModel.Create(appspaceID, "dropid", fmt.Sprintf("dropid.dummy.develop/%v", u.dummyDropidNum))
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -169,7 +169,7 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUsersModelV0.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
+	err = u.AppspaceUsersModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -192,7 +192,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 	}
 
 	avatar := ""
-	user, err := u.AppspaceUsersModelV0.Get(appspaceID, incomingUser.ProxyID)
+	user, err := u.AppspaceUsersModel.Get(appspaceID, incomingUser.ProxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -220,7 +220,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUsersModelV0.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
+	err = u.AppspaceUsersModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -237,7 +237,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 	proxyID := domain.ProxyID(string(m.Payload()))
 
-	user, err := u.AppspaceUsersModelV0.Get(appspaceID, proxyID)
+	user, err := u.AppspaceUsersModel.Get(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
@@ -251,7 +251,7 @@ func (u *UserService) handleUserDeleteMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUsersModelV0.Delete(appspaceID, proxyID)
+	err = u.AppspaceUsersModel.Delete(appspaceID, proxyID)
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)

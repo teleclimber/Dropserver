@@ -21,7 +21,7 @@ type Request = {
 type RouteHit = {
 	timestamp: Date,
 	request: Request,
-	v0_route_config: RouteConfig,
+	route_config: RouteConfig,
 	user?: User,
 	authorized: boolean,
 	status: number

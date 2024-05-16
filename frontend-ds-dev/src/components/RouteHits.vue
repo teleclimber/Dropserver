@@ -30,12 +30,12 @@ onUpdated( () => {
 					</span>
 				</div>
 				<span></span>
-				<template v-if="r.v0_route_config">
-					<span v-if="r.v0_route_config.auth.allow == 'public'" class="pl-2">
+				<template v-if="r.route_config">
+					<span v-if="r.route_config.auth.allow == 'public'" class="pl-2">
 						<span class="text-white text-xs px-2 bg-yellow-500 rounded-full">PUBLIC</span>
 					</span>
-					<span v-else-if="r.authorized && r.v0_route_config.auth.permission" class="pl-2">
-						<span class="text-white text-xs px-2 bg-green-600">{{ r.v0_route_config.auth.permission }}</span>
+					<span v-else-if="r.authorized && r.route_config.auth.permission" class="pl-2">
+						<span class="text-white text-xs px-2 bg-green-600">{{ r.route_config.auth.permission }}</span>
 					</span>
 					<span v-else-if="r.authorized" class="pl-2 text-green-600 flex items-baseline">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 self-center" viewBox="0 0 20 20" fill="currentColor">
@@ -51,23 +51,23 @@ onUpdated( () => {
 					</span>
 					<span class=" text-sm text-gray-500">match:</span>
 					<span class=" text-gray-900 pl-2 text-sm ">
-						{{r.v0_route_config.path.path}}
-						<span v-if="!r.v0_route_config.path.end">**</span>
+						{{r.route_config.path.path}}
+						<span v-if="!r.route_config.path.end">**</span>
 					</span>
 
-					<template v-if="r.v0_route_config.type === 'static'">
+					<template v-if="r.route_config.type === 'static'">
 						<span class="text-sm italic text-right">Serve files:</span>
-						<span class="font-mono pl-2">{{r.v0_route_config.options.path}}</span>
+						<span class="font-mono pl-2">{{r.route_config.options.path}}</span>
 					</template>
-					<template v-else-if="r.v0_route_config.type === 'function'">
+					<template v-else-if="r.route_config.type === 'function'">
 						<span class="text-sm italic text-right">Handler:</span>
 						<div class=" ">
-							<span class="italic font-mono px-2 rounded bg-yellow-100 text-yellow-800">{{r.v0_route_config.options.name}}()</span>
+							<span class="italic font-mono px-2 rounded bg-yellow-100 text-yellow-800">{{r.route_config.options.name}}()</span>
 						</div>
 					</template>
 					<template v-else>
 						<span class="bg-yellow-500 text-yellow-100 px-1 text-sm">
-							{{r.v0_route_config.type}}
+							{{r.route_config.type}}
 						</span>
 						<span class="">not implemented</span>
 					</template>

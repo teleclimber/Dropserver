@@ -215,12 +215,12 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb,
 	}
 
-	v0AppRoutes := &appspacerouter.V0AppRoutes{
+	AppRoutes := &appspacerouter.AppRoutes{
 		AppModel:      appModel,
 		AppFilesModel: appFilesModel,
 		Config:        runtimeConfig,
 	}
-	v0AppRoutes.Init()
+	AppRoutes.Init()
 
 	migrationJobModel := &migrationjobmodel.MigrationJobModel{
 		MigrationJobEvents: migrationJobEvents,
@@ -323,7 +323,7 @@ func main() {
 		AppLogger:        appLogger,
 		RemoteAppGetter:  remoteAppGetter,
 		SandboxManager:   sandboxManager,
-		V0AppRoutes:      v0AppRoutes,
+		AppRoutes:        AppRoutes,
 	}
 	appGetter.Init()
 
@@ -533,34 +533,28 @@ func main() {
 	userRoutes.Init()
 	userRoutes.DumpRoutes(*dumpRoutesFlag)
 
-	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
-		AppspaceModel:  appspaceModel,
-		Authenticator:  authenticator,
-		V0RequestToken: v0requestToken,
-		V0TokenManager: v0tokenManager,
-	}
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
-		V0DropServerRoutes: v0dropserverRoutes,
+		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
+			AppspaceModel:  appspaceModel,
+			Authenticator:  authenticator,
+			V0RequestToken: v0requestToken,
+			V0TokenManager: v0tokenManager,
+		},
 	}
 
-	v0appspaceRouter := &appspacerouter.V0{
-		V0AppRoutes:           v0AppRoutes,
+	appspaceRouter := &appspacerouter.AppspaceRouter{
+		Authenticator:         authenticator,
+		AppModel:              appModel,
+		AppspaceModel:         appspaceModel,
+		AppspaceStatus:        appspaceStatus,
+		DropserverRoutes:      dropserverRoutes,
+		AppRoutes:             AppRoutes,
 		AppspaceUserModel:     appspaceUserModel,
 		SandboxProxy:          sandboxProxy,
-		Authenticator:         authenticator,
 		V0TokenManager:        v0tokenManager,
 		Config:                runtimeConfig,
 		AppLocation2Path:      appLocation2Path,
 		AppspaceLocation2Path: appspaceLocation2Path}
-	v0appspaceRouter.Init()
-
-	appspaceRouter := &appspacerouter.AppspaceRouter{
-		Authenticator:    authenticator,
-		AppModel:         appModel,
-		AppspaceModel:    appspaceModel,
-		AppspaceStatus:   appspaceStatus,
-		DropserverRoutes: dropserverRoutes,
-		V0AppspaceRouter: v0appspaceRouter}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 

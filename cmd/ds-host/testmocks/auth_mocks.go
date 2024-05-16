@@ -35,6 +35,20 @@ func (m *MockAuthenticator) EXPECT() *MockAuthenticatorMockRecorder {
 	return m.recorder
 }
 
+// AppspaceUserProxyID mocks base method
+func (m *MockAuthenticator) AppspaceUserProxyID(arg0 http.Handler) http.Handler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppspaceUserProxyID", arg0)
+	ret0, _ := ret[0].(http.Handler)
+	return ret0
+}
+
+// AppspaceUserProxyID indicates an expected call of AppspaceUserProxyID
+func (mr *MockAuthenticatorMockRecorder) AppspaceUserProxyID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspaceUserProxyID", reflect.TypeOf((*MockAuthenticator)(nil).AppspaceUserProxyID), arg0)
+}
+
 // SetForAccount mocks base method
 func (m *MockAuthenticator) SetForAccount(arg0 http.ResponseWriter, arg1 domain.UserID) error {
 	m.ctrl.T.Helper()

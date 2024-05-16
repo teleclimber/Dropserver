@@ -73,8 +73,8 @@ type AppGetter struct {
 	SandboxManager interface {
 		ForApp(appVersion *domain.AppVersion) (domain.SandboxI, error)
 	} `checkinject:"required"`
-	V0AppRoutes interface {
-		ValidateRoutes(routes []domain.V0AppRoute) error
+	AppRoutes interface {
+		ValidateRoutes(routes []domain.AppRoute) error
 	} `checkinject:"required"`
 
 	keysMux sync.Mutex
@@ -531,7 +531,7 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData) error {
 		return err
 	}
 
-	err = g.V0AppRoutes.ValidateRoutes(routesData) // pass meta, assume err is internal / fatal.
+	err = g.AppRoutes.ValidateRoutes(routesData) // pass meta, assume err is internal / fatal.
 	if err != nil {
 		return err
 	}
@@ -594,7 +594,7 @@ func (g *AppGetter) getMigrations(keyData appGetData, s domain.SandboxI) error {
 }
 
 // Note this is a versioned API
-func (g *AppGetter) getRoutes(s domain.SandboxI) ([]domain.V0AppRoute, error) {
+func (g *AppGetter) getRoutes(s domain.SandboxI) ([]domain.AppRoute, error) {
 	sent, err := s.SendMessage(domain.SandboxAppService, 11, nil)
 	if err != nil {
 		g.getLogger("getRoutes, s.SendMessage").Error(err)
@@ -610,7 +610,7 @@ func (g *AppGetter) getRoutes(s domain.SandboxI) ([]domain.V0AppRoute, error) {
 
 	// Should also verify that the response is command 11?
 
-	var routes []domain.V0AppRoute
+	var routes []domain.AppRoute
 
 	err = json.Unmarshal(reply.Payload(), &routes)
 	if err != nil {

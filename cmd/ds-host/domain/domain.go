@@ -1,6 +1,6 @@
 package domain
 
-//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,V0RouteModel,AppspaceRouteModels,StdInput
+//go:generate mockgen -destination=mocks.go -package=domain -self_package=github.com/teleclimber/DropServer/cmd/ds-host/domain github.com/teleclimber/DropServer/cmd/ds-host/domain MetricsI,SandboxI,StdInput
 // ^^ remember to add new interfaces to list of interfaces to mock ^^
 
 import (
@@ -545,15 +545,6 @@ type AppspaceUserPermission struct {
 	Description string `json:"description"`
 }
 
-// V0AppspaceDBQuery is the structure expected when Posting a DB request
-type V0AppspaceDBQuery struct {
-	DBName      string                 `json:"db_name"`
-	Type        string                 `json:"type"` // "query" or "exec"
-	SQL         string                 `json:"sql"`
-	Params      []interface{}          `json:"params"`
-	NamedParams map[string]interface{} `json:"named_params"`
-}
-
 // MigrationJobStatus represents the Status of an appspace's migration to a different version
 // including possibly a different schema
 type MigrationJobStatus int
@@ -622,25 +613,25 @@ type MigrationStep struct {
 
 // New appspace route stuff:
 
-// V0AppRoute is route config for appspace as stored with app
-type V0AppRoute struct {
+// AppRoute is route config for appspace as stored with app
+type AppRoute struct {
 	ID      string            `json:"id"`
 	Method  string            `json:"method"`
-	Path    V0AppRoutePath    `json:"path"` // Path is the request path to match
+	Path    AppRoutePath      `json:"path"` // Path is the request path to match
 	Auth    AppspaceRouteAuth `json:"auth"`
 	Type    string            `json:"type"`    // Type of handler: "function" or "static" for now
-	Options V0AppRouteOptions `json:"options"` // Options for the route handler
+	Options AppRouteOptions   `json:"options"` // Options for the route handler
 }
 
-// V0AppRoutePath is the request path twe are seeking to match
-type V0AppRoutePath struct {
+// AppRoutePath is the request path twe are seeking to match
+type AppRoutePath struct {
 	Path string `json:"path"`
 	End  bool   `json:"end"` // End of false makes the path a wildcard /path/**
 }
 
-// V0AppRouteOptions is a JSON friendly struct
+// AppRouteOptions is a JSON friendly struct
 // that describes the desired handling for the route
-type V0AppRouteOptions struct {
+type AppRouteOptions struct {
 	Name string `json:"name,omitempty"` // this is called "location" downstream. (but why?)
 	Path string `json:"path,omitempty"`
 }
@@ -667,7 +658,6 @@ type Contact struct {
 
 // AppspaceUser identifies a user of an appspace
 // Not sure we want this to have this form? Auth should be its own struct?
-// TODO this is AppspaceUserV0
 type AppspaceUser struct {
 	AppspaceID  AppspaceID         `json:"appspace_id"`
 	ProxyID     ProxyID            `json:"proxy_id"`
@@ -681,30 +671,30 @@ type AppspaceUser struct {
 }
 
 // V0RouteModel serves route data queries at version 0
-type V0RouteModel interface {
-	ReverseServiceI
+// type V0RouteModel interface {
+// 	ReverseServiceI
 
-	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) error
+// 	Create(methods []string, url string, auth AppspaceRouteAuth, handler AppspaceRouteHandler) error
 
-	// Get returns all routes that
-	// - match one of the methods passed, and
-	// - matches the routePath exactly (no interpolation is done to match sub-paths)
-	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, error)
-	GetAll() (*[]AppspaceRouteConfig, error)
-	GetPath(string) (*[]AppspaceRouteConfig, error)
+// 	// Get returns all routes that
+// 	// - match one of the methods passed, and
+// 	// - matches the routePath exactly (no interpolation is done to match sub-paths)
+// 	Get(methods []string, routePath string) (*[]AppspaceRouteConfig, error)
+// 	GetAll() (*[]AppspaceRouteConfig, error)
+// 	GetPath(string) (*[]AppspaceRouteConfig, error)
 
-	Delete(methods []string, url string) error
+// 	Delete(methods []string, url string) error
 
-	// Match finds the route that should handle the request
-	// The path will be broken into parts to find the subset path that matches.
-	// It returns (nil, nil) if no matches found
-	Match(method string, url string) (*AppspaceRouteConfig, error)
-}
+// 	// Match finds the route that should handle the request
+// 	// The path will be broken into parts to find the subset path that matches.
+// 	// It returns (nil, nil) if no matches found
+// 	Match(method string, url string) (*AppspaceRouteConfig, error)
+// }
 
-// AppspaceRouteModels returns models of the desired version
-type AppspaceRouteModels interface {
-	GetV0(AppspaceID) V0RouteModel
-}
+// // AppspaceRouteModels returns models of the desired version
+// type AppspaceRouteModels interface {
+// 	GetV0(AppspaceID) V0RouteModel
+// }
 
 // ReverseServiceI is a common interface for sandbox services
 type ReverseServiceI interface {
@@ -782,10 +772,10 @@ type LogChunk struct {
 // Is this versioned or not? It would be easier if not.
 // Or at least have basic data unversioned, and more details versioned?
 type AppspaceRouteHitEvent struct {
-	Timestamp     time.Time
-	AppspaceID    AppspaceID
-	Request       *http.Request
-	V0RouteConfig *V0AppRoute // use generic app route, not versioned
+	Timestamp   time.Time
+	AppspaceID  AppspaceID
+	Request     *http.Request
+	RouteConfig *AppRoute // this needs to be normalized. use generic app route, not versioned
 	// Credentials presented by the requester
 	// zero-values indicate credential not presented
 	Credentials struct {

@@ -37,7 +37,7 @@ func (s *SandboxProxy) ServeHTTP(oRes http.ResponseWriter, oReq *http.Request) {
 
 	sbTransport := sb.GetTransport()
 
-	routeConfig, _ := domain.CtxV0RouteConfig(ctx)
+	routeConfig, _ := domain.CtxRouteConfig(ctx)
 
 	header := oReq.Header.Clone()
 	header.Set("X-Dropserver-Request-URL", getURLString(*oReq.URL))

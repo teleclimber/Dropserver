@@ -15,6 +15,7 @@ type Authenticator interface {
 	SetForAccount(http.ResponseWriter, domain.UserID) error
 	SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
 	Unset(http.ResponseWriter, *http.Request)
+	AppspaceUserProxyID(http.Handler) http.Handler
 }
 
 // V0TokenManager tracks and returns appspace login tokens

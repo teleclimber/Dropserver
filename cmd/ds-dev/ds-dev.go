@@ -163,7 +163,7 @@ func main() {
 
 	devSandboxRunsModel := &DevSandboxRunsModel{}
 
-	v0AppRoutes := &appspacerouter.V0AppRoutes{
+	AppRoutes := &appspacerouter.AppRoutes{
 		AppModel:      devAppModel,
 		AppFilesModel: devAppFilesModel,
 		Config:        runtimeConfig,
@@ -178,7 +178,7 @@ func main() {
 		AppFilesModel:    devAppFilesModel,
 		AppLocation2Path: appLocation2Path,
 		AppModel:         devAppModel,
-		V0AppRoutes:      v0AppRoutes,
+		AppRoutes:        AppRoutes,
 		AppLogger:        appLogger,
 	}
 	appGetter.Init()
@@ -319,32 +319,26 @@ func main() {
 	sandboxProxy := &sandboxproxy.SandboxProxy{
 		SandboxManager: devSandboxManager}
 
-	appspaceRouterV0 := &appspacerouter.V0{
-		AppspaceUserModel:     appspaceUserModel,
-		V0AppRoutes:           v0AppRoutes,
-		SandboxProxy:          sandboxProxy,
-		Authenticator:         devAuth,
-		RouteHitEvents:        routeHitEvents,
-		Config:                runtimeConfig,
-		AppLocation2Path:      appLocation2Path,
-		AppspaceLocation2Path: appspaceLocation2Path}
-	appspaceRouterV0.Init()
-
-	v0dropserverRoutes := &appspacerouter.V0DropserverRoutes{
-		AppspaceModel: devAppspaceModel,
-		Authenticator: devAuth,
-	}
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
-		V0DropServerRoutes: v0dropserverRoutes,
+		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
+			AppspaceModel: devAppspaceModel,
+			Authenticator: devAuth,
+		},
 	}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		Authenticator:    devAuth,
-		AppModel:         devAppModel,
-		AppspaceModel:    devAppspaceModel,
-		AppspaceStatus:   appspaceStatus,
-		V0AppspaceRouter: appspaceRouterV0,
-		DropserverRoutes: dropserverRoutes,
+		Authenticator:         devAuth,
+		AppModel:              devAppModel,
+		AppspaceModel:         devAppspaceModel,
+		AppspaceStatus:        appspaceStatus,
+		DropserverRoutes:      dropserverRoutes,
+		AppspaceUserModel:     appspaceUserModel,
+		AppRoutes:             AppRoutes,
+		SandboxProxy:          sandboxProxy,
+		RouteHitEvents:        routeHitEvents,
+		Config:                runtimeConfig,
+		AppLocation2Path:      appLocation2Path,
+		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
@@ -372,14 +366,14 @@ func main() {
 		AppVersionEvents:    appVersionEvents,
 	}
 	userService := &UserService{
-		DevAuthenticator:     devAuth,
-		AppspaceUsersModelV0: appspaceUserModel,
-		Avatars:              avatars,
-		AppspaceFilesEvents:  appspaceFilesEvents}
+		DevAuthenticator:    devAuth,
+		AppspaceUsersModel:  appspaceUserModel,
+		Avatars:             avatars,
+		AppspaceFilesEvents: appspaceFilesEvents}
 
 	routeHitService := &RouteHitService{
-		RouteHitEvents:       routeHitEvents,
-		AppspaceUsersModelV0: appspaceUserModel}
+		RouteHitEvents:     routeHitEvents,
+		AppspaceUsersModel: appspaceUserModel}
 
 	migrationJobTwine := &twineservices.MigrationJobService{
 		AppspaceModel:      devAppspaceModel,
