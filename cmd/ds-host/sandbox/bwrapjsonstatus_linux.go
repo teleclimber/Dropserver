@@ -72,6 +72,7 @@ func (b *BwrapJsonStatus) Stop() {
 	if success == -1 {
 		b.getLogger("Stop() unix.InotifyRmWatch()").Log("success is -1")
 	}
+	b.f.Close()
 	os.RemoveAll(b.filename)
 }
 
