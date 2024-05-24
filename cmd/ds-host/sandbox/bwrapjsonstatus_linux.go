@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"golang.org/x/sys/unix"
 )
+
+var errDone = errors.New("done watching this bwrap json status file")
 
 type BwrapJsonStatus struct {
 	f        *os.File
@@ -44,7 +47,7 @@ func NewBwrapJsonStatus(basePath string) (BwrapStatusJsonI, error) { // prob nee
 
 	go func() {
 		err := b.follow()
-		if err != nil {
+		if err != nil && err != errDone {
 			b.getLogger("b.follow()").Error(err)
 		}
 	}()
@@ -87,7 +90,10 @@ func (b *BwrapJsonStatus) follow() error {
 		return err
 	}
 	for {
-		b.readData()
+		err = b.readData()
+		if err != nil {
+			return err
+		}
 		err = waitForChange(fd)
 		if err != nil {
 			return err
@@ -212,9 +218,8 @@ func (b *BwrapJsonStatus) readExitCode(objmap map[string]json.RawMessage) error 
 			return err
 		}
 		b.exitCode = code
-
-		// shut things down:
 		b.Stop()
+		return errDone
 	}
 	return nil
 }
