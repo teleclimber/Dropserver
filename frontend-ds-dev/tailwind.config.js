@@ -1,4 +1,4 @@
-module.exports = {
+export default {
 	content: [
 		'./src/**/*.vue',
 		'*.html'
@@ -11,4 +11,4 @@ module.exports = {
 	  extend: {},
 	},
 	plugins: [],
-}
+};
