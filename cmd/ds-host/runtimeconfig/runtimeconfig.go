@@ -61,8 +61,11 @@ func Load(configFile string) *domain.RuntimeConfig {
 
 	validateConfig(rtc)
 	checkDirExists(rtc.DataDir, "data")
-	for _, p := range rtc.Sandbox.BwrapMapPaths {
-		checkDirExists(p, "bwrap-map-paths")
+
+	if rtc.Sandbox.UseBubblewrap {
+		for _, p := range rtc.Sandbox.BwrapMapPaths {
+			checkDirExists(p, "bwrap-map-paths")
+		}
 	}
 	setExec(rtc)
 
