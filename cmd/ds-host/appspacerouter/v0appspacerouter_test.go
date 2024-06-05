@@ -8,9 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestAuthorizePublic(t *testing.T) {
@@ -160,130 +158,6 @@ func TestAuthorizePermissionAllowed(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req.WithContext(ctx))
-
-	if rr.Result().StatusCode != http.StatusOK {
-		t.Errorf("expected OK got status %v", rr.Result().Status)
-	}
-	if !nextCalled {
-		t.Error("middleware did not call next")
-	}
-}
-
-func TestLoginTokenNoToken(t *testing.T) {
-	ar := &AppspaceRouter{}
-
-	nextCalled := false
-	handler := ar.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nextCalled = true
-	}))
-
-	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if rr.Result().StatusCode != http.StatusOK {
-		t.Errorf("expected OK got status %v", rr.Result().Status)
-	}
-	if !nextCalled {
-		t.Error("middleware did not call next")
-	}
-}
-
-func TestLoginTokenTwoTokens(t *testing.T) {
-	ar := &AppspaceRouter{}
-
-	nextCalled := false
-	handler := ar.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nextCalled = true
-	}))
-
-	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=aaaa&dropserver-login-token=bbbbbbb", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if rr.Result().StatusCode != http.StatusBadRequest {
-		t.Errorf("expected Bad Request got status %v", rr.Result().Status)
-	}
-	if nextCalled {
-		t.Error("middleware called next")
-	}
-}
-
-func TestLoginTokenNotfound(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appspaceID := domain.AppspaceID(7)
-
-	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken(appspaceID, "abcd").Return(domain.V0AppspaceLoginToken{}, false)
-
-	ar := &AppspaceRouter{
-		V0TokenManager: v0TokenManager,
-	}
-
-	nextCalled := false
-	handler := ar.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		nextCalled = true
-	}))
-
-	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=abcd", nil)
-	req = req.WithContext(domain.CtxWithAppspaceData(req.Context(), domain.Appspace{AppspaceID: appspaceID}))
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if rr.Result().StatusCode != http.StatusOK {
-		t.Errorf("expected OK got status %v", rr.Result().Status)
-	}
-	if !nextCalled {
-		t.Error("middleware did not call next")
-	}
-}
-
-func TestLoginToken(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	proxyID := domain.ProxyID("uvw")
-	appspaceID := domain.AppspaceID(7)
-	domainName := "as1.ds.dev"
-
-	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0TokenManager.EXPECT().CheckToken(appspaceID, "abcd").Return(domain.V0AppspaceLoginToken{AppspaceID: appspaceID, ProxyID: proxyID}, true)
-
-	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
-	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, domainName).Return("cid", nil)
-
-	ar := &AppspaceRouter{
-		V0TokenManager: v0TokenManager,
-		Authenticator:  authenticator,
-	}
-
-	nextCalled := false
-	handler := ar.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqProxyID, ok := domain.CtxAppspaceUserProxyID(r.Context())
-		if !ok {
-			t.Error("no proxy id set")
-		}
-		if reqProxyID != proxyID {
-			t.Error("wrong proxy id")
-		}
-
-		reqCookieID, ok := domain.CtxSessionID(r.Context())
-		if !ok {
-			t.Error("no cookie id")
-		}
-		if reqCookieID != "cid" {
-			t.Error("wrong cookie id")
-		}
-
-		nextCalled = true
-	}))
-
-	req, _ := http.NewRequest(http.MethodGet, "/?dropserver-login-token=abcd", nil)
-	req = req.WithContext(domain.CtxWithAppspaceData(req.Context(), domain.Appspace{AppspaceID: appspaceID, DomainName: domainName}))
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
 
 	if rr.Result().StatusCode != http.StatusOK {
 		t.Errorf("expected OK got status %v", rr.Result().Status)

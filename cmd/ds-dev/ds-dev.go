@@ -327,9 +327,7 @@ func main() {
 	}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		Authenticator:         devAuth,
 		AppModel:              devAppModel,
-		AppspaceModel:         devAppspaceModel,
 		AppspaceStatus:        appspaceStatus,
 		DropserverRoutes:      dropserverRoutes,
 		AppspaceUserModel:     appspaceUserModel,
@@ -342,6 +340,13 @@ func main() {
 	}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
+
+	devAppspaceRouter := &DevAppspaceRouter{
+		AppspaceModel:  devAppspaceModel,
+		Authenticator:  devAuth,
+		AppspaceRouter: appspaceRouter,
+	}
+	devAppspaceRouter.Init()
 
 	serviceMaker := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
@@ -412,7 +417,7 @@ func main() {
 	server := &Server{
 		Config:                runtimeConfig,
 		DropserverDevHandler:  dsDevHandler,
-		AppspaceRouter:        appspaceRouter,
+		AppspaceRouter:        devAppspaceRouter,
 		AppspaceLocation2Path: appspaceLocation2Path}
 
 	// experimental:

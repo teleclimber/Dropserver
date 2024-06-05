@@ -543,31 +543,52 @@ func main() {
 	}
 
 	appspaceRouter := &appspacerouter.AppspaceRouter{
-		Authenticator:         authenticator,
 		AppModel:              appModel,
-		AppspaceModel:         appspaceModel,
 		AppspaceStatus:        appspaceStatus,
 		DropserverRoutes:      dropserverRoutes,
 		AppRoutes:             AppRoutes,
 		AppspaceUserModel:     appspaceUserModel,
 		SandboxProxy:          sandboxProxy,
-		V0TokenManager:        v0tokenManager,
 		Config:                runtimeConfig,
 		AppLocation2Path:      appLocation2Path,
 		AppspaceLocation2Path: appspaceLocation2Path}
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
+	fromServer := &appspacerouter.FromServer{
+		Authenticator:  authenticator,
+		V0TokenManager: v0tokenManager,
+		AppspaceModel:  appspaceModel,
+		AppspaceRouter: appspaceRouter,
+	}
+	fromServer.Init()
+
+	fromTsnet := &appspacerouter.FromTsnet{
+		AppspaceModel:     appspaceModel,
+		AppspaceUserModel: appspaceUserModel,
+		AppspaceRouter:    appspaceRouter,
+	}
+	fromTsnet.Init()
+
 	services := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
 	sandboxManager.ServiceMaker = services
 
 	// Create server.
-	server := &server.Server{
+	mainServer := &server.Server{
 		Config:             runtimeConfig,
 		CertificateManager: certificateManager,
 		UserRoutes:         userRoutes,
-		AppspaceRouter:     appspaceRouter}
+		AppspaceRouter:     fromServer}
+
+	appspaceTSServers := &server.AppspaceTSNet{
+		Config:                runtimeConfig,
+		UserModel:             userModel,
+		AppspaceModel:         appspaceModel,
+		AppspaceRouter:        fromTsnet,
+		AppspaceLocation2Path: appspaceLocation2Path,
+	}
+	appspaceTSServers.Init()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -588,7 +609,9 @@ func main() {
 		remoteAppGetter.Stop()
 		appGetter.Stop()
 
-		server.Shutdown()
+		appspaceTSServers.StopAll()
+
+		mainServer.Shutdown()
 
 		record.StopPromMetrics()
 
@@ -601,7 +624,7 @@ func main() {
 	}()
 
 	if os.Getenv("DEBUG") != "" || *checkInjectOut != "" {
-		depGraph := checkinject.Collect(*server)
+		depGraph := checkinject.Collect(*mainServer)
 		if *checkInjectOut != "" {
 			depGraph.GenerateDotFile(*checkInjectOut, []interface{}{runtimeConfig, appLocation2Path, appspaceLocation2Path})
 		}
@@ -611,7 +634,9 @@ func main() {
 	// start things up
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
-	server.Start()
+	mainServer.Start()
+
+	appspaceTSServers.StartAll()
 
 	go domainController.ResumeManagingCertificates()
 

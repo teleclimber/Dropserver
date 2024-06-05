@@ -73,41 +73,6 @@ func (a *AppspaceRouter) loadRouteConfig(next http.Handler) http.Handler {
 	})
 }
 
-func (a *AppspaceRouter) processLoginToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		loginTokenValues := r.URL.Query()["dropserver-login-token"]
-		if len(loginTokenValues) == 0 {
-			next.ServeHTTP(w, r)
-			return
-		}
-		if len(loginTokenValues) > 1 {
-			http.Error(w, "multiple login tokens", http.StatusBadRequest)
-			return
-		}
-
-		ctx := r.Context()
-		appspace, _ := domain.CtxAppspaceData(ctx)
-
-		token, ok := a.V0TokenManager.CheckToken(appspace.AppspaceID, loginTokenValues[0])
-		if !ok {
-			// no matching token is not an error. It can happen if user reloads the page for ex.
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		cookieID, err := a.Authenticator.SetForAppspace(w, token.ProxyID, token.AppspaceID, appspace.DomainName)
-		if err != nil {
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		ctx = domain.CtxWithAppspaceUserProxyID(ctx, token.ProxyID)
-		ctx = domain.CtxWithSessionID(ctx, cookieID)
-
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 func (a *AppspaceRouter) loadAppspaceUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
 // Hmm, this is kind of a misnomer now?
@@ -18,26 +17,16 @@ import (
 
 // AppspaceRouter handles routes for appspaces.
 type AppspaceRouter struct {
-	Config        *domain.RuntimeConfig `checkinject:"required"`
-	Authenticator interface {
-		AppspaceUserProxyID(http.Handler) http.Handler
-		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
-	} `checkinject:"required"`
+	Config   *domain.RuntimeConfig `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
-	} `checkinject:"required"`
-	AppspaceModel interface {
-		GetFromDomain(string) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Ready(domain.AppspaceID) bool
-	} `checkinject:"required"`
-	V0TokenManager interface {
-		CheckToken(appspaceID domain.AppspaceID, token string) (domain.V0AppspaceLoginToken, bool)
 	} `checkinject:"required"`
 	DropserverRoutes interface {
 		Router() http.Handler
@@ -62,59 +51,23 @@ type AppspaceRouter struct {
 
 	subscribersMux sync.Mutex
 	subscribers    map[domain.AppspaceID][]chan<- int
-
-	mux *chi.Mux
 }
 
 // Init initializes the router
 func (a *AppspaceRouter) Init() {
 	a.liveCounter = make(map[domain.AppspaceID]int)
 	a.subscribers = make(map[domain.AppspaceID][]chan<- int)
+}
 
-	mux := chi.NewRouter()
-	mux.Use(a.loadAppspace)
-	mux.Use(a.Authenticator.AppspaceUserProxyID)
+func (a *AppspaceRouter) BuildRoutes(mux *chi.Mux) {
 	mux.Use(a.errorPage)
 	mux.Use(a.appspaceAvailable, a.countRequest)
 	mux.Use(a.loadApp)
-
 	mux.Mount("/.dropserver", a.DropserverRoutes.Router())
 	mux.Route("/", func(r chi.Router) {
 		r.Use(a.securityHeaders)
-		r.Use(a.loadRouteConfig, a.routeHit, a.processLoginToken, a.loadAppspaceUser, a.authorizeRoute)
+		r.Use(a.loadRouteConfig, a.routeHit, a.loadAppspaceUser, a.authorizeRoute)
 		r.Handle("/*", http.HandlerFunc(a.handleRoute))
-	})
-
-	a.mux = mux
-}
-func (a *AppspaceRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.mux.ServeHTTP(w, r)
-}
-
-func (a *AppspaceRouter) loadAppspace(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: use of r.Host not good enough. see the requestHost function of https://github.com/go-chi/hostrouter
-		// May need to determine host at server and stash it in context.
-		host, err := getcleanhost.GetCleanHost(r.Host)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		appspace, err := a.AppspaceModel.GetFromDomain(host)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if appspace == nil {
-			w.WriteHeader(http.StatusNotFound)
-			a.notFoundPage(w)
-			return
-		}
-
-		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
-
-		next.ServeHTTP(w, r)
 	})
 }
 
@@ -196,7 +149,7 @@ func (a *AppspaceRouter) errorPage(next http.Handler) http.Handler {
 	})
 }
 
-func (a *AppspaceRouter) notFoundPage(w http.ResponseWriter) {
+func notFoundPage(w http.ResponseWriter) {
 	setHTMLHeader(w)
 	w.Write([]byte("<h1>404 Not Found</h1>"))
 }
@@ -297,11 +250,6 @@ func (a *AppspaceRouter) emitLiveCount(appspaceID domain.AppspaceID, count int) 
 		ch <- count
 	}
 }
-
-// Or maybe this is an events thing?
-// Or maybe just a singular event when no more requests?
-//  -> no, make generic not specific to some other package's needs.
-// Consider that future features might be ability to view live requests in owner frontend, etc...
 
 func (a *AppspaceRouter) getLogger(appspaceID domain.AppspaceID) *record.DsLogger {
 	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("AppspaceRouter")
