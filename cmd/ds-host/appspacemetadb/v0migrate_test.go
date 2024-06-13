@@ -7,21 +7,21 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestV0Exec(t *testing.T) {
-	v0h := &v0handle{handle: getTestDBHandle()}
+func TestExec(t *testing.T) {
+	dbe := getTestDBExec()
 
-	v0h.exec(`CREATE TABLE info (
+	dbe.exec(`CREATE TABLE info (
 		"name" TEXT,
 		"value" TEXT
 	)`)
 
-	if v0h.err != nil {
-		t.Error(v0h.err)
+	if dbe.err != nil {
+		t.Error(dbe.err)
 	}
 
 	//check the table was actually created please.
 	var tables []string
-	err := v0h.handle.Select(&tables, `SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'`)
+	err := dbe.handle.Select(&tables, `SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'`)
 	if err != nil {
 		t.Error(err)
 	}
@@ -33,32 +33,32 @@ func TestV0Exec(t *testing.T) {
 	}
 }
 
-func TestV0ExecError(t *testing.T) {
-	v0h := &v0handle{handle: getTestDBHandle()}
+func TestExecError(t *testing.T) {
+	dbe := getTestDBExec()
 
-	v0h.exec(`CREATEzzzzz TABLE info (
+	dbe.exec(`CREATEzzzzz TABLE info (
 		"name" TEXT,
 		"value" TEXT
 	)`)
 
-	err := v0h.checkErr()
+	err := dbe.checkErr()
 	if err == nil {
 		t.Error("expected error")
 	}
 }
 
 func TestMigrateUpToV0(t *testing.T) {
-	v0h := &v0handle{handle: getTestDBHandle()}
+	dbe := getTestDBExec()
 
-	v0h.migrateUpToV0()
+	migrateUpToV0(dbe)
 
-	err := v0h.checkErr()
+	err := dbe.checkErr()
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-func getTestDBHandle() *sqlx.DB {
+func getTestDBExec() *dbExec {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?
 	// See: https://github.com/jmoiron/sqlx/issues/164
@@ -69,5 +69,9 @@ func getTestDBHandle() *sqlx.DB {
 
 	handle.SetMaxOpenConns(1)
 
-	return handle
+	dbe := &dbExec{
+		handle: handle,
+	}
+
+	return dbe
 }

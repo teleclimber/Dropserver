@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
@@ -180,9 +181,26 @@ func TestDelete(t *testing.T) {
 }
 
 func makeUserModel(mockCtrl *gomock.Controller) *UserModel {
-	db := getV0TestDBHandle()
+	// Beware of in-memory DBs: they vanish as soon as the connection closes!
+	// We may be able to start a sqlx transaction to avoid problems with that?
+	// See: https://github.com/jmoiron/sqlx/issues/164
+	handle, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic("Failed to open in-memory DB " + err.Error())
+	}
+
+	handle.SetMaxOpenConns(1)
+
+	dbc := &dbConn{
+		handle: handle,
+	}
+	err = dbc.migrateTo(curSchema)
+	if err != nil {
+		panic("Failed to migrate")
+	}
+
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
-	appspaceMetaDB.EXPECT().GetHandle(asID).Return(db, nil).AnyTimes()
+	appspaceMetaDB.EXPECT().GetHandle(asID).Return(dbc.handle, nil).AnyTimes()
 
 	return &UserModel{
 		AppspaceMetaDB: appspaceMetaDB}

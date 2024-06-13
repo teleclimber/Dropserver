@@ -1,11 +1,11 @@
 package appspacemetadb
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
@@ -15,14 +15,14 @@ func TestStartConn(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
 	defer os.RemoveAll(dir)
 
 	readyChan := make(chan struct{})
-	conn := &DbConn{
+	conn := &dbConn{
 		readySub: []chan struct{}{readyChan},
 	}
 
@@ -56,7 +56,7 @@ func TestCreateAndGet(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -104,3 +104,41 @@ func TestCreateAndGet(t *testing.T) {
 		t.Error("expected value to be 0")
 	}
 }
+
+func TestGetUnknownSchema(t *testing.T) {
+	handle, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic("Failed to open in-memory DB " + err.Error())
+	}
+	handle.SetMaxOpenConns(1)
+
+	dbc := &dbConn{
+		handle: handle,
+	}
+
+	s, err := dbc.getUnknownSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	if s != -1 {
+		t.Errorf("expected -1, got shcmea of %d", s)
+	}
+
+	err = dbc.migrateTo(0)
+	if err != nil {
+		t.Error(err)
+	}
+
+	s, err = dbc.getUnknownSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	if s != 0 {
+		t.Errorf("expected 0, got shcmea of %d", s)
+	}
+
+	// test additional schemas when we have them.
+
+}
+
+// Add MigrateTo Tests when we have more versions.

@@ -16,7 +16,7 @@ func TestInfoGetNoSchema(t *testing.T) {
 
 	asID := domain.AppspaceID(7)
 
-	db := getV0TestDBHandle()
+	db := getInfoTestDBHandle()
 
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDB.EXPECT().GetHandle(asID).Return(db, nil)
@@ -39,7 +39,7 @@ func TestInfoSetSchema(t *testing.T) {
 
 	asID := domain.AppspaceID(7)
 
-	db := getV0TestDBHandle()
+	db := getInfoTestDBHandle()
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDB.EXPECT().GetHandle(asID).AnyTimes().Return(db, nil)
 
@@ -60,7 +60,7 @@ func TestInfoSetSchema(t *testing.T) {
 	}
 }
 
-func getV0TestDBHandle() *sqlx.DB {
+func getInfoTestDBHandle() *sqlx.DB {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?
 	// See: https://github.com/jmoiron/sqlx/issues/164
@@ -71,13 +71,13 @@ func getV0TestDBHandle() *sqlx.DB {
 
 	handle.SetMaxOpenConns(1)
 
-	v0h := v0handle{
-		handle: handle}
+	dbc := &dbConn{
+		handle: handle,
+	}
 
-	v0h.migrateUpToV0()
-
-	if v0h.err != nil {
-		panic(v0h.err)
+	err = dbc.migrateTo(curSchema)
+	if err != nil {
+		panic("Failed to migrate DB " + err.Error())
 	}
 
 	return handle

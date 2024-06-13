@@ -9,6 +9,8 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
+// schemaKey is the feild name that represents that schema of the appspace files
+// This schema is set when a migration is run on the appspace data.
 const schemaKey = "schema"
 
 // InfoModel interacts with the info table of appspace meata db
@@ -18,17 +20,7 @@ type InfoModel struct {
 	} `checkinject:"required"`
 }
 
-// SetDsAPIVersion sets the ds api version
-// But do we need this?
-// func (m *InfoModel) SetDsAPIVersion() {
-
-// }
-
-// func (m *InfoModel) DsAPIVersion() {
-
-// }
-
-// SetSchema sets the schema in the info db
+// SetSchema sets the schema of the appspace files in the info db
 func (m *InfoModel) SetSchema(appspaceID domain.AppspaceID, schema int) error {
 	db, err := m.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
@@ -51,7 +43,7 @@ func (m *InfoModel) SetSchema(appspaceID domain.AppspaceID, schema int) error {
 	return nil
 }
 
-//GetSchema returns the schema or 0 if none exists
+// GetSchema returns the schema of the appspace files or 0 if none exists
 func (m *InfoModel) GetSchema(appspaceID domain.AppspaceID) (int, error) {
 	// for now just read it from the DB?
 	// In future, cache it, and invalidate on SetSchema
@@ -66,7 +58,7 @@ func (m *InfoModel) GetSchema(appspaceID domain.AppspaceID) (int, error) {
 	return schema, err
 }
 
-//GetAppspaceMetaInfo returns the schema as stored in the appspace meta db at path
+// GetAppspaceMetaInfo returns the schema as stored in the appspace meta db at path
 // But this should really return all basic metadata info about the appspace
 // app, version, domain, etc...
 // Or you could return api version (which should also be stored with appspace presumably)

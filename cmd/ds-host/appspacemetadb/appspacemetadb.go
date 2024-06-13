@@ -1,6 +1,7 @@
 package appspacemetadb
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -29,12 +30,12 @@ type AppspaceMetaDB struct {
 	} `checkinject:"required"`
 
 	connsMux sync.Mutex
-	conns    map[domain.AppspaceID]*DbConn
+	conns    map[domain.AppspaceID]*dbConn
 }
 
 // Init initializes data structures as needed
 func (mdb *AppspaceMetaDB) Init() {
-	mdb.conns = make(map[domain.AppspaceID]*DbConn)
+	mdb.conns = make(map[domain.AppspaceID]*dbConn)
 }
 
 // Create an apspace meta DB file for an appspace.
@@ -42,7 +43,7 @@ func (mdb *AppspaceMetaDB) Init() {
 func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int) error {
 
 	readyChan := make(chan struct{})
-	conn := &DbConn{
+	conn := &dbConn{
 		readySub: []chan struct{}{readyChan},
 	}
 
@@ -56,7 +57,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 	}
 
 	// create tables  ->  need to branch out to different models for different API versions.
-	err := conn.RunMigrationStep(dsAPIVersion, true)
+	err := conn.migrateTo(curSchema)
 	if err != nil {
 		// nothing really to revert to.
 		// Just means something is borked and we can't create an appspace right now?
@@ -71,7 +72,7 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 }
 
 // getConn returns the existing conn for the appspace ID or creates one if necessary
-func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*DbConn, error) {
+func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*dbConn, error) {
 	locked := mdb.AppspaceStatus.IsLockedClosed(appspaceID)
 	if locked {
 		return nil, domain.ErrAppspaceLockedClosed
@@ -90,7 +91,7 @@ func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*DbConn, error
 		conn.statusMux.Unlock()
 	} else {
 		readyChan = make(chan struct{})
-		mdb.conns[appspaceID] = &DbConn{
+		mdb.conns[appspaceID] = &dbConn{
 			readySub: []chan struct{}{readyChan},
 		}
 		conn = mdb.conns[appspaceID]
@@ -117,7 +118,7 @@ func (mdb *AppspaceMetaDB) GetHandle(appspaceID domain.AppspaceID) (*sqlx.DB, er
 		mdb.getLogger("GetHandle(), getConn()").AppspaceID(appspaceID).Error(err)
 		return nil, err
 	}
-	return conn.GetHandle(), nil
+	return conn.getHandle(), nil
 }
 
 // CloseConn closes the db file and removes connection from conns
@@ -141,7 +142,7 @@ func (mdb *AppspaceMetaDB) CloseConn(appspaceID domain.AppspaceID) error {
 	return nil
 }
 
-func (mdb *AppspaceMetaDB) startConn(conn *DbConn, appspaceID domain.AppspaceID, create bool) { //maybe just pass location key instead of appspace id?
+func (mdb *AppspaceMetaDB) startConn(conn *dbConn, appspaceID domain.AppspaceID, create bool) { //maybe just pass location key instead of appspace id?
 	appspace, err := mdb.AppspaceModel.GetFromID(appspaceID)
 	if err != nil {
 		setConnError(conn, err)
@@ -200,7 +201,7 @@ func (mdb *AppspaceMetaDB) getLogger(note string) *record.DsLogger {
 	return r
 }
 
-func setConnError(conn *DbConn, e error) {
+func setConnError(conn *dbConn, e error) {
 	conn.statusMux.Lock()
 	conn.connError = e
 	conn.statusMux.Unlock()
@@ -210,37 +211,92 @@ func setConnError(conn *DbConn, e error) {
 	}
 }
 
-// DbConn holds the db handle and relevant request data
-type DbConn struct {
+// dbConn holds the db handle and relevant request data
+type dbConn struct {
 	statusMux sync.Mutex // not 100% sure what it's covering.
 	handle    *sqlx.DB
 	connError error
 	readySub  []chan struct{}
 }
 
-// GetHandle returns the DB handle for theis connection
-func (dbc *DbConn) GetHandle() *sqlx.DB {
+// getHandle returns the DB handle for theis connection
+func (dbc *dbConn) getHandle() *sqlx.DB {
 	return dbc.handle
 }
 
-// RunMigrationStep runs a single migration step
-// This is exported but doesn't match the domain.DbConn Interface that is returned above.
-func (dbc *DbConn) RunMigrationStep(toVersion int, up bool) error {
-	var err error
-	switch toVersion {
-	case 0:
-		v0h := &v0handle{handle: dbc.handle}
-		if up {
-			v0h.migrateUpToV0()
-		} else {
-			v0h.migrateDownToV0()
+// getUnknownSchema of an Appspace Meta DB
+// Returns a schema of -1 if DB is freshly created
+func (dbc *dbConn) getUnknownSchema() (int, error) {
+	// schema may be in info table.
+	// or it might be in schema thing of sqlite
+	// or it may not have a schema at all.
+
+	// if table info exists, then look up schema
+	var dbSchema int
+	var numInfo int
+	err := dbc.handle.Get(&numInfo, `SELECT count(*) AS num FROM sqlite_schema WHERE type='table' AND name='info'`)
+	if err != nil && err != sql.ErrNoRows { // how does No Rows make sense here?
+		//actual sql error,
+		return 0, err
+	}
+	if numInfo == 1 {
+		err = dbc.handle.Get(&dbSchema, `SELECT value FROM info WHERE name = ?`, "ds-api-version")
+		if err != nil && err != sql.ErrNoRows {
+			//actual sql error,
+			return 0, err
 		}
-		err = v0h.checkErr()
-	default:
-		err = fmt.Errorf("appspace API version not handled: %v", toVersion)
+		if err != sql.ErrNoRows {
+			// schema value is probably valid.
+			// Also it should be 0 anyways.
+			return dbSchema, nil
+		}
 	}
 
-	return err
+	// If there are no tables at all, freshly created DB, return -1
+	var numTable int
+	err = dbc.handle.Get(&numTable, `SELECT count(*) AS num FROM sqlite_schema WHERE type='table'`)
+	if err != nil && err != sql.ErrNoRows {
+		//actual sql error,
+		return 0, err
+	}
+	if numTable == 0 {
+		// freshfly created DB. return -1
+		return -1, nil
+	}
+
+	// maybe return sentinel error.
+	return 0, errors.New("unable to determine schema of appspace Meta DB")
+}
+
+// migrateTo runs migration steps necesary to take db to desired version
+func (dbc *dbConn) migrateTo(to int) error {
+	if to < 0 {
+		return fmt.Errorf("invalid to value for migratTo: %d", to)
+	}
+	if to > curSchema {
+		return fmt.Errorf("invalid to value for migrateTo: %d, highest is %d", to, curSchema)
+	}
+	cur, err := dbc.getUnknownSchema()
+	if err != nil {
+		return err
+	}
+	if cur > curSchema {
+		// This may need to be a sentinel error so that we can propgate a good message to the user
+		return fmt.Errorf("unknown appspace Meta DB schema: %d, the highest known is %d", cur, curSchema)
+	}
+	if cur == to {
+		return nil
+	}
+
+	d := &dbExec{handle: dbc.handle}
+	for i := cur + 1; i <= to; i++ {
+		upMigrations[i](d)
+	}
+	for i := cur - 1; i >= to; i-- {
+		downMigrations[i](d)
+	}
+
+	return d.checkErr()
 }
 
 // getDb returns a db handle for an appspace meta db located at dataPath
