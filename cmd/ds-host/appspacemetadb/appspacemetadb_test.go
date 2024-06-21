@@ -128,7 +128,6 @@ func TestGetUnknownSchema(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 	s, err = dbc.getUnknownSchema()
 	if err != nil {
 		t.Error(err)
@@ -137,8 +136,27 @@ func TestGetUnknownSchema(t *testing.T) {
 		t.Errorf("expected 0, got shcmea of %d", s)
 	}
 
-	// test additional schemas when we have them.
+	err = dbc.migrateTo(1)
+	if err != nil {
+		t.Error(err)
+	}
+	s, err = dbc.getUnknownSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	if s != 1 {
+		t.Errorf("expected 1, got shcmea of %d", s)
+	}
 
+	err = dbc.migrateTo(0)
+	if err != nil {
+		t.Error(err)
+	}
+	s, err = dbc.getUnknownSchema()
+	if err != nil {
+		t.Error(err)
+	}
+	if s != 0 {
+		t.Errorf("expected 0, got schema of %d", s)
+	}
 }
-
-// Add MigrateTo Tests when we have more versions.

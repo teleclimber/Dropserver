@@ -17,7 +17,7 @@ func TestToDomainStructPermissions(t *testing.T) {
 	u := &UserModel{}
 	user := u.toDomainUser(domain.AppspaceID(7), appspaceUser{
 		Permissions: "",
-	})
+	}, []domain.AppspaceUserAuth{})
 
 	if len(user.Permissions) != 0 {
 		t.Errorf("expected 0 permissions %v", len(user.Permissions))
@@ -30,9 +30,20 @@ func TestCreate(t *testing.T) {
 
 	u := makeUserModel(mockCtrl)
 
-	_, err := u.Create(asID, "email", "me@me.com")
+	proxyID, err := u.Create(asID, "email", "me@me.com")
 	if err != nil {
 		t.Error(err)
+	}
+
+	user, err := u.Get(asID, proxyID)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(user.Auths) != 1 {
+		t.Error("expected 1 auth for user")
+	}
+	if user.Auths[0].Identifier != "me@me.com" {
+		t.Error("no identifier in user auth")
 	}
 
 	_, err = u.Create(asID, "email", "me@me.com")
@@ -41,7 +52,6 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-// add test for update auth
 func TestUpdateAuth(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -63,8 +73,8 @@ func TestUpdateAuth(t *testing.T) {
 	}
 
 	user, _ := u.Get(asID, proxyID)
-	if user.AuthType != "dropid" || user.AuthID != "moi.com/moi" {
-		t.Errorf("did not get the auth data we expected: %v, %v", user.AuthType, user.AuthID)
+	if user.Auths[0].Type != "dropid" || user.Auths[0].Identifier != "moi.com/moi" {
+		t.Errorf("did not get the auth data we expected: %v, %v", user.Auths[0].Type, user.Auths[0].Identifier)
 	}
 
 	err = u.UpdateAuth(asID, proxyID, "email", "me@me2.com")
@@ -149,7 +159,7 @@ func TestGetByDropID(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if user.AuthID != dropID {
+	if user.Auths[0].Identifier != dropID {
 		t.Error("expected drop id to match")
 	}
 }

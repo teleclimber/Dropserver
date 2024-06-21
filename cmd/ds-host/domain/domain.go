@@ -661,13 +661,19 @@ type Contact struct {
 type AppspaceUser struct {
 	AppspaceID  AppspaceID         `json:"appspace_id"`
 	ProxyID     ProxyID            `json:"proxy_id"`
-	AuthType    string             `json:"auth_type"`
-	AuthID      string             `json:"auth_id"`
+	Auths       []AppspaceUserAuth `json:"auth"`
 	DisplayName string             `json:"display_name"`
 	Avatar      string             `json:"avatar"`
 	Permissions []string           `json:"permissions"`
 	Created     time.Time          `json:"created_dt"`
 	LastSeen    nulltypes.NullTime `json:"last_seen"`
+}
+
+type AppspaceUserAuth struct {
+	Type       string             `db:"type" json:"type"`
+	Identifier string             `db:"identifier" json:"identifier"`
+	Created    time.Time          `db:"created" json:"created_dt"`
+	LastSeen   nulltypes.NullTime `db:"last_seen" json:"last_seen"`
 }
 
 // V0RouteModel serves route data queries at version 0

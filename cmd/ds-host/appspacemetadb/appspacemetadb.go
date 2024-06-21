@@ -237,13 +237,13 @@ func (dbc *dbConn) getUnknownSchema() (int, error) {
 	err := dbc.handle.Get(&numInfo, `SELECT count(*) AS num FROM sqlite_schema WHERE type='table' AND name='info'`)
 	if err != nil && err != sql.ErrNoRows { // how does No Rows make sense here?
 		//actual sql error,
-		return 0, err
+		return 0, fmt.Errorf("error in getUnknownSchema: error getting info tables: %w", err)
 	}
 	if numInfo == 1 {
 		err = dbc.handle.Get(&dbSchema, `SELECT value FROM info WHERE name = ?`, "ds-api-version")
 		if err != nil && err != sql.ErrNoRows {
 			//actual sql error,
-			return 0, err
+			return 0, fmt.Errorf("error in getUnknownSchema: error getting value of ds-api-version: %w", err)
 		}
 		if err != sql.ErrNoRows {
 			// schema value is probably valid.
@@ -257,11 +257,19 @@ func (dbc *dbConn) getUnknownSchema() (int, error) {
 	err = dbc.handle.Get(&numTable, `SELECT count(*) AS num FROM sqlite_schema WHERE type='table'`)
 	if err != nil && err != sql.ErrNoRows {
 		//actual sql error,
-		return 0, err
+		return 0, fmt.Errorf("error in getUnknownSchema: error getting total table count: %w", err)
 	}
 	if numTable == 0 {
 		// freshfly created DB. return -1
 		return -1, nil
+	}
+
+	err = dbc.handle.Get(&dbSchema, `PRAGMA user_version`)
+	if err != nil { // Pragma user_version does not return ErrNoRows
+		return dbSchema, fmt.Errorf("error in getUnknownSchema: error reading PRAGMA user_version: %w", err)
+	}
+	if dbSchema > 0 {
+		return dbSchema, nil
 	}
 
 	// maybe return sentinel error.
