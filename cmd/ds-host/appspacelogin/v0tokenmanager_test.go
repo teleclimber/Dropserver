@@ -152,7 +152,7 @@ func TestSendToken(t *testing.T) {
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 
 	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
-	appspaceUserModel.EXPECT().GetByDropID(appspaceID, dropID).Return(domain.AppspaceUser{}, nil)
+	appspaceUserModel.EXPECT().GetByAuth(appspaceID, "dropid", dropID).Return(domain.AppspaceUser{}, nil)
 
 	tokenManager := V0TokenManager{
 		Config:            config,

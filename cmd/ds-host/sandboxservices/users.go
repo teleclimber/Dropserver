@@ -50,17 +50,14 @@ func (u *UsersService) handleGetUserCommand(message twine.ReceivedMessageI) {
 		message.SendError(err.Error())
 		return
 	}
-	if user.ProxyID == "" {
-		message.Reply(13, nil)
-	} else {
-		bytes, err := json.Marshal(getUserForSandbox(user))
-		if err != nil {
-			u.getLogger("handleGetUserCommand(), json Marshal error").Error(err)
-			message.SendError("Error on host")
-			return
-		}
-		message.Reply(14, bytes)
+
+	bytes, err := json.Marshal(getUserForSandbox(user))
+	if err != nil {
+		u.getLogger("handleGetUserCommand(), json Marshal error").Error(err)
+		message.SendError("Error on host")
+		return
 	}
+	message.Reply(14, bytes)
 }
 
 func (u *UsersService) handleGetAllUsersCommand(message twine.ReceivedMessageI) {

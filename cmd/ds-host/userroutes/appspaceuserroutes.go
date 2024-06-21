@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,7 +78,7 @@ func (a *AppspaceUserRoutes) userCtx(next http.Handler) http.Handler {
 
 		user, err := a.AppspaceUserModel.Get(appspace.AppspaceID, domain.ProxyID(proxyStr))
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == domain.ErrNoRowsInResultSet {
 				returnError(w, errNotFound)
 			} else {
 				http.Error(w, "internal server error", http.StatusInternalServerError)

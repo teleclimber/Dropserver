@@ -1,7 +1,6 @@
 package appspacemetadb
 
 import (
-	"database/sql"
 	"reflect"
 	"testing"
 
@@ -155,7 +154,7 @@ func TestGetByDropID(t *testing.T) {
 		t.Error(err)
 	}
 
-	user, err := u.GetByDropID(asID, dropID)
+	user, err := u.GetByAuth(asID, "dropid", dropID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -185,7 +184,7 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 	_, err = u.Get(asID, proxyID)
-	if err != sql.ErrNoRows {
+	if err != domain.ErrNoRowsInResultSet {
 		t.Error(err)
 	}
 }

@@ -184,7 +184,7 @@ func (u *UserModel) Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (d
 
 	user, err := getUser(tx, proxyID)
 	if err == sql.ErrNoRows {
-		return domain.AppspaceUser{}, err //TODO change to domain error
+		return domain.AppspaceUser{}, domain.ErrNoRowsInResultSet
 	} else if err != nil {
 		log.AddNote("getUser()").Error(err)
 		return domain.AppspaceUser{}, err
@@ -225,11 +225,10 @@ func getUserAuths(sp stmtPreparer, proxyID domain.ProxyID) (auths []domain.Appsp
 	return
 }
 
-// GetByDropID returns an appspace that matches the dropid string
-// It returns sql.ErrNoRows if not found
-// TODO This should be made geenric: GetByAuth( appspace, auth type, auth id)
-func (u *UserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error) {
-	log := u.getLogger("GetByDropID()").AppspaceID(appspaceID)
+// GetByAuth returns an AppspaceUser that matches the auth strings
+// It returns domain.ErrNoRowsInResultSet if not found
+func (u *UserModel) GetByAuth(appspaceID domain.AppspaceID, authType string, identifier string) (domain.AppspaceUser, error) {
+	log := u.getLogger("GetByAuth()").AppspaceID(appspaceID)
 
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
@@ -243,16 +242,16 @@ func (u *UserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (do
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Preparex(`SELECT proxy_id FROM user_auth_ids WHERE type = "dropid" AND identifier = ?`)
+	stmt, err := tx.Preparex(`SELECT proxy_id FROM user_auth_ids WHERE type = ? AND identifier = ?`)
 	if err != nil {
 		log.AddNote("Preparex()").Error(err)
 		return domain.AppspaceUser{}, err
 	}
 
 	var proxyID domain.ProxyID
-	err = stmt.Get(&proxyID, dropID)
+	err = stmt.Get(&proxyID, authType, identifier)
 	if err == sql.ErrNoRows {
-		return domain.AppspaceUser{}, sql.ErrNoRows //TODO domain.ErrNoRowsInResultSet
+		return domain.AppspaceUser{}, domain.ErrNoRowsInResultSet
 	} else if err != nil {
 		log.AddNote("Get()").Error(err)
 		return domain.AppspaceUser{}, err
@@ -260,7 +259,7 @@ func (u *UserModel) GetByDropID(appspaceID domain.AppspaceID, dropID string) (do
 
 	user, err := getUser(tx, proxyID)
 	if err == sql.ErrNoRows { // This happens if DB has an auth for a non-existenting Proxy id.
-		return domain.AppspaceUser{}, err //TODO change to domain error
+		return domain.AppspaceUser{}, domain.ErrNoRowsInResultSet
 	} else if err != nil {
 		log.AddNote("getUser()").Error(err)
 		return domain.AppspaceUser{}, err

@@ -1,7 +1,6 @@
 package appspacerouter
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"os"
@@ -85,7 +84,7 @@ func (a *AppspaceRouter) loadAppspaceUser(next http.Handler) http.Handler {
 
 		appspaceUser, err := a.AppspaceUserModel.Get(appspace.AppspaceID, proxyID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if err == domain.ErrNoRowsInResultSet {
 				next.ServeHTTP(w, r)
 			} else {
 				http.Error(w, "internal server error", http.StatusInternalServerError)

@@ -1,7 +1,6 @@
 package appspacerouter
 
 import (
-	"database/sql"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -14,7 +13,7 @@ type FromTsnet struct {
 		GetFromDomain(string) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
-		GetByDropID(appspaceID domain.AppspaceID, dropID string) (domain.AppspaceUser, error)
+		GetByAuth(appspaceID domain.AppspaceID, authType string, identifier string) (domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	AppspaceRouter interface {
 		BuildRoutes(mux *chi.Mux)
@@ -56,12 +55,12 @@ func (f *FromTsnet) getProxyID(next http.Handler) http.Handler {
 		// TODO this is TBD.
 		// for now temporaroly we'll just use the appspac owner.
 
-		u, err := f.AppspaceUserModel.GetByDropID(appspace.AppspaceID, appspace.DropID)
-		if err == sql.ErrNoRows {
+		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "", "") //TODO....
+		if err == domain.ErrNoRowsInResultSet {
 			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for dropid")
 		}
 		if err != nil {
-			f.getLogger(appspace.AppspaceID).AddNote("AppspaceUserModel.GetByDropID").Error(err)
+			f.getLogger(appspace.AppspaceID).AddNote("AppspaceUserModel.GetByAuth").Error(err)
 		}
 
 		next.ServeHTTP(w, r.WithContext(domain.CtxWithAppspaceUserProxyID(ctx, u.ProxyID)))

@@ -211,19 +211,19 @@ func (mr *MockAppspaceUserModelMockRecorder) GetAll(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockAppspaceUserModel)(nil).GetAll), arg0)
 }
 
-// GetByDropID mocks base method
-func (m *MockAppspaceUserModel) GetByDropID(arg0 domain.AppspaceID, arg1 string) (domain.AppspaceUser, error) {
+// GetByAuth mocks base method
+func (m *MockAppspaceUserModel) GetByAuth(arg0 domain.AppspaceID, arg1, arg2 string) (domain.AppspaceUser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByDropID", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetByAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(domain.AppspaceUser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetByDropID indicates an expected call of GetByDropID
-func (mr *MockAppspaceUserModelMockRecorder) GetByDropID(arg0, arg1 interface{}) *gomock.Call {
+// GetByAuth indicates an expected call of GetByAuth
+func (mr *MockAppspaceUserModelMockRecorder) GetByAuth(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByDropID", reflect.TypeOf((*MockAppspaceUserModel)(nil).GetByDropID), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).GetByAuth), arg0, arg1, arg2)
 }
 
 // UpdateMeta mocks base method
