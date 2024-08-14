@@ -35,6 +35,9 @@ type RestoreAppspace struct {
 		CheckDataFiles(dataDir string) error
 		ReplaceData(appspace domain.Appspace, source string) error
 	} `checkinject:"required"`
+	SandboxManager interface {
+		StopAppspace(domain.AppspaceID)
+	} `checkinject:"required"`
 	AppspaceStatus interface {
 		WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 		IsTempPaused(appspaceID domain.AppspaceID) bool
@@ -188,6 +191,8 @@ func (r *RestoreAppspace) GetMetaInfo(tok string) (domain.AppspaceMetaInfo, erro
 
 // ReplaceData stops the appspace and replaces the data files
 func (r *RestoreAppspace) ReplaceData(tok string, appspaceID domain.AppspaceID) error {
+	r.SandboxManager.StopAppspace(appspaceID)
+
 	closedCh, ok := r.AppspaceStatus.LockClosed(appspaceID)
 	if !ok {
 		return errors.New("failed to get lock closed")
