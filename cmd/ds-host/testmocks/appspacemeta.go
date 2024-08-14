@@ -9,6 +9,8 @@ import (
 
 type AppspaceMetaDB interface {
 	Create(domain.AppspaceID, int) error
+	GetSchema(appspaceID domain.AppspaceID) (int, error)
+	Migrate(appspaceID domain.AppspaceID) error
 	GetHandle(domain.AppspaceID) (*sqlx.DB, error)
 	CloseConn(domain.AppspaceID) error
 }

@@ -17,7 +17,7 @@ type CreateAppspace struct {
 		DeleteLocation(string) error
 	} `checkinject:"required"`
 	AppspaceMetaDB interface {
-		Create(domain.AppspaceID, int) error
+		Create(domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
@@ -79,7 +79,7 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
 
-	err = c.AppspaceMetaDB.Create(appspace.AppspaceID, 0) // 0 is the ds api version
+	err = c.AppspaceMetaDB.Create(appspace.AppspaceID)
 	if err != nil {
 		c.AppspaceFilesModel.DeleteLocation(locationKey)
 		c.AppspaceModel.Delete(appspace.AppspaceID)

@@ -77,6 +77,35 @@ func (mr *MockAppspaceMetaDBMockRecorder) GetHandle(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHandle", reflect.TypeOf((*MockAppspaceMetaDB)(nil).GetHandle), arg0)
 }
 
+// GetSchema mocks base method
+func (m *MockAppspaceMetaDB) GetSchema(arg0 domain.AppspaceID) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSchema", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSchema indicates an expected call of GetSchema
+func (mr *MockAppspaceMetaDBMockRecorder) GetSchema(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchema", reflect.TypeOf((*MockAppspaceMetaDB)(nil).GetSchema), arg0)
+}
+
+// Migrate mocks base method
+func (m *MockAppspaceMetaDB) Migrate(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Migrate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Migrate indicates an expected call of Migrate
+func (mr *MockAppspaceMetaDBMockRecorder) Migrate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Migrate", reflect.TypeOf((*MockAppspaceMetaDB)(nil).Migrate), arg0)
+}
+
 // MockAppspaceInfoModel is a mock of AppspaceInfoModel interface
 type MockAppspaceInfoModel struct {
 	ctrl     *gomock.Controller

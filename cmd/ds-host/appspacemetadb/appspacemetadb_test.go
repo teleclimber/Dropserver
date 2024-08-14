@@ -80,7 +80,7 @@ func TestCreateAndGet(t *testing.T) {
 	}
 	mdb.Init()
 
-	err = mdb.Create(appspaceID, 0)
+	err = mdb.Create(appspaceID)
 	if err != nil {
 		t.Error(err)
 	}

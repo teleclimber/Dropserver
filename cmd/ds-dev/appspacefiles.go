@@ -13,7 +13,8 @@ import (
 // May make it into ds-host as part of importing and exporting appsapces
 type DevAppspaceFiles struct {
 	AppspaceMetaDb interface {
-		Create(appspaceID domain.AppspaceID, dsAPIVersion int) error
+		Create(appspaceID domain.AppspaceID) error
+		Migrate(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceFilesEvents interface {
 		Send(domain.AppspaceID)
@@ -35,12 +36,18 @@ func (a *DevAppspaceFiles) Reset() {
 		if err != nil {
 			panic(err)
 		}
+		// After copying, migrate appspace meta DB.
+		// It will no-op if it's unnecessary
+		err = a.AppspaceMetaDb.Migrate(appspaceID)
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		// Let's cheat for now: AppspaceFilesModel should really take the place of or be proxied by DevAppspaceFiles
 		appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{}
 		appspaceFilesModel.CreateDirs(a.destDir)
 
-		err = a.AppspaceMetaDb.Create(appspaceID, 0) // that 0 is dsAPI version. Can it stay zero in a blank appspace? Probably not?
+		err = a.AppspaceMetaDb.Create(appspaceID)
 		if err != nil {
 			panic(err)
 		}

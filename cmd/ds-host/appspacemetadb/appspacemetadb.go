@@ -39,8 +39,7 @@ func (mdb *AppspaceMetaDB) Init() {
 }
 
 // Create an apspace meta DB file for an appspace.
-// Should specify schema version or DS API version, and branch accordingly.
-func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int) error {
+func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID) error {
 
 	readyChan := make(chan struct{})
 	conn := &dbConn{
@@ -56,7 +55,6 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 		return conn.connError
 	}
 
-	// create tables  ->  need to branch out to different models for different API versions.
 	err := conn.migrateTo(curSchema)
 	if err != nil {
 		// nothing really to revert to.
@@ -70,6 +68,39 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID, dsAPIVersion int
 
 	return nil
 }
+
+// GetCurSchema returns the MetaDB schema for thes version of the code
+// Just right now it's unused.
+func (mdb *AppspaceMetaDB) GetCurSchema() int {
+	return curSchema
+}
+
+// GetSchema returns the schema of the appspace meta DB for that appspaceID
+func (mdb *AppspaceMetaDB) GetSchema(appspaceID domain.AppspaceID) (int, error) {
+	conn, err := mdb.getConn(appspaceID)
+	if err != nil {
+		return 0, err
+	}
+
+	schema, err := conn.getUnknownSchema()
+
+	return schema, err
+}
+
+// Migrate the appspace's meta DB to the current schema
+// It no-ops without an error if migration is not necessary
+func (mdb *AppspaceMetaDB) Migrate(appspaceID domain.AppspaceID) error {
+	conn, err := mdb.getConn(appspaceID)
+	if err != nil {
+		return err
+	}
+
+	err = conn.migrateTo(curSchema)
+
+	return err
+}
+
+// Might also need a MigrateTo function to support down-migrations.
 
 // getConn returns the existing conn for the appspace ID or creates one if necessary
 func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*dbConn, error) {
@@ -305,6 +336,8 @@ func (dbc *dbConn) migrateTo(to int) error {
 	}
 
 	return d.checkErr()
+
+	// TODO maybe add a step that reads the schema? Just to be sure?
 }
 
 // getDb returns a db handle for an appspace meta db located at dataPath

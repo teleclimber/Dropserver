@@ -277,11 +277,6 @@ func main() {
 	}
 	importMapExtras.Init(*importMapFlag)
 
-	appspaceFiles.Reset()
-
-	// We can start files watcher after import map extras have been registered.
-	devAppWatcher.Start()
-
 	pauseAppspace := &appspaceops.PauseAppspace{
 		AppspaceModel:  devAppspaceModel,
 		AppspaceStatus: nil, // see below
@@ -351,6 +346,12 @@ func main() {
 	serviceMaker := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
 	devSandboxManager.ServiceMaker = serviceMaker
+
+	// Now we have enough things set up we can work with files
+	appspaceFiles.Reset()
+
+	// We can start files watcher after import map extras have been registered.
+	devAppWatcher.Start()
 
 	migrationJobController.Start()
 

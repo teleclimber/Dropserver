@@ -44,6 +44,7 @@ type RestoreAppspace struct {
 		LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
 	} `checkinject:"required"`
 	AppspaceMetaDB interface {
+		Migrate(appspaceID domain.AppspaceID) error
 		CloseConn(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceLogger interface {
@@ -229,6 +230,11 @@ func (r *RestoreAppspace) ReplaceData(tok string, appspaceID domain.AppspaceID) 
 	err = r.AppspaceFilesModel.ReplaceData(*appspace, tokData.tempDir)
 	if err != nil {
 		return err
+	}
+
+	err = r.AppspaceMetaDB.Migrate(appspaceID)
+	if err != nil {
+		return fmt.Errorf("error running appspace meta DB migration: %w", err)
 	}
 
 	return nil
