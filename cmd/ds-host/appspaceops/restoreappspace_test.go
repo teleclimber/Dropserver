@@ -1,7 +1,6 @@
 package appspaceops
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -12,7 +11,7 @@ import (
 )
 
 func TestDelete(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +52,9 @@ func TestReplaceData(t *testing.T) {
 
 	closedChan := make(chan struct{})
 
+	sandboxManager := testmocks.NewMockSandboxManager(mockCtrl)
+	sandboxManager.EXPECT().StopAppspace(asID)
+
 	appspaceStatus := testmocks.NewMockAppspaceStatus(mockCtrl)
 	appspaceStatus.EXPECT().LockClosed(asID).Return(closedChan, true)
 
@@ -69,6 +71,7 @@ func TestReplaceData(t *testing.T) {
 	appspaceFilesModels.EXPECT().ReplaceData(appspace, tempDir).Return(nil)
 
 	r := &RestoreAppspace{
+		SandboxManager:     sandboxManager,
 		AppspaceStatus:     appspaceStatus,
 		AppspaceMetaDB:     appspaceMetaDB,
 		AppspaceLogger:     appspaceLogger,

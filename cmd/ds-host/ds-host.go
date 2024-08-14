@@ -272,6 +272,7 @@ func main() {
 		InfoModel:             appspaceInfoModel,
 		AppspaceModel:         appspaceModel,
 		AppspaceFilesModel:    appspaceFilesModel,
+		SandboxManager:        sandboxManager,
 		AppspaceStatus:        nil,
 		AppspaceMetaDB:        appspaceMetaDb,
 		AppspaceLogger:        appspaceLogger,
