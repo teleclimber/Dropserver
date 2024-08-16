@@ -21,6 +21,51 @@ func TestPrepareStatements(t *testing.T) {
 	model.PrepareStatements()
 }
 
+func TestGetAll(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	model := &AppspaceModel{
+		DB: db}
+
+	model.PrepareStatements()
+
+	a, err := model.GetAll()
+	if err != nil {
+		t.Error(err)
+	}
+	if len(a) != 0 {
+		t.Error("expected empty array")
+	}
+
+	inAppspace := domain.Appspace{
+		OwnerID:     domain.UserID(7),
+		AppID:       domain.AppID(11),
+		AppVersion:  domain.Version("0.0.1"),
+		DomainName:  "test-appSPACE",
+		LocationKey: "as123",
+	}
+
+	_, err = model.Create(inAppspace)
+	if err != nil {
+		t.Error(err)
+	}
+
+	a, err = model.GetAll()
+	if err != nil {
+		t.Error(err)
+	}
+	if len(a) != 1 {
+		t.Error("expected array of length 1")
+	}
+	if a[0].AppID != inAppspace.AppID {
+		t.Error("didn't get the data expected")
+	}
+}
+
 func TestGetFromIDError(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()

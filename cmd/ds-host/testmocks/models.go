@@ -82,6 +82,7 @@ type AppModel interface {
 
 // AppspaceModel is the interface for the appspace model
 type AppspaceModel interface {
+	GetAll() ([]domain.Appspace, error)
 	GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	GetFromDomain(string) (*domain.Appspace, error)
 	GetForOwner(domain.UserID) ([]*domain.Appspace, error)

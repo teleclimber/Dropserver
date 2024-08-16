@@ -17,6 +17,7 @@ type AppspaceModel struct {
 	DB *domain.DB
 
 	stmt struct {
+		selectAll        *sqlx.Stmt
 		selectID         *sqlx.Stmt
 		selectOwner      *sqlx.Stmt
 		selectApp        *sqlx.Stmt
@@ -34,6 +35,9 @@ type AppspaceModel struct {
 func (m *AppspaceModel) PrepareStatements() {
 	// Here is the place to get clever with statements if using multiple DBs.
 	p := sqlxprepper.NewPrepper(m.DB.Handle)
+
+	// get all
+	m.stmt.selectAll = p.Prep(`SELECT * FROM appspaces`)
 
 	//get from ID
 	m.stmt.selectID = p.Prep(`SELECT * FROM appspaces WHERE appspace_id = ?`)
@@ -62,6 +66,15 @@ func (m *AppspaceModel) PrepareStatements() {
 	m.stmt.delete = p.Prep(`DELETE FROM appspaces WHERE appspace_id = ?`)
 
 	m.stmt.selectAllDomains = p.Prep(`SELECT domain_name FROM appspaces`)
+}
+
+// GetAll returns all appspaces on instance
+func (m *AppspaceModel) GetAll() (appspaces []domain.Appspace, err error) {
+	err = m.stmt.selectAll.Select(&appspaces)
+	if err != nil {
+		m.getLogger("GetAll()").Error(err)
+	}
+	return
 }
 
 // GetFromID gets an AppSpace by its ID

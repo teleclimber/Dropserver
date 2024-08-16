@@ -900,6 +900,21 @@ func (mr *MockAppspaceModelMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceModel)(nil).Delete), arg0)
 }
 
+// GetAll mocks base method
+func (m *MockAppspaceModel) GetAll() ([]domain.Appspace, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAll")
+	ret0, _ := ret[0].([]domain.Appspace)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAll indicates an expected call of GetAll
+func (mr *MockAppspaceModelMockRecorder) GetAll() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockAppspaceModel)(nil).GetAll))
+}
+
 // GetForApp mocks base method
 func (m *MockAppspaceModel) GetForApp(arg0 domain.AppID) ([]*domain.Appspace, error) {
 	m.ctrl.T.Helper()
