@@ -94,13 +94,18 @@ func (mdb *AppspaceMetaDB) Migrate(appspaceID domain.AppspaceID) error {
 	if err != nil {
 		return err
 	}
-
-	err = conn.migrateTo(curSchema)
-
-	return err
+	return conn.migrateTo(curSchema)
 }
 
-// Might also need a MigrateTo function to support down-migrations.
+// OfflineMigrate the appspace's meta DB to the curent shcema
+// But it does not check that the appspace is in a state that allows this
+func (mdb *AppspaceMetaDB) OfflineMigrate(appspaceID domain.AppspaceID) error {
+	conn, err := mdb.getConnNoLockCheck(appspaceID)
+	if err != nil {
+		return err
+	}
+	return conn.migrateTo(curSchema)
+}
 
 // getConn returns the existing conn for the appspace ID or creates one if necessary
 func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*dbConn, error) {
@@ -108,7 +113,9 @@ func (mdb *AppspaceMetaDB) getConn(appspaceID domain.AppspaceID) (*dbConn, error
 	if locked {
 		return nil, domain.ErrAppspaceLockedClosed
 	}
-
+	return mdb.getConnNoLockCheck(appspaceID)
+}
+func (mdb *AppspaceMetaDB) getConnNoLockCheck(appspaceID domain.AppspaceID) (*dbConn, error) {
 	// lock, get from map, start if not there, wait if not ready, then unlock or somesuch
 	var readyChan chan struct{}
 	mdb.connsMux.Lock()

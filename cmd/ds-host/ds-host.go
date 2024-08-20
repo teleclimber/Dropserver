@@ -109,30 +109,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *migrateFlag {
+		migrateData(runtimeConfig)
+	}
+
 	migrator := &migrate.Migrator{
 		Steps:     migrate.MigrationSteps,
 		Config:    runtimeConfig,
 		DBManager: dbManager}
-
-	if *migrateFlag {
-		err := migrator.Migrate("")
-		if err == migrate.ErrNoMigrationNeeded {
-			fmt.Println("Schema matches desired schema, no migration needed")
-			os.Exit(0)
-		}
-		if err != nil {
-			fmt.Println("Error Migrating", err.Error())
-			os.Exit(1)
-		}
-
-		sc := dbManager.GetSchema()
-		fmt.Println("schema after migration:", sc)
-		os.Exit(0)
-	}
-
-	// now check schema?
 	if dbManager.GetSchema() != migrator.LastStepName() {
-		fmt.Println("gotta migrate:", dbManager.GetSchema(), "->", migrator.LastStepName())
+		fmt.Println("Data migration is required:", dbManager.GetSchema(), "->", migrator.LastStepName(), " Run ds-host with the -migrate flag")
 		os.Exit(1)
 	}
 
@@ -584,7 +570,6 @@ func main() {
 
 	appspaceTSServers := &server.AppspaceTSNet{
 		Config:                runtimeConfig,
-		UserModel:             userModel,
 		AppspaceModel:         appspaceModel,
 		AppspaceRouter:        fromTsnet,
 		AppspaceLocation2Path: appspaceLocation2Path,

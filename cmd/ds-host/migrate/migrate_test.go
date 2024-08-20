@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestIndexOf(t *testing.T) {
-	orderedSteps := []MigrationStep{{"a", nil, nil}, {"b", nil, nil}, {"c", nil, nil}}
+	orderedSteps := []MigrationStep{{"a", nil, nil, 0}, {"b", nil, nil, 0}, {"c", nil, nil, 0}}
 	m := Migrator{
 		Steps: orderedSteps}
 
@@ -119,6 +120,83 @@ func TestDoStepError(t *testing.T) {
 	err := m.doStep(1, true)
 	if err == nil {
 		t.Error("should have gotten error")
+	}
+}
+
+func TestGetIndices(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	dbm := testmocks.NewMockDBManager(mockCtrl)
+
+	m := Migrator{
+		Steps:     []MigrationStep{{"a", nil, nil, 0}, {"b", nil, nil, 0}, {"c", nil, nil, 0}},
+		DBManager: dbm}
+
+	cases := []struct {
+		startSchema string
+		toParam     string
+		from        int
+		to          int
+		err         bool
+	}{
+		{"", "", -1, 2, false},
+		{"a", "", 0, 2, false},
+		{"b", "a", 1, 0, false},
+		{"Z", "a", 0, 0, true},
+		{"", "Z", 0, 0, true},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("start schema: %v var %v", c.startSchema, c.toParam), func(t *testing.T) {
+			dbm.EXPECT().GetSchema().Return(c.startSchema)
+			rFrom, rTo, rErr := m.getIndices(c.toParam)
+			if c.err && rErr == nil {
+				t.Error("expected error")
+			} else if !c.err && rErr != nil {
+				t.Errorf("got unexpected error: %v", rErr)
+			}
+			if rErr == nil && (rFrom != c.from || rTo != c.to) {
+				t.Errorf("got unexpected results: %v %v, %v %v", rFrom, c.from, rTo, c.to)
+			}
+		})
+	}
+}
+
+func TestAppspaceMigrationRequired(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	dbm := testmocks.NewMockDBManager(mockCtrl)
+
+	m := Migrator{
+		Steps:     []MigrationStep{{"a", nil, nil, 0}, {"b", nil, nil, 0}, {"c", nil, nil, 1}},
+		DBManager: dbm}
+
+	cases := []struct {
+		startSchema string
+		toParam     string
+		result      bool
+	}{
+		{"", "", false},
+		{"", "a", false},
+		{"a", "", true},
+		{"b", "a", false},
+		{"c", "a", true},
+		{"b", "a", false},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("start schema: %v var %v", c.startSchema, c.toParam), func(t *testing.T) {
+			dbm.EXPECT().GetSchema().Return(c.startSchema)
+			result, err := m.AppspaceMigrationRequired(c.toParam)
+			if err != nil {
+				t.Error(err)
+			}
+			if result != c.result {
+				t.Errorf("got unexpected result: %v", result)
+			}
+		})
 	}
 }
 
