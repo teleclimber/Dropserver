@@ -105,5 +105,7 @@ func (c *CertficateManager) StartManaging(d string) error {
 // StopManaging turns off management for the domain
 // certmagic Unmamage deletes the cert from the cache but not from the storage?
 func (c *CertficateManager) StopManaging(d string) {
-	c.magic.Unmanage([]string{d})
+	// TODO temporary c.magic.Unmanage([]string{d})
+	// see https://github.com/caddyserver/certmagic/issues/307
+	// https://github.com/teleclimber/Dropserver/issues/133
 }
