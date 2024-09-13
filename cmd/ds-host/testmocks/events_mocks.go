@@ -212,49 +212,67 @@ func (m *MockAppspaceStatusEvents) EXPECT() *MockAppspaceStatusEventsMockRecorde
 }
 
 // Send mocks base method
-func (m *MockAppspaceStatusEvents) Send(arg0 domain.AppspaceID, arg1 domain.AppspaceStatusEvent) {
+func (m *MockAppspaceStatusEvents) Send(arg0 domain.AppspaceStatusEvent) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Send", arg0, arg1)
+	m.ctrl.Call(m, "Send", arg0)
 }
 
 // Send indicates an expected call of Send
-func (mr *MockAppspaceStatusEventsMockRecorder) Send(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAppspaceStatusEventsMockRecorder) Send(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Send), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Send), arg0)
 }
 
 // Subscribe mocks base method
-func (m *MockAppspaceStatusEvents) Subscribe(arg0 domain.AppspaceID, arg1 chan<- domain.AppspaceStatusEvent) {
+func (m *MockAppspaceStatusEvents) Subscribe() <-chan domain.AppspaceStatusEvent {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Subscribe", arg0, arg1)
+	ret := m.ctrl.Call(m, "Subscribe")
+	ret0, _ := ret[0].(<-chan domain.AppspaceStatusEvent)
+	return ret0
 }
 
 // Subscribe indicates an expected call of Subscribe
-func (mr *MockAppspaceStatusEventsMockRecorder) Subscribe(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAppspaceStatusEventsMockRecorder) Subscribe() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Subscribe), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Subscribe))
+}
+
+// SubscribeApp mocks base method
+func (m *MockAppspaceStatusEvents) SubscribeApp(arg0 domain.AppID) <-chan domain.AppspaceStatusEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeApp", arg0)
+	ret0, _ := ret[0].(<-chan domain.AppspaceStatusEvent)
+	return ret0
+}
+
+// SubscribeApp indicates an expected call of SubscribeApp
+func (mr *MockAppspaceStatusEventsMockRecorder) SubscribeApp(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeApp", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).SubscribeApp), arg0)
+}
+
+// SubscribeOwner mocks base method
+func (m *MockAppspaceStatusEvents) SubscribeOwner(arg0 domain.UserID) <-chan domain.AppspaceStatusEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeOwner", arg0)
+	ret0, _ := ret[0].(<-chan domain.AppspaceStatusEvent)
+	return ret0
+}
+
+// SubscribeOwner indicates an expected call of SubscribeOwner
+func (mr *MockAppspaceStatusEventsMockRecorder) SubscribeOwner(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeOwner", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).SubscribeOwner), arg0)
 }
 
 // Unsubscribe mocks base method
-func (m *MockAppspaceStatusEvents) Unsubscribe(arg0 domain.AppspaceID, arg1 chan<- domain.AppspaceStatusEvent) {
+func (m *MockAppspaceStatusEvents) Unsubscribe(arg0 <-chan domain.AppspaceStatusEvent) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Unsubscribe", arg0, arg1)
+	m.ctrl.Call(m, "Unsubscribe", arg0)
 }
 
 // Unsubscribe indicates an expected call of Unsubscribe
-func (mr *MockAppspaceStatusEventsMockRecorder) Unsubscribe(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAppspaceStatusEventsMockRecorder) Unsubscribe(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unsubscribe", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Unsubscribe), arg0, arg1)
-}
-
-// UnsubscribeChannel mocks base method
-func (m *MockAppspaceStatusEvents) UnsubscribeChannel(arg0 chan<- domain.AppspaceStatusEvent) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UnsubscribeChannel", arg0)
-}
-
-// UnsubscribeChannel indicates an expected call of UnsubscribeChannel
-func (mr *MockAppspaceStatusEventsMockRecorder) UnsubscribeChannel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeChannel", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).UnsubscribeChannel), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unsubscribe", reflect.TypeOf((*MockAppspaceStatusEvents)(nil).Unsubscribe), arg0)
 }

@@ -6,8 +6,6 @@ import { useAppsStore } from '@/stores/apps';
 import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
 import type { AppspaceMigrationJob, App } from '@/stores/types';
 
-import { AppspaceStatus } from '../twine-services/appspace_status';
-
 import ViewWrap from '../components/ViewWrap.vue';
 import PickVersion from '../components/PickAppVersion.vue';
 import MessageProcessing from '@/components/ui/MessageProcessing.vue';
@@ -41,9 +39,6 @@ onMounted( () => {
 	migrationJobsStore.reloadData(props.appspace_id);
 	appspacesStore.loadAppspace(props.appspace_id);
 });
-
-const status = reactive(new AppspaceStatus) as AppspaceStatus;
-status.connectStatus(props.appspace_id);
 
 const appspace = computed( () => {
 	const a = appspacesStore.getAppspace(props.appspace_id);
@@ -81,7 +76,7 @@ const cur_app_icon = computed( () => {
 });
 
 const data_schema_mismatch = computed( ()=> {
-	return cur_app_version.value !== undefined && status.loaded && cur_app_version.value.schema !== status.appspace_schema;
+	return cur_app_version.value !== undefined && cur_app_version.value.schema !== appspace.value?.status.appspace_schema;
 });
 const show_migrate_only = computed( () => {
 	return data_schema_mismatch.value && props.migrate_only;
@@ -237,7 +232,7 @@ const small_msg_classes = ['inline-block', 'mt-1'];
 			</div>
 			
 			<div v-else-if="show_migrate_only" class="px-4 py-5 sm:px-6">
-				Migrate appspace data from schema {{ status.appspace_schema }} to {{ cur_app_version?.schema }}.
+				Migrate appspace data from schema {{ appspace?.status.appspace_schema }} to {{ cur_app_version?.schema }}.
 				<UnderConstruction 
 					head="This Might Not Work"
 					class="my-5">
@@ -297,7 +292,7 @@ const small_msg_classes = ['inline-block', 'mt-1'];
 					<DataDef field="Data schema:">
 						<p class="font-medium text-lg">{{ to_app_version.schema }}</p>
 						<SmallMessage v-if="cur_app_version.schema !== to_app_version.schema" mood="info" :class="small_msg_classes">
-							This version change requires migrating your data from schema {{status.appspace_schema}} to {{to_app_version.schema}}.
+							This version change requires migrating your data from schema {{appspace?.status.appspace_schema}} to {{to_app_version.schema}}.
 						</SmallMessage>
 					</DataDef>
 
@@ -311,7 +306,7 @@ const small_msg_classes = ['inline-block', 'mt-1'];
 				</div>
 
 				<UnderConstruction 
-					v-if="data_schema_mismatch && to_app_version && status.appspace_schema !== to_app_version?.schema" 
+					v-if="data_schema_mismatch && to_app_version && appspace?.status.appspace_schema !== to_app_version?.schema" 
 					head="This Might Not Work"
 					class="my-5">
 					Dropserver doesn't handle data schema mismatches correctly.

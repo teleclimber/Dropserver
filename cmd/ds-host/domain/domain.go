@@ -741,6 +741,7 @@ type AppspacePausedEvent struct {
 
 // AppspaceStatusEvent indicates readiness of appspace and the reason
 type AppspaceStatusEvent struct {
+	OwnerID          UserID     `json:"owner_id"`
 	AppspaceID       AppspaceID `json:"appspace_id"`
 	Paused           bool       `json:"paused"`
 	TempPaused       bool       `json:"temp_paused"`

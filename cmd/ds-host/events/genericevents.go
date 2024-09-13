@@ -10,7 +10,7 @@ type SubscribeIDs interface {
 	domain.UserID | domain.AppID | domain.AppspaceID
 }
 type DataTypes interface {
-	domain.AppURLData | domain.AppspaceID
+	domain.AppURLData | domain.AppspaceID | domain.AppspaceStatusEvent
 }
 
 type eventIDSubs[T SubscribeIDs, D DataTypes] struct {

@@ -9,8 +9,6 @@ import { fetchAppspaceSummary } from '../models/usage';
 import type {SandboxSums} from '../models/usage';
 import { LiveLog } from '../models/log';
 
-import { AppspaceStatus } from '../twine-services/appspace_status';
-
 import ViewWrap from '../components/ViewWrap.vue';
 import BigLoader from '../components/ui/BigLoader.vue';
 import AppspaceStatusVisualizer from '../components/AppspaceStatusVisualizer.vue';
@@ -49,15 +47,14 @@ onMounted( () => {
 	appspacesStore.loadAppspace(props.appspace_id);
 });
 
-const status = reactive(new AppspaceStatus) as AppspaceStatus;
-status.connectStatus(props.appspace_id);
-
 const appspaceUsersStore = useAppspaceUsersStore();
 
-watch( () => status.temp_paused, (p, old_p) => {
+watch( () => appspace.value?.status.temp_paused, (p, old_p) => {
 	// Reload appspace after a temp_paused period finishes.
 	// This is a hack to get the app version of the appspace (and other data)
 	// updated after a migration job finishes.
+	// -> this should be replaced with events from the backend that the store automatically responds to.
+	// TODO in fact explore moving this to the store?
 	if( old_p && !p ) {
 		appspacesStore.loadAppspace(props.appspace_id);
 		appspaceUsersStore.reloadData(props.appspace_id);
@@ -103,11 +100,7 @@ const app_icon = computed( () => {
 });
 
 const data_schema_mismatch = computed( ()=> {
-	return appspace.value?.ver_data && status.loaded && appspace.value?.ver_data.schema !== status.appspace_schema;
-});
-
-onUnmounted( async () => {
-	status.disconnect();
+	return appspace.value?.ver_data && appspace.value?.ver_data.schema !== appspace.value?.status.appspace_schema;
 });
 
 </script>
@@ -118,7 +111,7 @@ onUnmounted( async () => {
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Appspace</h3>
 					<div class="flex items-stretch">
-						<AppspaceStatusVisualizer :status="status" class="mr-4 flex items-center"></AppspaceStatusVisualizer>
+						<AppspaceStatusVisualizer :status="appspace.status" class="mr-4 flex items-center"></AppspaceStatusVisualizer>
 						<button @click.stop.prevent="togglePause()" :disabled="pausing" class="btn btn-blue">
 							{{ appspace.paused ? 'Unpause' : 'Pause'}}
 						</button>
@@ -156,7 +149,7 @@ onUnmounted( async () => {
 							<span class="font-bold">{{ appspace?.ver_data?.schema }}</span>
 							<p>Appspace Data:</p>
 							<span class="flex items-center">
-								<span class="font-bold">{{ status.appspace_schema }}</span>
+								<span class="font-bold">{{ appspace.status.appspace_schema }}</span>
 								<router-link :to="{name: 'migrate-appspace', params:{appspace_id:appspace.appspace_id}, query:{migrate_only:'true'}}" class="ml-4 btn flex items-center">
 									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
 										<path fill-rule="evenodd" d="M2.24 6.8a.75.75 0 001.06-.04l1.95-2.1v8.59a.75.75 0 001.5 0V4.66l1.95 2.1a.75.75 0 101.1-1.02l-3.25-3.5a.75.75 0 00-1.1 0L2.2 5.74a.75.75 0 00.04 1.06zm8 6.4a.75.75 0 00-.04 1.06l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75a.75.75 0 00-1.5 0v8.59l-1.95-2.1a.75.75 0 00-1.06-.04z" clip-rule="evenodd" />
@@ -167,13 +160,13 @@ onUnmounted( async () => {
 							</span>
 						</div>
 						<template v-else>
-							{{ status.appspace_schema }}
+							{{ appspace.status.appspace_schema }}
 						</template>
 					</DataDef>
 
 					<MessageSad head="Data Schema Mismatch" v-if="data_schema_mismatch" class="my-4 md:rounded-xl md:mx-6">
 						<p>The application expects the data saved in the appspace to have a schema version of {{ appspace?.ver_data?.schema }}.
-						However the schema of the appspace is currently {{ status.appspace_schema }}.</p>
+						However the schema of the appspace is currently {{ appspace.status.appspace_schema }}.</p>
 						<p>Hit the "Migrate" link to bring the appspace data to the correct schema for the application,
 							or change the app version to match the data schema.</p>
 					</MessageSad>

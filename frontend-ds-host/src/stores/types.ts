@@ -112,6 +112,17 @@ export type SelectedFile = {
 	rel_path: string
 }
 
+export interface AppspaceStatus {
+	owner_id: number,
+	appspace_id: number, 
+	paused: boolean,
+	temp_paused: boolean,
+	temp_pause_reason: string,
+	appspace_schema: number,
+	app_version_schema: number,
+	problem: boolean
+}
+
 export interface Appspace {
 	appspace_id: number,
 	domain_name: string,
@@ -123,6 +134,7 @@ export interface Appspace {
 	app_id: number,
 	app_version: string,
 	upgrade_version: string|undefined,
+	status: AppspaceStatus,
 	ver_data: AppVersionUI | undefined
 }
 

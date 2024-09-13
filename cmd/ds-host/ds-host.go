@@ -462,6 +462,7 @@ func main() {
 		Config:                *runtimeConfig,
 		AppspaceUserRoutes:    userAppspaceUserRoutes,
 		AppspaceModel:         appspaceModel,
+		AppspaceStatus:        appspaceStatus,
 		AppspaceExportRoutes:  exportAppspaceRoutes,
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
 		DropIDModel:           dropIDModel,
@@ -499,11 +500,6 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 	}
 
-	appspaceStatusTwine := &twineservices.AppspaceStatusService{
-		AppspaceModel:        appspaceModel,
-		AppspaceStatus:       appspaceStatus,
-		AppspaceStatusEvents: appspaceStatusEvents,
-	}
 	migrationJobTwine := &twineservices.MigrationJobService{
 		AppspaceModel:      appspaceModel,
 		MigrationJobModel:  migrationJobModel,
@@ -526,7 +522,7 @@ func main() {
 		DomainRoutes:         domainNameRoutes,
 		DropIDRoutes:         dropIDRoutes,
 		MigrationJobRoutes:   migrationJobRoutes,
-		AppspaceStatusTwine:  appspaceStatusTwine,
+		AppspaceStatusEvents: appspaceStatusEvents,
 		MigrationJobTwine:    migrationJobTwine,
 		AppGetterTwine:       appGetterTwine,
 		UserModel:            userModel,

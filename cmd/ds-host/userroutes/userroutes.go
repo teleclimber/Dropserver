@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -50,20 +51,23 @@ type UserRoutes struct {
 	Views interface {
 		GetStaticFS() fs.FS
 	} `checkinject:"required"`
-	AuthRoutes           routeGroup           `checkinject:"required"`
-	AppspaceLoginRoutes  routeGroup           `checkinject:"required"`
-	ApplicationRoutes    subRoutes            `checkinject:"required"`
-	AppspaceRoutes       subRoutes            `checkinject:"required"`
-	RemoteAppspaceRoutes subRoutes            `checkinject:"required"`
-	ContactRoutes        subRoutes            `checkinject:"required"`
-	DomainRoutes         subRoutes            `checkinject:"required"`
-	DropIDRoutes         subRoutes            `checkinject:"required"`
-	MigrationJobRoutes   subRoutes            `checkinject:"required"`
-	AdminRoutes          subRoutes            `checkinject:"required"`
-	AppspaceStatusTwine  domain.TwineService  `checkinject:"required"`
-	MigrationJobTwine    domain.TwineService2 `checkinject:"required"`
-	AppGetterTwine       domain.TwineService  `checkinject:"required"`
-	UserModel            interface {
+	AuthRoutes           routeGroup `checkinject:"required"`
+	AppspaceLoginRoutes  routeGroup `checkinject:"required"`
+	ApplicationRoutes    subRoutes  `checkinject:"required"`
+	AppspaceRoutes       subRoutes  `checkinject:"required"`
+	RemoteAppspaceRoutes subRoutes  `checkinject:"required"`
+	ContactRoutes        subRoutes  `checkinject:"required"`
+	DomainRoutes         subRoutes  `checkinject:"required"`
+	DropIDRoutes         subRoutes  `checkinject:"required"`
+	MigrationJobRoutes   subRoutes  `checkinject:"required"`
+	AdminRoutes          subRoutes  `checkinject:"required"`
+	AppspaceStatusEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppspaceStatusEvent
+		Unsubscribe(ch <-chan domain.AppspaceStatusEvent)
+	} `checkinject:"required"`
+	MigrationJobTwine domain.TwineService2 `checkinject:"required"`
+	AppGetterTwine    domain.TwineService  `checkinject:"required"`
+	UserModel         interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
@@ -101,6 +105,7 @@ func (u *UserRoutes) Init() {
 		r.Group(u.AppspaceLoginRoutes.routeGroup)
 
 		r.Get("/twine/", u.startTwineService)
+		r.Get("/events/", u.startSSEEvents)
 
 		r.Route("/api", func(r chi.Router) {
 			r.Mount("/admin", u.AdminRoutes.subRouter())
@@ -332,7 +337,7 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK) // TODO send no content.
 }
 
-const appspaceStatusService = 11
+// const appspaceStatusService = 11
 const migrationJobService = 12
 const appGetterService = 13
 
@@ -358,15 +363,12 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go u.AppspaceStatusTwine.Start(authUserID, t)
 	migrationJobTwine := u.MigrationJobTwine.Start(authUserID, t)
 	go u.AppGetterTwine.Start(authUserID, t)
 
 	go func() {
 		for m := range t.MessageChan {
 			switch m.ServiceID() {
-			case appspaceStatusService:
-				go u.AppspaceStatusTwine.HandleMessage(m)
 			case migrationJobService:
 				go migrationJobTwine.HandleMessage(m)
 			case appGetterService:
@@ -378,6 +380,51 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+}
+
+func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
+	authUserID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		// should never happen
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	clientGone := r.Context().Done()
+
+	asStatCh := u.AppspaceStatusEvents.SubscribeOwner(authUserID)
+	defer u.AppspaceStatusEvents.Unsubscribe(asStatCh)
+
+	rc := http.NewResponseController(w)
+	for {
+		select {
+		case <-clientGone:
+			return
+		case stat := <-asStatCh:
+			u.sendSSEEvent(w, "AppspaceStatus", stat)
+		}
+		err := rc.Flush()
+		if err != nil {
+			u.getLogger("startSSEEvents() rc.Flush()").Error(err)
+			return
+		}
+	}
+}
+
+func (u *UserRoutes) sendSSEEvent(w http.ResponseWriter, name string, data interface{}) {
+	eventJSON, err := json.Marshal(data)
+	if err != nil {
+		u.getLogger("sendSSEEvent() json.Marshal() event:" + name).Error(err)
+		return
+	}
+	_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, eventJSON)
+	if err != nil {
+		u.getLogger("sendSSEEvent() fmt.Fprintf() event:" + name).Error(err)
+		return
+	}
 }
 
 func (u *UserRoutes) getLogger(note string) *record.DsLogger {

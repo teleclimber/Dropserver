@@ -10,11 +10,11 @@ import (
 
 type AppspaceStatusService struct {
 	AppspaceStatus interface {
-		Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
+		Get(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
 	} `checkinject:"required"`
 	AppspaceStatusEvents interface {
-		Subscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
-		Unsubscribe(domain.AppspaceID, chan<- domain.AppspaceStatusEvent)
+		Subscribe() <-chan domain.AppspaceStatusEvent
+		Unsubscribe(<-chan domain.AppspaceStatusEvent)
 	} `checkinject:"required"`
 }
 
@@ -23,20 +23,18 @@ func (s *AppspaceStatusService) HandleMessage(m twine.ReceivedMessageI) {
 }
 
 func (s *AppspaceStatusService) Start(t *twine.Twine) {
-	appspaceStatusChan := make(chan domain.AppspaceStatusEvent)
-	s.AppspaceStatusEvents.Subscribe(appspaceID, appspaceStatusChan)
+	appspaceStatusChan := s.AppspaceStatusEvents.Subscribe()
 	go func() {
 		for statusEvent := range appspaceStatusChan {
 			go s.sendStatusEvent(t, statusEvent)
 		}
 	}()
 
-	go s.sendStatusEvent(t, s.AppspaceStatus.Track(appspaceID))
+	go s.sendStatusEvent(t, s.AppspaceStatus.Get(appspaceID))
 
 	t.WaitClose()
 
-	s.AppspaceStatusEvents.Unsubscribe(appspaceID, appspaceStatusChan)
-	close(appspaceStatusChan)
+	s.AppspaceStatusEvents.Unsubscribe(appspaceStatusChan)
 }
 
 const statusEventCmd = 11
