@@ -65,9 +65,12 @@ type UserRoutes struct {
 		SubscribeOwner(domain.UserID) <-chan domain.AppspaceStatusEvent
 		Unsubscribe(ch <-chan domain.AppspaceStatusEvent)
 	} `checkinject:"required"`
-	MigrationJobTwine domain.TwineService2 `checkinject:"required"`
-	AppGetterTwine    domain.TwineService  `checkinject:"required"`
-	UserModel         interface {
+	MigrationJobEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.MigrationJob
+		Unsubscribe(ch <-chan domain.MigrationJob)
+	} `checkinject:"required"`
+	AppGetterTwine domain.TwineService `checkinject:"required"`
+	UserModel      interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
@@ -337,8 +340,6 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK) // TODO send no content.
 }
 
-// const appspaceStatusService = 11
-const migrationJobService = 12
 const appGetterService = 13
 
 // startTwineService connects a new twine instance to the twine services
@@ -363,14 +364,11 @@ func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	migrationJobTwine := u.MigrationJobTwine.Start(authUserID, t)
 	go u.AppGetterTwine.Start(authUserID, t)
 
 	go func() {
 		for m := range t.MessageChan {
 			switch m.ServiceID() {
-			case migrationJobService:
-				go migrationJobTwine.HandleMessage(m)
 			case appGetterService:
 				go u.AppGetterTwine.HandleMessage(m)
 			default:
@@ -398,6 +396,9 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	asStatCh := u.AppspaceStatusEvents.SubscribeOwner(authUserID)
 	defer u.AppspaceStatusEvents.Unsubscribe(asStatCh)
 
+	migrationJobCh := u.MigrationJobEvents.SubscribeOwner(authUserID)
+	defer u.MigrationJobEvents.Unsubscribe(migrationJobCh)
+
 	rc := http.NewResponseController(w)
 	for {
 		select {
@@ -405,7 +406,10 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		case stat := <-asStatCh:
 			u.sendSSEEvent(w, "AppspaceStatus", stat)
+		case job := <-migrationJobCh:
+			u.sendSSEEvent(w, "MigrationJob", job)
 		}
+
 		err := rc.Flush()
 		if err != nil {
 			u.getLogger("startSSEEvents() rc.Flush()").Error(err)

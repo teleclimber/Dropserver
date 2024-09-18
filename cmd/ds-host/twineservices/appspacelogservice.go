@@ -117,8 +117,13 @@ func (s *appspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
 	ls.start()
 }
 
+// IncomingSubscribeAppspace is json encoded payload to subscribe to appspace status
+type IncomingSubscribeAppspace struct {
+	AppspaceID domain.AppspaceID `json:"appspace_id"`
+}
+
 func (s *appspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
-	var incoming IncomingSubscribeAppspace // reused from MigrationService
+	var incoming IncomingSubscribeAppspace
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
 		m.SendError(err.Error())

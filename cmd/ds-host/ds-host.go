@@ -500,11 +500,6 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 	}
 
-	migrationJobTwine := &twineservices.MigrationJobService{
-		AppspaceModel:      appspaceModel,
-		MigrationJobModel:  migrationJobModel,
-		MigrationJobEvents: migrationJobEvents,
-	}
 	appGetterTwine := &twineservices.AppGetterService{
 		AppGetter: appGetter,
 	}
@@ -523,7 +518,7 @@ func main() {
 		DropIDRoutes:         dropIDRoutes,
 		MigrationJobRoutes:   migrationJobRoutes,
 		AppspaceStatusEvents: appspaceStatusEvents,
-		MigrationJobTwine:    migrationJobTwine,
+		MigrationJobEvents:   migrationJobEvents,
 		AppGetterTwine:       appGetterTwine,
 		UserModel:            userModel,
 		Views:                views}

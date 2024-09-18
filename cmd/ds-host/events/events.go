@@ -1,7 +1,6 @@
 package events
 
 import (
-	"sync"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -12,79 +11,26 @@ import (
 
 // MigrationJobEvents forwards events related to migration jobs
 type MigrationJobEvents struct {
-	subsMux             sync.Mutex
-	subscribers         []chan domain.MigrationJob
-	appspaceSubscribers map[domain.AppspaceID][]chan domain.MigrationJob
+	subscribers eventSubs[domain.MigrationJob]
+	ownerSubs   eventIDSubs[domain.UserID, domain.MigrationJob]
 }
 
-// Send sends an appspace status event
-func (e *MigrationJobEvents) Send(event domain.MigrationJob) {
-	e.subsMux.Lock()
-	defer e.subsMux.Unlock()
-	for _, ch := range e.subscribers {
-		ch <- event
-	}
-	if e.appspaceSubscribers == nil {
-		return
-	}
-	appspaceSubs, ok := e.appspaceSubscribers[event.AppspaceID]
-	if ok {
-		for _, ch := range appspaceSubs {
-			ch <- event
-		}
-	}
-}
-
-// Subscribe to an event to know when the status of a migration has changed
 func (e *MigrationJobEvents) Subscribe() <-chan domain.MigrationJob {
-	e.subsMux.Lock()
-	defer e.subsMux.Unlock()
-	ch := make(chan domain.MigrationJob)
-	e.subscribers = append(e.subscribers, ch)
-	return ch
+	return e.subscribers.subscribe()
 }
 
-// SubscribeAppspace to an event to know when the status of a migration for an appspace has changed
-func (e *MigrationJobEvents) SubscribeAppspace(appspaceID domain.AppspaceID) <-chan domain.MigrationJob {
-	e.subsMux.Lock()
-	defer e.subsMux.Unlock()
-	ch := make(chan domain.MigrationJob)
-	if e.appspaceSubscribers == nil {
-		e.appspaceSubscribers = make(map[domain.AppspaceID][]chan domain.MigrationJob)
-	}
-	e.appspaceSubscribers[appspaceID] = append(e.appspaceSubscribers[appspaceID], ch)
-	return ch
+func (e *MigrationJobEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.MigrationJob {
+	return e.ownerSubs.subscribe(ownerID)
 }
 
-// Unsubscribe to the event
 func (e *MigrationJobEvents) Unsubscribe(ch <-chan domain.MigrationJob) {
-	e.subsMux.Lock()
-	defer e.subsMux.Unlock()
-	e.removeSubscriber(ch)
+	e.subscribers.unsubscribe(ch)
+	e.ownerSubs.unsubscribe(ch)
 }
 
-func (e *MigrationJobEvents) removeSubscriber(ch <-chan domain.MigrationJob) {
-	for i, c := range e.subscribers {
-		if c == ch {
-			e.subscribers[i] = e.subscribers[len(e.subscribers)-1]
-			e.subscribers = e.subscribers[:len(e.subscribers)-1]
-			close(c)
-			return
-		}
-	}
-	if e.appspaceSubscribers == nil {
-		return
-	}
-	for appspaceID, subs := range e.appspaceSubscribers {
-		for i, c := range subs {
-			if c == ch {
-				e.appspaceSubscribers[appspaceID][i] = e.appspaceSubscribers[appspaceID][len(subs)-1]
-				e.appspaceSubscribers[appspaceID] = e.appspaceSubscribers[appspaceID][:len(subs)-1]
-				close(c)
-				return
-			}
-		}
-	}
+func (e *MigrationJobEvents) Send(data domain.MigrationJob) {
+	e.subscribers.send(data)
+	e.ownerSubs.send(data.OwnerID, data)
 }
 
 ////// Apppsace Files Event
@@ -127,10 +73,12 @@ func (e *AppspaceStatusEvents) SubscribeOwner(ownerID domain.UserID) <-chan doma
 }
 
 func (e *AppspaceStatusEvents) Unsubscribe(ch <-chan domain.AppspaceStatusEvent) {
+	e.subscribers.unsubscribe(ch)
 	e.ownerSubs.unsubscribe(ch)
 }
 
 func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
+	e.subscribers.send(data)
 	e.ownerSubs.send(data.OwnerID, data)
 }
 

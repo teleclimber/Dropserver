@@ -18,7 +18,7 @@ function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 		owner_id: Number(raw.owner_id),
 		appspace_id: Number(raw.appspace_id),
 		paused: !!raw.paused,
-		temp_paused: raw.temp_pasued,
+		temp_paused: raw.temp_paused,
 		temp_pause_reason: raw.temp_pause_reason+'',
 		appspace_schema: Number(raw.appspace_schema),
 		app_version_schema: Number(raw.app_version_schema),

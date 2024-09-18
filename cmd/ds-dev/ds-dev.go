@@ -375,7 +375,7 @@ func main() {
 		RouteHitEvents:     routeHitEvents,
 		AppspaceUsersModel: appspaceUserModel}
 
-	migrationJobTwine := &twineservices.MigrationJobService{
+	migrationJobTwine := &MigrationJobService{
 		AppspaceModel:      devAppspaceModel,
 		MigrationJobModel:  devMigrationJobModel,
 		MigrationJobEvents: migrationJobEvents,

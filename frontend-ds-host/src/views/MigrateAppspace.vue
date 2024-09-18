@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, watch, reactive, ref, Ref } from 'vue';
+import { computed, onMounted, watch, ref, Ref } from 'vue';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
 import { useAppspaceMigrationJobsStore } from '@/stores/migration_jobs';
-import type { AppspaceMigrationJob, App } from '@/stores/types';
+import type { App } from '@/stores/types';
 
 import ViewWrap from '../components/ViewWrap.vue';
 import PickVersion from '../components/PickAppVersion.vue';
@@ -30,10 +30,6 @@ const appspacesStore = useAppspacesStore();
 const appsStore = useAppsStore();
 
 const migrationJobsStore = useAppspaceMigrationJobsStore();
-watch( () => migrationJobsStore.isLoaded(props.appspace_id), () => {
-	if( !migrationJobsStore.isLoaded(props.appspace_id) ) return;
-	migrationJobsStore.connect(props.appspace_id);
-});
 
 onMounted( () => {
 	migrationJobsStore.reloadData(props.appspace_id);
@@ -114,26 +110,20 @@ watch( to_app_version, async () => {
 }, { immediate: true });
 
 const running_migration_job = computed( () => {
-	let job : AppspaceMigrationJob|undefined;
-	const jobs = migrationJobsStore.getJobs(props.appspace_id);
-	if( jobs === undefined ) return;
-	jobs.value.forEach( j => {
-		if( !j.value.finished ) job = j.value;
-	});
-	console.log('current m job', job);
-	return job;
+	const jobs = migrationJobsStore.getRunningAppspaceJobs(props.appspace_id);
+	if( jobs.value.length === 0 ) return undefined;
+	return jobs.value[1].value;
 });
 watch( running_migration_job, (new_job, old_job) => {
 	// if running job becomes undefined it means it finished. So reload appspace.
+	// TODO: make this unnecessary with an event that covers changes to appspace data
 	if( old_job !== undefined && new_job === undefined ) appspacesStore.loadAppspace(props.appspace_id);
 });
 const migration_job = computed( () => {
 	if( props.job_id === undefined ) return;
-	const jobs = migrationJobsStore.getJobs(props.appspace_id);
-	if( jobs === undefined ) return;
-	const job = jobs.value.get(props.job_id);
-	if( job === undefined ) return;
-	return job.value;
+	const j = migrationJobsStore.getJob(props.job_id);
+	if( j === undefined ) return;
+	return j.value;
 });
 
 const show_all_versions = computed( () => {
@@ -154,10 +144,6 @@ async function migrate() {
 	const job = await migrationJobsStore.createMigrationJob(props.appspace_id, to_version);
 	router.replace({name:'migrate-appspace', query:{job_id:job.value.job_id} });
 }
-
-onUnmounted( () => {
-	migrationJobsStore.disconnect(props.appspace_id);
-});
 
 const small_msg_classes = ['inline-block', 'mt-1'];
 
