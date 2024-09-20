@@ -179,9 +179,6 @@ func makeTestDir() (string, error) {
 	if err = os.MkdirAll(filepath.Dir(f2Path), 0777); err != nil {
 		return "", err
 	}
-	if err != nil {
-		return "", err
-	}
 	if err = os.WriteFile(f2Path, []byte("abc"), 0666); err != nil {
 		return "", err
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxservices"
-	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/denosandboxcode"
 	"github.com/teleclimber/DropServer/internal/checkinject"
 	"github.com/teleclimber/DropServer/internal/embedutils"
@@ -136,6 +135,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	appGetterEvents := &events.AppGetterEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
 
 	appLocation2Path := &AppLocation2Path{
@@ -180,6 +180,7 @@ func main() {
 		AppModel:         devAppModel,
 		AppRoutes:        AppRoutes,
 		AppLogger:        appLogger,
+		AppGetterEvents:  appGetterEvents,
 	}
 	appGetter.Init()
 
@@ -193,6 +194,7 @@ func main() {
 		DevAppModel:         devAppModel,
 		DevAppspaceModel:    devAppspaceModel,
 		DevAppProcessEvents: appProcessingEvents,
+		AppGetterEvents:     appGetterEvents,
 		AppVersionEvents:    appVersionEvents,
 	}
 	if appOriginType == Directory {
@@ -214,8 +216,9 @@ func main() {
 
 	if *createPackageFlag != "" {
 		packager := &AppPackager{
-			AppGetter:     appGetter,
-			AppFilesModel: appFilesModel}
+			AppGetter:       appGetter,
+			AppFilesModel:   appFilesModel,
+			AppGetterEvents: appGetterEvents}
 		packager.PackageApp(appOrigin, *createPackageFlag, *packageNameFlag)
 		os.Exit(0)
 	}
@@ -380,7 +383,7 @@ func main() {
 		MigrationJobModel:  devMigrationJobModel,
 		MigrationJobEvents: migrationJobEvents,
 	}
-	appspaceLogTwine := &twineservices.AppspaceLogService{
+	appspaceLogTwine := &AppspaceLogService{
 		AppspaceModel:  devAppspaceModel,
 		AppModel:       devSingleAppModel,
 		AppspaceLogger: appspaceLogger,

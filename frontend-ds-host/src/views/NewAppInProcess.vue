@@ -1,8 +1,10 @@
 <script lang="ts" setup>
-import { Ref, ref, reactive, onMounted, onUnmounted, watch, computed, ComputedRef, watchEffect } from 'vue';
+import { Ref, ref, reactive, onMounted, watch, computed, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { useAppsStore, AppGetter } from '@/stores/apps';
+import { useAppsStore } from '@/stores/apps';
+import { useAppGetterStore } from '@/stores/appgetter';
+
 import { LiveLog } from '../models/log';
 
 import ViewWrap from '../components/ViewWrap.vue';
@@ -23,12 +25,15 @@ const props = defineProps<{
 
 const appsStore = useAppsStore();
 
+const appGetterStore = useAppGetterStore();
+
 const desc_str = computed( () => props.app_id === undefined ? 'App' : 'Version' );
 
-const appGetter = new AppGetter;
-appGetter.updateKey(props.app_get_key);
+appGetterStore.loadKey(props.app_get_key);
 
-const meta = computed( () => appGetter.meta.value );
+const appGet = appGetterStore.loadKey(props.app_get_key);
+
+const meta = computed( () => appGet.meta.value );
 const manifest = computed( () => meta.value?.version_manifest );
 
 const app_icon = computed( () => {
@@ -46,23 +51,23 @@ watch( create_button, () => {
 const committing = ref(false);
 
 async function doCommit() {
-	if( !appGetter.must_confirm ) return;
+	if( !appGet.must_confirm ) return;
 	committing.value = true;
-	const new_app_id = await appsStore.commitNewApplication(appGetter.key.value);
+	const new_app_id = await appsStore.commitNewApplication(appGet.key);
 	//router.replace({name: 'manage-app', params:{id: new_app_id}});
 	// The watchEffect below now does the router operation.
 }
 
 watchEffect( () => {
-	if( !appGetter.done || appGetter.expects_input || appGetter.has_error ) return;
-	const app_id = appGetter.meta.value?.app_id;
+	if( !appGet.done || appGet.expects_input || appGet.has_error ) return;
+	const app_id = appGet.meta.value?.app_id;
 	if( !app_id ) console.error("Expected an app_id")
 	router.replace({name: 'manage-app', params:{id: app_id}});
 });
 
 const show_details = computed( () => {
-	if( appGetter.version_manifest === undefined ) return false;
-	return (appGetter.done && appGetter.has_error) || appGetter.must_confirm;
+	if( appGet.version_manifest === undefined ) return false;
+	return (appGet.done && appGet.has_error) || appGet.must_confirm;
 });
 
 const changelog = ref("");
@@ -80,34 +85,29 @@ watch( show_details, () => {
 });
 
 async function startOver() {
-	await appGetter.cancel();
+	await appGet.cancel();
 	if( props.app_id === undefined ) router.push({name: 'new-app'});
 	else router.push( {name:'new-app-version', params:{id:props.app_id}});
 }
 async function cancel() {
-	await appGetter.cancel();
+	await appGet.cancel();
 	if( props.app_id === undefined ) router.push({name: 'apps'});
 	else router.push( {name:'manage-app', params:{id:props.app_id}});
 }
-
-onUnmounted( () => {
-	appGetter.unsubscribeKey();
-});
-
 
 </script>
 
 <template>
 	<ViewWrap>
-		<MessageSad v-if="appGetter.not_found.value" class="" head="Sorry, unable to find that">
+		<MessageSad v-if="appGet.not_found.value" class="" head="Sorry, unable to find that">
 			It's possible the app files have been removed because it's been too long. Please try again.
 			<div class="pt-5 flex ">
 				<button @click="startOver" class="btn">Start Over</button>
 			</div>
 		</MessageSad>
 
-		<MessageProcessing v-else-if="!appGetter.must_confirm && !appGetter.done" class="" head="Processing...">
-			<p v-if="appGetter.last_event.value">{{appGetter.last_event.value.step}}</p>
+		<MessageProcessing v-else-if="!appGet.must_confirm && !appGet.done" class="" head="Processing...">
+			<p v-if="appGet.last_event.value">{{appGet.last_event.value.step}}</p>
 			<p v-else>Getting info...</p>
 			<div class="pt-5 flex ">
 				<button @click="startOver" class="btn">Cancel</button>
@@ -160,7 +160,7 @@ onUnmounted( () => {
 						ref="create_button"
 						type="submit"
 						class="btn-blue"
-						:disabled="appGetter.has_error || committing"
+						:disabled="appGet.has_error || committing"
 						value="Finish" />
 						<!-- TODO tweak submit messge for version-->
 				</div>

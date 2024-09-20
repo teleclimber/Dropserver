@@ -23,13 +23,16 @@ import (
 type AppPackager struct {
 	AppGetter interface {
 		Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error)
-		SubscribeKey(key domain.AppGetKey) (domain.AppGetEvent, <-chan domain.AppGetEvent)
 		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
 		DeleteKeyData(key domain.AppGetKey)
 	}
 	AppFilesModel interface {
 		ReadManifest(string) (domain.AppVersionManifest, error)
 	}
+	AppGetterEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppGetEvent
+		Unsubscribe(<-chan domain.AppGetEvent)
+	} `checkinject:"required"`
 }
 
 func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
@@ -126,14 +129,15 @@ func (p *AppPackager) loadAppData() domain.AppGetMeta {
 		panic(err)
 	}
 
-	lastEvent, appGetCh := p.AppGetter.SubscribeKey(appGetKey)
-	if lastEvent.Done || appGetCh == nil {
-		return p.getResults(appGetKey)
-	}
+	appGetCh := p.AppGetterEvents.SubscribeOwner(ownerID)
+	defer p.AppGetterEvents.Unsubscribe(appGetCh)
 
 	rChan := make(chan domain.AppGetMeta, 1)
 	done := false
 	for e := range appGetCh {
+		if e.Key != appGetKey {
+			continue
+		}
 		if e.Done {
 			if !done {
 				fmt.Println("Done processing app")
@@ -143,6 +147,7 @@ func (p *AppPackager) loadAppData() domain.AppGetMeta {
 				}()
 			}
 			done = true
+			p.AppGetterEvents.Unsubscribe(appGetCh) // unsubscribe to stop for loop
 		} else {
 			fmt.Println(e.Step)
 		}

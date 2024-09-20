@@ -123,6 +123,23 @@ func (e *AppspaceRouteHitEvents) removeSubscriber(ch chan<- *domain.AppspaceRout
 	}
 }
 
+// AppGetterEvents
+type AppGetterEvents struct {
+	ownerSubs eventIDSubs[domain.UserID, domain.AppGetEvent]
+}
+
+func (e *AppGetterEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.AppGetEvent {
+	return e.ownerSubs.subscribe(ownerID)
+}
+
+func (e *AppGetterEvents) Unsubscribe(ch <-chan domain.AppGetEvent) {
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppGetterEvents) Send(data domain.AppGetEvent) {
+	e.ownerSubs.send(data.OwnerID, data)
+}
+
 // AppUrlDataEvents sends AppURLData
 type AppUrlDataEvents struct {
 	ownerSubs eventIDSubs[domain.UserID, domain.AppURLData]

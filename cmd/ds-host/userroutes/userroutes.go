@@ -15,7 +15,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	dshostfrontend "github.com/teleclimber/DropServer/frontend-ds-host"
 	"github.com/teleclimber/DropServer/internal/validator"
-	"github.com/teleclimber/twine-go/twine"
 )
 
 var errNotFound = errors.New("not found")
@@ -69,8 +68,11 @@ type UserRoutes struct {
 		SubscribeOwner(domain.UserID) <-chan domain.MigrationJob
 		Unsubscribe(ch <-chan domain.MigrationJob)
 	} `checkinject:"required"`
-	AppGetterTwine domain.TwineService `checkinject:"required"`
-	UserModel      interface {
+	AppGetterEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppGetEvent
+		Unsubscribe(ch <-chan domain.AppGetEvent)
+	} `checkinject:"required"`
+	UserModel interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
@@ -107,7 +109,6 @@ func (u *UserRoutes) Init() {
 
 		r.Group(u.AppspaceLoginRoutes.routeGroup)
 
-		r.Get("/twine/", u.startTwineService)
 		r.Get("/events/", u.startSSEEvents)
 
 		r.Route("/api", func(r chi.Router) {
@@ -340,46 +341,6 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK) // TODO send no content.
 }
 
-const appGetterService = 13
-
-// startTwineService connects a new twine instance to the twine services
-func (u *UserRoutes) startTwineService(w http.ResponseWriter, r *http.Request) {
-	authUserID, ok := domain.CtxAuthUserID(r.Context())
-	if !ok {
-		// should never happen
-		return
-	}
-
-	t, err := twine.NewWebsocketServer(w, r)
-	if err != nil {
-		u.getLogger("startTwineService, twine.NewWebsocketServer(w, r) ").Error(err)
-		http.Error(w, "Failed to start Twine server", http.StatusInternalServerError)
-		return
-	}
-
-	_, ok = <-t.ReadyChan
-	if !ok {
-		u.getLogger("startTwineService").Error(errors.New("twine ReadyChan closed"))
-		http.Error(w, "Failed to start Twine server", http.StatusInternalServerError)
-		return
-	}
-
-	go u.AppGetterTwine.Start(authUserID, t)
-
-	go func() {
-		for m := range t.MessageChan {
-			switch m.ServiceID() {
-			case appGetterService:
-				go u.AppGetterTwine.HandleMessage(m)
-			default:
-				u.getLogger("Twine incoming message").Error(fmt.Errorf("service not found: %v", m.ServiceID()))
-				m.SendError("Service not found")
-			}
-		}
-	}()
-
-}
-
 func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	authUserID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
@@ -399,6 +360,9 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	migrationJobCh := u.MigrationJobEvents.SubscribeOwner(authUserID)
 	defer u.MigrationJobEvents.Unsubscribe(migrationJobCh)
 
+	appGetterCh := u.AppGetterEvents.SubscribeOwner(authUserID)
+	defer u.AppGetterEvents.Unsubscribe(appGetterCh)
+
 	rc := http.NewResponseController(w)
 	for {
 		select {
@@ -408,6 +372,8 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 			u.sendSSEEvent(w, "AppspaceStatus", stat)
 		case job := <-migrationJobCh:
 			u.sendSSEEvent(w, "MigrationJob", job)
+		case get := <-appGetterCh:
+			u.sendSSEEvent(w, "AppGetter", get)
 		}
 
 		err := rc.Flush()

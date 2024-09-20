@@ -76,14 +76,16 @@ type AppGetter struct {
 	AppRoutes interface {
 		ValidateRoutes(routes []domain.AppRoute) error
 	} `checkinject:"required"`
+	AppGetterEvents interface {
+		Send(domain.AppGetEvent)
+	} `checkinject:"required"`
 
 	keysMux sync.Mutex
 	keys    map[domain.AppGetKey]appGetData
 	results map[domain.AppGetKey]domain.AppGetMeta
 
-	eventsMux   sync.Mutex
-	lastEvent   map[domain.AppGetKey]domain.AppGetEvent // stash the last event so we can
-	subscribers []subscriber
+	eventsMux sync.Mutex
+	lastEvent map[domain.AppGetKey]domain.AppGetEvent // stash the last event so we can
 }
 
 // Init creates the map [and starts the timers]
@@ -978,8 +980,6 @@ func (g *AppGetter) DeleteKeyData(key domain.AppGetKey) {
 
 	// Send one last event in case there are any subscribers
 	g.sendEvent(appGetData, domain.AppGetEvent{Key: key, Done: true, Step: "Deleting processing data"})
-	// unsubscribe the channels listenning for updates to the key
-	g.unsubscribeKey(appGetData.key)
 	// delete the last_event
 	g.eventsMux.Lock()
 	delete(g.lastEvent, key)
@@ -1136,18 +1136,6 @@ func (g *AppGetter) GetLastEvent(key domain.AppGetKey) (domain.AppGetEvent, bool
 	return e, ok
 }
 
-// SubscribeKey returns the last event and a channel if the process is ongoing
-func (g *AppGetter) SubscribeKey(key domain.AppGetKey) (domain.AppGetEvent, <-chan domain.AppGetEvent) {
-	g.eventsMux.Lock()
-	defer g.eventsMux.Unlock()
-	lastEvent, ok := g.lastEvent[key]
-	if !ok || lastEvent.Done {
-		return lastEvent, nil
-	}
-	ch := make(chan domain.AppGetEvent)
-	g.subscribers = append(g.subscribers, subscriber{hasKey: true, key: key, ch: ch})
-	return lastEvent, ch
-}
 func (g *AppGetter) sendEvent(getData appGetData, ev domain.AppGetEvent) {
 	ev.Key = getData.key
 	g.eventsMux.Lock()
@@ -1157,41 +1145,11 @@ func (g *AppGetter) sendEvent(getData appGetData, ev domain.AppGetEvent) {
 	// But what happens if we do send conflicing signals?
 	// Maybe just log it? We can investigate further if we see this in logs.
 
+	ev.OwnerID = getData.userID
+
 	g.lastEvent[ev.Key] = ev
 
-	for _, s := range g.subscribers {
-		if s.hasKey && ev.Key == s.key {
-			s.ch <- ev
-		}
-		// else if hasUserID; else if hasAppID ..
-	}
-}
-func (g *AppGetter) unsubscribeKey(key domain.AppGetKey) { // TODO please at least test this.
-	g.eventsMux.Lock()
-	defer g.eventsMux.Unlock()
-	k := 0
-	for _, s := range g.subscribers {
-		if s.hasKey && s.key == key {
-			close(s.ch)
-		} else {
-			g.subscribers[k] = s
-			k++
-		}
-	}
-	g.subscribers = g.subscribers[:k]
-}
-func (g *AppGetter) Unsubscribe(ch <-chan domain.AppGetEvent) {
-	g.eventsMux.Lock()
-	defer g.eventsMux.Unlock()
-	for i, s := range g.subscribers {
-		if s.ch == ch {
-			g.subscribers[i] = g.subscribers[len(g.subscribers)-1]
-			g.subscribers = g.subscribers[:len(g.subscribers)-1]
-			close(s.ch)
-			return
-		}
-	}
-	g.getLogger("Unsubscribe").Log("Failed to find subscriber channel.")
+	g.AppGetterEvents.Send(ev)
 }
 
 func (g *AppGetter) getLogger(note string) *record.DsLogger {

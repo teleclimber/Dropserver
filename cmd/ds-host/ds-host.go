@@ -44,7 +44,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
-	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/internal/checkinject"
@@ -140,6 +139,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
+	appGetterEvents := &events.AppGetterEvents{}
 	appUrlDataEvents := &events.AppUrlDataEvents{}
 
 	// models
@@ -325,6 +325,7 @@ func main() {
 		RemoteAppGetter:  remoteAppGetter,
 		SandboxManager:   sandboxManager,
 		AppRoutes:        AppRoutes,
+		AppGetterEvents:  appGetterEvents,
 	}
 	appGetter.Init()
 
@@ -500,10 +501,6 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 	}
 
-	appGetterTwine := &twineservices.AppGetterService{
-		AppGetter: appGetter,
-	}
-
 	userRoutes := &userroutes.UserRoutes{
 		Config:               runtimeConfig,
 		Authenticator:        authenticator,
@@ -519,7 +516,7 @@ func main() {
 		MigrationJobRoutes:   migrationJobRoutes,
 		AppspaceStatusEvents: appspaceStatusEvents,
 		MigrationJobEvents:   migrationJobEvents,
-		AppGetterTwine:       appGetterTwine,
+		AppGetterEvents:      appGetterEvents,
 		UserModel:            userModel,
 		Views:                views}
 	userRoutes.Init()

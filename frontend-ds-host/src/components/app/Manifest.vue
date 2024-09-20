@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { AppManifest } from '@/stores/types';
-import { Warning } from '@/stores/apps';
+import { AppManifest, Warning } from '@/stores/types';
 
 import DataDef from '@/components/ui/DataDef.vue';
 import AppLicense from '@/components/app/AppLicense.vue';

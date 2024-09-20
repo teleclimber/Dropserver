@@ -95,6 +95,23 @@ export interface App {
 	url_data: AppUrlData | undefined
 }
 
+export type AppGetMeta = {
+	key: string,
+	prev_version: string,
+	next_version: string,
+	errors: string[],
+	warnings: Warning[],
+	version_manifest?: AppManifest,
+	app_id: number
+}
+
+export type Warning = {
+	field: string,
+	problem: string,
+	bad_value: string,
+	message: string
+}
+
 export type AppUrlData = {
 	app_id: number,
 	url: string,

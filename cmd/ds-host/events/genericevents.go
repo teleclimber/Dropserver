@@ -7,10 +7,16 @@ import (
 )
 
 type SubscribeIDs interface {
-	domain.UserID | domain.AppID | domain.AppspaceID
+	domain.UserID |
+		domain.AppID |
+		domain.AppspaceID
 }
 type DataTypes interface {
-	domain.AppURLData | domain.AppspaceID | domain.AppspaceStatusEvent | domain.MigrationJob
+	domain.AppURLData |
+		domain.AppspaceID |
+		domain.AppspaceStatusEvent |
+		domain.MigrationJob |
+		domain.AppGetEvent
 }
 
 type eventIDSubs[T SubscribeIDs, D DataTypes] struct {

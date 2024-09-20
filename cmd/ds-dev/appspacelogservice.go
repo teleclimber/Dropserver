@@ -1,4 +1,4 @@
-package twineservices
+package main
 
 import (
 	"encoding/json"
@@ -29,14 +29,14 @@ type AppspaceLogService struct {
 
 // Start creates listeners and then shuts everything down when twine exits
 func (s *AppspaceLogService) Start(authUser domain.UserID, t *twine.Twine) domain.TwineServiceI {
-	asl := &appspaceLogService{
+	asl := &appspaceLogServiceInternal{
 		AppspaceLogService: s,
 		twine:              t,
 		authUser:           authUser}
 	return asl
 }
 
-type appspaceLogService struct {
+type appspaceLogServiceInternal struct {
 	*AppspaceLogService
 
 	twine    *twine.Twine
@@ -56,7 +56,7 @@ const entrysubCmd = 13
 const unsubscribeLogCmd = 13
 
 // HandleMessage handles incoming twine message
-func (s *appspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
+func (s *appspaceLogServiceInternal) HandleMessage(m twine.ReceivedMessageI) {
 	switch m.CommandID() {
 	case subscribeAppspaceLogCmd:
 		s.handleSubscribeAppspace(m)
@@ -87,7 +87,7 @@ func (s *appspaceLogService) HandleMessage(m twine.ReceivedMessageI) {
 //     [reply under this message to keep separate from initial chunk]
 //   - 13> unsubscribe
 
-func (s *appspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
+func (s *appspaceLogServiceInternal) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	appspace, err := s.getMessageAppspace(m)
 	if err != nil {
 		return
@@ -102,7 +102,7 @@ func (s *appspaceLogService) handleSubscribeAppspace(m twine.ReceivedMessageI) {
 	ls.start()
 }
 
-func (s *appspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
+func (s *appspaceLogServiceInternal) handleSubscribeApp(m twine.ReceivedMessageI) {
 	appVersion, err := s.getMessageApp(m)
 	if err != nil {
 		return
@@ -117,12 +117,7 @@ func (s *appspaceLogService) handleSubscribeApp(m twine.ReceivedMessageI) {
 	ls.start()
 }
 
-// IncomingSubscribeAppspace is json encoded payload to subscribe to appspace status
-type IncomingSubscribeAppspace struct {
-	AppspaceID domain.AppspaceID `json:"appspace_id"`
-}
-
-func (s *appspaceLogService) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
+func (s *appspaceLogServiceInternal) getMessageAppspace(m twine.ReceivedMessageI) (domain.Appspace, error) {
 	var incoming IncomingSubscribeAppspace
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
@@ -147,7 +142,7 @@ type IncomingSubscribeApp struct {
 	Version domain.Version `json:"version"`
 }
 
-func (s *appspaceLogService) getMessageApp(m twine.ReceivedMessageI) (domain.AppVersion, error) {
+func (s *appspaceLogServiceInternal) getMessageApp(m twine.ReceivedMessageI) (domain.AppVersion, error) {
 	var incoming IncomingSubscribeApp
 	err := json.Unmarshal(m.Payload(), &incoming)
 	if err != nil {
