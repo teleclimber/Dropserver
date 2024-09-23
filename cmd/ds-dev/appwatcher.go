@@ -94,7 +94,7 @@ func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be 
 		}
 		if e.Done {
 			// if processing is done, unsubscribe to stop loop, then get results to get the errors.
-			w.AppGetterEvents.Unsubscribe(appGetCh)
+			go w.AppGetterEvents.Unsubscribe(appGetCh)
 			results, ok := w.AppGetter.GetResults(appGetKey)
 			if ok {
 				w.DevAppProcessEvents.Send(AppProcessEvent{

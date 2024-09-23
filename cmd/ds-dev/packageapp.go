@@ -147,7 +147,7 @@ func (p *AppPackager) loadAppData() domain.AppGetMeta {
 				}()
 			}
 			done = true
-			p.AppGetterEvents.Unsubscribe(appGetCh) // unsubscribe to stop for loop
+			go p.AppGetterEvents.Unsubscribe(appGetCh) // unsubscribe to stop for loop
 		} else {
 			fmt.Println(e.Step)
 		}
