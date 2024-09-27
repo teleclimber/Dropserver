@@ -27,6 +27,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// killDelay delay before killing sandbox to allow it to return errors
+const killDelay = 500 * time.Millisecond
+
 // Temporary hard coded memory.high values for individual sandboxes:
 const sbStartMb = 400
 const sbRunMb = 128
@@ -457,6 +460,7 @@ func (s *Sandbox) doStart() error {
 	_, ok := <-s.twine.ReadyChan
 	if !ok {
 		logger.Log("Apparent failed start. ReadyChan closed")
+		time.Sleep(killDelay) // delay kill to allow error messages to come out
 		s.Kill()
 		return errors.New("failed to start sandbox")
 	}
@@ -501,8 +505,8 @@ func (s *Sandbox) monitor(stdout io.ReadCloser, stderr io.ReadCloser, runDBIDCh 
 		for { // you need to be in a loop to keep the channel "flowing"
 			err := <-s.twine.ErrorChan
 			if err != nil {
-				s.getLogger("ErrorChan").Error(err)
-				// We may want to stash a message on s. to enlighten user as to what happened?
+				s.getLogger("Twine ErrorChan").Error(err)
+				time.Sleep(killDelay) // Delay kill to allow error messages to come out.
 				s.Kill()
 			} else {
 				break // errorChan was closed, so exit loop
