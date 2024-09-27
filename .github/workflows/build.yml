@@ -30,7 +30,7 @@ jobs:
 
     # ds-host
     - name: Download frontend-ds-host
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: frontend-ds-host
         path: frontend-ds-host/dist/
@@ -43,14 +43,14 @@ jobs:
       working-directory: dist/bin
 
     - name: Upload ds-host archive
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ds-host-amd64-linux.tar.gz
         path: dist/bin/ds-host-amd64-linux.tar.gz
 
     # ds-dev:
     - name: Download frontend-ds-dev
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
@@ -62,7 +62,7 @@ jobs:
       working-directory: dist/bin
 
     - name: Upload ds-dev archive
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ds-dev-amd64-linux.tar.gz
         path: dist/bin/ds-dev-amd64-linux.tar.gz
@@ -84,7 +84,7 @@ jobs:
         go-version: 1.21
 
     - name: Download frontend-ds-dev
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
@@ -97,7 +97,7 @@ jobs:
       working-directory: dist/bin
 
     - name: Upload ds-dev archive
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ds-dev-amd64-darwin.tar.gz
         path: dist/bin/ds-dev-amd64-darwin.tar.gz
@@ -112,13 +112,13 @@ jobs:
     - name: Release notes
       run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > CHANGELOG.txt
 
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
         name: ds-host-amd64-linux.tar.gz
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
         name: ds-dev-amd64-linux.tar.gz
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
         name: ds-dev-amd64-darwin.tar.gz
 
