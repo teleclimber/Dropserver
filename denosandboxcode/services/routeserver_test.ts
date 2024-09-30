@@ -84,7 +84,7 @@ Deno.test({
 						await routeServer.stopServer();
 					}
 					catch(e) {
-						m.sendError(e);
+						if (e instanceof Error) m.sendError(e.toString());
 					}
 					m.sendOK();
 				}

@@ -1,3 +1,3 @@
 //@ts-ignore
-window.DROPSERVER.appRoutes.setCallback();
+globalThis.DROPSERVER.appRoutes.setCallback();
 console.log('hw');

@@ -78,7 +78,7 @@ export default class MigrationService {
 				}
 				catch(e) {
 					console.error(e);
-					await message.sendError("Error running migration step: "+i+', '+e.toString());
+					if (e instanceof Error) await message.sendError("Error running migration step: "+i+', '+e.toString());
 					return;
 				}
 			}
@@ -91,7 +91,7 @@ export default class MigrationService {
 				}
 				catch(e) {
 					console.error(e);
-					await message.sendError("Error running migration step: "+i+', '+e.toString());
+					if (e instanceof Error) await message.sendError("Error running migration step: "+i+', '+e.toString());
 					return;
 				}
 			}

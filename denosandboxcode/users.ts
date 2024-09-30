@@ -1,4 +1,4 @@
-import type {User} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import type {User} from 'https://deno.land/x/dropserver_lib_support@v0.2.1/mod.ts';
 import DsServices from './services/services.ts';
 
 const service = 16;

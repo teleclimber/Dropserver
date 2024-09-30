@@ -27,7 +27,7 @@ export default class DsAppService {
 		}
 		catch(e) {
 			console.error('Error getting routes: '+e);
-			await message.sendError(e.toString());
+			if (e instanceof Error) await message.sendError(e.toString());
 			return;
 		}
 

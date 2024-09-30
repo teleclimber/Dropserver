@@ -1,5 +1,5 @@
 //@ts-ignore
-window.DROPSERVER.appRoutes.setCallback();
+globalThis.DROPSERVER.appRoutes.setCallback();
 
 console.log(await Deno.readTextFile('data.txt'));
 

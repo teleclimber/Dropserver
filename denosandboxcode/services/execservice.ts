@@ -33,7 +33,7 @@ async function execFnHandler(message: ReceivedMessageI) {
 		mod = await import(data.file);
 	}
 	catch(e) {
-		await message.sendError(e.toString());
+		if (e instanceof Error) await message.sendError(e.toString());
 		return;
 	}
 	// we need more ways of saying what we want to execute

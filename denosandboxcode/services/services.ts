@@ -76,7 +76,7 @@ export default class DsServices {
 				}
 				catch(e) {
 					console.error(e);
-					m.sendError(e);
+					if (e instanceof Error) m.sendError(e.toString());
 				}
 				m.sendOK();
 				break;

@@ -27,7 +27,7 @@ Deno.test({
 			await service.runStep(2, true);
 		}
 		catch(e) {
-			err = e;
+			if (e instanceof Error) err = e;
 		}
 		
 		if(!err) {

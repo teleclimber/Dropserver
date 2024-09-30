@@ -1,8 +1,8 @@
 import {match} from "https://deno.land/x/path_to_regexp@v6.2.1/index.ts";
 import type {MatchFunction} from "https://deno.land/x/path_to_regexp@v6.2.1/index.ts";
 
-import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
-import type {Handler, Path, Auth} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import {RouteType, GetAppRoutesCallback} from 'https://deno.land/x/dropserver_lib_support@v0.2.1/mod.ts';
+import type {Handler, Path, Auth} from 'https://deno.land/x/dropserver_lib_support@v0.2.1/mod.ts';
 
 import DsServices from './services/services.ts';
 
