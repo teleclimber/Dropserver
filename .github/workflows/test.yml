@@ -23,7 +23,7 @@ jobs:
         fetch-depth: 0
     - uses: denoland/setup-deno@v1
       with:
-        deno-version: v1.x
+        deno-version: v2.x
     - name: Install bubblewrap
       run: sudo apt-get install -y bubblewrap
 
