@@ -324,7 +324,7 @@ func (s *Sandbox) doStart() error {
 
 	// Deno run by default does not type check. We'd like to type check on app init:
 	if s.operation == opAppInit {
-		denoArgs = append(denoArgs, "--check")
+		denoArgs = append(denoArgs, "--check=all")
 	}
 
 	tRef = time.Now()
