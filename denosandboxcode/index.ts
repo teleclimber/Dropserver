@@ -1,4 +1,4 @@
-import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import libSupportIface from 'https://deno.land/x/dropserver_lib_support@v0.2.1/mod.ts';
 
 import Metadata from './metadata.ts';
 import DsServices from './services/services.ts';
@@ -12,7 +12,7 @@ import LibSupport from './libsupport.ts';
 const metadata = new Metadata;
 const services = new DsServices;
 
-const w = <{["DROPSERVER"]?:libSupportIface}>window;
+const w = <{["DROPSERVER"]?:libSupportIface}>globalThis;
 const libSupport = new LibSupport(metadata, services);
 w["DROPSERVER"] = libSupport;
 

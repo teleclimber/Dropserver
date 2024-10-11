@@ -1,12 +1,8 @@
-import { ref, Ref, shallowRef, ShallowRef, triggerRef, shallowReactive, computed, version, isReactive } from 'vue';
+import { ref, shallowRef, ShallowRef, shallowReactive, computed } from 'vue';
 import { defineStore } from 'pinia';
-import axios from 'axios';
 import { ax } from '../controllers/userapi';
-import type {AxiosResponse, AxiosError} from 'axios';
 
-import twineClient from '../twine-services/twine_client';
-import {SentMessageI} from 'twine-web';
-import { LoadState, App, AppVersionUI, AppManifest, AppUrlData } from './types';
+import { LoadState, App, AppVersionUI, AppManifest, AppGetMeta, AppUrlData } from './types';
 import { Loadable, attachLoadState, setLoadState, getLoadState } from './loadable';
 
 export function appUrlDataFromRaw(raw:any) :AppUrlData {
@@ -236,28 +232,6 @@ export const useAppsStore = defineStore('apps', () => {
 	};
 });
 
-
-// AppGetMeta is returned by the server when it reads the contents of a new app code
-// (whether it's a new version or an all new app).
-// It returns any errors / problems found in the files, and the app version data if passable.
-export type AppGetMeta = {
-	key: string, // key is used to commit the uploaded files to their "destination" (new app, new app version)
-	prev_version: string,
-	next_version: string,
-	errors: string[],	// maybe array of strings?
-	warnings: Warning[],
-	version_manifest?: AppManifest,
-	app_id: number
-}
-
-export type Warning = {
-	field: string,
-	problem: string,
-	bad_value: string,
-	message: string
-}
-
-
 export function rawToAppManifest(raw:any) :AppManifest|undefined {
 	if( raw.version === "" ) return undefined;	// version is the only required part of manifest, if it's not set we just got a zero-value manifest.
 	const ret = Object.assign({}, raw);
@@ -273,118 +247,3 @@ export function rawToAppManifest(raw:any) :AppManifest|undefined {
 	return ret;
 }
 
-// type InProcessResp struct {
-//     LastEvent domain.AppGetEvent `json:"last_event"`
-//     Meta      domain.AppGetMeta  `json:"meta"`
-// }
-// type AppGetEvent struct {
-//     Key   AppGetKey `json:"key"`
-//     Done  bool      `json:"done"`
-//     Error bool      `json:"error"`
-//     Step  string    `json:"step"`
-// }
-type AppGetEvent = {
-	key: string,
-	done: boolean,
-	input: string,
-	step: string
-}
-type InProcessResp = {
-	last_event: AppGetEvent,
-	meta: AppGetMeta
-}
-export class AppGetter {
-	key = ref("");
-	not_found = ref(false);
-	last_event :ShallowRef<AppGetEvent | undefined> = shallowRef();
-	meta :ShallowRef<AppGetMeta | undefined> = shallowRef();
-
-	private subMessage :SentMessageI|undefined;
-
-	async updateKey(key :string) {
-		this.key.value = key;
-
-		await this.loadInProcess();
-
-		if( this.done ) return;
-
-		const payload = new TextEncoder().encode(key);
-
-		await twineClient.ready();
-		this.subMessage = await twineClient.twine.send(13, 11, payload);
-
-		for await (const m of this.subMessage.incomingMessages()) {
-			switch (m.command) {
-				case 11:	//event
-					const ev = <AppGetEvent>JSON.parse(new TextDecoder('utf-8').decode(m.payload));
-					m.sendOK();
-					if( ev.done ) this.unsubscribeKey();
-					if( ev.done || ev.input ) this.loadInProcess();
-					else this.last_event.value = ev;
-					break;
-			
-				default:
-					m.sendError("What is this command?");
-					throw new Error("what is this command? "+m.command);
-			}
-		}
-	}
-	async loadInProcess() {
-		let resp :AxiosResponse|undefined;
-		try {
-			resp = await ax.get('/api/application/in-process/'+this.key.value);
-		}
-		catch(error: any | AxiosError) {
-			if( axios.isAxiosError(error) && error.response && error.response.status == 404 ) {
-				this.not_found.value = true;
-				return;
-			}
-			throw error;
-		}
-		if( resp?.data === undefined ) return;
-		const data = <InProcessResp>resp.data;
-		if( data.meta.version_manifest ) data.meta.version_manifest = rawToAppManifest(data.meta.version_manifest);
-		this.last_event.value = data.last_event;
-		this.meta.value = data.meta;
-		if( this.done && !this.has_error ) {
-			const appStore = useAppsStore();
-			appStore.setReload();	// temporary until we can lazy-load apps.
-		}
-	}
-	async unsubscribeKey() {
-		if( !this.subMessage ) return;
-		const m = this.subMessage;
-		this.subMessage = undefined;
-		await m.refSendBlock(13, undefined);
-	}
-
-	get done() :boolean {	// Note we changed what "done" means on the backend, sort of. It now means the process is completely finished.
-		return !!this.last_event.value?.done
-	}
-	get expects_input() :boolean {
-		return !!this.last_event.value?.input;
-	}
-	get must_confirm() :boolean {
-		return !this.done && this.last_event.value?.input === "commit";
-	}
-	get has_error() :boolean {
-		return this.meta.value?.errors.length !== 0;
-	}
-	get version_manifest() :AppManifest|undefined {
-		return this.meta.value?.version_manifest;
-	}
-
-	async cancel() {
-		if( this.not_found.value ) return;
-		try {
-			await this.unsubscribeKey();
-			this.not_found.value = true;
-			this.last_event.value = undefined;
-			this.meta.value = undefined;
-			await ax.delete('/api/application/in-process/'+this.key.value);
-		}
-		catch(e) {
-			// no-op. Whatever the error, don't hold up the frontend UI because of it.
-		}
-	}
-}

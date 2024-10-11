@@ -496,7 +496,8 @@ type AppGetMeta struct {
 
 // AppGetEvent contains updates to an app getter process
 type AppGetEvent struct {
-	Key AppGetKey `json:"key"`
+	OwnerID UserID    `json:"owner_id"`
+	Key     AppGetKey `json:"key"`
 	// Done means the entire process is finished, nothing more is going to happen.
 	Done bool `json:"done"`
 	// Input is non-empty string when user input is needed (like "commit", or "see warnings then continue")
@@ -747,6 +748,7 @@ type AppspacePausedEvent struct {
 
 // AppspaceStatusEvent indicates readiness of appspace and the reason
 type AppspaceStatusEvent struct {
+	OwnerID          UserID     `json:"owner_id"`
 	AppspaceID       AppspaceID `json:"appspace_id"`
 	Paused           bool       `json:"paused"`
 	TempPaused       bool       `json:"temp_paused"`

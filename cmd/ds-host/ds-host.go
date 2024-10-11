@@ -44,7 +44,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/server"
-	"github.com/teleclimber/DropServer/cmd/ds-host/twineservices"
 	"github.com/teleclimber/DropServer/cmd/ds-host/userroutes"
 	"github.com/teleclimber/DropServer/cmd/ds-host/views"
 	"github.com/teleclimber/DropServer/internal/checkinject"
@@ -126,6 +125,7 @@ func main() {
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
+	appGetterEvents := &events.AppGetterEvents{}
 	appUrlDataEvents := &events.AppUrlDataEvents{}
 
 	// models
@@ -311,6 +311,7 @@ func main() {
 		RemoteAppGetter:  remoteAppGetter,
 		SandboxManager:   sandboxManager,
 		AppRoutes:        AppRoutes,
+		AppGetterEvents:  appGetterEvents,
 	}
 	appGetter.Init()
 
@@ -448,6 +449,7 @@ func main() {
 		Config:                *runtimeConfig,
 		AppspaceUserRoutes:    userAppspaceUserRoutes,
 		AppspaceModel:         appspaceModel,
+		AppspaceStatus:        appspaceStatus,
 		AppspaceExportRoutes:  exportAppspaceRoutes,
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
 		DropIDModel:           dropIDModel,
@@ -485,20 +487,6 @@ func main() {
 		MigrationJobController: migrationJobCtl,
 	}
 
-	appspaceStatusTwine := &twineservices.AppspaceStatusService{
-		AppspaceModel:        appspaceModel,
-		AppspaceStatus:       appspaceStatus,
-		AppspaceStatusEvents: appspaceStatusEvents,
-	}
-	migrationJobTwine := &twineservices.MigrationJobService{
-		AppspaceModel:      appspaceModel,
-		MigrationJobModel:  migrationJobModel,
-		MigrationJobEvents: migrationJobEvents,
-	}
-	appGetterTwine := &twineservices.AppGetterService{
-		AppGetter: appGetter,
-	}
-
 	userRoutes := &userroutes.UserRoutes{
 		Config:               runtimeConfig,
 		Authenticator:        authenticator,
@@ -512,9 +500,9 @@ func main() {
 		DomainRoutes:         domainNameRoutes,
 		DropIDRoutes:         dropIDRoutes,
 		MigrationJobRoutes:   migrationJobRoutes,
-		AppspaceStatusTwine:  appspaceStatusTwine,
-		MigrationJobTwine:    migrationJobTwine,
-		AppGetterTwine:       appGetterTwine,
+		AppspaceStatusEvents: appspaceStatusEvents,
+		MigrationJobEvents:   migrationJobEvents,
+		AppGetterEvents:      appGetterEvents,
 		UserModel:            userModel,
 		Views:                views}
 	userRoutes.Init()

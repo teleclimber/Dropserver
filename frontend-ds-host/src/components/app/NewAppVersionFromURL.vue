@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { ref, Ref, watch, computed, watchEffect } from "vue";
 import { useRouter } from 'vue-router';
-import { useAppsStore, AppGetMeta } from '@/stores/apps';
+import { useAppsStore } from '@/stores/apps';
+import { AppGetMeta } from '@/stores/types';
 import MessageSad from "@/components/ui/MessageSad.vue";
 import BigLoader from "@/components/ui/BigLoader.vue";
 import AppCard from "./AppCard.vue";

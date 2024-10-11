@@ -414,6 +414,20 @@ func (m *MockAppspaceStatus) EXPECT() *MockAppspaceStatusMockRecorder {
 	return m.recorder
 }
 
+// Get mocks base method
+func (m *MockAppspaceStatus) Get(arg0 domain.AppspaceID) domain.AppspaceStatusEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", arg0)
+	ret0, _ := ret[0].(domain.AppspaceStatusEvent)
+	return ret0
+}
+
+// Get indicates an expected call of Get
+func (mr *MockAppspaceStatusMockRecorder) Get(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAppspaceStatus)(nil).Get), arg0)
+}
+
 // IsLockedClosed mocks base method
 func (m *MockAppspaceStatus) IsLockedClosed(arg0 domain.AppspaceID) bool {
 	m.ctrl.T.Helper()
@@ -481,20 +495,6 @@ func (m *MockAppspaceStatus) SetHostStop(arg0 bool) {
 func (mr *MockAppspaceStatusMockRecorder) SetHostStop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostStop", reflect.TypeOf((*MockAppspaceStatus)(nil).SetHostStop), arg0)
-}
-
-// Track mocks base method
-func (m *MockAppspaceStatus) Track(arg0 domain.AppspaceID) domain.AppspaceStatusEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Track", arg0)
-	ret0, _ := ret[0].(domain.AppspaceStatusEvent)
-	return ret0
-}
-
-// Track indicates an expected call of Track
-func (mr *MockAppspaceStatusMockRecorder) Track(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Track", reflect.TypeOf((*MockAppspaceStatus)(nil).Track), arg0)
 }
 
 // WaitStopped mocks base method

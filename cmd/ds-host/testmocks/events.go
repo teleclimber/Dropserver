@@ -30,10 +30,8 @@ type AppUrlDataEvents interface {
 
 // AppspaceStatusEvents interface for mocking
 type AppspaceStatusEvents interface {
-	Subscribe(appspaceID domain.AppspaceID, ch chan<- domain.AppspaceStatusEvent)
-	Unsubscribe(appspaceID domain.AppspaceID, ch chan<- domain.AppspaceStatusEvent)
-	UnsubscribeChannel(chan<- domain.AppspaceStatusEvent)
-	Send(domain.AppspaceID, domain.AppspaceStatusEvent)
+	Send(domain.AppspaceStatusEvent)
+	GenericEvents[domain.AppspaceStatusEvent]
 }
 
 // MigrationJobEvents interface for mocking

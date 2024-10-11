@@ -23,18 +23,18 @@ jobs:
         fetch-depth: 0
     - uses: denoland/setup-deno@v1
       with:
-        deno-version: v1.x
+        deno-version: rc
     - name: Install bubblewrap
       run: sudo apt-get install -y bubblewrap
 
     - name: Download frontend-ds-host
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: frontend-ds-host
         path: frontend-ds-host/dist/
 
     - name: Download frontend-ds-dev
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
@@ -54,13 +54,13 @@ jobs:
       run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
 
     - name: Upload ds-host
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ds-host
         path: dist/bin/ds-host
 
     - name: Upload ds-dev
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ds-dev
         path: dist/bin/ds-dev

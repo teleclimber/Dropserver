@@ -104,7 +104,7 @@ func TestTempPause(t *testing.T) {
 		problem:          false}
 
 	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
-	appspaceStatusEvents.EXPECT().Send(appspaceID, gomock.Any()).AnyTimes()
+	appspaceStatusEvents.EXPECT().Send(gomock.Any()).AnyTimes()
 
 	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
 	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any())
@@ -157,7 +157,7 @@ func TestMultiTempPause(t *testing.T) {
 		problem:          false}
 
 	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
-	appspaceStatusEvents.EXPECT().Send(appspaceID, gomock.Any()).Times(2)
+	appspaceStatusEvents.EXPECT().Send(gomock.Any()).Times(2)
 
 	appspaceRouter := testmocks.NewMockAppspaceRouter(mockCtrl)
 	appspaceRouter.EXPECT().SubscribeLiveCount(appspaceID, gomock.Any()).Times(2)
@@ -226,7 +226,7 @@ func TestMigrationEvent(t *testing.T) {
 	appspaceInfoModel.EXPECT().GetSchema(appspaceID).Return(4, nil)
 
 	appspaceStatusEvents := testmocks.NewMockAppspaceStatusEvents(mockCtrl)
-	appspaceStatusEvents.EXPECT().Send(appspaceID, event1)
+	appspaceStatusEvents.EXPECT().Send(event1)
 
 	s := AppspaceStatus{
 		AppspaceModel:        appspaceModel,

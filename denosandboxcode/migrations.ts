@@ -1,4 +1,4 @@
-import {migrationFunction, GetMigrationsCallback} from 'https://deno.land/x/dropserver_lib_support@v0.2.0/mod.ts';
+import {migrationFunction, GetMigrationsCallback} from 'https://deno.land/x/dropserver_lib_support@v0.2.1/mod.ts';
 
 // MigrationMeta is what is sent to the host to identify and make use of migration
 // Basically should include everything except the actual function

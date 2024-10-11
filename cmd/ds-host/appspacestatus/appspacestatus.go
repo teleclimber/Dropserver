@@ -51,11 +51,12 @@ type tempPause struct {
 }
 
 type statusData struct {
-	paused           bool        // paused status is set in appspace DB
-	tempPauses       []tempPause // pauses for appspace operations like migrations, backups, etc...
-	dataSchema       int         // from appspace metadata
-	appVersionSchema int         // from app files
-	problem          bool        // Something went wrong, appsapce can't be used
+	ownerID          domain.UserID // ownerID piggybacks on statusDatat to simplify event displatching
+	paused           bool          // paused status is set in appspace DB
+	tempPauses       []tempPause   // pauses for appspace operations like migrations, backups, etc...
+	dataSchema       int           // from appspace metadata
+	appVersionSchema int           // from app files
+	problem          bool          // Something went wrong, appsapce can't be used
 }
 
 // possible flags to add:
@@ -95,7 +96,7 @@ type AppspaceStatus struct {
 	} `checkinject:"optional"`
 
 	AppspaceStatusEvents interface {
-		Send(domain.AppspaceID, domain.AppspaceStatusEvent)
+		Send(domain.AppspaceStatusEvent)
 	} `checkinject:"required"`
 
 	hostStopMux sync.Mutex
@@ -146,7 +147,7 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 		return false
 	}
 
-	status := s.getStatus(appspaceID)
+	status, _ := s.getStatus(appspaceID)
 	status.lock.Lock()
 	defer status.lock.Unlock()
 
@@ -164,15 +165,18 @@ func (s *AppspaceStatus) Ready(appspaceID domain.AppspaceID) bool {
 // That would wait for ready state (until context says no more)
 
 // PauseAppspace sets the pause flag on the status if it is tracked
+// Shouldn't this be in reaction to setting pause in model?
 func (s *AppspaceStatus) PauseAppspace(appspaceID domain.AppspaceID, pause bool) {
-	status := s.getTrackedStatus(appspaceID)
-	if status != nil {
+	status, found := s.getStatus(appspaceID)
+	if found {
 		status.lock.Lock()
 		defer status.lock.Unlock()
 		if status.data.paused != pause {
 			status.data.paused = pause
 			s.sendChangedEvent(appspaceID, status.data)
 		}
+	} else {
+		s.sendChangedEvent(appspaceID, status.data)
 	}
 }
 
@@ -198,14 +202,14 @@ func (s *AppspaceStatus) WaitTempPaused(appspaceID domain.AppspaceID, reason str
 // IsTempPaused returns true if a temp pause is in effect
 // It does not consider whether the appspace has effectively stopped
 func (s *AppspaceStatus) IsTempPaused(appspaceID domain.AppspaceID) bool {
-	status := s.getStatus(appspaceID)
+	status, _ := s.getStatus(appspaceID)
 	status.lock.Lock()
 	defer status.lock.Unlock()
 	return len(status.data.tempPauses) != 0
 }
 
 func (s *AppspaceStatus) getTempPause(appspaceID domain.AppspaceID, reason string) chan struct{} {
-	status := s.getStatus(appspaceID)
+	status, _ := s.getStatus(appspaceID)
 
 	status.lock.Lock()
 	defer status.lock.Unlock()
@@ -223,7 +227,7 @@ func (s *AppspaceStatus) getTempPause(appspaceID domain.AppspaceID, reason strin
 // finishTempPause closes the 0th temp pause and starts the next one
 // or sends a status change notification if there are none.
 func (s *AppspaceStatus) finishTempPause(appspaceID domain.AppspaceID) {
-	status := s.getStatus(appspaceID)
+	status, _ := s.getStatus(appspaceID)
 
 	status.lock.Lock()
 	defer status.lock.Unlock()
@@ -243,14 +247,14 @@ func (s *AppspaceStatus) finishTempPause(appspaceID domain.AppspaceID) {
 // With this, migration would check status and ensure it's "active". Don't migrate an archived or deleted appspace.
 // Then we can just use regular pause, with maybe a "waitPaused"
 
-// Track causes appspace id to monitored and future events will be sent
+// Get causes appspace id to monitored and future events will be sent
 // It returns an event struct that represents the current state
-func (s *AppspaceStatus) Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent {
-	stat := s.getStatus(appspaceID)
+func (s *AppspaceStatus) Get(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent {
+	stat, _ := s.getStatus(appspaceID)
 	return getEvent(appspaceID, stat.data)
 }
 
-func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) *status {
+func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) (*status, bool) {
 	s.statusMux.Lock()
 	defer s.statusMux.Unlock()
 
@@ -260,7 +264,7 @@ func (s *AppspaceStatus) getStatus(appspaceID domain.AppspaceID) *status {
 			data: s.getData(appspaceID)}
 		s.status[appspaceID] = stat
 	}
-	return stat
+	return stat, ok
 }
 
 func (s *AppspaceStatus) getTrackedStatus(appspaceID domain.AppspaceID) *status {
@@ -284,6 +288,7 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 		data.problem = true
 		return data
 	}
+	data.ownerID = appspace.OwnerID
 	data.paused = appspace.Paused
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
@@ -312,18 +317,24 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 
 func (s *AppspaceStatus) handleAppspaceFiles(ch <-chan domain.AppspaceID) {
 	for appspaceID := range ch {
-		status := s.getTrackedStatus(appspaceID)
-		if status != nil {
+		status, found := s.getStatus(appspaceID)
+		if found {
 			s.updateStatus(appspaceID, status)
+		} else {
+			s.sendChangedEvent(appspaceID, status.data)
 		}
 	}
 }
 
 func (s *AppspaceStatus) handleMigrationJobUpdate(ch <-chan domain.MigrationJob) {
 	for d := range ch {
-		status := s.getTrackedStatus(d.AppspaceID)
-		if status != nil && d.Finished.Valid {
-			s.updateStatus(d.AppspaceID, status) //reload whole status because migration might have changed many things
+		if d.Finished.Valid {
+			status, ok := s.getStatus(d.AppspaceID)
+			if ok {
+				s.updateStatus(d.AppspaceID, status)
+			} else {
+				s.sendChangedEvent(d.AppspaceID, status.data)
+			}
 		}
 	}
 }
@@ -379,7 +390,7 @@ func (s *AppspaceStatus) updateStatus(appspaceID domain.AppspaceID, curStatus *s
 }
 
 func (s *AppspaceStatus) sendChangedEvent(appspaceID domain.AppspaceID, status statusData) {
-	go s.AppspaceStatusEvents.Send(appspaceID, getEvent(appspaceID, status))
+	go s.AppspaceStatusEvents.Send(getEvent(appspaceID, status))
 }
 
 func getEvent(appspaceID domain.AppspaceID, status statusData) domain.AppspaceStatusEvent {
@@ -388,6 +399,7 @@ func getEvent(appspaceID domain.AppspaceID, status statusData) domain.AppspaceSt
 		pReason = status.tempPauses[0].reason
 	}
 	return domain.AppspaceStatusEvent{
+		OwnerID:          status.ownerID,
 		AppspaceID:       appspaceID,
 		Paused:           status.paused, // maybe add archived, deleted. Or put everything under an "active"
 		TempPaused:       len(status.tempPauses) != 0,

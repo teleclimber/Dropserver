@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { ref, Ref, watch, watchEffect, computed } from "vue";
 import { useRouter } from 'vue-router';
-import { useAppsStore, AppGetMeta, rawToAppManifest } from '@/stores/apps';
+import { useAppsStore, rawToAppManifest } from '@/stores/apps';
+import type { AppGetMeta } from '@/stores/types';
 import ViewWrap from "@/components/ViewWrap.vue";
 import MessageSad from "@/components/ui/MessageSad.vue";
 import BigLoader from "@/components/ui/BigLoader.vue";

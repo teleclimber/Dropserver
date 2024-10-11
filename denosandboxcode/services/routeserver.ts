@@ -109,7 +109,7 @@ export default class DsRouteServer {
 			await route.handler(ctx);
 		}
 		catch(e) {
-			this.replyError(reqEvent, e);
+			if (e instanceof Error) this.replyError(reqEvent, e.toString());
 			// this error comes from app code, but it may also be from dropserver_app lib
 			// But that's technically app code. Maybe dropserver_lib_suport can define an error
 			// That then gets used to indicate a problem at the library level?

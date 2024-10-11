@@ -1,8 +1,9 @@
 import { ref, shallowRef, ShallowRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
+import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace } from './types';
+import { LoadState, Appspace, AppspaceStatus } from './types';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -10,6 +11,19 @@ type NewAppspaceData = {
 	domain_name: string,
 	subdomain: string,
 	dropid: string
+}
+
+function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
+	return {
+		owner_id: Number(raw.owner_id),
+		appspace_id: Number(raw.appspace_id),
+		paused: !!raw.paused,
+		temp_paused: raw.temp_paused,
+		temp_pause_reason: raw.temp_pause_reason+'',
+		appspace_schema: Number(raw.appspace_schema),
+		app_version_schema: Number(raw.app_version_schema),
+		problem: !!raw.problem
+	}
 }
 
 function appspaceFromRaw(raw:any) :Appspace {
@@ -23,6 +37,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 		paused: !!raw.paused,
 		app_id: Number(raw.app_id),
 		app_version: raw.app_version+'',
+		status: appspaceStatusFromRaw(raw.status),
 		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
 		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
@@ -62,6 +77,22 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 			as_ex.value = as_in;
 		}
 	}
+
+	// connect to events that are relevant to appspace
+	// - appspace status, ...
+	on('AppspaceStatus', (raw) => {
+		const status = appspaceStatusFromRaw(raw);
+		const as = getAppspace(status.appspace_id);
+		if( !as ) return;
+
+		const old_status = as.value.status;
+		let reload = false;
+		if( old_status.paused !== status.paused ) reload = true;	// if status changes for pause, means pause was toggled.
+		// other traps for reload
+
+		if( reload ) loadAppspace(status.appspace_id);
+		else as.value = Object.assign({}, as.value, {status});
+	});
 
 	function getAppspace(appspace_id:number) {
 		return appspaces.value.get(appspace_id);

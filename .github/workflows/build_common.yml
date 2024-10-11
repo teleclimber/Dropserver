@@ -15,7 +15,7 @@ jobs:
       working-directory: frontend-ds-host
     
     - name: Upload frontend for ds-host
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: frontend-ds-host
         path: frontend-ds-host/dist/
@@ -25,7 +25,7 @@ jobs:
       working-directory: frontend-ds-dev
 
     - name: Upload frontend for ds-dev
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/

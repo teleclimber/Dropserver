@@ -22,7 +22,6 @@ var ignorePaths = []string{
 type DevAppWatcher struct {
 	AppGetter interface {
 		Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error)
-		SubscribeKey(key domain.AppGetKey) (domain.AppGetEvent, <-chan domain.AppGetEvent)
 		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
 		DeleteKeyData(key domain.AppGetKey)
 	} `checkinject:"required"`
@@ -30,6 +29,10 @@ type DevAppWatcher struct {
 	DevAppspaceModel    *DevAppspaceModel `checkinject:"required"`
 	DevAppProcessEvents interface {
 		Send(AppProcessEvent)
+	} `checkinject:"required"`
+	AppGetterEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppGetEvent
+		Unsubscribe(<-chan domain.AppGetEvent)
 	} `checkinject:"required"`
 	AppVersionEvents interface {
 		Send(string)
@@ -81,17 +84,17 @@ func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be 
 		panic(err)
 	}
 
-	lastEvent, appGetCh := w.AppGetter.SubscribeKey(appGetKey)
-	if lastEvent.Done || appGetCh == nil {
-		w.reloadMetadata(appGetKey)
-		return
-	}
+	appGetCh := w.AppGetterEvents.SubscribeOwner(ownerID)
+	defer w.AppGetterEvents.Unsubscribe(appGetCh)
 
-	// subscribe and wait
 	reloading := false
 	for e := range appGetCh {
+		if e.Key != appGetKey {
+			continue
+		}
 		if e.Done {
-			// if processing is done, get results to get the errors.
+			// if processing is done, unsubscribe to stop loop, then get results to get the errors.
+			go w.AppGetterEvents.Unsubscribe(appGetCh)
 			results, ok := w.AppGetter.GetResults(appGetKey)
 			if ok {
 				w.DevAppProcessEvents.Send(AppProcessEvent{

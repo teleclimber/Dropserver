@@ -49,7 +49,7 @@ type MigrationJobController interface {
 type AppspaceStatus interface {
 	SetHostStop(stop bool)
 	Ready(appspaceID domain.AppspaceID) bool
-	Track(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
+	Get(appspaceID domain.AppspaceID) domain.AppspaceStatusEvent
 	WaitTempPaused(appspaceID domain.AppspaceID, reason string) chan struct{}
 	IsTempPaused(appspaceId domain.AppspaceID) bool
 	WaitStopped(appspaceID domain.AppspaceID)
