@@ -677,6 +677,35 @@ type AppspaceUserAuth struct {
 	LastSeen   nulltypes.NullTime `db:"last_seen" json:"last_seen"`
 }
 
+// TSNetAppspaceStatus is info about the tsnet server for an appspace
+type TSNetAppspaceStatus struct {
+	AppspaceID    AppspaceID              `json:"appspace_id"`
+	OwnerID       UserID                  `json:"owner_id"` // I don't like this at all1!!
+	URL           string                  `json:"url,omitempty"`
+	Tailnet       string                  `json:"tailnet,omitempty"`
+	ErrMessage    string                  `json:"err_message,omitempty"`
+	State         string                  `json:"state,omitempty"` // Stae from tsnet. But not ideal. Use "connected" instead of "running"
+	BrowseToURL   string                  `json:"browse_to_url,omitempty"`
+	LoginFinished bool                    `json:"login_finished,omitempty"`
+	Warnings      map[string]TSNetWarning `json:"warnings,omitempty"`
+}
+type TSNetWarning struct {
+	Title               string `json:"title"`
+	Text                string `json:"text"`
+	Severity            string `json:"severity"`
+	ImpactsConnectivity bool   `json:"impacts_connectivity"`
+}
+
+// TSNetUser provides details of a user on a tailnet
+// Essentially equivalent to tailcfg.UserProfile
+type TSNetUser struct {
+	ID            string // tsnet user id
+	LoginName     string
+	DisplayName   string
+	ProfilePicURL string
+	Sharee        bool
+}
+
 // V0RouteModel serves route data queries at version 0
 // type V0RouteModel interface {
 // 	ReverseServiceI

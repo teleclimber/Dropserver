@@ -124,6 +124,7 @@ func main() {
 	// events
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appGetterEvents := &events.AppGetterEvents{}
 	appUrlDataEvents := &events.AppUrlDataEvents{}
@@ -488,23 +489,24 @@ func main() {
 	}
 
 	userRoutes := &userroutes.UserRoutes{
-		Config:               runtimeConfig,
-		Authenticator:        authenticator,
-		AuthRoutes:           authRoutes,
-		AppspaceLoginRoutes:  appspaceLoginRoutes,
-		AdminRoutes:          adminRoutes,
-		ApplicationRoutes:    applicationRoutes,
-		AppspaceRoutes:       userAppspaceRoutes,
-		RemoteAppspaceRoutes: remoteAppspaceRoutes,
-		ContactRoutes:        contactRoutes,
-		DomainRoutes:         domainNameRoutes,
-		DropIDRoutes:         dropIDRoutes,
-		MigrationJobRoutes:   migrationJobRoutes,
-		AppspaceStatusEvents: appspaceStatusEvents,
-		MigrationJobEvents:   migrationJobEvents,
-		AppGetterEvents:      appGetterEvents,
-		UserModel:            userModel,
-		Views:                views}
+		Config:                    runtimeConfig,
+		Authenticator:             authenticator,
+		AuthRoutes:                authRoutes,
+		AppspaceLoginRoutes:       appspaceLoginRoutes,
+		AdminRoutes:               adminRoutes,
+		ApplicationRoutes:         applicationRoutes,
+		AppspaceRoutes:            userAppspaceRoutes,
+		RemoteAppspaceRoutes:      remoteAppspaceRoutes,
+		ContactRoutes:             contactRoutes,
+		DomainRoutes:              domainNameRoutes,
+		DropIDRoutes:              dropIDRoutes,
+		MigrationJobRoutes:        migrationJobRoutes,
+		AppspaceStatusEvents:      appspaceStatusEvents,
+		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
+		MigrationJobEvents:        migrationJobEvents,
+		AppGetterEvents:           appGetterEvents,
+		UserModel:                 userModel,
+		Views:                     views}
 	userRoutes.Init()
 	userRoutes.DumpRoutes(*dumpRoutesFlag)
 
@@ -538,12 +540,12 @@ func main() {
 	}
 	fromServer.Init()
 
-	fromTsnet := &appspacerouter.FromTsnet{
+	fromTSNet := &appspacerouter.FromTSNet{
 		AppspaceModel:     appspaceModel,
 		AppspaceUserModel: appspaceUserModel,
 		AppspaceRouter:    appspaceRouter,
 	}
-	fromTsnet.Init()
+	fromTSNet.Init()
 
 	services := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
@@ -556,13 +558,15 @@ func main() {
 		UserRoutes:         userRoutes,
 		AppspaceRouter:     fromServer}
 
-	appspaceTSServers := &server.AppspaceTSNet{
-		Config:                runtimeConfig,
-		AppspaceModel:         appspaceModel,
-		AppspaceRouter:        fromTsnet,
-		AppspaceLocation2Path: appspaceLocation2Path,
+	appspaceTSNet := &server.AppspaceTSNet{
+		Config:                    runtimeConfig,
+		AppspaceModel:             appspaceModel,
+		AppspaceRouter:            fromTSNet,
+		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
+		AppspaceLocation2Path:     appspaceLocation2Path,
 	}
-	appspaceTSServers.Init()
+	appspaceTSNet.Init()
+	userAppspaceRoutes.AppspaceTSNet = appspaceTSNet
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -583,7 +587,7 @@ func main() {
 		remoteAppGetter.Stop()
 		appGetter.Stop()
 
-		appspaceTSServers.StopAll()
+		appspaceTSNet.StopAll()
 
 		mainServer.Shutdown()
 
@@ -610,7 +614,7 @@ func main() {
 
 	mainServer.Start()
 
-	appspaceTSServers.StartAll()
+	appspaceTSNet.StartAll()
 
 	go domainController.ResumeManagingCertificates()
 

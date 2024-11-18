@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus } from './types';
+import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning } from './types';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -26,6 +26,33 @@ function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 	}
 }
 
+function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
+	const warnings : TSNetWarning[] = [];
+	if( Array.isArray(raw.warnings) ) {
+		raw.warnings.forEach((w:any) => {
+			warnings.push({
+				title: raw.title+'',
+				text: raw.text+'',
+				severity: raw.severuty+'',
+				impacts_connectivity: !! raw.impacts_connectivity
+			})
+		});
+	}
+	return {
+		url: strFromRaw(raw?.url),
+		tailnet: strFromRaw(raw?.tailnet),
+		err_message: strFromRaw(raw?.err_message),
+		state: strFromRaw(raw?.state),
+		browse_to_url: strFromRaw(raw?.browse_to_url),
+		login_finished: !!raw?.login_finished,
+		warnings
+	}
+}
+function strFromRaw(raw:any) :string {
+	if( !raw ) return '';
+	return raw+'';
+}
+
 function appspaceFromRaw(raw:any) :Appspace {
 	return {
 		appspace_id: Number(raw.appspace_id),
@@ -38,6 +65,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 		app_id: Number(raw.app_id),
 		app_version: raw.app_version+'',
 		status: appspaceStatusFromRaw(raw.status),
+		tsnet_status: tsnetStatusFromRaw(raw.tsnet_status),
 		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
 		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined
 	}
@@ -92,6 +120,15 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 
 		if( reload ) loadAppspace(status.appspace_id);
 		else as.value = Object.assign({}, as.value, {status});
+	});
+	on('AppspaceTSNetStatus', (raw) => {
+		console.log('AppspaceTSNetStatus', raw);
+		const as_id = Number(raw.appspace_id);
+		const as = getAppspace(as_id);
+		if( !as ) return;
+		const tsnet_status = tsnetStatusFromRaw(raw);
+		console.log('typed tsnet status', raw);
+		as.value = Object.assign({}, as.value, {tsnet_status});
 	});
 
 	function getAppspace(appspace_id:number) {

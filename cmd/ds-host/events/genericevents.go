@@ -15,6 +15,7 @@ type DataTypes interface {
 	domain.AppURLData |
 		domain.AppspaceID |
 		domain.AppspaceStatusEvent |
+		domain.TSNetAppspaceStatus |
 		domain.MigrationJob |
 		domain.AppGetEvent
 }

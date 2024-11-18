@@ -17,6 +17,9 @@ type AppspaceTSNet struct {
 		GetAll() ([]domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
+	AppspaceTSNetStatusEvents interface {
+		Send(data domain.TSNetAppspaceStatus)
+	} `checkinject:"required"`
 	AppspaceLocation2Path interface {
 		TailscaleNodeStore(locationKey string) string
 	} `checkinject:"required"`
@@ -54,9 +57,19 @@ func (a *AppspaceTSNet) StartAll() error {
 		if !as.Paused { // this might be temporary? Should Pausing an appspace cause its TS server to stop?
 			go func(appspace domain.Appspace) {
 				node := a.addGet(appspace.AppspaceID)
+				node.ownerID = appspace.OwnerID      // needed for notifications.
 				node.createNode(appspace.DomainName) // TODO as.DomainName is tempoary.
 			}(as)
 		}
+	}
+	return nil
+}
+
+func (a *AppspaceTSNet) get(appspaceID domain.AppspaceID) *AppspaceTSNode {
+	a.serversMux.Lock()
+	defer a.serversMux.Unlock()
+	if node, exists := a.servers[appspaceID]; exists {
+		return node
 	}
 	return nil
 }
@@ -70,11 +83,12 @@ func (a *AppspaceTSNet) addGet(appspaceID domain.AppspaceID) *AppspaceTSNode {
 		return node
 	}
 	a.servers[appspaceID] = &AppspaceTSNode{
-		Config:                a.Config,
-		AppspaceLocation2Path: a.AppspaceLocation2Path,
-		AppspaceModel:         a.AppspaceModel,
-		AppspaceRouter:        a.AppspaceRouter,
-		appspaceID:            appspaceID,
+		Config:                    a.Config,
+		AppspaceLocation2Path:     a.AppspaceLocation2Path,
+		AppspaceModel:             a.AppspaceModel,
+		AppspaceRouter:            a.AppspaceRouter,
+		AppspaceTSNetStatusEvents: a.AppspaceTSNetStatusEvents,
+		appspaceID:                appspaceID,
 	}
 	return a.servers[appspaceID]
 }
@@ -83,6 +97,18 @@ func (a *AppspaceTSNet) rmServer(appspaceID domain.AppspaceID) {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	delete(a.servers, appspaceID)
+}
+
+func (a *AppspaceTSNet) GetStatus(appspaceID domain.AppspaceID) domain.TSNetAppspaceStatus {
+	node := a.get(appspaceID)
+	if node != nil {
+		return node.nodeStatus.asDomain()
+	}
+	return domain.TSNetAppspaceStatus{
+		AppspaceID: appspaceID,
+		// No need to populate owner since this is not sent via event system
+		State: "Off",
+	}
 }
 
 func (m *AppspaceTSNet) getLogger(note string) *record.DsLogger {

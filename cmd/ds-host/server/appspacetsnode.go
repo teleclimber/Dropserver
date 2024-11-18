@@ -29,11 +29,17 @@ type AppspaceTSNode struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	}
-	AppspaceRouter http.Handler
+	AppspaceRouter            http.Handler
+	AppspaceTSNetStatusEvents interface {
+		Send(data domain.TSNetAppspaceStatus)
+	}
 
 	appspaceID domain.AppspaceID
 	// ^^ actually we need to full appspace? Need loc key, domain / ts net name, ...
 	// but ts net name is only the desired name, which is used once if creating the node. after that it's data from teh outside
+	ownerID domain.UserID
+	// ^^ also need owner id to send with notification
+
 	tsnetServer *tsnet.Server
 
 	busWatcherCtxCancel context.CancelFunc
@@ -60,11 +66,12 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 	s := new(tsnet.Server)
 	n.tsnetServer = s
 
-	// To use headscale or antoerh alternative backend set the control URL:
-	// s.ControlURL = url from config...
+	// To use headscale or an other alternative backend set the control URL:
+	// s.ControlURL = "...m"
+	// s.AuthKey = "..."
 
-	s.Dir = n.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey)
-	s.Hostname = name // Set the name? or is taht only used when we are creating the node?
+	s.Dir = n.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey) // TODO prefix this with control plane domain
+	s.Hostname = name                                                        // Set the name? or is taht only used when we are creating the node?
 
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {
@@ -72,8 +79,6 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 			logger.Clone().AddNote("tsnet UserLogf").Log(fmt.Sprintf(format, args...))
 		}
 	}
-
-	s.AuthKey = n.Config.Tailscale.AuthKey
 
 	lc, err := s.LocalClient()
 	if err != nil {
@@ -98,9 +103,15 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 			}
 			if n.nodeStatus.ingest(newData) {
 				fmt.Println("status changed:", name, n.nodeStatus)
-				// send notification
+				n.sendStatus()
 			}
 			if newData.NetMap != nil {
+				// note that netmap contains much more than peers!
+				// it also contains UserProfiles:
+				fmt.Println("user profiles")
+				for id, p := range newData.NetMap.UserProfiles {
+					fmt.Println(id, p)
+				}
 				n.ingestPeers(lc, newData.NetMap.Peers)
 				// send notification in goroutine
 			}
@@ -111,7 +122,9 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 		}
 	}()
 
+	// TODO switch Listen call based on whether TLS is on or not.
 	ln, err := s.ListenTLS("tcp", ":443")
+	//ln, err := s.Listen("tcp", ":80")
 	if err != nil {
 		// We have gotten an error here for funnel: Funnel not available; "funnel" node attribute not set.
 		logger.Clone().AddNote("ListenTLS()").Error(err)
@@ -148,7 +161,7 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 				return
 			}
 			// Set the user id from [tail|head]scale for use in determining the ProxyID later
-			r = r.WithContext(domain.CtxWithTsnetUserID(r.Context(), who.UserProfile.ID.String()))
+			r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), who.UserProfile.ID.String()))
 
 			n.AppspaceRouter.ServeHTTP(w, r)
 		}))
@@ -222,6 +235,13 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 	}
 }
 
+func (n *AppspaceTSNode) sendStatus() {
+	stat := n.nodeStatus.asDomain()
+	stat.AppspaceID = n.appspaceID
+	stat.OwnerID = n.ownerID
+	n.AppspaceTSNetStatusEvents.Send(stat)
+}
+
 func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
 	r := record.NewDsLogger().AddNote("AppspaceTSNode").AppspaceID(n.appspaceID)
 	if note != "" {
@@ -231,39 +251,75 @@ func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
 }
 
 type tsNodeStatus struct {
-	ErrMessage    string
-	State         string
-	BrowseToURL   string
-	LoginFinished bool
-	Warnings      map[string]health.UnhealthyState
+	dnsName       string
+	tailnet       string
+	errMessage    string
+	state         string
+	browseToURL   string
+	loginFinished bool
+	warnings      map[string]health.UnhealthyState
+	// TODO add node expiry
 }
 
 // ingest note that any part of the status is non-nil only if it changed.
 func (n *tsNodeStatus) ingest(data ipn.Notify) (changed bool) {
-	if data.State != nil {
-		changed = true
-		n.State = data.State.String()
-	}
-	if data.BrowseToURL != nil {
-		changed = true
-		n.BrowseToURL = *data.BrowseToURL
-	}
-	if data.LoginFinished != nil {
-		changed = true
-		n.LoginFinished = true
+	if data.NetMap != nil {
+		changed = true                 // but maybe not?
+		n.dnsName = data.NetMap.Name   // Name is "dns name with trailing dot"
+		n.tailnet = data.NetMap.Domain // Domain is "tailnet name"
 	}
 	if data.ErrMessage != nil {
 		changed = true
-		n.ErrMessage = *data.ErrMessage
+		n.errMessage = *data.ErrMessage
 	}
-	n.Warnings = make(map[string]health.UnhealthyState)
+	if data.State != nil {
+		changed = true
+		n.state = data.State.String()
+	}
+	if data.BrowseToURL != nil {
+		changed = true
+		n.browseToURL = *data.BrowseToURL
+	}
+	if data.LoginFinished != nil {
+		changed = true
+		n.loginFinished = true
+	}
+	n.warnings = make(map[string]health.UnhealthyState)
 	if data.Health != nil && len(data.Health.Warnings) != 0 {
 		changed = true
 		for w, us := range data.Health.Warnings {
-			n.Warnings[string(w)] = us
+			n.warnings[string(w)] = us
+			// warnings is a whole thing
+			// Including TimeToVisible! and Depends on which change which warnings are displayed
 		}
 	}
 	return
+}
+
+func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
+	warnings := make(map[string]domain.TSNetWarning)
+	for w, d := range n.warnings {
+		warnings[w] = domain.TSNetWarning{
+			Title:               d.Title,
+			Text:                d.Text,
+			Severity:            string(d.Severity),
+			ImpactsConnectivity: d.ImpactsConnectivity,
+		}
+	}
+	ret := domain.TSNetAppspaceStatus{
+		Tailnet:       n.tailnet,
+		ErrMessage:    n.errMessage,
+		State:         n.state,
+		BrowseToURL:   n.browseToURL,
+		LoginFinished: n.loginFinished,
+		Warnings:      warnings,
+	}
+	if n.dnsName != "" {
+		ret.URL = "https://" + strings.TrimRight(n.dnsName, ".")
+		// TODO https only if TLS enabled!!
+		// This assumes MagicDNS or equivalent is on.
+	}
+	return ret
 }
 
 type tsUser struct {

@@ -82,6 +82,29 @@ func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
 	e.ownerSubs.send(data.OwnerID, data)
 }
 
+type AppspaceTSNetStatusEvents struct {
+	subscribers eventSubs[domain.TSNetAppspaceStatus]
+	ownerSubs   eventIDSubs[domain.UserID, domain.TSNetAppspaceStatus]
+}
+
+func (e *AppspaceTSNetStatusEvents) Subscribe() <-chan domain.TSNetAppspaceStatus {
+	return e.subscribers.subscribe()
+}
+
+func (e *AppspaceTSNetStatusEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.TSNetAppspaceStatus {
+	return e.ownerSubs.subscribe(ownerID)
+}
+
+func (e *AppspaceTSNetStatusEvents) Unsubscribe(ch <-chan domain.TSNetAppspaceStatus) {
+	e.subscribers.unsubscribe(ch)
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppspaceTSNetStatusEvents) Send(data domain.TSNetAppspaceStatus) {
+	e.subscribers.send(data)
+	e.ownerSubs.send(data.OwnerID, data)
+}
+
 //////////////////////////////////////////
 // Appspace Route Event
 // TODO: Shouldn't subscribers be for specific appspaces?

@@ -23,6 +23,7 @@ type AppspaceResp struct {
 	Created        time.Time                  `json:"created_dt"`
 	Paused         bool                       `json:"paused"`
 	Status         domain.AppspaceStatusEvent `json:"status"`
+	TSNetStatus    domain.TSNetAppspaceStatus `json:"tsnet_status"`
 	UpgradeVersion domain.Version             `json:"upgrade_version,omitempty"`
 	AppVersionData *domain.AppVersionUI       `json:"ver_data,omitempty"`
 }
@@ -45,6 +46,9 @@ type AppspaceRoutes struct {
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Get(domain.AppspaceID) domain.AppspaceStatusEvent
+	} `checkinject:"required"`
+	AppspaceTSNet interface {
+		GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 	} `checkinject:"required"`
 	CreateAppspace interface {
 		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
@@ -134,6 +138,7 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respData.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+	respData.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
@@ -193,6 +198,7 @@ func (a *AppspaceRoutes) getAppspacesForApp(w http.ResponseWriter, r *http.Reque
 	for i, appspace := range appspaces {
 		respData[i] = a.makeAppspaceMeta(*appspace)
 		respData[i].Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+		respData[i].TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 	}
 	writeJSON(w, respData)
 }
@@ -208,6 +214,7 @@ func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Requ
 	for _, appspace := range appspaces {
 		appspaceResp := a.makeAppspaceMeta(*appspace)
 		appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+		appspaceResp.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 		upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

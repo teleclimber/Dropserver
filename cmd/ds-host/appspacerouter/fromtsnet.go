@@ -8,7 +8,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
-type FromTsnet struct {
+type FromTSNet struct {
 	AppspaceModel interface {
 		GetFromDomain(string) (*domain.Appspace, error)
 	} `checkinject:"required"`
@@ -22,7 +22,7 @@ type FromTsnet struct {
 	mux *chi.Mux
 }
 
-func (f *FromTsnet) Init() {
+func (f *FromTSNet) Init() {
 	f.mux = chi.NewRouter()
 
 	// the appspacetsnet server will load the appspace, since it has it right there.
@@ -37,27 +37,25 @@ func (f *FromTsnet) Init() {
 	f.AppspaceRouter.BuildRoutes(f.mux)
 }
 
-func (f *FromTsnet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (f *FromTSNet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mux.ServeHTTP(w, r)
 }
 
-func (f *FromTsnet) getProxyID(next http.Handler) http.Handler {
+func (f *FromTSNet) getProxyID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		appspace, _ := domain.CtxAppspaceData(ctx)
-		_, ok := domain.CtxTsnetUserID(ctx)
+		tsUserID, ok := domain.CtxTSNetUserID(ctx)
 		if !ok {
 			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no tsnet user id")
 			next.ServeHTTP(w, r)
 		}
 
-		// Here we need to match tsnet user id with proxy ID.
-		// TODO this is TBD.
-		// for now temporaroly we'll just use the appspac owner.
+		f.getLogger(appspace.AppspaceID).Debug("tsnet user id: " + tsUserID)
 
-		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "", "") //TODO....
+		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "tsid", tsUserID)
 		if err == domain.ErrNoRowsInResultSet {
-			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for dropid")
+			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for tsid")
 		}
 		if err != nil {
 			f.getLogger(appspace.AppspaceID).AddNote("AppspaceUserModel.GetByAuth").Error(err)
@@ -67,6 +65,6 @@ func (f *FromTsnet) getProxyID(next http.Handler) http.Handler {
 	})
 }
 
-func (f *FromTsnet) getLogger(appspaceID domain.AppspaceID) *record.DsLogger {
-	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("FromTsnet")
+func (f *FromTSNet) getLogger(appspaceID domain.AppspaceID) *record.DsLogger {
+	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("FromTSNet")
 }

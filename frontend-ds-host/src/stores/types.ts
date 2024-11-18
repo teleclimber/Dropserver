@@ -140,6 +140,24 @@ export interface AppspaceStatus {
 	problem: boolean
 }
 
+export interface TSNetWarning {
+	title: string,
+	text: string,
+	severity: string,
+	impacts_connectivity: boolean
+}
+export interface AppspaceTSNetStatus {
+	//owner_id: number,	//leave those out, just used at event sending time
+	//appspace_id: number, 
+	url: string,
+	tailnet: string,
+	err_message: string,
+	state: string,
+	browse_to_url: string,
+	login_finished: boolean
+	warnings: TSNetWarning[]
+}
+
 export interface Appspace {
 	appspace_id: number,
 	domain_name: string,
@@ -152,6 +170,7 @@ export interface Appspace {
 	app_version: string,
 	upgrade_version: string|undefined,
 	status: AppspaceStatus,
+	tsnet_status: AppspaceTSNetStatus,
 	ver_data: AppVersionUI | undefined
 }
 

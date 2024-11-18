@@ -173,6 +173,39 @@ const data_schema_mismatch = computed( ()=> {
 				</div>
 			</div>
 
+			<!-- tailscale temporary ebug output -->
+			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
+					<div class="">
+						{{ appspace.tsnet_status.state }}
+					</div>
+				</div>
+				<div class="my-5">
+					<DataDef field="Tailscale Address:">
+						<a :href="appspace.tsnet_status.url" class="text-blue-700 underline hover:text-blue-500">
+							{{appspace.tsnet_status.url}}
+						</a>
+					</DataDef>
+					<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}}</DataDef>
+					<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>
+					<DataDef field="browse_to_url:">
+						<a :href="appspace.tsnet_status.browse_to_url" class="text-blue-700 underline hover:text-blue-500">
+							{{appspace.tsnet_status.browse_to_url}}
+						</a></DataDef>
+					<DataDef field="login_finished:">{{appspace.tsnet_status.login_finished ? 'yes' : 'no'}}</DataDef>
+					<!-- warnings...-->
+					<DataDef field="Warnings:">
+						<p>{{ appspace.tsnet_status.warnings.length }} warnings.</p>
+						<div v-for="warn in appspace.tsnet_status.warnings">
+							<h3>{{ warn.title }}</h3>
+							<p>{{ warn.text }}</p>
+							<p>severity: {{  warn.severity }} impacts connectivity: {{ warn.impacts_connectivity ? 'yes' : 'no' }}</p>
+						</div>
+					</DataDef>
+				</div>
+			</div>
+
 			<ManageAppspaceUsers :appspace_id="appspace_id"></ManageAppspaceUsers>
 
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">

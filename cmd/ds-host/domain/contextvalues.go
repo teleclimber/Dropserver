@@ -115,13 +115,13 @@ func CtxAppspaceData(ctx context.Context) (Appspace, bool) {
 // Tailscale UserID
 const tsnetUserIDCtxKey = ctxKey("tsnet user id")
 
-// CtxWithTsnetUserID sets the tsnet userid of the request
-func CtxWithTsnetUserID(ctx context.Context, tsnetUserID string) context.Context {
+// CtxWithTSNetUserID sets the tsnet userid of the request
+func CtxWithTSNetUserID(ctx context.Context, tsnetUserID string) context.Context {
 	return context.WithValue(ctx, tsnetUserIDCtxKey, tsnetUserID)
 }
 
-// CtxTsnetUserID gets the tsnet userid
-func CtxTsnetUserID(ctx context.Context) (string, bool) {
+// CtxTSNetUserID gets the tsnet userid
+func CtxTSNetUserID(ctx context.Context) (string, bool) {
 	t, ok := ctx.Value(tsnetUserIDCtxKey).(string)
 	return t, ok
 }
