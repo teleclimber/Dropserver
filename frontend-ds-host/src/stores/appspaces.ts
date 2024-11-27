@@ -39,8 +39,14 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 		});
 	}
 	return {
-		url: strFromRaw(raw?.url),
+		url: strFromRaw(raw.url),
+		ip4: strFromRaw(raw.ip4),
+		ip6: strFromRaw(raw.ip6),
+		listening_tls: !!raw.listening_tls,
 		tailnet: strFromRaw(raw?.tailnet),
+		name: strFromRaw(raw.name),
+		https_available: !!raw.https_available,
+		magic_dns_enabled: !!raw.magic_dns_enabled,
 		err_message: strFromRaw(raw?.err_message),
 		state: strFromRaw(raw?.state),
 		browse_to_url: strFromRaw(raw?.browse_to_url),

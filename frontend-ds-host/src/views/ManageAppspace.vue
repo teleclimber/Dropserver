@@ -186,14 +186,23 @@ const data_schema_mismatch = computed( ()=> {
 						<a :href="appspace.tsnet_status.url" class="text-blue-700 underline hover:text-blue-500">
 							{{appspace.tsnet_status.url}}
 						</a>
+						<p>IP4: {{ appspace.tsnet_status.ip4 }}</p>
+						<p>IP6: {{ appspace.tsnet_status.ip6 }}</p>
+					</DataDef>
+					<DataDef field="https & dns:">
+						<p>listening TLS: {{ appspace.tsnet_status.listening_tls }}</p>
+						<p>TLS available: {{ appspace.tsnet_status.https_available }}</p>
+						<p>Magic DNS: {{ appspace.tsnet_status.magic_dns_enabled }}</p>
 					</DataDef>
 					<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}}</DataDef>
+					<DataDef field="name:">{{appspace.tsnet_status.name}}</DataDef>
 					<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>
 					<DataDef field="browse_to_url:">
 						<a :href="appspace.tsnet_status.browse_to_url" class="text-blue-700 underline hover:text-blue-500">
 							{{appspace.tsnet_status.browse_to_url}}
-						</a></DataDef>
-					<DataDef field="login_finished:">{{appspace.tsnet_status.login_finished ? 'yes' : 'no'}}</DataDef>
+						</a>
+						<p>Login finished: {{appspace.tsnet_status.login_finished ? 'yes' : 'no'}}</p>
+					</DataDef>
 					<!-- warnings...-->
 					<DataDef field="Warnings:">
 						<p>{{ appspace.tsnet_status.warnings.length }} warnings.</p>

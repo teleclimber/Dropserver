@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -41,6 +42,8 @@ type AppspaceTSNode struct {
 	// ^^ also need owner id to send with notification
 
 	tsnetServer *tsnet.Server
+	ln80        net.Listener
+	ln443       net.Listener
 
 	busWatcherCtxCancel context.CancelFunc
 
@@ -94,18 +97,22 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 		return err
 	}
 
-	go func() {
+	go func() { // this should be a separate func
 		for {
 			newData, err := busWatcher.Next()
 			if err != nil {
 				logger.Clone().AddNote("busWatcher.Next()").Error(err)
 				break
 			}
-			if n.nodeStatus.ingest(newData) {
-				fmt.Println("status changed:", name, n.nodeStatus)
-				n.sendStatus()
-			}
+			magicDNS := n.nodeStatus.magicDNS
 			if newData.NetMap != nil {
+				status, err := lc.Status(context.Background())
+				if err != nil {
+					logger.Clone().AddNote("buswatcher lc.Status()").Error(err)
+				}
+				if status != nil && status.CurrentTailnet != nil {
+					magicDNS = status.CurrentTailnet.MagicDNSEnabled
+				}
 				// note that netmap contains much more than peers!
 				// it also contains UserProfiles:
 				fmt.Println("user profiles")
@@ -115,63 +122,96 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 				n.ingestPeers(lc, newData.NetMap.Peers)
 				// send notification in goroutine
 			}
+			if n.nodeStatus.ingest(newData, magicDNS) {
+				n.sendStatus()
+			}
+
+			n.startStopHTTPS()
 		}
 		err = busWatcher.Close()
 		if err != nil {
-			n.getLogger("busWatcher.Close error").Error(err)
+			logger.Clone().AddNote("busWatcher.Close error").Error(err)
 		}
 	}()
 
-	// TODO switch Listen call based on whether TLS is on or not.
-	ln, err := s.ListenTLS("tcp", ":443")
-	//ln, err := s.Listen("tcp", ":80")
+	n.ln80, err = s.Listen("tcp", ":80")
 	if err != nil {
-		// We have gotten an error here for funnel: Funnel not available; "funnel" node attribute not set.
-		logger.Clone().AddNote("ListenTLS()").Error(err)
+		logger.Clone().AddNote("Listen()").Error(err)
 		return err
 	}
+	go n.handler(n.ln80)
 
-	logger.Clone().Debug("Starting tsnet server")
+	n.sendStatus()
 
-	go func() {
-		err = http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			loggerFn := n.getLogger("http.Serve").AppspaceID(n.appspaceID).Clone
-			loggerFn().Debug("tsnet got request")
-
-			// Set the appspace in the context for use in appspace router. We're handling
-			// requests over time, so reload the appspace every time in case it changes.
-			appspace, err := n.AppspaceModel.GetFromID(n.appspaceID)
-			if err != nil {
-				loggerFn().AddNote("AppspaceModel.GetFromID").Error(err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-			if appspace == nil {
-				loggerFn().AddNote("AppspaceModel.GetFromID").Log("no appspace returned")
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
-			}
-
-			r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
-
-			who, err := lc.WhoIs(r.Context(), r.RemoteAddr)
-			if err != nil {
-				loggerFn().AddNote("lc.WhoIs").Error(err)
-				http.Error(w, "tsnet whois error", http.StatusInternalServerError)
-				return
-			}
-			// Set the user id from [tail|head]scale for use in determining the ProxyID later
-			r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), who.UserProfile.ID.String()))
-
-			n.AppspaceRouter.ServeHTTP(w, r)
-		}))
-		if err != nil {
-			logger.Clone().AddNote("http.Serve()").Error(err)
-			return
-		}
-	}()
+	n.startStopHTTPS()
 
 	return nil
+}
+
+func (n *AppspaceTSNode) startStopHTTPS() {
+	if n.ln443 == nil && n.nodeStatus.magicDNS && n.nodeStatus.httpsAvailable {
+		fmt.Println(n.appspaceID, "starting HTTPS server")
+		var err error
+		n.ln443, err = n.tsnetServer.ListenTLS("tcp", ":443")
+		if err != nil {
+			n.getLogger("startStopHTTPS ListenTLS()").Error(err)
+			return
+		}
+		go n.handler(n.ln443)
+		n.sendStatus()
+	} else if n.ln443 != nil && (!n.nodeStatus.magicDNS || !n.nodeStatus.httpsAvailable) {
+		fmt.Println(n.appspaceID, "stopping HTTPS server")
+		err := n.ln443.Close()
+		if err != nil {
+			n.getLogger("startStopHTTPS ln443.Close()").Error(err)
+		}
+		n.ln443 = nil
+		n.sendStatus()
+	}
+}
+
+func (n *AppspaceTSNode) handler(ln net.Listener) {
+	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		loggerFn := n.getLogger("http.Serve").AppspaceID(n.appspaceID).Clone
+		loggerFn().Debug("tsnet got request")
+
+		// Set the appspace in the context for use in appspace router. We're handling
+		// requests over time, so reload the appspace every time in case it changes.
+		appspace, err := n.AppspaceModel.GetFromID(n.appspaceID)
+		if err != nil {
+			loggerFn().AddNote("AppspaceModel.GetFromID").Error(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if appspace == nil {
+			loggerFn().AddNote("AppspaceModel.GetFromID").Log("no appspace returned")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
+
+		lc, err := n.tsnetServer.LocalClient()
+		if err != nil {
+			loggerFn().AddNote("tsnetServer.LocalClient").Error(err)
+			http.Error(w, "tsnet error", http.StatusInternalServerError)
+			return
+		}
+		who, err := lc.WhoIs(r.Context(), r.RemoteAddr)
+		if err != nil {
+			loggerFn().AddNote("lc.WhoIs").Error(err)
+			http.Error(w, "tsnet whois error", http.StatusInternalServerError)
+			return
+		}
+		// Set the user id from [tail|head]scale for use in determining the ProxyID later
+		r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), who.UserProfile.ID.String()))
+
+		n.AppspaceRouter.ServeHTTP(w, r)
+	}))
+	if err != nil {
+		n.getLogger("handler").AddNote("http.Serve()").Error(err)
+		return
+	}
 }
 
 func (n *AppspaceTSNode) stop() {
@@ -236,10 +276,28 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 }
 
 func (n *AppspaceTSNode) sendStatus() {
+	n.AppspaceTSNetStatusEvents.Send(n.getStatus())
+}
+
+func (n *AppspaceTSNode) getStatus() domain.TSNetAppspaceStatus {
 	stat := n.nodeStatus.asDomain()
 	stat.AppspaceID = n.appspaceID
 	stat.OwnerID = n.ownerID
-	n.AppspaceTSNetStatusEvents.Send(stat)
+	stat.ListeningTLS = n.ln443 != nil
+	stat.URL = n.buildURL()
+	return stat
+}
+
+func (n *AppspaceTSNode) buildURL() string {
+	proto := "http"
+	if n.ln443 != nil {
+		proto = "https"
+	}
+	addr := n.nodeStatus.ip4
+	if n.nodeStatus.magicDNS {
+		addr = strings.TrimRight(n.nodeStatus.dnsName, ".")
+	}
+	return fmt.Sprintf("%s://%s", proto, addr)
 }
 
 func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
@@ -251,22 +309,55 @@ func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
 }
 
 type tsNodeStatus struct {
-	dnsName       string
-	tailnet       string
-	errMessage    string
-	state         string
-	browseToURL   string
-	loginFinished bool
-	warnings      map[string]health.UnhealthyState
+	dnsName        string
+	tailnet        string
+	magicDNS       bool
+	httpsAvailable bool
+	ip4            string
+	ip6            string
+	errMessage     string
+	state          string
+	browseToURL    string
+	loginFinished  bool
+	warnings       map[string]health.UnhealthyState
 	// TODO add node expiry
 }
 
 // ingest note that any part of the status is non-nil only if it changed.
-func (n *tsNodeStatus) ingest(data ipn.Notify) (changed bool) {
+func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
 	if data.NetMap != nil {
 		changed = true                 // but maybe not?
 		n.dnsName = data.NetMap.Name   // Name is "dns name with trailing dot"
 		n.tailnet = data.NetMap.Domain // Domain is "tailnet name"
+	}
+	if magicDNS != n.magicDNS {
+		n.magicDNS = magicDNS
+		changed = true
+	}
+	if data.NetMap != nil {
+		https := len(data.NetMap.DNS.CertDomains) != 0
+		if https != n.httpsAvailable {
+			n.httpsAvailable = https
+			changed = true
+		}
+		for _, a := range data.NetMap.SelfNode.Addresses().AsSlice() { // TODO change to All() after upgrade to 1.76
+			if a.IsSingleIP() && a.IsValid() {
+				if a.Addr().Is4() {
+					ip4 := a.Addr().String()
+					if n.ip4 != ip4 {
+						n.ip4 = ip4
+						changed = true
+					}
+				}
+				if a.Addr().Is6() {
+					ip6 := a.Addr().String()
+					if n.ip6 != ip6 {
+						n.ip6 = ip6
+						changed = true
+					}
+				}
+			}
+		}
 	}
 	if data.ErrMessage != nil {
 		changed = true
@@ -307,17 +398,17 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 		}
 	}
 	ret := domain.TSNetAppspaceStatus{
-		Tailnet:       n.tailnet,
-		ErrMessage:    n.errMessage,
-		State:         n.state,
-		BrowseToURL:   n.browseToURL,
-		LoginFinished: n.loginFinished,
-		Warnings:      warnings,
-	}
-	if n.dnsName != "" {
-		ret.URL = "https://" + strings.TrimRight(n.dnsName, ".")
-		// TODO https only if TLS enabled!!
-		// This assumes MagicDNS or equivalent is on.
+		Tailnet:         n.tailnet,
+		MagicDNSEnabled: n.magicDNS,
+		Name:            n.dnsName,
+		IP4:             n.ip4,
+		IP6:             n.ip6,
+		HTTPSAvailable:  n.httpsAvailable,
+		ErrMessage:      n.errMessage,
+		State:           n.state,
+		BrowseToURL:     n.browseToURL,
+		LoginFinished:   n.loginFinished,
+		Warnings:        warnings,
 	}
 	return ret
 }

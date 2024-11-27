@@ -150,7 +150,13 @@ export interface AppspaceTSNetStatus {
 	//owner_id: number,	//leave those out, just used at event sending time
 	//appspace_id: number, 
 	url: string,
+	ip4: string,
+	ip6: string,
+	listening_tls: boolean,
 	tailnet: string,
+	name: string,
+	https_available: boolean,
+	magic_dns_enabled: boolean,
 	err_message: string,
 	state: string,
 	browse_to_url: string,

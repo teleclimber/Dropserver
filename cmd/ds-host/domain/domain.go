@@ -679,15 +679,21 @@ type AppspaceUserAuth struct {
 
 // TSNetAppspaceStatus is info about the tsnet server for an appspace
 type TSNetAppspaceStatus struct {
-	AppspaceID    AppspaceID              `json:"appspace_id"`
-	OwnerID       UserID                  `json:"owner_id"` // I don't like this at all1!!
-	URL           string                  `json:"url,omitempty"`
-	Tailnet       string                  `json:"tailnet,omitempty"`
-	ErrMessage    string                  `json:"err_message,omitempty"`
-	State         string                  `json:"state,omitempty"` // Stae from tsnet. But not ideal. Use "connected" instead of "running"
-	BrowseToURL   string                  `json:"browse_to_url,omitempty"`
-	LoginFinished bool                    `json:"login_finished,omitempty"`
-	Warnings      map[string]TSNetWarning `json:"warnings,omitempty"`
+	AppspaceID      AppspaceID              `json:"appspace_id"`
+	OwnerID         UserID                  `json:"owner_id"`
+	URL             string                  `json:"url,omitempty"`
+	IP4             string                  `json:"ip4,omitempty"`
+	IP6             string                  `json:"ip6,omitempty"`
+	ListeningTLS    bool                    `json:"listening_tls,omitempty"` // If the TLS server is on for this node.
+	Tailnet         string                  `json:"tailnet,omitempty"`
+	Name            string                  `json:"name,omitempty"` // DNS name, which is sometimes machine name
+	HTTPSAvailable  bool                    `json:"https_available"`
+	MagicDNSEnabled bool                    `json:"magic_dns_enabled"`
+	ErrMessage      string                  `json:"err_message,omitempty"`
+	State           string                  `json:"state,omitempty"` // State from tsnet. But not ideal. Use "connected" instead of "running"
+	BrowseToURL     string                  `json:"browse_to_url,omitempty"`
+	LoginFinished   bool                    `json:"login_finished,omitempty"`
+	Warnings        map[string]TSNetWarning `json:"warnings,omitempty"`
 }
 type TSNetWarning struct {
 	Title               string `json:"title"`

@@ -102,7 +102,7 @@ func (a *AppspaceTSNet) rmServer(appspaceID domain.AppspaceID) {
 func (a *AppspaceTSNet) GetStatus(appspaceID domain.AppspaceID) domain.TSNetAppspaceStatus {
 	node := a.get(appspaceID)
 	if node != nil {
-		return node.nodeStatus.asDomain()
+		return node.getStatus()
 	}
 	return domain.TSNetAppspaceStatus{
 		AppspaceID: appspaceID,
