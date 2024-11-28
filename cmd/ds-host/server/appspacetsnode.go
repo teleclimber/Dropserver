@@ -340,7 +340,7 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
 			n.httpsAvailable = https
 			changed = true
 		}
-		for _, a := range data.NetMap.SelfNode.Addresses().AsSlice() { // TODO change to All() after upgrade to 1.76
+		for _, a := range data.NetMap.SelfNode.Addresses().All() {
 			if a.IsSingleIP() && a.IsValid() {
 				if a.Addr().Is4() {
 					ip4 := a.Addr().String()
