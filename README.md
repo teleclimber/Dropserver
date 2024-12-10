@@ -61,7 +61,6 @@ Please see these docs on the dropserver.org website:
 
 - [Using ds-dev](https://dropserver.org/docs/ds-dev/)
 - [Run your own Dropserver with ds-host](https://dropserver.org/docs/ds-host/)
-- [Kick the tires using Docker](https://dropserver.org/docs/ds-host-docker/)
 
 # Status of the Project
 
