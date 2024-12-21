@@ -29,6 +29,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacefilesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacemodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/appspacetsnetmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/contactmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
@@ -124,6 +125,7 @@ func main() {
 	// events
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	appspaceTSNetModelEvents := &events.AppspaceTSNetModelEvents{}
 	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appGetterEvents := &events.AppGetterEvents{}
@@ -166,6 +168,11 @@ func main() {
 	appspaceFilesModel := &appspacefilesmodel.AppspaceFilesModel{
 		Config:              runtimeConfig,
 		AppspaceFilesEvents: appspaceFilesEvents}
+
+	appspaceTSNetModel := &appspacetsnetmodel.AppspaceTSNetModel{
+		DB:                       db,
+		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+	appspaceTSNetModel.PrepareStatements()
 
 	appspaceModel := &appspacemodel.AppspaceModel{
 		DB: db}
@@ -291,6 +298,7 @@ func main() {
 		AppspaceStatus:     nil,
 		AppspaceModel:      appspaceModel,
 		AppspaceFilesModel: appspaceFilesModel,
+		AppspaceTSNetModel: appspaceTSNetModel,
 		DomainController:   domainController,
 		MigrationJobModel:  migrationJobModel,
 		SandboxManager:     sandboxManager,
@@ -450,6 +458,7 @@ func main() {
 		Config:                *runtimeConfig,
 		AppspaceUserRoutes:    userAppspaceUserRoutes,
 		AppspaceModel:         appspaceModel,
+		AppspaceTSNetModel:    appspaceTSNetModel,
 		AppspaceStatus:        appspaceStatus,
 		AppspaceExportRoutes:  exportAppspaceRoutes,
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
@@ -561,7 +570,9 @@ func main() {
 	appspaceTSNet := &server.AppspaceTSNet{
 		Config:                    runtimeConfig,
 		AppspaceModel:             appspaceModel,
+		AppspaceTSNetModel:        appspaceTSNetModel,
 		AppspaceRouter:            fromTSNet,
+		AppspaceTSNetModelEvents:  appspaceTSNetModelEvents,
 		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
 		AppspaceLocation2Path:     appspaceLocation2Path,
 	}

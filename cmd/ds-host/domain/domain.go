@@ -521,6 +521,14 @@ type Appspace struct {
 	// Config AppspaceConfig ..this one is harder
 }
 
+// AppspaceTSNet contains the appspace's tailscale node config data
+type AppspaceTSNet struct {
+	AppspaceID AppspaceID `db:"appspace_id" json:"-"`
+	BackendURL string     `db:"backend_url" json:"backend_url"`
+	Hostname   string     `db:"hostname" json:"hostname"`
+	Connect    bool       `db:"connect" json:"connect"`
+}
+
 type RemoteAppspace struct {
 	UserID      UserID    `db:"user_id"`
 	DomainName  string    `db:"domain_name"`
@@ -694,6 +702,7 @@ type TSNetAppspaceStatus struct {
 	BrowseToURL     string                  `json:"browse_to_url,omitempty"`
 	LoginFinished   bool                    `json:"login_finished,omitempty"`
 	Warnings        map[string]TSNetWarning `json:"warnings,omitempty"`
+	Transitory      string                  `json:"transitory"` // "" "connecting" or "disconnecting"
 }
 type TSNetWarning struct {
 	Title               string `json:"title"`
@@ -791,6 +800,11 @@ type AppspaceStatusEvent struct {
 	AppspaceSchema   int        `json:"appspace_schema"`
 	AppVersionSchema int        `json:"app_version_schema"`
 	Problem          bool       `json:"problem"` // string? To hint at the problem?
+}
+
+type AppspaceTSNetModelEvent struct {
+	Deleted bool `json:"deleted"`
+	AppspaceTSNet
 }
 
 // LoggerI is interface for appspace and app log

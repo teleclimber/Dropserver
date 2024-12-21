@@ -7,7 +7,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks SetupKey,RemoteAppGetter,DeleteApp,BackupAppspace,RestoreAppspace,MigrationJobController,AppspaceStatus,AppspaceRouter
+//go:generate mockgen -destination=controllers_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks SetupKey,RemoteAppGetter,DeleteApp,BackupAppspace,RestoreAppspace,MigrationJobController,AppspaceStatus,AppspaceTSNet,AppspaceRouter
 
 type SetupKey interface {
 	Has() (bool, error)
@@ -55,6 +55,10 @@ type AppspaceStatus interface {
 	WaitStopped(appspaceID domain.AppspaceID)
 	LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
 	IsLockedClosed(appspaceID domain.AppspaceID) bool
+}
+
+type AppspaceTSNet interface {
+	GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 }
 
 // AppspaceRouter is a route handler that also tracks ongoing requests

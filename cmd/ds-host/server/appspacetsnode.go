@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,7 +20,13 @@ import (
 	"tailscale.com/tsnet"
 )
 
-//
+type tsNodeConfig struct {
+	backendURL string
+	hostname   string
+	connect    bool
+	// auto-users
+	// funnel bool
+}
 
 // AppspaceTSNode refs an appspace's tsnet node
 type AppspaceTSNode struct {
@@ -36,54 +43,97 @@ type AppspaceTSNode struct {
 	}
 
 	appspaceID domain.AppspaceID
-	// ^^ actually we need to full appspace? Need loc key, domain / ts net name, ...
-	// but ts net name is only the desired name, which is used once if creating the node. after that it's data from teh outside
-	ownerID domain.UserID
-	// ^^ also need owner id to send with notification
+	ownerID    domain.UserID // owner id is to send with notification
 
+	tsnetDir string
+
+	desiredConfig tsNodeConfig
+	deleteNode    bool
+
+	servMux     sync.Mutex
 	tsnetServer *tsnet.Server
 	ln80        net.Listener
 	ln443       net.Listener
 
 	busWatcherCtxCancel context.CancelFunc
 
-	// status
-	// lock?
 	nodeStatus tsNodeStatus
 
 	usersMux sync.Mutex
 	users    []tsUser
 }
 
-// Is this create node or is this start node?
-func (n *AppspaceTSNode) createNode(domainName string) error {
-	logger := n.getLogger("createNode").AppspaceID(n.appspaceID)
+func (n *AppspaceTSNode) setConfig(config tsNodeConfig) {
+	if n.deleteNode {
+		return
+	}
+	n.servMux.Lock()
+	defer n.servMux.Unlock()
+	n.desiredConfig = config
+	if n.tsnetServer == nil { // nil implies fully stopped and ready to start again with new config
+		if config.connect {
+			go n.startNode()
+		}
+	} else {
+		if !config.connect {
+			n.getLogger("setConfig").Debug("connect:false, calling stop")
+			go n.stop()
+		} else {
+			if config.backendURL != n.tsnetServer.ControlURL {
+				// restart. But this requires much more because the locally saved files must be deleted.
+				// This is likely better handled externally, so just stop the node if ith's the wrong controlURL.
+				n.getLogger("setConfig").Debug(fmt.Sprintf("control url changed %s -> %s, calling stop", config.backendURL, n.tsnetServer.ControlURL))
+				go n.stop()
+				// delete files?
+				//n.createNode("")
+			} else if config.hostname != n.tsnetServer.Hostname {
+				// TODO How to use edit prefs?
+				n.getLogger("setConfig").Debug(fmt.Sprintf("hostname changed %s -> %s, nothing for now", config.hostname, n.tsnetServer.Hostname))
 
-	appspace, err := n.AppspaceModel.GetFromID(n.appspaceID)
-	if err != nil {
+			}
+		}
+	}
+}
+
+func (n *AppspaceTSNode) createServer() error {
+	n.servMux.Lock()
+	defer n.servMux.Unlock()
+
+	if n.tsnetServer != nil {
+		err := errors.New("appspace tsnet node already running")
+		n.getLogger("createServer").AppspaceID(n.appspaceID).Error(err)
 		return err
 	}
-
-	name := strings.Split(domainName, ".")[0]
-
 	s := new(tsnet.Server)
-	n.tsnetServer = s
 
-	// To use headscale or an other alternative backend set the control URL:
-	// s.ControlURL = "...m"
-	// s.AuthKey = "..."
-
-	s.Dir = n.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey) // TODO prefix this with control plane domain
-	s.Hostname = name                                                        // Set the name? or is taht only used when we are creating the node?
+	s.Dir = n.tsnetDir
+	s.Hostname = n.desiredConfig.hostname
+	s.ControlURL = n.desiredConfig.backendURL
 
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {
 		if !strings.Contains(format, "restart with TS_AUTHKEY set") {
-			logger.Clone().AddNote("tsnet UserLogf").Log(fmt.Sprintf(format, args...))
+			n.getLogger("createServer").AppspaceID(n.appspaceID).AddNote("tsnet UserLogf").Log(fmt.Sprintf(format, args...))
 		}
 	}
 
-	lc, err := s.LocalClient()
+	n.tsnetServer = s
+
+	return nil
+}
+
+func (n *AppspaceTSNode) startNode() error {
+	logger := n.getLogger("startNode").AppspaceID(n.appspaceID)
+
+	n.nodeStatus.transitory = "connecting"
+	go n.sendStatus()
+
+	err := n.createServer()
+	if err != nil {
+		return err
+	}
+
+	lc, err := n.tsnetServer.LocalClient()
 	if err != nil {
 		logger.Clone().AddNote("LocalClient()").Error(err)
 		return err
@@ -101,7 +151,9 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 		for {
 			newData, err := busWatcher.Next()
 			if err != nil {
-				logger.Clone().AddNote("busWatcher.Next()").Error(err)
+				if !strings.Contains(err.Error(), "context canceled") {
+					logger.Clone().AddNote("busWatcher.Next()").Error(err)
+				}
 				break
 			}
 			magicDNS := n.nodeStatus.magicDNS
@@ -134,7 +186,7 @@ func (n *AppspaceTSNode) createNode(domainName string) error {
 		}
 	}()
 
-	n.ln80, err = s.Listen("tcp", ":80")
+	n.ln80, err = n.tsnetServer.Listen("tcp", ":80")
 	if err != nil {
 		logger.Clone().AddNote("Listen()").Error(err)
 		return err
@@ -208,15 +260,26 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 
 		n.AppspaceRouter.ServeHTTP(w, r)
 	}))
-	if err != nil {
-		n.getLogger("handler").AddNote("http.Serve()").Error(err)
+	if err != http.ErrServerClosed { // it always returns an error
+		n.getLogger("handler").AddNote("http.Serve()").Error(err) // "Error: tsnet: use of closed network connection" when shutting down the server.
 		return
 	}
 }
 
 func (n *AppspaceTSNode) stop() {
+	n.servMux.Lock()
+	defer n.servMux.Unlock()
+
 	if n.tsnetServer == nil {
 		return
+	}
+	n.nodeStatus.transitory = "disconnecting"
+	go n.sendStatus()
+
+	n.ln80.Close()
+	if n.ln443 != nil {
+		n.ln443.Close()
+		n.ln443 = nil
 	}
 	err := n.tsnetServer.Close()
 	if err != nil {
@@ -224,7 +287,11 @@ func (n *AppspaceTSNode) stop() {
 	}
 	if n.busWatcherCtxCancel != nil {
 		n.busWatcherCtxCancel()
+		n.busWatcherCtxCancel = nil
 	}
+	n.tsnetServer = nil
+	n.nodeStatus.reset()
+	go n.sendStatus()
 }
 
 // might need a context here that gets passed to WhoIsNodeKey
@@ -294,6 +361,9 @@ func (n *AppspaceTSNode) buildURL() string {
 		proto = "https"
 	}
 	addr := n.nodeStatus.ip4
+	if addr == "" {
+		return ""
+	}
 	if n.nodeStatus.magicDNS {
 		addr = strings.TrimRight(n.nodeStatus.dnsName, ".")
 	}
@@ -320,6 +390,7 @@ type tsNodeStatus struct {
 	browseToURL    string
 	loginFinished  bool
 	warnings       map[string]health.UnhealthyState
+	transitory     string // "" or "connect" or "disconnect" ["deleting"?] indicates if server was commanded to start or to stop.
 	// TODO add node expiry
 }
 
@@ -366,6 +437,9 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
 	if data.State != nil {
 		changed = true
 		n.state = data.State.String()
+		if *data.State == ipn.Running || *data.State == ipn.NeedsLogin || *data.State == ipn.NeedsMachineAuth {
+			n.transitory = ""
+		}
 	}
 	if data.BrowseToURL != nil {
 		changed = true
@@ -385,6 +459,21 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
 		}
 	}
 	return
+}
+
+func (n *tsNodeStatus) reset() {
+	n.dnsName = ""
+	n.tailnet = ""
+	n.magicDNS = false
+	n.httpsAvailable = false
+	n.ip4 = ""
+	n.ip6 = ""
+	//n.errMessage = ""
+	n.state = ""
+	n.browseToURL = ""
+	n.loginFinished = false
+	//n.warnings = ""
+	n.transitory = ""
 }
 
 func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
@@ -409,6 +498,7 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 		BrowseToURL:     n.browseToURL,
 		LoginFinished:   n.loginFinished,
 		Warnings:        warnings,
+		Transitory:      n.transitory,
 	}
 	return ret
 }

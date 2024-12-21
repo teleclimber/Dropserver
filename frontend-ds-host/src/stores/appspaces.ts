@@ -1,9 +1,9 @@
-import { ref, shallowRef, ShallowRef, computed } from 'vue';
+import { ref, shallowRef, ShallowRef, triggerRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning } from './types';
+import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning, AppspaceTSNetData } from './types';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -51,7 +51,15 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 		state: strFromRaw(raw?.state),
 		browse_to_url: strFromRaw(raw?.browse_to_url),
 		login_finished: !!raw?.login_finished,
-		warnings
+		warnings,
+		transitory: strFromRaw(raw.transitory)
+	}
+}
+function appspaceTSNetFromRaw(raw:any) {
+	return {
+		backend_url: strFromRaw(raw.backend_url),
+		hostname: strFromRaw(raw.hostname),
+		connect: !!raw.connect
 	}
 }
 function strFromRaw(raw:any) :string {
@@ -73,7 +81,8 @@ function appspaceFromRaw(raw:any) :Appspace {
 		status: appspaceStatusFromRaw(raw.status),
 		tsnet_status: tsnetStatusFromRaw(raw.tsnet_status),
 		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
-		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined
+		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined,
+		tsnet_data: raw.tsnet_data ? appspaceTSNetFromRaw(raw.tsnet_data) : undefined
 	}
 }
 
@@ -128,12 +137,10 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		else as.value = Object.assign({}, as.value, {status});
 	});
 	on('AppspaceTSNetStatus', (raw) => {
-		console.log('AppspaceTSNetStatus', raw);
 		const as_id = Number(raw.appspace_id);
 		const as = getAppspace(as_id);
 		if( !as ) return;
 		const tsnet_status = tsnetStatusFromRaw(raw);
-		console.log('typed tsnet status', raw);
 		as.value = Object.assign({}, as.value, {tsnet_status});
 	});
 
@@ -179,6 +186,23 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		a.value.paused = pause;
 	}
 
+	async function setTSNetData(appspace_id:number, tsnet_data:AppspaceTSNetData) {
+		const a = mustGetAppspace(appspace_id);
+		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet', tsnet_data);
+		// check that it returned OK!
+		// set the value  on local data !
+		a.value.tsnet_data = tsnet_data;
+		triggerRef(a);
+	}
+	async function deleteTSNetData(appspace_id:number) {
+		const a = mustGetAppspace(appspace_id);
+		const data = await ax.delete('/api/appspace/'+appspace_id+'/tsnet');
+		// check that it returned OK!
+		// set the value  on local data !
+		a.value.tsnet_data = undefined;
+		triggerRef(a);
+	}
+
 	async function deleteAppspace(appspace_id: number) {
 		mustGetAppspace(appspace_id);	 //throws is appspace not found.
 		await ax.delete('/api/appspace/'+appspace_id);
@@ -197,6 +221,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		getAppspacesForAppVersion,
 		createAppspace,
 		setPause,
+		setTSNetData, deleteTSNetData,
 		deleteAppspace
 	}
 });

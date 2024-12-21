@@ -4,6 +4,7 @@ package server
 
 import (
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -17,6 +18,14 @@ type AppspaceTSNet struct {
 		GetAll() ([]domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
+	AppspaceTSNetModel interface {
+		GetAllConnect() ([]domain.AppspaceTSNet, error)
+		Get(domain.AppspaceID) (domain.AppspaceTSNet, error)
+	} `checkinject:"required"`
+	AppspaceTSNetModelEvents interface {
+		Subscribe() <-chan domain.AppspaceTSNetModelEvent
+		Unsubscribe(ch <-chan domain.AppspaceTSNetModelEvent)
+	} `checkinject:"required"`
 	AppspaceTSNetStatusEvents interface {
 		Send(data domain.TSNetAppspaceStatus)
 	} `checkinject:"required"`
@@ -24,11 +33,14 @@ type AppspaceTSNet struct {
 		TailscaleNodeStore(locationKey string) string
 	} `checkinject:"required"`
 
+	tsnetModelEventsChan <-chan domain.AppspaceTSNetModelEvent
+
 	serversMux sync.Mutex
 	servers    map[domain.AppspaceID]*AppspaceTSNode
 }
 
-func (a *AppspaceTSNet) StopAll() {
+func (a *AppspaceTSNet) StopAll() { // maybe rename to Shutdown to convey we're de-initializing
+	a.AppspaceTSNetModelEvents.Unsubscribe(a.tsnetModelEventsChan)
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	wg := sync.WaitGroup{}
@@ -46,22 +58,93 @@ func (a *AppspaceTSNet) Init() {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	a.servers = make(map[domain.AppspaceID]*AppspaceTSNode)
+	a.tsnetModelEventsChan = a.AppspaceTSNetModelEvents.Subscribe()
+
+	go func() {
+		for modelEvent := range a.tsnetModelEventsChan {
+			go a.updateAppspace(modelEvent)
+		}
+	}()
 }
 
-func (a *AppspaceTSNet) StartAll() error {
-	appspaces, err := a.AppspaceModel.GetAll()
+func (a *AppspaceTSNet) updateAppspace(modelEvent domain.AppspaceTSNetModelEvent) {
+	config := tsNodeConfig{
+		backendURL: modelEvent.BackendURL,
+		hostname:   modelEvent.Hostname,
+		connect:    !modelEvent.Deleted && modelEvent.Connect,
+	}
+
+	a.serversMux.Lock()
+	defer a.serversMux.Unlock()
+	node, exists := a.servers[modelEvent.AppspaceID]
+	if exists {
+		if node.deleteNode {
+			// no-op: if node is deleting, let it delete. We call StartAppspcae at the end to re-create node if necessary
+		} else if modelEvent.Deleted {
+			a.getLogger("updateAppspace").AppspaceID(modelEvent.AppspaceID).Debug("model data deleted, deleting node and files")
+			node.deleteNode = true
+			go func(n *AppspaceTSNode) {
+				n.stop()
+				err := os.RemoveAll(n.tsnetDir)
+				if err != nil {
+					a.getLogger("updateAppspace").AppspaceID(modelEvent.AppspaceID).AddNote("deleting node files: os.RemoveAll()").Error(err)
+				}
+				a.serversMux.Lock()
+				defer a.serversMux.Unlock()
+				delete(a.servers, n.appspaceID)
+				go a.StartAppspace(n.appspaceID) // Try to start it again in case user re-created data during delete
+			}(node)
+		} else {
+			go node.setConfig(config)
+		}
+	} else if !exists && config.connect {
+		appspace, err := a.AppspaceModel.GetFromID(modelEvent.AppspaceID)
+		if err != nil {
+			a.getLogger("updateAppspace AppspaceModel.GetFromID()").AppspaceID(modelEvent.AppspaceID).Error(err)
+			return
+		}
+		node = a.makeNodeStruct(*appspace)
+		a.servers[modelEvent.AppspaceID] = node
+		go node.setConfig(config)
+	}
+}
+
+func (a *AppspaceTSNet) StartAll() {
+	tsnets, err := a.AppspaceTSNetModel.GetAllConnect()
+	if err != nil {
+		return
+	}
+
+	for _, n := range tsnets {
+		a.start(n)
+	}
+}
+
+func (a *AppspaceTSNet) StartAppspace(appspaceID domain.AppspaceID) error {
+	tsnetData, err := a.AppspaceTSNetModel.Get(appspaceID)
 	if err != nil {
 		return err
 	}
-	for _, as := range appspaces {
-		if !as.Paused { // this might be temporary? Should Pausing an appspace cause its TS server to stop?
-			go func(appspace domain.Appspace) {
-				node := a.addGet(appspace.AppspaceID)
-				node.ownerID = appspace.OwnerID      // needed for notifications.
-				node.createNode(appspace.DomainName) // TODO as.DomainName is tempoary.
-			}(as)
-		}
+	return a.start(tsnetData)
+}
+
+func (a *AppspaceTSNet) start(tsnetData domain.AppspaceTSNet) error {
+	appspace, err := a.AppspaceModel.GetFromID(tsnetData.AppspaceID)
+	if err != nil {
+		a.getLogger("start() GetFromID()").AppspaceID(tsnetData.AppspaceID).Error(err)
+		return err
 	}
+
+	a.serversMux.Lock()
+	defer a.serversMux.Unlock()
+
+	node := a.makeNodeStruct(*appspace)
+	a.servers[appspace.AppspaceID] = node
+	go node.setConfig(tsNodeConfig{
+		backendURL: tsnetData.BackendURL,
+		hostname:   tsnetData.Hostname,
+		connect:    tsnetData.Connect,
+	})
 	return nil
 }
 
@@ -74,23 +157,27 @@ func (a *AppspaceTSNet) get(appspaceID domain.AppspaceID) *AppspaceTSNode {
 	return nil
 }
 
-func (a *AppspaceTSNet) addGet(appspaceID domain.AppspaceID) *AppspaceTSNode {
-	// probably need to panic or somehow handle if a server is already present for that appspace ID.
+func (a *AppspaceTSNet) addGet(appspace domain.Appspace) *AppspaceTSNode {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
-	if node, exists := a.servers[appspaceID]; exists {
-		//panic("server already exists for appspace id. Handle this better")
+	if node, exists := a.servers[appspace.AppspaceID]; exists {
 		return node
 	}
-	a.servers[appspaceID] = &AppspaceTSNode{
+	a.servers[appspace.AppspaceID] = a.makeNodeStruct(appspace)
+	return a.servers[appspace.AppspaceID]
+}
+
+func (a *AppspaceTSNet) makeNodeStruct(appspace domain.Appspace) *AppspaceTSNode {
+	return &AppspaceTSNode{
 		Config:                    a.Config,
 		AppspaceLocation2Path:     a.AppspaceLocation2Path,
 		AppspaceModel:             a.AppspaceModel,
 		AppspaceRouter:            a.AppspaceRouter,
 		AppspaceTSNetStatusEvents: a.AppspaceTSNetStatusEvents,
-		appspaceID:                appspaceID,
+		appspaceID:                appspace.AppspaceID,
+		ownerID:                   appspace.OwnerID, // needed for notifications.
+		tsnetDir:                  a.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey),
 	}
-	return a.servers[appspaceID]
 }
 
 func (a *AppspaceTSNet) rmServer(appspaceID domain.AppspaceID) {

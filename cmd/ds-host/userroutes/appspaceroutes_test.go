@@ -110,12 +110,21 @@ func TestGetAppspacesForApp(t *testing.T) {
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
 	asm.EXPECT().GetForApp(appID).Return([]*domain.Appspace{{DomainName: "appspace.sub.domain", AppID: appID, OwnerID: userID}}, nil)
 
+	atm := testmocks.NewMockAppspaceTSNetModel(mockCtrl)
+	atm.EXPECT().Get(gomock.Any()).Return(domain.AppspaceTSNet{}, nil)
+
 	stat := testmocks.NewMockAppspaceStatus(mockCtrl)
 	stat.EXPECT().Get(gomock.Any()).Return(domain.AppspaceStatusEvent{})
+
+	tsnetStatus := testmocks.NewMockAppspaceTSNet(mockCtrl)
+	tsnetStatus.EXPECT().GetStatus(gomock.Any()).Return(domain.TSNetAppspaceStatus{})
+
 	a := AppspaceRoutes{
-		AppModel:       am,
-		AppspaceModel:  asm,
-		AppspaceStatus: stat,
+		AppModel:           am,
+		AppspaceModel:      asm,
+		AppspaceTSNetModel: atm,
+		AppspaceStatus:     stat,
+		AppspaceTSNet:      tsnetStatus,
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)

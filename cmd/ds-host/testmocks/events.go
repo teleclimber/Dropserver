@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 )
 
-//go:generate mockgen -destination=events_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceFilesEvents,AppUrlDataEvents,AppspaceStatusEvents
+//go:generate mockgen -destination=events_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceFilesEvents,AppspaceTSNetModelEvents,AppUrlDataEvents,AppspaceStatusEvents
 
 // xxx go:generate mockgen -source=$GOFILE
 // ^^ the above fails with an internal error: nil Pkg imports which I have no idea how to fix.
@@ -21,6 +21,11 @@ type GenericEvents[D events.DataTypes] interface {
 type AppspaceFilesEvents interface {
 	Send(domain.AppspaceID)
 	GenericEvents[domain.AppspaceID]
+}
+
+type AppspaceTSNetModelEvents interface {
+	Send(domain.AppspaceTSNetModelEvent)
+	GenericEvents[domain.AppspaceTSNetModelEvent]
 }
 
 type AppUrlDataEvents interface {

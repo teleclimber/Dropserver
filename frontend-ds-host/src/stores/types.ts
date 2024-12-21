@@ -160,8 +160,15 @@ export interface AppspaceTSNetStatus {
 	err_message: string,
 	state: string,
 	browse_to_url: string,
-	login_finished: boolean
-	warnings: TSNetWarning[]
+	login_finished: boolean,
+	warnings: TSNetWarning[],
+	transitory: string
+}
+
+export interface AppspaceTSNetData {
+	backend_url: string,
+	hostname: string,
+	connect: boolean
 }
 
 export interface Appspace {
@@ -177,7 +184,8 @@ export interface Appspace {
 	upgrade_version: string|undefined,
 	status: AppspaceStatus,
 	tsnet_status: AppspaceTSNetStatus,
-	ver_data: AppVersionUI | undefined
+	ver_data: AppVersionUI | undefined,
+	tsnet_data: AppspaceTSNetData | undefined
 }
 
 export interface RemoteAppspace {

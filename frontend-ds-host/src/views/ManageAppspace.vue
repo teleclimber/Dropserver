@@ -30,7 +30,7 @@ appspacesStore.loadAppspace(props.appspace_id);
 const appspace = computed( () => {
 	const a = appspacesStore.getAppspace(props.appspace_id);
 	if( a === undefined ) return;
-	return a.value;
+	return Object.assign({}, a.value);
 });
 const appsStore = useAppsStore();
 watch( () => appspace.value?.app_id, () => {
@@ -103,6 +103,41 @@ const data_schema_mismatch = computed( ()=> {
 	return appspace.value?.ver_data && appspace.value?.ver_data.schema !== appspace.value?.status.appspace_schema;
 });
 
+// tsnet stuff:
+const show_edit_tsnet_config = ref(false);
+const tsnet_backend = ref('');
+const tsnet_hostname = ref('');
+const tsnet_connect = ref(true);
+function showEditTSNetConfig() {
+	tsnet_backend.value = appspace.value?.tsnet_data?.backend_url || '';
+	tsnet_hostname.value = appspace.value?.tsnet_data?.hostname || appspace.value?.domain_name.split('.')[0] || '';
+	tsnet_connect.value = appspace.value?.tsnet_data ? appspace.value.tsnet_data.connect : true;
+	show_edit_tsnet_config.value = true;
+}
+
+async function saveTSNetConfig() {
+	await appspacesStore.setTSNetData(props.appspace_id, {
+		backend_url:tsnet_backend.value,
+		hostname: tsnet_hostname.value,
+		connect: tsnet_connect.value
+	});
+	show_edit_tsnet_config.value = false;
+}
+
+async function tsnetSetConnect(connect:boolean) {
+	if( !appspace.value?.tsnet_data ) return;
+	const td = appspace.value?.tsnet_data;
+	await appspacesStore.setTSNetData(props.appspace_id, {
+		backend_url: td.backend_url,
+		hostname: td.hostname,
+		connect: connect
+	});
+}
+
+async function tsnetDeleteConfig() {
+	await appspacesStore.deleteTSNetData(props.appspace_id);
+}
+
 </script>
 <template>
 	<ViewWrap>
@@ -173,46 +208,134 @@ const data_schema_mismatch = computed( ()=> {
 				</div>
 			</div>
 
-			<!-- tailscale temporary ebug output -->
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
-					<div class="">
-						{{ appspace.tsnet_status.state }}
+					<div>
+						<span v-if="appspace.tsnet_status.transitory == 'connecting'" class="p-2 bg-gray-200 text-gray-700">
+							Connecting...
+						</span>
+						<span v-else-if="appspace.tsnet_status.transitory == 'disconnecting'" class="p-2 bg-gray-200 text-gray-700">
+							Disconnecting...
+						</span>
+						<button v-else-if="!appspace.tsnet_data" @click.stop.prevent="showEditTSNetConfig()" :disabled="show_edit_tsnet_config" class="btn btn-blue">
+							New Connection
+						</button>
+						<span v-else-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'" class="p-2 bg-red-200 text-red-800">
+							Off
+						</span>
+						<span v-else-if="appspace.tsnet_status.state == 'Running'" class="p-2 bg-green-200 text-green-800">
+							Connected
+						</span>
+						<span v-else class="p-2 bg-orange-50">
+							{{ appspace.tsnet_status.state }}
+						</span>
 					</div>
 				</div>
-				<div class="my-5">
-					<DataDef field="Tailscale Address:">
-						<a :href="appspace.tsnet_status.url" class="text-blue-700 underline hover:text-blue-500">
-							{{appspace.tsnet_status.url}}
-						</a>
-						<p>IP4: {{ appspace.tsnet_status.ip4 }}</p>
-						<p>IP6: {{ appspace.tsnet_status.ip6 }}</p>
-					</DataDef>
-					<DataDef field="https & dns:">
-						<p>listening TLS: {{ appspace.tsnet_status.listening_tls }}</p>
-						<p>TLS available: {{ appspace.tsnet_status.https_available }}</p>
-						<p>Magic DNS: {{ appspace.tsnet_status.magic_dns_enabled }}</p>
-					</DataDef>
-					<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}}</DataDef>
-					<DataDef field="name:">{{appspace.tsnet_status.name}}</DataDef>
-					<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>
-					<DataDef field="browse_to_url:">
-						<a :href="appspace.tsnet_status.browse_to_url" class="text-blue-700 underline hover:text-blue-500">
-							{{appspace.tsnet_status.browse_to_url}}
-						</a>
-						<p>Login finished: {{appspace.tsnet_status.login_finished ? 'yes' : 'no'}}</p>
-					</DataDef>
-					<!-- warnings...-->
-					<DataDef field="Warnings:">
-						<p>{{ appspace.tsnet_status.warnings.length }} warnings.</p>
-						<div v-for="warn in appspace.tsnet_status.warnings">
-							<h3>{{ warn.title }}</h3>
-							<p>{{ warn.text }}</p>
-							<p>severity: {{  warn.severity }} impacts connectivity: {{ warn.impacts_connectivity ? 'yes' : 'no' }}</p>
-						</div>
-					</DataDef>
+				
+				<div v-if="appspace.tsnet_status.browse_to_url !== '' && !appspace.tsnet_status.login_finished && appspace.tsnet_status.transitory != 'disconnecting'" class="px-4 sm:px-6 my-5">
+					<p>The node needs to be authenticated. Click this link and follow the instructions:</p>
+					<p><a class="text-blue-700 hover:text-blue-500 underline" :href="appspace.tsnet_status.browse_to_url">
+						{{ appspace.tsnet_status.browse_to_url }}
+					</a></p>
+					<div class="flex justify-start mt-4">
+						<button @click.stop.prevent="tsnetSetConnect(false)" class="btn btn-blue">
+							Cancel
+						</button>
+					</div>
 				</div>
+				<div v-else-if="appspace.tsnet_status.transitory" class="px-4 sm:px-6 my-5">
+					<p v-if="appspace.tsnet_status.transitory == 'connecting'">Connecting...</p>
+					<p v-else-if="appspace.tsnet_status.transitory == 'disconnecting'">Disconnecting...</p>
+				</div>
+
+				<div v-else-if="appspace.tsnet_data" class="px-4 sm:px-6 my-5">
+					<div v-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'">
+						<div class="flex justify-between">
+							<button @click.stop.prevent="tsnetDeleteConfig()" class="btn btn-blue">
+								Delete Configuration
+							</button>
+							<button @click.stop.prevent="tsnetSetConnect(true)" class="btn btn-blue">
+								Connect
+							</button>
+						</div>
+						
+					</div>
+					<div v-else-if="appspace.tsnet_status.url">
+						<DataDef field="Appspace Address:">
+							<a class="text-blue-700 hover:text-blue-500 underline" :href="appspace.tsnet_status.url">{{appspace.tsnet_status.url}}</a>
+						</DataDef>
+						<DataDef field="Tailnet:">
+							{{ appspace.tsnet_status.tailnet }}
+							<span v-if="appspace.tsnet_data.backend_url ==''">(Tailscale)</span>
+							<span v-else>({{ appspace.tsnet_data.backend_url }})</span>
+						</DataDef>
+						<div class="flex justify-end">
+							<button v-if="appspace.tsnet_data" @click.stop.prevent="tsnetSetConnect(!appspace.tsnet_data.connect)" class="btn btn-blue">
+								{{ appspace.tsnet_data.connect ? 'Disconnect' : 'Connect'}}
+							</button>
+						</div>
+					</div>
+				</div>
+				<div v-else-if="show_edit_tsnet_config" class="px-4 sm:px-6 my-5">
+					<p>Connect this appspace to a tailnet.
+						This will create a node on the tailnet with its own address.
+						You can also connect to alternative backends such as a Headscale instance.</p>
+					<form @submit.prevent="saveTSNetConfig" @keyup.esc="show_edit_tsnet_config = !show_edit_tsnet_config">
+						<DataDef field="Hostname:">
+							<input type="text" v-model="tsnet_hostname"
+								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+						</DataDef>
+						<!--  also key, and other configs... -->
+						<DataDef field="Control URL:">
+							<input type="text" v-model="tsnet_backend"
+								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+							<p>Leave blank to use Tailscale.com. Otherwise enter your Headscale (or other) URL.</p>
+						</DataDef>
+						<div class="flex justify-between">
+							<input type="button" class="btn py-2" @click="show_edit_tsnet_config = !show_edit_tsnet_config" value="Cancel" />
+							<input
+								type="submit"
+								class="btn-blue"
+								value="Connect" />
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<!-- tailscale temporary ebug output -->
+			<div class="bg-slate-200 p-5">
+				<DataDef field="State:">{{appspace.tsnet_status.state}}</DataDef>
+				<DataDef field="Tailscale Address:">
+					<a :href="appspace.tsnet_status.url" class="text-blue-700 underline hover:text-blue-500">
+						{{appspace.tsnet_status.url}}
+					</a>
+					<p>IP4: {{ appspace.tsnet_status.ip4 }}</p>
+					<p>IP6: {{ appspace.tsnet_status.ip6 }}</p>
+				</DataDef>
+				<DataDef field="https & dns:">
+					<p>listening TLS: {{ appspace.tsnet_status.listening_tls }}</p>
+					<p>TLS available: {{ appspace.tsnet_status.https_available }}</p>
+					<p>Magic DNS: {{ appspace.tsnet_status.magic_dns_enabled }}</p>
+				</DataDef>
+				<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}}</DataDef>
+				<DataDef field="name:">{{appspace.tsnet_status.name}}</DataDef>
+				<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>
+				<DataDef field="browse_to_url:">
+					<a :href="appspace.tsnet_status.browse_to_url" class="text-blue-700 underline hover:text-blue-500">
+						{{appspace.tsnet_status.browse_to_url}}
+					</a>
+					<p>Login finished: {{appspace.tsnet_status.login_finished ? 'yes' : 'no'}}</p>
+				</DataDef>
+				<!-- warnings...-->
+				<DataDef field="Warnings:">
+					<p>{{ appspace.tsnet_status.warnings.length }} warnings.</p>
+					<div v-for="warn in appspace.tsnet_status.warnings">
+						<h3>{{ warn.title }}</h3>
+						<p>{{ warn.text }}</p>
+						<p>severity: {{  warn.severity }} impacts connectivity: {{ warn.impacts_connectivity ? 'yes' : 'no' }}</p>
+					</div>
+				</DataDef>
 			</div>
 
 			<ManageAppspaceUsers :appspace_id="appspace_id"></ManageAppspaceUsers>

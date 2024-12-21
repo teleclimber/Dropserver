@@ -26,6 +26,7 @@ type AppspaceResp struct {
 	TSNetStatus    domain.TSNetAppspaceStatus `json:"tsnet_status"`
 	UpgradeVersion domain.Version             `json:"upgrade_version,omitempty"`
 	AppVersionData *domain.AppVersionUI       `json:"ver_data,omitempty"`
+	TSNetData      *domain.AppspaceTSNet      `json:"tsnet_data,omitempty"`
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -43,6 +44,11 @@ type AppspaceRoutes struct {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 		GetForApp(appID domain.AppID) ([]*domain.Appspace, error)
+	} `checkinject:"required"`
+	AppspaceTSNetModel interface {
+		Get(domain.AppspaceID) (domain.AppspaceTSNet, error)
+		CreateOrUpdate(appspaceID domain.AppspaceID, backendURL string, hostname string, connect bool) error
+		Delete(domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Get(domain.AppspaceID) domain.AppspaceStatusEvent
@@ -87,6 +93,8 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Get("/log", a.getLog)
 		r.Get("/usage", a.getUsage)
 		r.Post("/pause", a.changeAppspacePause)
+		r.Post("/tsnet", a.updateTSNet)
+		r.Delete("/tsnet", a.deleteTSNet)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
 		r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
@@ -138,6 +146,10 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respData.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+	tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
+	if err == nil {
+		respData.TSNetData = &tsnetData
+	}
 	respData.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
@@ -198,6 +210,10 @@ func (a *AppspaceRoutes) getAppspacesForApp(w http.ResponseWriter, r *http.Reque
 	for i, appspace := range appspaces {
 		respData[i] = a.makeAppspaceMeta(*appspace)
 		respData[i].Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+		tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
+		if err == nil {
+			respData[i].TSNetData = &tsnetData
+		}
 		respData[i].TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 	}
 	writeJSON(w, respData)
@@ -214,6 +230,10 @@ func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Requ
 	for _, appspace := range appspaces {
 		appspaceResp := a.makeAppspaceMeta(*appspace)
 		appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+		tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
+		if err == nil {
+			appspaceResp.TSNetData = &tsnetData
+		}
 		appspaceResp.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
 		upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(*appspace)
 		if err != nil {
@@ -335,6 +355,37 @@ func (a *AppspaceRoutes) changeAppspacePause(w http.ResponseWriter, r *http.Requ
 	}
 
 	err = a.PauseAppspace.Pause(appspace.AppspaceID, reqData.Pause)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AppspaceRoutes) updateTSNet(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	reqData := domain.AppspaceTSNet{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.BackendURL, reqData.Hostname, reqData.Connect)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AppspaceRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	err := a.AppspaceTSNetModel.Delete(appspace.AppspaceID)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return

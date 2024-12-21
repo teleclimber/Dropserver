@@ -57,6 +57,23 @@ func (e *AppspaceFilesEvents) Unsubscribe(ch <-chan domain.AppspaceID) {
 	e.subscribers.unsubscribe(ch)
 }
 
+// ////////////////////////////////////
+type AppspaceTSNetModelEvents struct {
+	subscribers eventSubs[domain.AppspaceTSNetModelEvent]
+}
+
+func (e *AppspaceTSNetModelEvents) Subscribe() <-chan domain.AppspaceTSNetModelEvent {
+	return e.subscribers.subscribe()
+}
+
+func (e *AppspaceTSNetModelEvents) Unsubscribe(ch <-chan domain.AppspaceTSNetModelEvent) {
+	e.subscribers.unsubscribe(ch)
+}
+
+func (e *AppspaceTSNetModelEvents) Send(data domain.AppspaceTSNetModelEvent) {
+	e.subscribers.send(data)
+}
+
 // //////////////////////////////////////
 
 type AppspaceStatusEvents struct {

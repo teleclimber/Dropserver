@@ -17,6 +17,9 @@ type DeleteAppspace struct {
 	AppspaceFilesModel interface {
 		DeleteLocation(string) error
 	} `checkinject:"required"`
+	AppspaceTSNetModel interface {
+		Delete(appspaceID domain.AppspaceID) error
+	} `checkinject:"required"`
 	DomainController interface {
 		StopManaging(string)
 	} `checkinject:"required"`
@@ -44,8 +47,7 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 
 	d.SandboxManager.StopAppspace(appspace.AppspaceID)
 
-	// This is where I'd like to be able to pass a transaction around
-	// so we can do all these deletions ..or none at all.
+	d.AppspaceTSNetModel.Delete(appspace.AppspaceID)
 
 	// Delete from cookies table?
 
