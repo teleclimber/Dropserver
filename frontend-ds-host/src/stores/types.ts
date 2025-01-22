@@ -147,8 +147,7 @@ export interface TSNetWarning {
 	impacts_connectivity: boolean
 }
 export interface AppspaceTSNetStatus {
-	//owner_id: number,	//leave those out, just used at event sending time
-	//appspace_id: number, 
+	control_url: string,
 	url: string,
 	ip4: string,
 	ip6: string,
@@ -157,6 +156,7 @@ export interface AppspaceTSNetStatus {
 	name: string,
 	https_available: boolean,
 	magic_dns_enabled: boolean,
+	tags: string[],
 	err_message: string,
 	state: string,
 	browse_to_url: string,
@@ -169,6 +169,24 @@ export interface AppspaceTSNetData {
 	backend_url: string,
 	hostname: string,
 	connect: boolean
+}
+
+export interface TSNetUserDevice {
+	id: string,
+	name: string,
+	online: boolean | undefined,
+	last_seen: Date |undefined,
+	os: string,
+	device_model: string,
+	app: string
+}
+export interface TSNetPeerUser {
+	id: string,
+	control_url: string,
+	login_name: string,
+	display_name: string,
+	sharee: boolean,
+	devices: TSNetUserDevice[]
 }
 
 export interface Appspace {
@@ -197,11 +215,17 @@ export interface RemoteAppspace {
 	created_dt: Date
 }
 
+export interface AppspaceUserAuth {
+	type: string,
+	identifier: string,
+	created: Date,
+	last_seen: Date | undefined
+}
+
 export interface AppspaceUser {
 	appspace_id: number,
 	proxy_id: string,
-	auth_type: string,
-	auth_id: string,
+	auths: AppspaceUserAuth[],
 	display_name: string,
 	avatar: string,
 	//permissions = raw.permissions;

@@ -1,9 +1,9 @@
-import { ref, shallowRef, ShallowRef, triggerRef, computed } from 'vue';
+import { ref, shallowRef, ShallowRef, shallowReactive, ShallowReactive, triggerRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning, AppspaceTSNetData } from './types';
+import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning, AppspaceTSNetData, TSNetPeerUser, TSNetUserDevice } from './types';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -11,6 +11,32 @@ type NewAppspaceData = {
 	domain_name: string,
 	subdomain: string,
 	dropid: string
+}
+
+function tsnetPeerUsersFromRaw(raw:any) :TSNetPeerUser[] {
+	if( !Array.isArray(raw) ) return [];
+	return raw.map( (r:any) => {
+		let devices :TSNetUserDevice[] = [];
+		if( Array.isArray(r.devices) ) devices = r.devices.map( (d:any) => {
+			return {
+				id: d.id+'',
+				name: d.name +'',
+				online: d.online,
+				last_seen: typeof d.last_seen === 'undefined' ? undefined : new Date(d.last_seen),
+				os: d.os+'',
+				device_model: d.device_model+'',
+				app: d.app+'',
+			}
+		});
+		return {
+			id: r.id+'',
+			control_url: r.control_url+'',
+			login_name: r.login_name+'',
+			display_name: r.display_name+'',
+			sharee: !!r.sharee,
+			devices: devices
+		}
+	});
 }
 
 function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
@@ -39,6 +65,7 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 		});
 	}
 	return {
+		control_url: strFromRaw(raw.control_url),
 		url: strFromRaw(raw.url),
 		ip4: strFromRaw(raw.ip4),
 		ip6: strFromRaw(raw.ip6),
@@ -47,6 +74,7 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 		name: strFromRaw(raw.name),
 		https_available: !!raw.https_available,
 		magic_dns_enabled: !!raw.magic_dns_enabled,
+		tags: raw.tags,
 		err_message: strFromRaw(raw?.err_message),
 		state: strFromRaw(raw?.state),
 		browse_to_url: strFromRaw(raw?.browse_to_url),
@@ -90,6 +118,8 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 	const load_state = ref(LoadState.NotLoaded);
 
 	const appspaces : ShallowRef<Map<number,ShallowRef<Appspace>>> = shallowRef(new Map());
+
+	const appspace_peer_users : ShallowReactive<Map<number,ShallowRef<TSNetPeerUser[]>>> = shallowReactive(new Map);
 
 	const is_loaded = computed( () => {
 		return load_state.value === LoadState.Loaded;
@@ -142,6 +172,10 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		if( !as ) return;
 		const tsnet_status = tsnetStatusFromRaw(raw);
 		as.value = Object.assign({}, as.value, {tsnet_status});
+	});
+	on('AppspaceTSNetPeers', async (raw) => {
+		const appspace_id = Number(raw);
+		if( appspace_peer_users.has(appspace_id) ) loadTSNetPeerUsers(appspace_id);
 	});
 
 	function getAppspace(appspace_id:number) {
@@ -203,6 +237,25 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		triggerRef(a);
 	}
 
+	async function loadTSNetPeerUsers(appspace_id: number) {
+		const resp = await ax.get(`/api/appspace/${appspace_id}/tsnet/peerusers`);
+		if( !Array.isArray(resp.data) ) throw new Error("expected peerusers to be array");
+		const peer_users = tsnetPeerUsersFromRaw(resp.data);
+		const reactive_pu = appspace_peer_users.get(appspace_id);
+		if( reactive_pu === undefined ) return;
+		reactive_pu.value = peer_users;
+	}
+	function watchTSNetPeerUsers(appspace_id: number) {
+		if( !appspace_peer_users.has(appspace_id) ) {
+			appspace_peer_users.set(appspace_id, shallowRef([]));
+			loadTSNetPeerUsers(appspace_id);
+		}
+		return appspace_peer_users.get(appspace_id);	// this might actually be undefined if unwatch called while loading!
+	}
+	function unWatchTSNetPeerUsers(appspace_id: number) {
+		appspace_peer_users.delete(appspace_id);
+	}
+
 	async function deleteAppspace(appspace_id: number) {
 		mustGetAppspace(appspace_id);	 //throws is appspace not found.
 		await ax.delete('/api/appspace/'+appspace_id);
@@ -222,6 +275,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		createAppspace,
 		setPause,
 		setTSNetData, deleteTSNetData,
+		watchTSNetPeerUsers, unWatchTSNetPeerUsers,
 		deleteAppspace
 	}
 });

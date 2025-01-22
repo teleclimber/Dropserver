@@ -30,8 +30,12 @@ type appspaceUser struct {
 	LastSeen    nulltypes.NullTime `db:"last_seen"`
 }
 
+func validateAuthType(t string) bool {
+	return t == "email" || t == "dropid" || t == "tsnetid"
+}
+
 // ErrAuthIDExists is returned when the appspace already has a user with that auth identifier string
-var ErrAuthIDExists = errors.New("auth ID (email or dropid) not unique in this appspace")
+var ErrAuthIDExists = errors.New("auth ID not unique in this appspace")
 
 // UserModel stores the user's DropIDs
 type UserModel struct {
@@ -47,8 +51,8 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 	var proxyID domain.ProxyID
 	var err error
 
-	if authType != "email" && authType != "dropid" { // We could maybe have a type for auth types if we use this a bunch.
-		panic("invalid auth type " + authType) // TODO add tsid
+	if !validateAuthType(authType) {
+		panic("invalid auth type " + authType)
 	}
 
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
@@ -83,16 +87,9 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 		}
 	}
 
-	// create auth. This should be pulled outinto its own reusable function
-	_, err = tx.Exec(`INSERT INTO user_auth_ids 
-		(proxy_id, type, identifier, created) 
-		VALUES (?, ?, ?, datetime("now"))`,
-		proxyID, authType, authID)
+	err = u.addAuthSP(tx, proxyID, authType, authID)
 	if err != nil {
-		if err.Error() == "UNIQUE constraint failed: user_auth_ids.type, user_auth_ids.identifier" {
-			return domain.ProxyID(""), ErrAuthIDExists
-		}
-		log.AddNote("Exec auth").Error(err)
+		log.AddNote("addAuthSP").Error(err)
 		return domain.ProxyID(""), err
 	}
 
@@ -105,35 +102,46 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 	return proxyID, nil
 }
 
-// need Add auth, rm auth
-// func (u *UserModel) AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
-//
-// }
-
-// func (u *UserModel) RemoveAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
-//
-// }
-
-// TODO It's not clear update auth should still exist. Delete + Add probably makes more sense.
-func (u *UserModel) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
-	if authType != "email" && authType != "dropid" { // TODO update this // We could maybe have a type for auth types if we use this a bunch.
+func (u *UserModel) AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
+	if !validateAuthType(authType) {
 		panic("invalid auth type " + authType)
 	}
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
 	}
+	return u.addAuthSP(db, proxyID, authType, authID)
+}
 
-	p := sqlxprepper.NewPrepper(db)
-	stmt := p.Prep(`UPDATE user_auth_ids SET
-		type = ?, identifier = ?
-		WHERE proxy_id = ?`) // This SQL is wrong it should be WHERE proxy_id = ? && type = ? && identifier = ?; But let's not bother.
-	_, err = stmt.Stmt.Exec(authType, authID, proxyID)
-	if err != nil && err.Error() == "UNIQUE constraint failed: user_auth_ids.type, user_auth_ids.identifier" {
-		return ErrAuthIDExists
-	}
+func (u *UserModel) addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
+	var stmt *sqlx.Stmt
+	stmt, err := sp.Preparex(`INSERT INTO user_auth_ids 
+		(proxy_id, type, identifier, created) 
+		VALUES (?, ?, ?, datetime("now"))`)
 	if err != nil {
-		u.getLogger("UpdateAuth").AddNote("Stmt.Exec").AppspaceID(appspaceID).Error(err)
+		return err
+	}
+	_, err = stmt.Exec(proxyID, authType, authID)
+	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: user_auth_ids.type, user_auth_ids.identifier" {
+			return ErrAuthIDExists
+		}
+		return err
+	}
+	return nil
+}
+
+func (u *UserModel) DeleteAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
+	if !validateAuthType(authType) {
+		panic("invalid auth type " + authType)
+	}
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM user_auth_ids WHERE proxy_id = ? AND type = ? and identifier = ?`, proxyID, authType, authID)
+	if err != nil {
+		u.getLogger("DeleteAuth").AppspaceID(appspaceID).Error(err)
 		return err
 	}
 	return nil

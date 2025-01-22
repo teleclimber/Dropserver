@@ -1,12 +1,8 @@
 import { reactive, ref, shallowRef, ShallowRef, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
-import { LoadState, AppspaceUser } from './types';
+import { LoadState, AppspaceUser, AppspaceUserAuth } from './types';
 
-export type AppspaceUserAuth = {
-	auth_type: 'email'|'dropid',
-	auth_id: string
-}
 export enum AvatarState {
 	Preserve = "preserve",
 	Delete = "delete",
@@ -20,12 +16,20 @@ export type PostAppspaceUser = {
 	permissions: string[]
 }
 
+function userAuthFromRaw(raw:any) :AppspaceUserAuth{
+	return {
+		type: raw.type+'',
+		identifier: raw.identifier+'',
+		created: new Date(raw.created),
+		last_seen: raw.last_seen ? new Date(raw.last_seen) : undefined
+	}
+}
+
 function userFromRaw(raw:any) :AppspaceUser {
 	return {
 		appspace_id: Number(raw.appspace_id),
 		proxy_id: raw.proxy_id+'',
-		auth_type: raw.auth_type+'',
-		auth_id: raw.auth_id+'',
+		auths: Array.isArray(raw.auths) ? raw.auths.map(userAuthFromRaw) : [],
 		display_name: raw.display_name+'',
 		avatar: raw.avatar+'',
 		//permissions = raw.permissions;

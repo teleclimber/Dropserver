@@ -35,7 +35,7 @@ const display_name = ref("");
 
 watchEffect( () => {
 	if( user.value === undefined ) return;
-	drop_id.value = user.value.auth_id;	// assumes authid is dropid
+	drop_id.value = user.value.auths.find( a => a.type == "dropid")?.identifier || "";
 	display_name.value = user.value.display_name;
 	// avatar?
 });
@@ -70,7 +70,7 @@ async function save() {
 
 	if( props.proxy_id ) {
 		let auth_id = ""; 
-		if( drop_id.value !== user.value?.auth_id ) auth_id = drop_id.value;
+		if( drop_id.value !== user.value?.auths.find( a => a.type == "dropid")?.identifier ) auth_id = drop_id.value;
 		await appspaceUsersStore.updateUserMeta(props.appspace_id, props.proxy_id, {
 			auth_type: "dropid",
 			auth_id,

@@ -123,10 +123,14 @@ func main() {
 	}
 
 	// events
+	eventRelations := &events.Relations{}
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	appspaceTSNetModelEvents := &events.AppspaceTSNetModelEvents{}
-	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{}
+	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{
+		Relations: eventRelations}
+	appspaceTSNetPeersEvents := &events.AppspaceTSNetPeersEvents{
+		Relations: eventRelations}
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appGetterEvents := &events.AppGetterEvents{}
 	appUrlDataEvents := &events.AppUrlDataEvents{}
@@ -177,6 +181,7 @@ func main() {
 	appspaceModel := &appspacemodel.AppspaceModel{
 		DB: db}
 	appspaceModel.PrepareStatements()
+	eventRelations.AppspaceModel = appspaceModel
 
 	remoteAppspaceModel := &remoteappspacemodel.RemoteAppspaceModel{
 		DB: db,
@@ -248,6 +253,10 @@ func main() {
 		AppspaceModel: appspaceModel,
 	}
 
+	appspaceAvatars := &appspaceops.Avatars{
+		Config:                runtimeConfig,
+		AppspaceLocation2Path: appspaceLocation2Path}
+
 	pauseAppspace := &appspaceops.PauseAppspace{
 		AppspaceModel:  appspaceModel,
 		AppspaceStatus: nil, // see below
@@ -303,6 +312,13 @@ func main() {
 		MigrationJobModel:  migrationJobModel,
 		SandboxManager:     sandboxManager,
 		AppspaceLogger:     appspaceLogger,
+	}
+
+	manageAppspaceUsers := &appspaceops.ManageUsers{
+		AppspaceModel:            appspaceModel,
+		AppspaceUserModel:        appspaceUserModel,
+		Avatars:                  appspaceAvatars,
+		AppspaceTSNetPeersEvents: appspaceTSNetPeersEvents,
 	}
 
 	remoteAppGetter := &appops.RemoteAppGetter{
@@ -386,10 +402,6 @@ func main() {
 	migrationMinder := &appspacestatus.MigrationMinder{
 		AppModel: appModel,
 	}
-
-	appspaceAvatars := &appspaceops.Avatars{
-		Config:                runtimeConfig,
-		AppspaceLocation2Path: appspaceLocation2Path}
 
 	var certificateManager *certificatemanager.CertficateManager
 	if runtimeConfig.ManageTLSCertificates.Enable {
@@ -512,6 +524,7 @@ func main() {
 		MigrationJobRoutes:        migrationJobRoutes,
 		AppspaceStatusEvents:      appspaceStatusEvents,
 		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
+		AppspaceTSNetPeersEvents:  appspaceTSNetPeersEvents,
 		MigrationJobEvents:        migrationJobEvents,
 		AppGetterEvents:           appGetterEvents,
 		UserModel:                 userModel,
@@ -574,10 +587,12 @@ func main() {
 		AppspaceRouter:            fromTSNet,
 		AppspaceTSNetModelEvents:  appspaceTSNetModelEvents,
 		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
+		AppspaceTSNetPeersEvents:  appspaceTSNetPeersEvents,
 		AppspaceLocation2Path:     appspaceLocation2Path,
 	}
 	appspaceTSNet.Init()
 	userAppspaceRoutes.AppspaceTSNet = appspaceTSNet
+	manageAppspaceUsers.AppspaceTSNet = appspaceTSNet
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -624,6 +639,8 @@ func main() {
 	migrationJobCtl.Start() // TODO: add delay, maybe set in runtimeconfig for first job to run
 
 	mainServer.Start()
+
+	manageAppspaceUsers.Init()
 
 	appspaceTSNet.StartAll()
 

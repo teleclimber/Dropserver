@@ -18,7 +18,7 @@ const avatar_url = getAvatarUrl(props.user);
 			<div class="flex flex-col sm:flex-row items-baseline">
 				<span class="pr-2 font-bold text-l">{{user.display_name}}</span>
 			</div>
-			<div class="text-gray-600">{{user.auth_id}}</div>
+			<div v-for="auth in user.auths" class="text-gray-600">{{auth.type}} {{ auth.identifier }}</div>
 		</div>
 		<router-link class="btn self-start flex-shrink-0" :to="{name:'appspace-user', params:{appspace_id: user.appspace_id, proxy_id:user.proxy_id}}">Edit</router-link>
 		

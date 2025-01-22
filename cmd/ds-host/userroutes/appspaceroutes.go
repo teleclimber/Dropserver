@@ -55,6 +55,7 @@ type AppspaceRoutes struct {
 	} `checkinject:"required"`
 	AppspaceTSNet interface {
 		GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
+		GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 	} `checkinject:"required"`
 	CreateAppspace interface {
 		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
@@ -93,6 +94,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Get("/log", a.getLog)
 		r.Get("/usage", a.getUsage)
 		r.Post("/pause", a.changeAppspacePause)
+		r.Get("/tsnet/peerusers", a.getTSNetPeerUsers)
 		r.Post("/tsnet", a.updateTSNet)
 		r.Delete("/tsnet", a.deleteTSNet)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
@@ -361,6 +363,14 @@ func (a *AppspaceRoutes) changeAppspacePause(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AppspaceRoutes) getTSNetPeerUsers(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	users := a.AppspaceTSNet.GetPeerUsers(appspace.AppspaceID)
+
+	writeJSON(w, users)
 }
 
 func (a *AppspaceRoutes) updateTSNet(w http.ResponseWriter, r *http.Request) {

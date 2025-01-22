@@ -30,7 +30,6 @@ type AppspaceUserRoutes struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error
 		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
@@ -236,18 +235,19 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 	}
 
 	// handle potential auth changes...
-	if reqData.AuthID != "" {
-		authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
-		if err != nil {
-			http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
-			return
-		}
-		err = a.AppspaceUserModel.UpdateAuth(appspace.AppspaceID, user.ProxyID, reqData.AuthType, authID)
-		if err != nil {
-			returnError(w, err)
-			return
-		}
-	}
+	// TODO Nope that's not how that's going to work.
+	// if reqData.AuthID != "" {
+	// 	authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
+	// 	if err != nil {
+	// 		http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	err = a.AppspaceUserModel.UpdateAuth(appspace.AppspaceID, user.ProxyID, reqData.AuthType, authID)
+	// 	if err != nil {
+	// 		returnError(w, err)
+	// 		return
+	// 	}
+	// }
 
 	displayName := validator.NormalizeDisplayName(reqData.DisplayName)
 	if err = validator.DisplayName(displayName); err != nil {

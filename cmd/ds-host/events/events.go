@@ -100,6 +100,9 @@ func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
 }
 
 type AppspaceTSNetStatusEvents struct {
+	Relations interface {
+		GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool)
+	} `checkinject:"required"`
 	subscribers eventSubs[domain.TSNetAppspaceStatus]
 	ownerSubs   eventIDSubs[domain.UserID, domain.TSNetAppspaceStatus]
 }
@@ -119,7 +122,41 @@ func (e *AppspaceTSNetStatusEvents) Unsubscribe(ch <-chan domain.TSNetAppspaceSt
 
 func (e *AppspaceTSNetStatusEvents) Send(data domain.TSNetAppspaceStatus) {
 	e.subscribers.send(data)
-	e.ownerSubs.send(data.OwnerID, data)
+	ownerID, ok := e.Relations.GetAppspaceOwnerID(data.AppspaceID)
+	if ok {
+		e.ownerSubs.send(ownerID, data)
+	}
+}
+
+// Appspace TSNet Users/peers changed notification
+// It merely sends the appspace ID of the appspace whose peers changed.
+type AppspaceTSNetPeersEvents struct {
+	Relations interface {
+		GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool)
+	} `checkinject:"required"`
+	subscribers eventSubs[domain.AppspaceID] // not clear why we need global subscribers for this?
+	ownerSubs   eventIDSubs[domain.UserID, domain.AppspaceID]
+}
+
+func (e *AppspaceTSNetPeersEvents) Subscribe() <-chan domain.AppspaceID {
+	return e.subscribers.subscribe()
+}
+
+func (e *AppspaceTSNetPeersEvents) SubscribeOwner(ownerID domain.UserID) <-chan domain.AppspaceID {
+	return e.ownerSubs.subscribe(ownerID)
+}
+
+func (e *AppspaceTSNetPeersEvents) Unsubscribe(ch <-chan domain.AppspaceID) {
+	e.subscribers.unsubscribe(ch)
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppspaceTSNetPeersEvents) Send(appspaceID domain.AppspaceID) {
+	e.subscribers.send(appspaceID)
+	ownerID, ok := e.Relations.GetAppspaceOwnerID(appspaceID)
+	if ok {
+		e.ownerSubs.send(ownerID, appspaceID)
+	}
 }
 
 //////////////////////////////////////////

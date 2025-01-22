@@ -68,6 +68,10 @@ type UserRoutes struct {
 		SubscribeOwner(domain.UserID) <-chan domain.TSNetAppspaceStatus
 		Unsubscribe(ch <-chan domain.TSNetAppspaceStatus)
 	} `checkinject:"required"`
+	AppspaceTSNetPeersEvents interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppspaceID
+		Unsubscribe(ch <-chan domain.AppspaceID)
+	} `checkinject:"required"`
 	MigrationJobEvents interface {
 		SubscribeOwner(domain.UserID) <-chan domain.MigrationJob
 		Unsubscribe(ch <-chan domain.MigrationJob)
@@ -364,6 +368,9 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	asTSNetStatCh := u.AppspaceTSNetStatusEvents.SubscribeOwner(authUserID)
 	defer u.AppspaceTSNetStatusEvents.Unsubscribe(asTSNetStatCh)
 
+	asTSNetPeersCh := u.AppspaceTSNetPeersEvents.SubscribeOwner(authUserID)
+	defer u.AppspaceTSNetPeersEvents.Unsubscribe(asTSNetPeersCh)
+
 	migrationJobCh := u.MigrationJobEvents.SubscribeOwner(authUserID)
 	defer u.MigrationJobEvents.Unsubscribe(migrationJobCh)
 
@@ -379,6 +386,8 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 			u.sendSSEEvent(w, "AppspaceStatus", stat)
 		case stat := <-asTSNetStatCh:
 			u.sendSSEEvent(w, "AppspaceTSNetStatus", stat)
+		case aid := <-asTSNetPeersCh:
+			u.sendSSEEvent(w, "AppspaceTSNetPeers", aid)
 		case job := <-migrationJobCh:
 			u.sendSSEEvent(w, "MigrationJob", job)
 		case get := <-appGetterCh:

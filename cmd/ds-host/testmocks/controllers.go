@@ -59,6 +59,7 @@ type AppspaceStatus interface {
 
 type AppspaceTSNet interface {
 	GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
+	GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 }
 
 // AppspaceRouter is a route handler that also tracks ongoing requests

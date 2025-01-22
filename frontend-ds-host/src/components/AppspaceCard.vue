@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {ref, watchEffect, computed} from 'vue';
 
-import type { Appspace, RemoteAppspace } from '@/stores/types';
+import type { Appspace, AppspaceUserAuth, RemoteAppspace } from '@/stores/types';
 import { useAppsStore } from '@/stores/apps';
 import { useAppspaceUsersStore, getAvatarUrl } from '@/stores/appspace_users';
 
@@ -59,7 +59,7 @@ const users = computed( () => {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,
 			avatar_url: getAvatarUrl(u),
-			is_owner: u.auth_id === owner_dropid
+			is_owner: u.auths.some( (a:AppspaceUserAuth) => a.type == "dropid" && a.identifier == owner_dropid)
 		};
 	});
 });

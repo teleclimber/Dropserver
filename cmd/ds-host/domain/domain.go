@@ -670,7 +670,7 @@ type Contact struct {
 type AppspaceUser struct {
 	AppspaceID  AppspaceID         `json:"appspace_id"`
 	ProxyID     ProxyID            `json:"proxy_id"`
-	Auths       []AppspaceUserAuth `json:"auth"`
+	Auths       []AppspaceUserAuth `json:"auths"`
 	DisplayName string             `json:"display_name"`
 	Avatar      string             `json:"avatar"`
 	Permissions []string           `json:"permissions"`
@@ -688,7 +688,7 @@ type AppspaceUserAuth struct {
 // TSNetAppspaceStatus is info about the tsnet server for an appspace
 type TSNetAppspaceStatus struct {
 	AppspaceID      AppspaceID              `json:"appspace_id"`
-	OwnerID         UserID                  `json:"owner_id"`
+	ControlURL      string                  `json:"control_url"`
 	URL             string                  `json:"url,omitempty"`
 	IP4             string                  `json:"ip4,omitempty"`
 	IP6             string                  `json:"ip6,omitempty"`
@@ -697,6 +697,7 @@ type TSNetAppspaceStatus struct {
 	Name            string                  `json:"name,omitempty"` // DNS name, which is sometimes machine name
 	HTTPSAvailable  bool                    `json:"https_available"`
 	MagicDNSEnabled bool                    `json:"magic_dns_enabled"`
+	Tags            []string                `json:"tags"`
 	ErrMessage      string                  `json:"err_message,omitempty"`
 	State           string                  `json:"state,omitempty"` // State from tsnet. But not ideal. Use "connected" instead of "running"
 	BrowseToURL     string                  `json:"browse_to_url,omitempty"`
@@ -711,14 +712,26 @@ type TSNetWarning struct {
 	ImpactsConnectivity bool   `json:"impacts_connectivity"`
 }
 
-// TSNetUser provides details of a user on a tailnet
-// Essentially equivalent to tailcfg.UserProfile
-type TSNetUser struct {
-	ID            string // tsnet user id
-	LoginName     string
-	DisplayName   string
-	ProfilePicURL string
-	Sharee        bool
+type TSNetUserDevice struct {
+	ID          string     `json:"id"`                  // Node stable id?
+	Name        string     `json:"name"`                // Node.Name() That's DNS name of device, though empty for sharee
+	Online      *bool      `json:"online,omitempty"`    // if nil then it's unknown or not knowable
+	LastSeen    *time.Time `json:"last_seen,omitempty"` // nil if it's never been online or no permission to know. if online is true, ignore.
+	OS          string     `json:"os"`
+	DeviceModel string     `json:"device_model"`
+	App         string     `json:"app"` // to disambibuate ts client from tsnet or something. Interesting?
+}
+
+// TSNetPeerUser provides details of a user on a tailnet
+// Essentially equivalent to tailcfg.UserProfile, but includes backend url
+type TSNetPeerUser struct {
+	ID          string            `json:"id"` // tsnet user id
+	LoginName   string            `json:"login_name"`
+	DisplayName string            `json:"display_name"`
+	Sharee      bool              `json:"sharee"`
+	Devices     []TSNetUserDevice `json:"devices"`
+	ControlURL  string            `json:"control_url"`
+	//ProfilePicURL string //this isn't right? Create a separate route for fetching avatars for these users.
 }
 
 // V0RouteModel serves route data queries at version 0

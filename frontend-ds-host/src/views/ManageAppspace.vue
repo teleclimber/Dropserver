@@ -42,9 +42,11 @@ const app = computed( () => {
 	if( a ) return a.value;
 });
 
-
 onMounted( () => {
 	appspacesStore.loadAppspace(props.appspace_id);
+});
+onUnmounted( () => {
+	appspacesStore.unWatchTSNetPeerUsers(props.appspace_id);
 });
 
 const appspaceUsersStore = useAppspaceUsersStore();
@@ -137,6 +139,12 @@ async function tsnetSetConnect(connect:boolean) {
 async function tsnetDeleteConfig() {
 	await appspacesStore.deleteTSNetData(props.appspace_id);
 }
+
+const tsnet_peer_users = computed( () => {
+	const pu = appspacesStore.watchTSNetPeerUsers(props.appspace_id);
+	if( pu === undefined ) return undefined;
+	return pu.value;
+});
 
 </script>
 <template>
@@ -302,7 +310,6 @@ async function tsnetDeleteConfig() {
 					</form>
 				</div>
 			</div>
-
 			<!-- tailscale temporary ebug output -->
 			<div class="bg-slate-200 p-5">
 				<DataDef field="State:">{{appspace.tsnet_status.state}}</DataDef>
@@ -318,8 +325,9 @@ async function tsnetDeleteConfig() {
 					<p>TLS available: {{ appspace.tsnet_status.https_available }}</p>
 					<p>Magic DNS: {{ appspace.tsnet_status.magic_dns_enabled }}</p>
 				</DataDef>
-				<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}}</DataDef>
+				<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}} at {{  appspace.tsnet_status.control_url }}</DataDef>
 				<DataDef field="name:">{{appspace.tsnet_status.name}}</DataDef>
+				<DataDef field="tags:">{{ appspace.tsnet_status.tags?.join(", ") }}</DataDef>
 				<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>
 				<DataDef field="browse_to_url:">
 					<a :href="appspace.tsnet_status.browse_to_url" class="text-blue-700 underline hover:text-blue-500">
@@ -336,6 +344,22 @@ async function tsnetDeleteConfig() {
 						<p>severity: {{  warn.severity }} impacts connectivity: {{ warn.impacts_connectivity ? 'yes' : 'no' }}</p>
 					</div>
 				</DataDef>
+				<hr>
+				<h4>Peer Users:</h4>
+				<ul v-if="tsnet_peer_users">
+					<li v-for="u in tsnet_peer_users">
+						{{ u.display_name }} ({{ u.login_name }}) {{  u.control_url }}
+						<span v-if="u.sharee">Shared in</span>
+						<ul class="ml-2">
+							<li v-for="d in u.devices">
+								{{ d.name }} ({{  d.os }} {{ d.device_model }}) 
+								<span v-if="d.online">online</span>
+								<span v-else-if="d.last_seen">Last seen: {{  d.last_seen.toLocaleDateString() }}</span>
+							</li>
+						</ul>
+					</li>
+				</ul>
+				<p v-else>No peer user data</p>
 			</div>
 
 			<ManageAppspaceUsers :appspace_id="appspace_id"></ManageAppspaceUsers>

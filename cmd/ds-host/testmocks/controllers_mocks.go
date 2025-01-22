@@ -546,6 +546,20 @@ func (m *MockAppspaceTSNet) EXPECT() *MockAppspaceTSNetMockRecorder {
 	return m.recorder
 }
 
+// GetPeerUsers mocks base method
+func (m *MockAppspaceTSNet) GetPeerUsers(arg0 domain.AppspaceID) []domain.TSNetPeerUser {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPeerUsers", arg0)
+	ret0, _ := ret[0].([]domain.TSNetPeerUser)
+	return ret0
+}
+
+// GetPeerUsers indicates an expected call of GetPeerUsers
+func (mr *MockAppspaceTSNetMockRecorder) GetPeerUsers(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeerUsers", reflect.TypeOf((*MockAppspaceTSNet)(nil).GetPeerUsers), arg0)
+}
+
 // GetStatus mocks base method
 func (m *MockAppspaceTSNet) GetStatus(arg0 domain.AppspaceID) domain.TSNetAppspaceStatus {
 	m.ctrl.T.Helper()

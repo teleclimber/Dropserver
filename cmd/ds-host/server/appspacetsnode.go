@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -21,7 +20,7 @@ import (
 )
 
 type tsNodeConfig struct {
-	backendURL string
+	controlURL string
 	hostname   string
 	connect    bool
 	// auto-users
@@ -41,9 +40,11 @@ type AppspaceTSNode struct {
 	AppspaceTSNetStatusEvents interface {
 		Send(data domain.TSNetAppspaceStatus)
 	}
+	AppspaceTSNetPeersEvents interface {
+		Send(data domain.AppspaceID)
+	}
 
 	appspaceID domain.AppspaceID
-	ownerID    domain.UserID // owner id is to send with notification
 
 	tsnetDir string
 
@@ -79,10 +80,10 @@ func (n *AppspaceTSNode) setConfig(config tsNodeConfig) {
 			n.getLogger("setConfig").Debug("connect:false, calling stop")
 			go n.stop()
 		} else {
-			if config.backendURL != n.tsnetServer.ControlURL {
+			if config.controlURL != n.tsnetServer.ControlURL {
 				// restart. But this requires much more because the locally saved files must be deleted.
 				// This is likely better handled externally, so just stop the node if ith's the wrong controlURL.
-				n.getLogger("setConfig").Debug(fmt.Sprintf("control url changed %s -> %s, calling stop", config.backendURL, n.tsnetServer.ControlURL))
+				n.getLogger("setConfig").Debug(fmt.Sprintf("control url changed %s -> %s, calling stop", config.controlURL, n.tsnetServer.ControlURL))
 				go n.stop()
 				// delete files?
 				//n.createNode("")
@@ -108,7 +109,7 @@ func (n *AppspaceTSNode) createServer() error {
 
 	s.Dir = n.tsnetDir
 	s.Hostname = n.desiredConfig.hostname
-	s.ControlURL = n.desiredConfig.backendURL
+	s.ControlURL = n.desiredConfig.controlURL
 
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {
@@ -157,6 +158,7 @@ func (n *AppspaceTSNode) startNode() error {
 				break
 			}
 			magicDNS := n.nodeStatus.magicDNS
+			var tags []string
 			if newData.NetMap != nil {
 				status, err := lc.Status(context.Background())
 				if err != nil {
@@ -165,16 +167,25 @@ func (n *AppspaceTSNode) startNode() error {
 				if status != nil && status.CurrentTailnet != nil {
 					magicDNS = status.CurrentTailnet.MagicDNSEnabled
 				}
+				if status != nil && status.Self != nil && status.Self.Tags != nil {
+					tags = status.Self.Tags.AsSlice()
+				}
 				// note that netmap contains much more than peers!
 				// it also contains UserProfiles:
-				fmt.Println("user profiles")
-				for id, p := range newData.NetMap.UserProfiles {
-					fmt.Println(id, p)
+				fmt.Println("peers:")
+				for id, peer := range newData.NetMap.Peers {
+					fmt.Println(id, peer.ComputedNameWithHost(), "disp:", peer.DisplayName(false), "tags:", peer.Tags(), peer.User())
 				}
+				fmt.Println("user profiles:")
+				for id, p := range newData.NetMap.UserProfiles {
+					fmt.Println(id, p.DisplayName, p.LoginName)
+				}
+
 				n.ingestPeers(lc, newData.NetMap.Peers)
 				// send notification in goroutine
+				go n.sendPeerUsersEvent()
 			}
-			if n.nodeStatus.ingest(newData, magicDNS) {
+			if n.nodeStatus.ingest(newData, magicDNS, tags) {
 				n.sendStatus()
 			}
 
@@ -256,8 +267,12 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 			return
 		}
 		// Set the user id from [tail|head]scale for use in determining the ProxyID later
+		// Some gotchas: for headscale we should have a tailnet name attached too
+		// ..since user ids start at 1.
 		r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), who.UserProfile.ID.String()))
 
+		// AppspaceRouter expects Proxy ID to be set alrady!
+		// Actually no, AppspaceRouter is FromTSNet!!
 		n.AppspaceRouter.ServeHTTP(w, r)
 	}))
 	if err != http.ErrServerClosed { // it always returns an error
@@ -299,7 +314,7 @@ func (n *AppspaceTSNode) stop() {
 func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeView) {
 	n.usersMux.Lock()
 	defer n.usersMux.Unlock()
-	n.users = make([]tsUser, 0)
+	n.users = make([]tsUser, 0) // ooff, we delete the original data? That means we lose the ability to know if it changed?
 
 	loggerFn := n.getLogger("ingestPeers").AppspaceID(n.appspaceID).Clone
 	for _, nv := range peers {
@@ -312,9 +327,10 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 			continue
 		} else if who.UserProfile != nil {
 			userID = who.UserProfile.ID.String()
-			if who.UserProfile.ID.String() != nv.User().String() {
+			if userID != nv.User().String() {
 				// that's something that I'd like to know about!
-				err = fmt.Errorf("who.UserProfile.ID.String() != nv.User().String(): %s != %s", who.UserProfile.ID.String(), nv.User().String())
+				// But what is the meaning of this??
+				err = fmt.Errorf("who.UserProfile.ID.String() != nv.User().String(): %s != %s", userID, nv.User().String())
 				loggerFn().Error(err)
 				// add error to stack?
 			}
@@ -326,19 +342,30 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 			for i, u := range n.users {
 				if u.id == userID {
 					found = true
-					n.users[i].ingest(nv, who)
+					n.users[i].ingest(nv, who, n.userFacingControlURL())
 					break
 				}
 			}
 			if !found {
 				u = tsUser{}
-				u.ingest(nv, who)
+				u.ingest(nv, who, n.userFacingControlURL())
 				n.users = append(n.users, u)
 			}
 		}
 	}
+
+	// sort users,
+	// and then sort their devices, online first, then anything so long as it's stable.
+
+	// then fire event that says peers changed.
+
 	for i, u := range n.users {
-		fmt.Println("user", i, u.id, u.displayName, u.loginName, u.sharee, u.nodes)
+		fmt.Println("user", i, u.id, u.displayName, u.loginName, u.sharee)
+		fmt.Printf("user %d nodes: ", i)
+		for _, nd := range u.nodes {
+			fmt.Printf("(id:%s name:%s) ", nd.ID, nd.Name)
+		}
+		fmt.Print("\n")
 	}
 }
 
@@ -349,9 +376,9 @@ func (n *AppspaceTSNode) sendStatus() {
 func (n *AppspaceTSNode) getStatus() domain.TSNetAppspaceStatus {
 	stat := n.nodeStatus.asDomain()
 	stat.AppspaceID = n.appspaceID
-	stat.OwnerID = n.ownerID
 	stat.ListeningTLS = n.ln443 != nil
 	stat.URL = n.buildURL()
+	stat.ControlURL = n.userFacingControlURL()
 	return stat
 }
 
@@ -370,6 +397,28 @@ func (n *AppspaceTSNode) buildURL() string {
 	return fmt.Sprintf("%s://%s", proto, addr)
 }
 
+func (n *AppspaceTSNode) sendPeerUsersEvent() {
+	n.AppspaceTSNetPeersEvents.Send(n.appspaceID)
+}
+
+func (n *AppspaceTSNode) getPeerUsers() []domain.TSNetPeerUser {
+	ret := make([]domain.TSNetPeerUser, len(n.users))
+	for i, u := range n.users {
+		ret[i] = u.asDomain()
+	}
+	return ret
+}
+
+func (n *AppspaceTSNode) userFacingControlURL() string {
+	if n.tsnetServer == nil {
+		return ""
+	}
+	if n.tsnetServer.ControlURL == "" {
+		return "tailscale.com"
+	}
+	return n.tsnetServer.ControlURL
+}
+
 func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
 	r := record.NewDsLogger().AddNote("AppspaceTSNode").AppspaceID(n.appspaceID)
 	if note != "" {
@@ -382,6 +431,7 @@ type tsNodeStatus struct {
 	dnsName        string
 	tailnet        string
 	magicDNS       bool
+	tags           []string
 	httpsAvailable bool
 	ip4            string
 	ip6            string
@@ -395,7 +445,7 @@ type tsNodeStatus struct {
 }
 
 // ingest note that any part of the status is non-nil only if it changed.
-func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
+func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool, tags []string) (changed bool) {
 	if data.NetMap != nil {
 		changed = true                 // but maybe not?
 		n.dnsName = data.NetMap.Name   // Name is "dns name with trailing dot"
@@ -404,6 +454,9 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool) (changed bool) {
 	if magicDNS != n.magicDNS {
 		n.magicDNS = magicDNS
 		changed = true
+	}
+	if tags != nil {
+		n.tags = tags
 	}
 	if data.NetMap != nil {
 		https := len(data.NetMap.DNS.CertDomains) != 0
@@ -465,6 +518,7 @@ func (n *tsNodeStatus) reset() {
 	n.dnsName = ""
 	n.tailnet = ""
 	n.magicDNS = false
+	n.tags = []string{}
 	n.httpsAvailable = false
 	n.ip4 = ""
 	n.ip6 = ""
@@ -489,6 +543,7 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 	ret := domain.TSNetAppspaceStatus{
 		Tailnet:         n.tailnet,
 		MagicDNSEnabled: n.magicDNS,
+		Tags:            n.tags,
 		Name:            n.dnsName,
 		IP4:             n.ip4,
 		IP6:             n.ip6,
@@ -504,45 +559,48 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 }
 
 type tsUser struct {
-	id          string
+	id          string // includes the "userid:..." prefix.
+	controlURL  string
 	displayName string
 	loginName   string
 	picURL      string
 	sharee      bool
-	nodes       []tsUserNode
+	nodes       []domain.TSNetUserDevice
 }
 
-func (u *tsUser) ingest(nv tailcfg.NodeView, who *apitype.WhoIsResponse) {
+func (u *tsUser) ingest(nv tailcfg.NodeView, who *apitype.WhoIsResponse, controlURL string) {
 	u.id = who.UserProfile.ID.String()
+	u.controlURL = controlURL
 	u.displayName = who.UserProfile.DisplayName
 	u.loginName = who.UserProfile.LoginName
 	u.picURL = who.UserProfile.ProfilePicURL
 	u.sharee = nv.Hostinfo().ShareeNode()
 
 	if u.nodes == nil {
-		u.nodes = make([]tsUserNode, 0)
+		u.nodes = make([]domain.TSNetUserDevice, 0)
 	}
 	u.nodes = append(u.nodes, ingestNode(nv))
 }
 
-func ingestNode(nv tailcfg.NodeView) tsUserNode {
-	return tsUserNode{
-		id:       string(nv.StableID()),
-		name:     nv.Name(),
-		online:   nv.Online(),
-		lastSeen: nv.LastSeen(),
-		os:       nv.Hostinfo().OS(), // lots more to do here
-		app:      nv.Hostinfo().App(),
+func ingestNode(nv tailcfg.NodeView) domain.TSNetUserDevice {
+	return domain.TSNetUserDevice{
+		ID:          string(nv.StableID()),
+		Name:        nv.Name(),
+		Online:      nv.Online(),
+		LastSeen:    nv.LastSeen(),
+		OS:          nv.Hostinfo().OS(), // lots more to do here
+		DeviceModel: nv.Hostinfo().DeviceModel(),
+		App:         nv.Hostinfo().App(),
 	}
 }
 
-type tsUserNode struct {
-	id   string // Node stable id?
-	name string // Node.Name() That's DNS name of device, though empty for sharee
-	//computedName string    // or computedNameWithHost
-	online   *bool      // if nil then it's unknown or not knowable
-	lastSeen *time.Time // nil if it's never been online or no permission to know. if online is true, ignore.
-	os       string     // hostinfo.OS , and OsVersion
-	app      string     // to disambibuate ts client from tsnet or something. Interesting?
-	//location     string    // maybe?
+func (u *tsUser) asDomain() domain.TSNetPeerUser {
+	return domain.TSNetPeerUser{
+		ID:          strings.TrimPrefix(u.id, "userid:"),
+		ControlURL:  u.controlURL,
+		LoginName:   u.loginName,
+		DisplayName: u.displayName,
+		Sharee:      u.sharee,
+		Devices:     u.nodes, // do we need to clone that? NO, I don't think so,
+	}
 }

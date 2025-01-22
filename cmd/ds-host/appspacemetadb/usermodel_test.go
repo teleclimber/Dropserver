@@ -51,7 +51,7 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-func TestUpdateAuth(t *testing.T) {
+func TestAddAuth(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -66,19 +66,47 @@ func TestUpdateAuth(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = u.UpdateAuth(asID, proxyID, "dropid", "moi.com/moi")
+	err = u.AddAuth(asID, proxyID, "dropid", "moi.com/moi")
 	if err != nil {
 		t.Error(err)
 	}
 
-	user, _ := u.Get(asID, proxyID)
-	if user.Auths[0].Type != "dropid" || user.Auths[0].Identifier != "moi.com/moi" {
-		t.Errorf("did not get the auth data we expected: %v, %v", user.Auths[0].Type, user.Auths[0].Identifier)
+	user, err := u.GetByAuth(asID, "dropid", "moi.com/moi")
+	if err != nil {
+		t.Error(err)
+	}
+	if user.ProxyID != proxyID {
+		t.Error("did not get the user we expected", user)
 	}
 
-	err = u.UpdateAuth(asID, proxyID, "email", "me@me2.com")
+	err = u.AddAuth(asID, proxyID, "email", "me@me2.com")
 	if err != ErrAuthIDExists {
 		t.Errorf("Expected auth id exists error. %v", err)
+	}
+}
+
+func TestDeleteAuth(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	u := makeUserModel(mockCtrl)
+
+	proxyID, err := u.Create(asID, "email", "me@me.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = u.DeleteAuth(asID, proxyID, "email", "me@me.com")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := u.Get(asID, proxyID)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(user.Auths) != 0 {
+		t.Error("expected zero auths on user", user)
 	}
 }
 
@@ -142,7 +170,7 @@ func TestGetAll(t *testing.T) {
 	}
 }
 
-func TestGetByDropID(t *testing.T) {
+func TestGetByAuth(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 

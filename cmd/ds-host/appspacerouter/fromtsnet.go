@@ -53,9 +53,9 @@ func (f *FromTSNet) getProxyID(next http.Handler) http.Handler {
 
 		f.getLogger(appspace.AppspaceID).Debug("tsnet user id: " + tsUserID)
 
-		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "tsid", tsUserID)
+		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "tsnetid", tsUserID)
 		if err == domain.ErrNoRowsInResultSet {
-			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for tsid")
+			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for tsnetid")
 		}
 		if err != nil {
 			f.getLogger(appspace.AppspaceID).AddNote("AppspaceUserModel.GetByAuth").Error(err)

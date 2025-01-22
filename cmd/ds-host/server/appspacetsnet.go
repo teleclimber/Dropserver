@@ -29,6 +29,9 @@ type AppspaceTSNet struct {
 	AppspaceTSNetStatusEvents interface {
 		Send(data domain.TSNetAppspaceStatus)
 	} `checkinject:"required"`
+	AppspaceTSNetPeersEvents interface {
+		Send(data domain.AppspaceID)
+	} `checkinject:"required"`
 	AppspaceLocation2Path interface {
 		TailscaleNodeStore(locationKey string) string
 	} `checkinject:"required"`
@@ -69,7 +72,7 @@ func (a *AppspaceTSNet) Init() {
 
 func (a *AppspaceTSNet) updateAppspace(modelEvent domain.AppspaceTSNetModelEvent) {
 	config := tsNodeConfig{
-		backendURL: modelEvent.BackendURL,
+		controlURL: modelEvent.BackendURL,
 		hostname:   modelEvent.Hostname,
 		connect:    !modelEvent.Deleted && modelEvent.Connect,
 	}
@@ -141,7 +144,7 @@ func (a *AppspaceTSNet) start(tsnetData domain.AppspaceTSNet) error {
 	node := a.makeNodeStruct(*appspace)
 	a.servers[appspace.AppspaceID] = node
 	go node.setConfig(tsNodeConfig{
-		backendURL: tsnetData.BackendURL,
+		controlURL: tsnetData.BackendURL,
 		hostname:   tsnetData.Hostname,
 		connect:    tsnetData.Connect,
 	})
@@ -174,8 +177,8 @@ func (a *AppspaceTSNet) makeNodeStruct(appspace domain.Appspace) *AppspaceTSNode
 		AppspaceModel:             a.AppspaceModel,
 		AppspaceRouter:            a.AppspaceRouter,
 		AppspaceTSNetStatusEvents: a.AppspaceTSNetStatusEvents,
+		AppspaceTSNetPeersEvents:  a.AppspaceTSNetPeersEvents,
 		appspaceID:                appspace.AppspaceID,
-		ownerID:                   appspace.OwnerID, // needed for notifications.
 		tsnetDir:                  a.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey),
 	}
 }
@@ -193,9 +196,16 @@ func (a *AppspaceTSNet) GetStatus(appspaceID domain.AppspaceID) domain.TSNetApps
 	}
 	return domain.TSNetAppspaceStatus{
 		AppspaceID: appspaceID,
-		// No need to populate owner since this is not sent via event system
-		State: "Off",
+		State:      "Off",
 	}
+}
+
+func (a *AppspaceTSNet) GetPeerUsers(appspaceID domain.AppspaceID) []domain.TSNetPeerUser {
+	node := a.get(appspaceID)
+	if node != nil {
+		return node.getPeerUsers()
+	}
+	return []domain.TSNetPeerUser{}
 }
 
 func (m *AppspaceTSNet) getLogger(note string) *record.DsLogger {
