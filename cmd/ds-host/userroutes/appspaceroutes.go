@@ -383,7 +383,7 @@ func (a *AppspaceRoutes) updateTSNet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.BackendURL, reqData.Hostname, reqData.Connect)
+	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.ControlURL, reqData.Hostname, reqData.Connect)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return

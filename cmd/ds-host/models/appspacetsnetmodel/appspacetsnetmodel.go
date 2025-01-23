@@ -34,9 +34,9 @@ func (m *AppspaceTSNetModel) PrepareStatements() {
 	m.stmt.selectConnects = p.Prep(`SELECT * FROM appspace_tsnet WHERE connect = true`)
 
 	m.stmt.upsert = p.Prep(`INSERT INTO appspace_tsnet
-		("appspace_id", "backend_url", "hostname", "connect") VALUES (?, ?, ?, ?)
+		("appspace_id", "control_url", "hostname", "connect") VALUES (?, ?, ?, ?)
 		ON CONFLICT(appspace_id) DO UPDATE
-		SET backend_url = ?, hostname = ?, connect = ?`)
+		SET control_url = ?, hostname = ?, connect = ?`)
 
 	m.stmt.setConnect = p.Prep(`UPDATE appspace_tsnet SET connect = ? WHERE appspace_id = ?`)
 
@@ -67,8 +67,8 @@ func (m *AppspaceTSNetModel) GetAllConnect() (tsnets []domain.AppspaceTSNet, err
 	return
 }
 
-func (m *AppspaceTSNetModel) CreateOrUpdate(appspaceID domain.AppspaceID, backendURL string, hostname string, connect bool) error {
-	_, err := m.stmt.upsert.Exec(appspaceID, backendURL, hostname, connect, backendURL, hostname, connect)
+func (m *AppspaceTSNetModel) CreateOrUpdate(appspaceID domain.AppspaceID, controlURL string, hostname string, connect bool) error {
+	_, err := m.stmt.upsert.Exec(appspaceID, controlURL, hostname, connect, controlURL, hostname, connect)
 	if err != nil {
 		m.getLogger("CreateTSNet() upsert").AppspaceID(appspaceID).Error(err)
 	}
@@ -110,7 +110,7 @@ func (m *AppspaceTSNetModel) sendModifiedEvent(appspaceID domain.AppspaceID) {
 		Deleted: false,
 		AppspaceTSNet: domain.AppspaceTSNet{
 			AppspaceID: appspaceID,
-			BackendURL: data.BackendURL,
+			ControlURL: data.ControlURL,
 			Hostname:   data.Hostname,
 			Connect:    data.Connect,
 		},

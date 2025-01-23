@@ -31,7 +31,7 @@ func TestCreate(t *testing.T) {
 	defer h.Close()
 
 	aID := domain.AppspaceID(7)
-	backend := "https://www.example.com"
+	controlURL := "https://www.example.com"
 	hostname := "somenode"
 	connect := true
 
@@ -40,7 +40,7 @@ func TestCreate(t *testing.T) {
 		Deleted: false,
 		AppspaceTSNet: domain.AppspaceTSNet{
 			AppspaceID: aID,
-			BackendURL: backend,
+			ControlURL: controlURL,
 			Hostname:   hostname,
 			Connect:    connect},
 	})
@@ -52,7 +52,7 @@ func TestCreate(t *testing.T) {
 
 	model.PrepareStatements()
 
-	err := model.CreateOrUpdate(aID, backend, hostname, connect)
+	err := model.CreateOrUpdate(aID, controlURL, hostname, connect)
 	if err != nil {
 		t.Error(err)
 	}
@@ -75,14 +75,14 @@ func TestGet(t *testing.T) {
 	model.PrepareStatements()
 
 	aID := domain.AppspaceID(7)
-	backend := "https://www.example.com"
+	controlURL := "https://www.example.com"
 
 	_, err := model.Get(aID)
 	if err != domain.ErrNoRowsInResultSet {
 		t.Error("expected domain.ErrNoRowsInResultSet")
 	}
 
-	err = model.CreateOrUpdate(aID, backend, "somenode", true)
+	err = model.CreateOrUpdate(aID, controlURL, "somenode", true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,7 +91,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, BackendURL: backend, Hostname: "somenode", Connect: true}) {
+	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, ControlURL: controlURL, Hostname: "somenode", Connect: true}) {
 		t.Error("Got wrong tsnet:", tsnet)
 	}
 }
@@ -110,14 +110,14 @@ func TestUpsert(t *testing.T) {
 		Deleted: false,
 		AppspaceTSNet: domain.AppspaceTSNet{
 			AppspaceID: aID,
-			BackendURL: "https://www.example.com",
+			ControlURL: "https://www.example.com",
 			Hostname:   "somenode",
 			Connect:    true}})
 	appspaceTSNetModelEvents.EXPECT().Send(domain.AppspaceTSNetModelEvent{
 		Deleted: false,
 		AppspaceTSNet: domain.AppspaceTSNet{
 			AppspaceID: aID,
-			BackendURL: "https://www.example2.com",
+			ControlURL: "https://www.example2.com",
 			Hostname:   "othernode",
 			Connect:    false}})
 
@@ -140,7 +140,7 @@ func TestUpsert(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, BackendURL: "https://www.example2.com", Hostname: "othernode", Connect: false}) {
+	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, ControlURL: "https://www.example2.com", Hostname: "othernode", Connect: false}) {
 		t.Error("Got wrong tsnet:", tsnet)
 	}
 }

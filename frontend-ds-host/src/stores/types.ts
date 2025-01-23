@@ -166,7 +166,7 @@ export interface AppspaceTSNetStatus {
 }
 
 export interface AppspaceTSNetData {
-	backend_url: string,
+	control_url: string,
 	hostname: string,
 	connect: boolean
 }

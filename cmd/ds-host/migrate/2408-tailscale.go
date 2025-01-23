@@ -10,7 +10,7 @@ func tailscaleIntegrationUp(args *stepArgs) error {
 
 	args.dbExec(`CREATE TABLE "appspace_tsnet" (
 		"appspace_id" INTEGER PRIMARY KEY,
-		"backend_url" TEXT NOT NULL,
+		"control_url" TEXT NOT NULL,
 		"hostname" TEXT NOT NULL,
 		"connect" INTEGER NOT NULL
 	)`)

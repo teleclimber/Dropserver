@@ -524,7 +524,7 @@ type Appspace struct {
 // AppspaceTSNet contains the appspace's tailscale node config data
 type AppspaceTSNet struct {
 	AppspaceID AppspaceID `db:"appspace_id" json:"-"`
-	BackendURL string     `db:"backend_url" json:"backend_url"`
+	ControlURL string     `db:"control_url" json:"control_url"`
 	Hostname   string     `db:"hostname" json:"hostname"`
 	Connect    bool       `db:"connect" json:"connect"`
 }

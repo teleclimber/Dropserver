@@ -72,7 +72,7 @@ func (a *AppspaceTSNet) Init() {
 
 func (a *AppspaceTSNet) updateAppspace(modelEvent domain.AppspaceTSNetModelEvent) {
 	config := tsNodeConfig{
-		controlURL: modelEvent.BackendURL,
+		controlURL: modelEvent.ControlURL,
 		hostname:   modelEvent.Hostname,
 		connect:    !modelEvent.Deleted && modelEvent.Connect,
 	}
@@ -144,7 +144,7 @@ func (a *AppspaceTSNet) start(tsnetData domain.AppspaceTSNet) error {
 	node := a.makeNodeStruct(*appspace)
 	a.servers[appspace.AppspaceID] = node
 	go node.setConfig(tsNodeConfig{
-		controlURL: tsnetData.BackendURL,
+		controlURL: tsnetData.ControlURL,
 		hostname:   tsnetData.Hostname,
 		connect:    tsnetData.Connect,
 	})

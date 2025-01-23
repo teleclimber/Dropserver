@@ -107,11 +107,11 @@ const data_schema_mismatch = computed( ()=> {
 
 // tsnet stuff:
 const show_edit_tsnet_config = ref(false);
-const tsnet_backend = ref('');
+const tsnet_control_url = ref('');
 const tsnet_hostname = ref('');
 const tsnet_connect = ref(true);
 function showEditTSNetConfig() {
-	tsnet_backend.value = appspace.value?.tsnet_data?.backend_url || '';
+	tsnet_control_url.value = appspace.value?.tsnet_data?.control_url || '';
 	tsnet_hostname.value = appspace.value?.tsnet_data?.hostname || appspace.value?.domain_name.split('.')[0] || '';
 	tsnet_connect.value = appspace.value?.tsnet_data ? appspace.value.tsnet_data.connect : true;
 	show_edit_tsnet_config.value = true;
@@ -119,7 +119,7 @@ function showEditTSNetConfig() {
 
 async function saveTSNetConfig() {
 	await appspacesStore.setTSNetData(props.appspace_id, {
-		backend_url:tsnet_backend.value,
+		control_url:tsnet_control_url.value,
 		hostname: tsnet_hostname.value,
 		connect: tsnet_connect.value
 	});
@@ -130,7 +130,7 @@ async function tsnetSetConnect(connect:boolean) {
 	if( !appspace.value?.tsnet_data ) return;
 	const td = appspace.value?.tsnet_data;
 	await appspacesStore.setTSNetData(props.appspace_id, {
-		backend_url: td.backend_url,
+		control_url: td.control_url,
 		hostname: td.hostname,
 		connect: connect
 	});
@@ -275,8 +275,8 @@ const tsnet_peer_users = computed( () => {
 						</DataDef>
 						<DataDef field="Tailnet:">
 							{{ appspace.tsnet_status.tailnet }}
-							<span v-if="appspace.tsnet_data.backend_url ==''">(Tailscale)</span>
-							<span v-else>({{ appspace.tsnet_data.backend_url }})</span>
+							<span v-if="appspace.tsnet_data.control_url ==''">(Tailscale)</span>
+							<span v-else>({{ appspace.tsnet_data.control_url }})</span>
 						</DataDef>
 						<div class="flex justify-end">
 							<button v-if="appspace.tsnet_data" @click.stop.prevent="tsnetSetConnect(!appspace.tsnet_data.connect)" class="btn btn-blue">
@@ -288,7 +288,7 @@ const tsnet_peer_users = computed( () => {
 				<div v-else-if="show_edit_tsnet_config" class="px-4 sm:px-6 my-5">
 					<p>Connect this appspace to a tailnet.
 						This will create a node on the tailnet with its own address.
-						You can also connect to alternative backends such as a Headscale instance.</p>
+						You can also connect to alternative control servers such as a Headscale instance.</p>
 					<form @submit.prevent="saveTSNetConfig" @keyup.esc="show_edit_tsnet_config = !show_edit_tsnet_config">
 						<DataDef field="Hostname:">
 							<input type="text" v-model="tsnet_hostname"
@@ -296,7 +296,7 @@ const tsnet_peer_users = computed( () => {
 						</DataDef>
 						<!--  also key, and other configs... -->
 						<DataDef field="Control URL:">
-							<input type="text" v-model="tsnet_backend"
+							<input type="text" v-model="tsnet_control_url"
 								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 							<p>Leave blank to use Tailscale.com. Otherwise enter your Headscale (or other) URL.</p>
 						</DataDef>

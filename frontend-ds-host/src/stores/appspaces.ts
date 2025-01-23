@@ -85,7 +85,7 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 }
 function appspaceTSNetFromRaw(raw:any) {
 	return {
-		backend_url: strFromRaw(raw.backend_url),
+		control_url: strFromRaw(raw.control_url),
 		hostname: strFromRaw(raw.hostname),
 		connect: !!raw.connect
 	}
