@@ -102,8 +102,8 @@ func TestMigrateUpToV1(t *testing.T) {
 		t.Error("expected created to be non-null")
 	}
 	expected := []AuthsV1{
-		{"abc", "email", "a@b.c", auths[0].Created, nulltypes.NewTime(time.Now(), false)},
-		{"def", "email", "d@e.f", auths[1].Created, nulltypes.NewTime(time.Now(), false)},
+		{"abc", "email", "a@b.c", auths[0].Created},
+		{"def", "email", "d@e.f", auths[1].Created},
 	}
 	if !cmp.Equal(auths, expected) {
 		t.Error(cmp.Diff(auths, expected))

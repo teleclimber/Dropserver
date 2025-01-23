@@ -219,7 +219,6 @@ export interface AppspaceUserAuth {
 	type: string,
 	identifier: string,
 	created: Date,
-	last_seen: Date | undefined
 }
 
 export interface AppspaceUser {
@@ -230,7 +229,6 @@ export interface AppspaceUser {
 	avatar: string,
 	//permissions = raw.permissions;
 	created_dt: Date,
-	last_seen: Date | undefined
 }
 
 export interface AppspaceMigrationJob {

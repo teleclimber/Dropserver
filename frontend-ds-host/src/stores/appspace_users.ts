@@ -20,8 +20,7 @@ function userAuthFromRaw(raw:any) :AppspaceUserAuth{
 	return {
 		type: raw.type+'',
 		identifier: raw.identifier+'',
-		created: new Date(raw.created),
-		last_seen: raw.last_seen ? new Date(raw.last_seen) : undefined
+		created: new Date(raw.created)
 	}
 }
 
@@ -34,7 +33,6 @@ function userFromRaw(raw:any) :AppspaceUser {
 		avatar: raw.avatar+'',
 		//permissions = raw.permissions;
 		created_dt: new Date(raw.created_dt),
-		last_seen: raw.last_seen ? new Date(raw.last_seen) : undefined
 	};
 }
 

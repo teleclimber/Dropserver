@@ -675,14 +675,12 @@ type AppspaceUser struct {
 	Avatar      string             `json:"avatar"`
 	Permissions []string           `json:"permissions"`
 	Created     time.Time          `json:"created_dt"`
-	LastSeen    nulltypes.NullTime `json:"last_seen"`
 }
 
 type AppspaceUserAuth struct {
-	Type       string             `db:"type" json:"type"`
-	Identifier string             `db:"identifier" json:"identifier"`
-	Created    time.Time          `db:"created" json:"created_dt"`
-	LastSeen   nulltypes.NullTime `db:"last_seen" json:"last_seen"`
+	Type       string    `db:"type" json:"type"`
+	Identifier string    `db:"identifier" json:"identifier"`
+	Created    time.Time `db:"created" json:"created_dt"`
 }
 
 // TSNetAppspaceStatus is info about the tsnet server for an appspace

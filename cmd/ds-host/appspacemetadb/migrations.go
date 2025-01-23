@@ -84,7 +84,6 @@ type AuthsV1 struct {
 	Type       string             `db:"type"`
 	Identifier string             `db:"identifier"`
 	Created    nulltypes.NullTime `db:"created"`
-	LastSeen   nulltypes.NullTime `db:"last_seen"`
 }
 
 func migrateUpToV1(d *dbExec) {
@@ -92,8 +91,8 @@ func migrateUpToV1(d *dbExec) {
 	createUserAuthIdsV1(d)
 
 	// move user auths over to new table
-	d.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, created, last_seen)
-		SELECT proxy_id, auth_type, auth_id, created, last_seen FROM users`)
+	d.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, created)
+		SELECT proxy_id, auth_type, auth_id, created FROM users`)
 
 	// rename users to users_old
 	d.exec(`ALTER TABLE users RENAME TO users_old`)
@@ -102,8 +101,8 @@ func migrateUpToV1(d *dbExec) {
 	createUsersV1(d)
 
 	// transfer data to new users table
-	d.exec(`INSERT INTO users (proxy_id, display_name, avatar, permissions, created, last_seen)
-		SELECT proxy_id, display_name, avatar, permissions, created, last_seen FROM users_old`)
+	d.exec(`INSERT INTO users (proxy_id, display_name, avatar, permissions, created)
+		SELECT proxy_id, display_name, avatar, permissions, created FROM users_old`)
 
 	// Then drop the users_old
 	d.exec(`DROP TABLE users_old`)
@@ -120,8 +119,7 @@ func createUserAuthIdsV1(d *dbExec) {
 		"proxy_id" TEXT,
 		"type" TEXT,
 		"identifier" TEXT,
-		"created" DATETIME,
-		"last_seen" DATETIME
+		"created" DATETIME
 	)`)
 	d.exec(`CREATE INDEX user_auth_ids_proxy ON user_auth_ids (proxy_id)`)
 	// auth_type+auth_id is unique in the table: no two users can have the same auth_id,
@@ -136,7 +134,6 @@ func createUsersV1(d *dbExec) {
 		"avatar" TEXT NOT NULL DEFAULT "",
 		"permissions" TEXT NOT NULL DEFAULT "",
 		"created" DATETIME,
-		"last_seen" DATETIME,
 		PRIMARY KEY (proxy_id)
 	)`)
 	d.exec(`CREATE UNIQUE INDEX users_proxy_id ON users (proxy_id)`)
@@ -150,8 +147,8 @@ func migrateDownFromV1(d *dbExec) {
 	createUsersV0(d)
 
 	// move data to users
-	d.exec(`INSERT INTO users (proxy_id, display_name, avatar, permissions, created, last_seen)
-		SELECT proxy_id, display_name, avatar, permissions, created, last_seen FROM users_old`)
+	d.exec(`INSERT INTO users (proxy_id, display_name, avatar, permissions, created)
+		SELECT proxy_id, display_name, avatar, permissions, created FROM users_old`)
 
 	d.exec(`DROP TABLE users_old`)
 

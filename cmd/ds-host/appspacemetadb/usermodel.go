@@ -10,7 +10,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/nulltypes"
 	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
@@ -22,12 +21,11 @@ type stmtPreparer interface {
 }
 
 type appspaceUser struct {
-	ProxyID     domain.ProxyID     `db:"proxy_id"`
-	DisplayName string             `db:"display_name"`
-	Avatar      string             `db:"avatar"`
-	Permissions string             `db:"permissions"`
-	Created     time.Time          `db:"created"`
-	LastSeen    nulltypes.NullTime `db:"last_seen"`
+	ProxyID     domain.ProxyID `db:"proxy_id"`
+	DisplayName string         `db:"display_name"`
+	Avatar      string         `db:"avatar"`
+	Permissions string         `db:"permissions"`
+	Created     time.Time      `db:"created"`
 }
 
 func validateAuthType(t string) bool {
@@ -225,7 +223,7 @@ func getUser(sp stmtPreparer, proxyID domain.ProxyID) (user appspaceUser, err er
 
 func getUserAuths(sp stmtPreparer, proxyID domain.ProxyID) (auths []domain.AppspaceUserAuth, err error) {
 	var stmt *sqlx.Stmt
-	stmt, err = sp.Preparex(`SELECT type, identifier, created, last_seen FROM user_auth_ids WHERE proxy_id = ?`)
+	stmt, err = sp.Preparex(`SELECT type, identifier, created FROM user_auth_ids WHERE proxy_id = ?`)
 	if err != nil {
 		return
 	}
@@ -390,7 +388,6 @@ func (u *UserModel) toDomainUser(appspaceID domain.AppspaceID, user appspaceUser
 		Avatar:      user.Avatar,
 		Permissions: p,
 		Created:     user.Created,
-		LastSeen:    user.LastSeen,
 	}
 }
 
