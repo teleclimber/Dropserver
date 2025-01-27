@@ -15,7 +15,7 @@ onMounted( () => {
 	appspaceUsersStore.reloadData(props.appspace_id);
 });
 const appspace_users = computed( () => {
-	if( appspaceUsersStore.isLoaded(props.appspace_id) ) return appspaceUsersStore.mustGetUsers(props.appspace_id).value;
+	if( appspaceUsersStore.isLoaded(props.appspace_id) ) return appspaceUsersStore.mustGetUsers(props.appspace_id);
 });
 
 </script>
@@ -29,7 +29,7 @@ const appspace_users = computed( () => {
 			</div>
 		</div>
 		<div v-if="appspace_users" class="divide-y divide-gray-200">
-			<AppspaceUserListItem class="px-4 py-4 sm:px-6" v-for="user in appspace_users" :key="user.value.proxy_id" :appspace_id="appspace_id" :user="user.value"></AppspaceUserListItem>
+			<AppspaceUserListItem class="px-4 py-4 sm:px-6" v-for="user in appspace_users" :key="user.proxy_id" :appspace_id="appspace_id" :user="user"></AppspaceUserListItem>
 		</div>
 	</div>
 </template>

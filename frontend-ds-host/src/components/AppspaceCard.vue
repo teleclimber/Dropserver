@@ -53,8 +53,8 @@ const users = computed( () => {
 	const users = appspaceUsersStore.getUsers(props.local_appspace.appspace_id);
 	if( !users ) return;
 	const owner_dropid = props.local_appspace ? props.local_appspace.dropid : "";
-	return users.value.map( sru => {
-		const u = sru.value;
+	return users.map( sru => {
+		const u = sru;
 		return {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,

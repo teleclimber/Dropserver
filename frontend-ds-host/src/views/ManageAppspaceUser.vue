@@ -20,8 +20,7 @@ appspaceUsersStore.loadData(props.appspace_id);
 
 const user = computed( () => {
 	if( props.proxy_id === undefined || !appspaceUsersStore.isLoaded(props.appspace_id) ) return;
-	const u = appspaceUsersStore.getUser(props.appspace_id, props.proxy_id );
-	if( u ) return u.value;
+	return appspaceUsersStore.getUser(props.appspace_id, props.proxy_id );
 });
 
 const drop_id_input :Ref<HTMLInputElement|undefined> = ref();
@@ -66,11 +65,11 @@ const invalid = computed( () => {
 });
 
 async function save() {
-	if( invalid.value !== "" ) return;
+	if( !user.value || invalid.value !== "" ) return;
 
 	if( props.proxy_id ) {
 		let auth_id = ""; 
-		if( drop_id.value !== user.value?.auths.find( a => a.type == "dropid")?.identifier ) auth_id = drop_id.value;
+		if( drop_id.value !== user.value.auths.find( a => a.type == "dropid")?.identifier ) auth_id = drop_id.value;
 		await appspaceUsersStore.updateUserMeta(props.appspace_id, props.proxy_id, {
 			auth_type: "dropid",
 			auth_id,

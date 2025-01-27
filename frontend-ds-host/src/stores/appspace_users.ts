@@ -1,4 +1,4 @@
-import { reactive, ref, shallowRef, ShallowRef, computed } from 'vue';
+import { reactive, shallowReactive, ShallowReactive } from 'vue';
 import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { LoadState, AppspaceUser, AppspaceUserAuth } from './types';
@@ -39,7 +39,7 @@ function userFromRaw(raw:any) :AppspaceUser {
 export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 	const load_state :Map<number,LoadState> = reactive(new Map);
 
-	const appspace_users : ShallowRef<Map<number,ShallowRef<Array<ShallowRef<AppspaceUser>>>>> = shallowRef(new Map());
+	const appspace_users : ShallowReactive<Map<number,ShallowReactive<Array<AppspaceUser>>>> = shallowReactive(new Map());
 
 	function isLoaded(appspace_id: number) {
 		const l = load_state.get(appspace_id);
@@ -52,21 +52,22 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 			load_state.set(appspace_id, LoadState.Loading);
 			const resp = await ax.get('/api/appspace/'+appspace_id+'/user');
 			if( !Array.isArray(resp.data) ) throw new Error("expected response to be array");
-			const users = resp.data.map( (raw:any) => shallowRef(userFromRaw(raw)));
-			appspace_users.value.set(appspace_id, shallowRef(users));	// This is possibly wrong? In case of reloading, need to replave value of shallow ref.
-			appspace_users.value = new Map(appspace_users.value);
+			const users = resp.data.map( (raw:any) => userFromRaw(raw));
+			appspace_users.set(appspace_id, shallowReactive(users));
+			// Note: since we are not replacing individual values the component has to 
+			// fetch an individual user in a computed so that it gets updated on change!
 			load_state.set(appspace_id, LoadState.Loaded);
 		}
 	}
 	async function reloadData(appspace_id: number) {
 		const l = load_state.get(appspace_id);
-		if( l === LoadState.Loading ) return;	// its' already loading so don't reload
+		if( l === LoadState.Loading ) return;	// it's already loading so don't reload
 		load_state.delete(appspace_id);
 		loadData(appspace_id);
 	}
 
 	function getUsers(appspace_id: number) {
-		if( isLoaded(appspace_id) ) return appspace_users.value.get(appspace_id);
+		if( isLoaded(appspace_id) ) return appspace_users.get(appspace_id);
 	}
 	function mustGetUsers(appspace_id: number) {
 		const users = getUsers(appspace_id);
@@ -77,7 +78,7 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 	function getUser(appspace_id: number, proxy_id:string) {
 		const users = getUsers(appspace_id);
 		if( users === undefined ) return;
-		return users.value.find( u => u.value.proxy_id === proxy_id );
+		return users.find( u => u.proxy_id === proxy_id );
 	}
 	function mustGetUser(appspace_id: number, proxy_id:string) {
 		const user = getUser(appspace_id, proxy_id);
@@ -89,15 +90,16 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		const users = mustGetUsers(appspace_id);
 		const resp = await ax.post('/api/appspace/'+appspace_id+'/user', getFormData(data, avatarData));
 		const new_user = userFromRaw(resp.data);
-		users.value.push(shallowRef(new_user));
-		users.value = Array.from(users.value);
+		users.push(new_user);
 	}
 	
 	async function updateUserMeta(appspace_id:number, proxy_id:string, data:PostAppspaceUser, avatarData:Blob|null) {
-		const user = mustGetUser(appspace_id, proxy_id);
+		const users = mustGetUsers(appspace_id);
+		const userI = users.findIndex( u => u.proxy_id == proxy_id );
+		if( userI == -1 ) throw new Error(`expected user to exist in appspace id ${appspace_id} proxy id: ${proxy_id}`);
 		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
 		const new_user = userFromRaw(resp.data);
-		user.value = new_user;
+		users[userI] = new_user;
 	}
 
 	return { 
