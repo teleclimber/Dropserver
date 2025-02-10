@@ -3,6 +3,7 @@ package appspacemetadb
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/sqlxprepper"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -43,15 +43,11 @@ type UserModel struct {
 }
 
 // Create an appspace user with provided auth.
-func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error) { // acutally should return the User, or at least the proxy id.
-	log := u.getLogger("Create()").AppspaceID(appspaceID)
+func (u *UserModel) Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error) {
+	log := u.getLogger("Create()").AppspaceID(appspaceID).Clone
 
 	var proxyID domain.ProxyID
 	var err error
-
-	if !validateAuthType(authType) {
-		panic("invalid auth type " + authType)
-	}
 
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
@@ -60,7 +56,7 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 
 	tx, err := db.Beginx()
 	if err != nil {
-		log.AddNote("Beginx()").Error(err)
+		log().AddNote("Beginx()").Error(err)
 		return domain.ProxyID(""), err
 	}
 	defer tx.Rollback()
@@ -69,7 +65,7 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 		(proxy_id, created) 
 		VALUES (?, datetime("now"))`)
 	if err != nil {
-		log.AddNote("Preparex() users").Error(err)
+		log().AddNote("Preparex() users").Error(err)
 		return domain.ProxyID(""), err
 	}
 
@@ -80,24 +76,57 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, authType string, authID
 			break
 		}
 		if err.Error() != "UNIQUE constraint failed: users.proxy_id" {
-			log.AddNote("Exec() proxy_id").Error(err)
+			log().AddNote("Exec() proxy_id").Error(err)
 			return domain.ProxyID(""), err
 		}
 	}
 
-	err = u.addAuthSP(tx, proxyID, authType, authID)
+	err = updateMetaSP(tx, proxyID, displayName, avatar)
 	if err != nil {
-		log.AddNote("addAuthSP").Error(err)
+		log().AddNote("updateMetaSP()").Error(err)
+		return domain.ProxyID(""), err
+	}
+
+	// any auth passed to Create is "add"
+	for i := range auths {
+		auths[i].Operation = domain.EditOperationAdd
+	}
+	err = updateAuthsSP(tx, proxyID, auths, false)
+	if err != nil {
+		log().AddNote("updateAuthsSP").Error(err)
 		return domain.ProxyID(""), err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		u.getLogger("Create(), Commit()").AppspaceID(appspaceID).Error(err)
+		log().AddNote("Commit").Error(err)
 		return domain.ProxyID(""), err
 	}
 
 	return proxyID, nil
+}
+
+func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditAppspaceUserAuth, allowRemove bool) error {
+	var err error
+	for _, auth := range auths {
+		if auth.Operation == domain.EditOperationAdd {
+			err = addAuthSP(sp, proxyID, auth.Type, auth.Identifier)
+			if err != nil {
+				return err
+			}
+		} else if auth.Operation == domain.EditOperationRemove {
+			if !allowRemove {
+				return fmt.Errorf("got a remove op with allowRemove false: %s %s", auth.Type, auth.Identifier)
+			}
+			err = deleteAuthSP(sp, proxyID, auth.Type, auth.Identifier)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("unknown operation (\"%s\") for %s %s", auth.Operation, auth.Type, auth.Identifier)
+		}
+	}
+	return nil
 }
 
 func (u *UserModel) AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
@@ -108,11 +137,10 @@ func (u *UserModel) AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID
 	if err != nil {
 		return err
 	}
-	return u.addAuthSP(db, proxyID, authType, authID)
+	return addAuthSP(db, proxyID, authType, authID)
 }
 
-func (u *UserModel) addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
-	var stmt *sqlx.Stmt
+func addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
 	stmt, err := sp.Preparex(`INSERT INTO user_auth_ids 
 		(proxy_id, type, identifier, created) 
 		VALUES (?, ?, ?, datetime("now"))`)
@@ -137,22 +165,30 @@ func (u *UserModel) DeleteAuth(appspaceID domain.AppspaceID, proxyID domain.Prox
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`DELETE FROM user_auth_ids WHERE proxy_id = ? AND type = ? and identifier = ?`, proxyID, authType, authID)
+	err = deleteAuthSP(db, proxyID, authType, authID)
 	if err != nil {
-		u.getLogger("DeleteAuth").AppspaceID(appspaceID).Error(err)
-		return err
+		u.getLogger("DeleteAuth() deleteAuthSP()").AppspaceID(appspaceID).Error(err)
 	}
-	return nil
+	return err
 }
 
-// UpdateMeta updates the appspace-facing data for the user
-func (u *UserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error {
-	err := validatePermissions(permissions)
+func deleteAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
+	stmt, err := sp.Preparex(`DELETE FROM user_auth_ids WHERE proxy_id = ? AND type = ? and identifier = ?`)
 	if err != nil {
 		return err
 	}
-	err = validator.UserProxyID(string(proxyID))
+	_, err = stmt.Exec(proxyID, authType, authID)
+	return err
+}
+
+// Update the appspace user
+// This should be broken up into multiple functions
+func (u *UserModel) Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error {
+	log := u.getLogger("Update").AppspaceID(appspaceID).Clone
+
+	err := validator.UserProxyID(string(proxyID)) // why validate this here?
 	if err != nil {
+		log().AddNote("validator.UserProxyID").Error(err)
 		return err
 	}
 
@@ -160,17 +196,80 @@ func (u *UserModel) UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.Prox
 	if err != nil {
 		return err
 	}
-	p := sqlxprepper.NewPrepper(db)
-	stmt := p.Prep(`UPDATE users SET 
-		display_name = ?, avatar = ?, permissions = ?
-		WHERE proxy_id = ?`)
-
-	_, err = stmt.Stmt.Exec(displayName, avatar, strings.Join(permissions, ","), proxyID)
+	tx, err := db.Beginx()
 	if err != nil {
-		u.getLogger("UpdateMeta").AddNote("updateMeta.Stmt.Exec").AppspaceID(appspaceID).Error(err)
+		log().AddNote("Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	err = updateMetaSP(tx, proxyID, displayName, avatar)
+	if err != nil {
+		log().AddNote("updateMetaSP()").Error(err)
+		return err
+	}
+
+	err = updateAuthsSP(tx, proxyID, auths, true)
+	if err != nil {
+		log().AddNote("updateAuthsSP()").Error(err)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log().AddNote("Commit()").Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func updateMetaSP(sp stmtPreparer, proxyID domain.ProxyID, displayName string, avatar string) error {
+	stmt, err := sp.Preparex(`UPDATE users SET 
+		display_name = ?, avatar = ?
+		WHERE proxy_id = ?`)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Stmt.Exec(displayName, avatar, proxyID)
+	return err
+}
+
+func (u *UserModel) UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error {
+	log := u.getLogger("Update").AppspaceID(appspaceID).Clone
+
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+	tx, err := db.Beginx()
+	if err != nil {
+		log().AddNote("Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	err = updateAvatarSP(tx, proxyID, avatar)
+	if err != nil {
+		log().AddNote("updateAvatarSP()").Error(err)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log().AddNote("Commit()").Error(err)
 		return err
 	}
 	return nil
+}
+
+func updateAvatarSP(sp stmtPreparer, proxyID domain.ProxyID, avatar string) error {
+	stmt, err := sp.Preparex(`UPDATE users SET avatar = ? WHERE proxy_id = ?`)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Stmt.Exec(avatar, proxyID)
+	return err
 }
 
 // Get returns an AppspaceUser
@@ -397,16 +496,6 @@ func (u *UserModel) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
-}
-
-func validatePermissions(permissions []string) error {
-	for _, p := range permissions {
-		err := validator.AppspacePermission(p)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // //////////

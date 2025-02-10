@@ -55,8 +55,8 @@ func DBName(pw string) error {
 
 // AppspaceUserAuthType validates auth type for appspace users
 func AppspaceUserAuthType(authType string) error {
-	if authType != "email" && authType != "dropid" {
-		return errors.New("auth type must be email or dropid")
+	if authType != "email" && authType != "dropid" && authType != "tsnetid" {
+		return errors.New("auth type must be email or dropid or tsnetid")
 	}
 	return nil
 }
@@ -83,6 +83,23 @@ func DropIDHandle(handle string) error {
 		return nil
 	}
 	return goVal.Var(handle, "min=0,max=30,alphanum")
+}
+
+func TSNetIDFull(tsnetid string) error {
+	id, controlURL := SplitTSNetID(tsnetid)
+	err := TSNetIDHandle(id)
+	if err != nil {
+		return err
+	}
+	err = DomainName(controlURL)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func TSNetIDHandle(handle string) error {
+	return goVal.Var(handle, "min=1,max=30,alphanum")
 }
 
 // UserProxyID validates an appspace user proxy id

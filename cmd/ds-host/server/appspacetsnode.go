@@ -267,9 +267,8 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 			return
 		}
 		// Set the user id from [tail|head]scale for use in determining the ProxyID later
-		// Some gotchas: for headscale we should have a tailnet name attached too
-		// ..since user ids start at 1.
-		r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), who.UserProfile.ID.String()))
+		fullID := dropserverIdentifier(who.UserProfile.ID.String(), n.userFacingControlURL())
+		r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), fullID))
 
 		// AppspaceRouter expects Proxy ID to be set alrady!
 		// Actually no, AppspaceRouter is FromTSNet!!
@@ -595,12 +594,22 @@ func ingestNode(nv tailcfg.NodeView) domain.TSNetUserDevice {
 }
 
 func (u *tsUser) asDomain() domain.TSNetPeerUser {
+	id := strings.TrimPrefix(u.id, "userid:")
 	return domain.TSNetPeerUser{
-		ID:          strings.TrimPrefix(u.id, "userid:"),
+		ID:          id,
 		ControlURL:  u.controlURL,
 		LoginName:   u.loginName,
 		DisplayName: u.displayName,
 		Sharee:      u.sharee,
 		Devices:     u.nodes, // do we need to clone that? NO, I don't think so,
+		FullID:      dropserverIdentifier(id, u.controlURL),
 	}
+}
+
+func dropserverIdentifier(id, controlURL string) string {
+	id = strings.TrimPrefix(id, "userid:")
+	if controlURL == "" {
+		controlURL = "tailscale.com"
+	}
+	return fmt.Sprintf("%s@%s", id, controlURL)
 }

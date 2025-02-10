@@ -1,7 +1,7 @@
 package appspacemetadb
 
 import (
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -23,13 +23,64 @@ func TestToDomainStructPermissions(t *testing.T) {
 	}
 }
 
+func TestUpdateAuthsSP(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	u := makeUserModel(mockCtrl)
+
+	db, _ := u.AppspaceMetaDB.GetHandle(asID)
+
+	proxyID := domain.ProxyID("abc")
+	err := updateAuthsSP(db, proxyID, []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}}, true)
+	if err == nil || !strings.Contains(err.Error(), "unknown operation") {
+		t.Errorf("expected unkown operation error, go %v", err)
+	}
+
+	err = updateAuthsSP(db, proxyID, []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+		Operation:  domain.EditOperationAdd,
+	}}, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = updateAuthsSP(db, proxyID, []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+		Operation:  domain.EditOperationRemove,
+	}}, false)
+	if err == nil || !strings.Contains(err.Error(), "got a remove op with allowRemove false") {
+		t.Errorf("expected error about allowRemove, got %v", err)
+	}
+
+	err = updateAuthsSP(db, proxyID, []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+		Operation:  domain.EditOperationRemove,
+	}}, true)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	u := makeUserModel(mockCtrl)
 
-	proxyID, err := u.Create(asID, "email", "me@me.com")
+	displayName := "display-name"
+	avatar := "mememe.jpg"
+
+	proxyID, err := u.Create(asID, displayName, avatar, []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
@@ -38,14 +89,20 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	if user.DisplayName != "display-name" {
+		t.Errorf("expected display name to be display-name, got %s", user.DisplayName)
+	}
 	if len(user.Auths) != 1 {
 		t.Error("expected 1 auth for user")
 	}
-	if user.Auths[0].Identifier != "me@me.com" {
+	if user.Auths[0].Identifier != "me.com/me" {
 		t.Error("no identifier in user auth")
 	}
 
-	_, err = u.Create(asID, "email", "me@me.com")
+	_, err = u.Create(asID, "someone", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != ErrAuthIDExists {
 		t.Error("Expect ErrAuthIDExists error")
 	}
@@ -57,11 +114,17 @@ func TestAddAuth(t *testing.T) {
 
 	u := makeUserModel(mockCtrl)
 
-	proxyID, err := u.Create(asID, "email", "me@me.com")
+	proxyID, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = u.Create(asID, "email", "me@me2.com")
+	_, err = u.Create(asID, "you", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "you.com/you",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
@@ -79,7 +142,7 @@ func TestAddAuth(t *testing.T) {
 		t.Error("did not get the user we expected", user)
 	}
 
-	err = u.AddAuth(asID, proxyID, "email", "me@me2.com")
+	err = u.AddAuth(asID, proxyID, "dropid", "you.com/you")
 	if err != ErrAuthIDExists {
 		t.Errorf("Expected auth id exists error. %v", err)
 	}
@@ -91,12 +154,15 @@ func TestDeleteAuth(t *testing.T) {
 
 	u := makeUserModel(mockCtrl)
 
-	proxyID, err := u.Create(asID, "email", "me@me.com")
+	proxyID, err := u.Create(asID, "someone", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = u.DeleteAuth(asID, proxyID, "email", "me@me.com")
+	err = u.DeleteAuth(asID, proxyID, "dropid", "me.com/me")
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,21 +176,23 @@ func TestDeleteAuth(t *testing.T) {
 	}
 }
 
-func TestUpdateMeta(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	u := makeUserModel(mockCtrl)
 
-	proxyID, err := u.Create(asID, "email", "me@me.com")
+	proxyID, err := u.Create(asID, "Some Name", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
 
 	displayName := "ME me me"
 	avatar := "mememe.jpg"
-	permissions := []string{"read", "write"}
-	err = u.UpdateMeta(asID, proxyID, displayName, avatar, permissions)
+	err = u.Update(asID, proxyID, displayName, avatar, []domain.EditAppspaceUserAuth{}) // no auth edits
 	if err != nil {
 		t.Error(err)
 	}
@@ -135,13 +203,10 @@ func TestUpdateMeta(t *testing.T) {
 	}
 
 	if appspaceUser.DisplayName != displayName {
-		t.Errorf("display name is diefferent: %v - %v", appspaceUser.DisplayName, displayName)
+		t.Errorf("display name is different: %v - %v", appspaceUser.DisplayName, displayName)
 	}
 	if appspaceUser.Avatar != avatar {
-		t.Errorf("avatar is diefferent: %v - %v", appspaceUser.Avatar, avatar)
-	}
-	if !reflect.DeepEqual(appspaceUser.Permissions, permissions) {
-		t.Errorf("permissions different: %v - %v ", appspaceUser.Permissions, permissions)
+		t.Errorf("avatar is different: %v - %v", appspaceUser.Avatar, avatar)
 	}
 }
 
@@ -151,11 +216,17 @@ func TestGetAll(t *testing.T) {
 
 	u := makeUserModel(mockCtrl)
 
-	_, err := u.Create(asID, "email", "me@me.com")
+	_, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = u.Create(asID, "dropid", "me.com/me")
+	_, err = u.Create(asID, "YOU", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "you.com/you",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
@@ -176,17 +247,19 @@ func TestGetByAuth(t *testing.T) {
 
 	u := makeUserModel(mockCtrl)
 
-	dropID := "me.com/me"
-	_, err := u.Create(asID, "dropid", dropID)
+	_, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: "me.com/me",
+	}})
 	if err != nil {
 		t.Error(err)
 	}
 
-	user, err := u.GetByAuth(asID, "dropid", dropID)
+	user, err := u.GetByAuth(asID, "dropid", "me.com/me")
 	if err != nil {
 		t.Error(err)
 	}
-	if user.Auths[0].Identifier != dropID {
+	if user.Auths[0].Identifier != "me.com/me" {
 		t.Error("expected drop id to match")
 	}
 }
@@ -198,7 +271,10 @@ func TestDelete(t *testing.T) {
 	u := makeUserModel(mockCtrl)
 
 	dropID := "me.com/me"
-	proxyID, err := u.Create(asID, "dropid", dropID)
+	proxyID, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: dropID,
+	}})
 	if err != nil {
 		t.Error(err)
 	}

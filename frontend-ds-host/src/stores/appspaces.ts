@@ -30,6 +30,7 @@ function tsnetPeerUsersFromRaw(raw:any) :TSNetPeerUser[] {
 		});
 		return {
 			id: r.id+'',
+			full_id: r.full_id+'',
 			control_url: r.control_url+'',
 			login_name: r.login_name+'',
 			display_name: r.display_name+'',

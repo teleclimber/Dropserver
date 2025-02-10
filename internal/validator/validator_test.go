@@ -183,6 +183,26 @@ func TestDropID(t *testing.T) {
 	}
 }
 
+func TestTSNetIDFull(t *testing.T) {
+	cases := []struct {
+		id  string
+		err bool
+	}{
+		{"123@tailscale.com", false},
+		{"123@example.com", false},
+		{"123@example", true},
+	}
+
+	for _, c := range cases {
+		err := TSNetIDFull(c.id)
+		if !c.err && err != nil {
+			t.Error("should not have gotten error", err)
+		} else if c.err && err == nil {
+			t.Error("should have gotten error")
+		}
+	}
+}
+
 func TestAppspaceAvatarFilename(t *testing.T) {
 	cases := []struct {
 		b   string

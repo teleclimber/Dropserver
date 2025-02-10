@@ -186,7 +186,8 @@ export interface TSNetPeerUser {
 	login_name: string,
 	display_name: string,
 	sharee: boolean,
-	devices: TSNetUserDevice[]
+	devices: TSNetUserDevice[],
+	full_id: string
 }
 
 export interface Appspace {

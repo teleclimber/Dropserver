@@ -1,7 +1,6 @@
 package appspaceops
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -13,8 +12,8 @@ type ManageUsers struct {
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
-		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
+		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
+		Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
 	} `checkinject:"required"`
 	Avatars interface {
 		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
@@ -52,21 +51,14 @@ func (m *ManageUsers) fromTSNet(appspaceID domain.AppspaceID) {
 		if tsnetU.ControlURL == "" {
 			continue
 		}
-		identifier := identifierFromTSNet(tsnetU)
 		if tsnetU.Sharee {
-			if _, found := findByAuth("tsnetid", identifier, curUsers); !found {
+			if _, found := findByAuth("tsnetid", tsnetU.FullID, curUsers); !found {
 				// before adding, check that there isn't a similar user by comparing login name and match names?
-				m.addUserFromTSNet(appspaceID, tsnetU)
-				// after adding user, should we not include that user in tsnetUsers?
-				// ..in case of possible dupe (two tsnet accounts for one user?)
-				// -> seems really edge-casey
+				// m.addUserFromTSNet(appspaceID, tsnetU)
+				// Note: auto-add is disabled in favor of auto-adding based on presence in contacts.
 			}
 		}
 	}
-}
-
-func identifierFromTSNet(user domain.TSNetPeerUser) string {
-	return fmt.Sprintf("%s@%s", user.ID, user.ControlURL)
 }
 
 func findByAuth(authType string, authID string, curUsers []domain.AppspaceUser) (domain.AppspaceUser, bool) {
@@ -86,24 +78,21 @@ func findByAuth(authType string, authID string, curUsers []domain.AppspaceUser) 
 // }
 
 func (m *ManageUsers) addUserFromTSNet(appspaceID domain.AppspaceID, tsnetU domain.TSNetPeerUser) {
-	identifier := identifierFromTSNet(tsnetU)
-	proxyID, err := m.AppspaceUserModel.Create(appspaceID, "tsnetid", identifier)
-	if err != nil {
-		//log it
-		return
-	}
-
-	// sort out avatar: fetch it, save it, pass it.
-
 	displayName := getDisplayNameFromTSNetUser(tsnetU)
 	if displayName == "" {
 		// log it
 		displayName = "(invalid name)" // or not? Jut leav blank?
 	}
 
-	err = m.AppspaceUserModel.UpdateMeta(appspaceID, proxyID, displayName, "", []string{})
+	// sort out avatar: fetch it, save it, pass it.
+
+	_, err := m.AppspaceUserModel.Create(appspaceID, displayName, "", []domain.EditAppspaceUserAuth{{
+		Type:       "tsnetid",
+		Identifier: tsnetU.FullID,
+		Operation:  domain.EditOperationAdd,
+	}})
 	if err != nil {
-		// log it
+		//log it
 		return
 	}
 

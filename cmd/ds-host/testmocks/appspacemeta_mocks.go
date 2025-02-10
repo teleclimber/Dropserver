@@ -181,19 +181,33 @@ func (m *MockAppspaceUserModel) EXPECT() *MockAppspaceUserModelMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
-func (m *MockAppspaceUserModel) Create(arg0 domain.AppspaceID, arg1, arg2 string) (domain.ProxyID, error) {
+// AddAuth mocks base method
+func (m *MockAppspaceUserModel) AddAuth(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddAuth", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddAuth indicates an expected call of AddAuth
+func (mr *MockAppspaceUserModelMockRecorder) AddAuth(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).AddAuth), arg0, arg1, arg2, arg3)
+}
+
+// Create mocks base method
+func (m *MockAppspaceUserModel) Create(arg0 domain.AppspaceID, arg1, arg2 string, arg3 []domain.EditAppspaceUserAuth) (domain.ProxyID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(domain.ProxyID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create
-func (mr *MockAppspaceUserModelMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockAppspaceUserModelMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceUserModel)(nil).Create), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceUserModel)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
 // Delete mocks base method
@@ -208,6 +222,20 @@ func (m *MockAppspaceUserModel) Delete(arg0 domain.AppspaceID, arg1 domain.Proxy
 func (mr *MockAppspaceUserModelMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceUserModel)(nil).Delete), arg0, arg1)
+}
+
+// DeleteAuth mocks base method
+func (m *MockAppspaceUserModel) DeleteAuth(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteAuth", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAuth indicates an expected call of DeleteAuth
+func (mr *MockAppspaceUserModelMockRecorder) DeleteAuth(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).DeleteAuth), arg0, arg1, arg2, arg3)
 }
 
 // Get mocks base method
@@ -255,16 +283,30 @@ func (mr *MockAppspaceUserModelMockRecorder) GetByAuth(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).GetByAuth), arg0, arg1, arg2)
 }
 
-// UpdateMeta mocks base method
-func (m *MockAppspaceUserModel) UpdateMeta(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string, arg4 []string) error {
+// Update mocks base method
+func (m *MockAppspaceUserModel) Update(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string, arg4 []domain.EditAppspaceUserAuth) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateMeta", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateMeta indicates an expected call of UpdateMeta
-func (mr *MockAppspaceUserModelMockRecorder) UpdateMeta(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+// Update indicates an expected call of Update
+func (mr *MockAppspaceUserModelMockRecorder) Update(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateMeta", reflect.TypeOf((*MockAppspaceUserModel)(nil).UpdateMeta), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockAppspaceUserModel)(nil).Update), arg0, arg1, arg2, arg3, arg4)
+}
+
+// UpdateAvatar mocks base method
+func (m *MockAppspaceUserModel) UpdateAvatar(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAvatar", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAvatar indicates an expected call of UpdateAvatar
+func (mr *MockAppspaceUserModelMockRecorder) UpdateAvatar(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAvatar", reflect.TypeOf((*MockAppspaceUserModel)(nil).UpdateAvatar), arg0, arg1, arg2)
 }

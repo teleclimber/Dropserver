@@ -19,8 +19,9 @@ type UserService struct {
 	AppspaceUsersModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
-		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
+		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
+		Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
+		UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
 	Avatars interface {
@@ -149,31 +150,34 @@ func (u *UserService) handleUserCreateMessage(m twine.ReceivedMessageI) {
 		panic(err)
 	}
 
-	u.dummyDropidNum++
-	proxyID, err := u.AppspaceUsersModel.Create(appspaceID, "dropid", fmt.Sprintf("dropid.dummy.develop/%v", u.dummyDropidNum))
+	proxyID, err := u.AppspaceUsersModel.Create(appspaceID, incomingUser.DisplayName, "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: fmt.Sprintf("dropid.dummy.develop/%v", u.dummyDropidNum),
+		Operation:  domain.EditOperationAdd,
+	}})
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)
 	}
 
-	avatar := ""
 	if incomingUser.Avatar != "" {
 		// for now we assume avatar is from baked-in avatars
 		f, err := avatarsFS.Open(filepath.Join("avatars", incomingUser.Avatar))
 		if err != nil {
 			panic(err)
 		}
-		avatar, err = u.Avatars.Save(appspaceLocationKey, proxyID, f)
+		avatar, err := u.Avatars.Save(appspaceLocationKey, proxyID, f)
+		if err != nil {
+			panic(err)
+		}
+
+		err = u.AppspaceUsersModel.UpdateAvatar(appspaceID, proxyID, avatar)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	err = u.AppspaceUsersModel.UpdateMeta(appspaceID, proxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
-	if err != nil {
-		m.SendError(err.Error())
-		panic(err)
-	}
+	u.dummyDropidNum++
 
 	err = m.SendOK()
 	if err != nil {
@@ -220,7 +224,7 @@ func (u *UserService) handleUserUpdateMessage(m twine.ReceivedMessageI) {
 		}
 	}
 
-	err = u.AppspaceUsersModel.UpdateMeta(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, incomingUser.Permissions)
+	err = u.AppspaceUsersModel.Update(appspaceID, incomingUser.ProxyID, incomingUser.DisplayName, avatar, []domain.EditAppspaceUserAuth{})
 	if err != nil {
 		m.SendError(err.Error())
 		panic(err)

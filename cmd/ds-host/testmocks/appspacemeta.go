@@ -22,8 +22,11 @@ type AppspaceInfoModel interface {
 }
 
 type AppspaceUserModel interface {
-	Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-	UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
+	Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
+	AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error
+	DeleteAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error
+	Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
+	UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error
 	Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 	GetByAuth(appspaceID domain.AppspaceID, authType string, identifier string) (domain.AppspaceUser, error)
 	GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)

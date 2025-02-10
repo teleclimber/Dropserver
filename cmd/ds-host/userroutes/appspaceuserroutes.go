@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,12 +12,17 @@ import (
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
+type PostAuth struct {
+	Type       string `json:"type"`
+	Identifier string `json:"identifier"`
+	Op         string `json:"op"`
+}
+
 type PostAppspaceUser struct {
-	AuthType    string   `json:"auth_type"`
-	AuthID      string   `json:"auth_id"`
-	DisplayName string   `json:"display_name"`
-	Avatar      string   `json:"avatar"` //  "replace", any other value means no avatar is loaded
-	Permissions []string `json:"permissions"`
+	DisplayName string     `json:"display_name"`
+	Avatar      string     `json:"avatar"` //  "replace", any other value means no avatar is loaded
+	Permissions []string   `json:"permissions"`
+	Auths       []PostAuth `json:"auths"`
 }
 
 // All this needs to be versioned?
@@ -29,8 +33,9 @@ type AppspaceUserRoutes struct {
 	AppspaceUserModel interface {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
-		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
-		UpdateMeta(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, permissions []string) error
+		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
+		Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
+		UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
 	Avatars interface {
@@ -119,7 +124,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	metadata, err := ioutil.ReadAll(f)
+	metadata, err := io.ReadAll(f)
 	if err != nil {
 		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
@@ -132,9 +137,9 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
+	auths, err := getEditAuths(reqData.Auths, false)
 	if err != nil {
-		http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -150,7 +155,7 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, reqData.AuthType, authID)
+	proxyID, err := a.AppspaceUserModel.Create(appspace.AppspaceID, displayName, "", auths)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -173,20 +178,9 @@ func (a *AppspaceUserRoutes) newUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// not yet sure how to deal with permissions....
-	if len(reqData.Permissions) != 0 {
-		// if( len)
-
-		// hasMeta = true
-	}
-
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, proxyID, displayName, avatar, []string{})
+	err = a.AppspaceUserModel.UpdateAvatar(appspace.AppspaceID, proxyID, avatar)
 	if err != nil {
-		// This is where it would be nice to roll back....
-		// We can ignore the error and return the result of "get"
-		// And user will notice that something didn't quite work.
-		// error is captured in logger in model
-		returnError(w, err)
+		returnError(w, err) // maybe softwen the error if the avatar was not updated correctly.
 		return
 	}
 
@@ -221,7 +215,7 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	metadata, err := ioutil.ReadAll(f)
+	metadata, err := io.ReadAll(f)
 	if err != nil {
 		http.Error(w, "failed to get metadata: "+err.Error(), http.StatusBadRequest)
 		return
@@ -234,20 +228,11 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// handle potential auth changes...
-	// TODO Nope that's not how that's going to work.
-	// if reqData.AuthID != "" {
-	// 	authID, err := validateAuthStrings(reqData.AuthType, reqData.AuthID)
-	// 	if err != nil {
-	// 		http.Error(w, fmt.Errorf("failed to validate auth: %w", err).Error(), http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	err = a.AppspaceUserModel.UpdateAuth(appspace.AppspaceID, user.ProxyID, reqData.AuthType, authID)
-	// 	if err != nil {
-	// 		returnError(w, err)
-	// 		return
-	// 	}
-	// }
+	auths, err := getEditAuths(reqData.Auths, true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	displayName := validator.NormalizeDisplayName(reqData.DisplayName)
 	if err = validator.DisplayName(displayName); err != nil {
@@ -284,14 +269,7 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "avatar metadata not recognized: "+reqData.Avatar, http.StatusBadRequest)
 	}
 
-	// not yet sure how to deal with permissions....
-	if len(reqData.Permissions) != 0 {
-		// if( len)
-
-		// hasMeta = true
-	}
-
-	err = a.AppspaceUserModel.UpdateMeta(appspace.AppspaceID, user.ProxyID, displayName, avatar, []string{})
+	err = a.AppspaceUserModel.Update(appspace.AppspaceID, user.ProxyID, displayName, avatar, auths)
 	if err != nil {
 		returnError(w, err)
 		return
@@ -304,6 +282,45 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, appspaceUser)
+}
+
+var errNoOp = errors.New("edit is no-op")
+
+func getEditAuths(postAuths []PostAuth, allowRemove bool) ([]domain.EditAppspaceUserAuth, error) {
+	auths := make([]domain.EditAppspaceUserAuth, 0)
+	for _, auth := range postAuths {
+		editAuth, err := getEditAuth(auth, allowRemove)
+		if err == errNoOp {
+			// skip it
+		} else if err != nil {
+			return nil, err
+		} else {
+			auths = append(auths, editAuth)
+		}
+	}
+	return auths, nil
+}
+func getEditAuth(auth PostAuth, allowRemove bool) (domain.EditAppspaceUserAuth, error) {
+	op := domain.EditOperation(auth.Op)
+
+	if op == domain.EditOperationNoOp {
+		return domain.EditAppspaceUserAuth{}, errNoOp
+	}
+	if !allowRemove && op == domain.EditOperationRemove {
+		return domain.EditAppspaceUserAuth{}, fmt.Errorf("Operation 'remove' on %s: %s is not allowed on this route", auth.Type, auth.Identifier)
+	}
+	if op != domain.EditOperationAdd && op != domain.EditOperationRemove {
+		return domain.EditAppspaceUserAuth{}, fmt.Errorf("unknown operation %s", auth.Op)
+	}
+	authID, err := validateAuthStrings(auth.Type, auth.Identifier)
+	if err != nil {
+		return domain.EditAppspaceUserAuth{}, fmt.Errorf("failed to validate auth: %w", err)
+	}
+	return domain.EditAppspaceUserAuth{
+		Type:       auth.Type,
+		Identifier: authID,
+		Operation:  op,
+	}, nil
 }
 
 func (a *AppspaceUserRoutes) deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -347,8 +364,14 @@ func validateAuthStrings(authType, authID string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+	} else if authType == "tsnetid" {
+		authID = validator.NormalizeTSNetIDFull(authID)
+		err = validator.TSNetIDFull(authID)
+		if err != nil {
+			return "", err
+		}
 	} else {
-		return "", errors.New("unimplemented auth type " + authType)
+		return "", errors.New("unknown auth type " + authType)
 	}
 	return authID, nil
 }

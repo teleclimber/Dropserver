@@ -8,12 +8,16 @@ export enum AvatarState {
 	Delete = "delete",
 	Replace = "replace"
 }
+export type PostAuth = {
+	op: '' | 'add' | 'remove',
+	type: string,
+	identifier: string,
+}
 export type PostAppspaceUser = {
-	auth_type: string,
-	auth_id: string,
 	display_name: string,
 	avatar: AvatarState,
-	permissions: string[]
+	permissions: string[],
+	auths: PostAuth[]
 }
 
 function userAuthFromRaw(raw:any) :AppspaceUserAuth{
@@ -85,6 +89,12 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		if( user === undefined ) throw new Error(`expected user to exist in appspace id ${appspace_id} proxy id: ${proxy_id}`);
 		return user;
 	}
+	function findByAuth(appspace_id: number, auth_type:string, auth_id: string ) :AppspaceUser|undefined {
+		const users = getUsers(appspace_id);
+		return users?.find( u => {
+			return u.auths.some( a => a.type === auth_type && a.identifier === auth_id );
+		});
+	}
 
 	async function addNewUser(appspace_id:number, data :PostAppspaceUser, avatarData:Blob|null ) {
 		const users = mustGetUsers(appspace_id);
@@ -110,6 +120,7 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		mustGetUsers,
 		getUser,
 		mustGetUser,
+		findByAuth,
 		addNewUser,
 		updateUserMeta
 	};

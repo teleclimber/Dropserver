@@ -20,7 +20,7 @@ type CreateAppspace struct {
 		Create(domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
-		Create(appspaceID domain.AppspaceID, authType string, authID string) (domain.ProxyID, error)
+		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
 	} `checkinject:"required"`
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
@@ -87,7 +87,11 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 	}
 
 	// Create owner user
-	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, "dropid", dropIDStr)
+	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, dropID.DisplayName, "", []domain.EditAppspaceUserAuth{{
+		Type:       "dropid",
+		Identifier: dropIDStr,
+		Operation:  domain.EditOperationAdd,
+	}})
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}

@@ -683,6 +683,20 @@ type AppspaceUserAuth struct {
 	Created    time.Time `db:"created" json:"created_dt"`
 }
 
+type EditOperation string
+
+const (
+	EditOperationNoOp   EditOperation = ""
+	EditOperationAdd    EditOperation = "add"
+	EditOperationRemove EditOperation = "remove"
+)
+
+type EditAppspaceUserAuth struct {
+	Type       string        `json:"type"`
+	Identifier string        `json:"identifier"`
+	Operation  EditOperation `json:"operation"`
+}
+
 // TSNetAppspaceStatus is info about the tsnet server for an appspace
 type TSNetAppspaceStatus struct {
 	AppspaceID      AppspaceID              `json:"appspace_id"`
@@ -729,6 +743,7 @@ type TSNetPeerUser struct {
 	Sharee      bool              `json:"sharee"`
 	Devices     []TSNetUserDevice `json:"devices"`
 	ControlURL  string            `json:"control_url"`
+	FullID      string            `json:"full_id"`
 	//ProfilePicURL string //this isn't right? Create a separate route for fetching avatars for these users.
 }
 
