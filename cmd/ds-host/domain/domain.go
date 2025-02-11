@@ -680,6 +680,7 @@ type AppspaceUser struct {
 type AppspaceUserAuth struct {
 	Type       string    `db:"type" json:"type"`
 	Identifier string    `db:"identifier" json:"identifier"`
+	ExtraName  string    `db:"extra_name" json:"extra_name"`
 	Created    time.Time `db:"created" json:"created_dt"`
 }
 
@@ -694,6 +695,7 @@ const (
 type EditAppspaceUserAuth struct {
 	Type       string        `json:"type"`
 	Identifier string        `json:"identifier"`
+	ExtraName  string        `json:"extra_name"`
 	Operation  EditOperation `json:"operation"`
 }
 

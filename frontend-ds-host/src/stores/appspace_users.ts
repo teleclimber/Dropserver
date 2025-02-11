@@ -12,6 +12,7 @@ export type PostAuth = {
 	op: '' | 'add' | 'remove',
 	type: string,
 	identifier: string,
+	extra_name: string
 }
 export type PostAppspaceUser = {
 	display_name: string,
@@ -24,6 +25,7 @@ function userAuthFromRaw(raw:any) :AppspaceUserAuth{
 	return {
 		type: raw.type+'',
 		identifier: raw.identifier+'',
+		extra_name: raw.extra_name+'',
 		created: new Date(raw.created)
 	}
 }

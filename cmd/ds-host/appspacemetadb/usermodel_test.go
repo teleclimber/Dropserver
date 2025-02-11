@@ -80,6 +80,7 @@ func TestCreate(t *testing.T) {
 	proxyID, err := u.Create(asID, displayName, avatar, []domain.EditAppspaceUserAuth{{
 		Type:       "dropid",
 		Identifier: "me.com/me",
+		ExtraName:  "extra",
 	}})
 	if err != nil {
 		t.Error(err)
@@ -98,6 +99,9 @@ func TestCreate(t *testing.T) {
 	if user.Auths[0].Identifier != "me.com/me" {
 		t.Error("no identifier in user auth")
 	}
+	if user.Auths[0].ExtraName != "extra" {
+		t.Error("expected extra in user auth")
+	}
 
 	_, err = u.Create(asID, "someone", "", []domain.EditAppspaceUserAuth{{
 		Type:       "dropid",
@@ -105,74 +109,6 @@ func TestCreate(t *testing.T) {
 	}})
 	if err != ErrAuthIDExists {
 		t.Error("Expect ErrAuthIDExists error")
-	}
-}
-
-func TestAddAuth(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	u := makeUserModel(mockCtrl)
-
-	proxyID, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
-		Type:       "dropid",
-		Identifier: "me.com/me",
-	}})
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = u.Create(asID, "you", "", []domain.EditAppspaceUserAuth{{
-		Type:       "dropid",
-		Identifier: "you.com/you",
-	}})
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = u.AddAuth(asID, proxyID, "dropid", "moi.com/moi")
-	if err != nil {
-		t.Error(err)
-	}
-
-	user, err := u.GetByAuth(asID, "dropid", "moi.com/moi")
-	if err != nil {
-		t.Error(err)
-	}
-	if user.ProxyID != proxyID {
-		t.Error("did not get the user we expected", user)
-	}
-
-	err = u.AddAuth(asID, proxyID, "dropid", "you.com/you")
-	if err != ErrAuthIDExists {
-		t.Errorf("Expected auth id exists error. %v", err)
-	}
-}
-
-func TestDeleteAuth(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	u := makeUserModel(mockCtrl)
-
-	proxyID, err := u.Create(asID, "someone", "", []domain.EditAppspaceUserAuth{{
-		Type:       "dropid",
-		Identifier: "me.com/me",
-	}})
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = u.DeleteAuth(asID, proxyID, "dropid", "me.com/me")
-	if err != nil {
-		t.Error(err)
-	}
-
-	user, err := u.Get(asID, proxyID)
-	if err != nil {
-		t.Error(err)
-	}
-	if len(user.Auths) != 0 {
-		t.Error("expected zero auths on user", user)
 	}
 }
 

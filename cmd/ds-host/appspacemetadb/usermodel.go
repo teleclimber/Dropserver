@@ -110,7 +110,7 @@ func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditA
 	var err error
 	for _, auth := range auths {
 		if auth.Operation == domain.EditOperationAdd {
-			err = addAuthSP(sp, proxyID, auth.Type, auth.Identifier)
+			err = addAuthSP(sp, proxyID, auth.Type, auth.Identifier, auth.ExtraName)
 			if err != nil {
 				return err
 			}
@@ -129,25 +129,14 @@ func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditA
 	return nil
 }
 
-func (u *UserModel) AddAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
-	if !validateAuthType(authType) {
-		panic("invalid auth type " + authType)
-	}
-	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
-	if err != nil {
-		return err
-	}
-	return addAuthSP(db, proxyID, authType, authID)
-}
-
-func addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
+func addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string, extraName string) error {
 	stmt, err := sp.Preparex(`INSERT INTO user_auth_ids 
-		(proxy_id, type, identifier, created) 
-		VALUES (?, ?, ?, datetime("now"))`)
+		(proxy_id, type, identifier, extra_name, created) 
+		VALUES (?, ?, ?, ?, datetime("now"))`)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(proxyID, authType, authID)
+	_, err = stmt.Exec(proxyID, authType, authID, extraName)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: user_auth_ids.type, user_auth_ids.identifier" {
 			return ErrAuthIDExists
@@ -155,21 +144,6 @@ func addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID 
 		return err
 	}
 	return nil
-}
-
-func (u *UserModel) DeleteAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, authType string, authID string) error {
-	if !validateAuthType(authType) {
-		panic("invalid auth type " + authType)
-	}
-	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
-	if err != nil {
-		return err
-	}
-	err = deleteAuthSP(db, proxyID, authType, authID)
-	if err != nil {
-		u.getLogger("DeleteAuth() deleteAuthSP()").AppspaceID(appspaceID).Error(err)
-	}
-	return err
 }
 
 func deleteAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string) error {
@@ -322,7 +296,7 @@ func getUser(sp stmtPreparer, proxyID domain.ProxyID) (user appspaceUser, err er
 
 func getUserAuths(sp stmtPreparer, proxyID domain.ProxyID) (auths []domain.AppspaceUserAuth, err error) {
 	var stmt *sqlx.Stmt
-	stmt, err = sp.Preparex(`SELECT type, identifier, created FROM user_auth_ids WHERE proxy_id = ?`)
+	stmt, err = sp.Preparex(`SELECT type, identifier, extra_name, created FROM user_auth_ids WHERE proxy_id = ?`)
 	if err != nil {
 		return
 	}

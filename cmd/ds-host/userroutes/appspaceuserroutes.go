@@ -15,6 +15,7 @@ import (
 type PostAuth struct {
 	Type       string `json:"type"`
 	Identifier string `json:"identifier"`
+	ExtraName  string `json:"extra_name"`
 	Op         string `json:"op"`
 }
 
@@ -319,6 +320,7 @@ func getEditAuth(auth PostAuth, allowRemove bool) (domain.EditAppspaceUserAuth, 
 	return domain.EditAppspaceUserAuth{
 		Type:       auth.Type,
 		Identifier: authID,
+		ExtraName:  auth.ExtraName,
 		Operation:  op,
 	}, nil
 }

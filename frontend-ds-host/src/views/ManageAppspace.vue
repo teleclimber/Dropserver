@@ -241,7 +241,7 @@ const show_tsnet_users = ref(false);
 							Disconnecting...
 						</span>
 						<button v-else-if="!appspace.tsnet_data" @click.stop.prevent="showEditTSNetConfig()" :disabled="show_edit_tsnet_config" class="btn btn-blue">
-							New Connection
+							Create Node
 						</button>
 						<span v-else-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'" class="p-2 bg-red-200 text-red-800">
 							Off

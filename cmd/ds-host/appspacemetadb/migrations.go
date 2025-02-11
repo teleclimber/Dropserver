@@ -83,6 +83,7 @@ type AuthsV1 struct {
 	ProxyID    string             `db:"proxy_id"`
 	Type       string             `db:"type"`
 	Identifier string             `db:"identifier"`
+	ExtraName  string             `db:"extra_name"`
 	Created    nulltypes.NullTime `db:"created"`
 }
 
@@ -91,8 +92,8 @@ func migrateUpToV1(d *dbExec) {
 	createUserAuthIdsV1(d)
 
 	// move user auths over to new table
-	d.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, created)
-		SELECT proxy_id, auth_type, auth_id, created FROM users`)
+	d.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, extra_name, created)
+		SELECT proxy_id, auth_type, auth_id, "", created FROM users`)
 
 	// rename users to users_old
 	d.exec(`ALTER TABLE users RENAME TO users_old`)
@@ -119,6 +120,7 @@ func createUserAuthIdsV1(d *dbExec) {
 		"proxy_id" TEXT,
 		"type" TEXT,
 		"identifier" TEXT,
+		"extra_name" TEXT,
 		"created" DATETIME
 	)`)
 	d.exec(`CREATE INDEX user_auth_ids_proxy ON user_auth_ids (proxy_id)`)

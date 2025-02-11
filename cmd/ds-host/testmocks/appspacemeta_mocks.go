@@ -181,20 +181,6 @@ func (m *MockAppspaceUserModel) EXPECT() *MockAppspaceUserModelMockRecorder {
 	return m.recorder
 }
 
-// AddAuth mocks base method
-func (m *MockAppspaceUserModel) AddAuth(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddAuth", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddAuth indicates an expected call of AddAuth
-func (mr *MockAppspaceUserModelMockRecorder) AddAuth(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).AddAuth), arg0, arg1, arg2, arg3)
-}
-
 // Create mocks base method
 func (m *MockAppspaceUserModel) Create(arg0 domain.AppspaceID, arg1, arg2 string, arg3 []domain.EditAppspaceUserAuth) (domain.ProxyID, error) {
 	m.ctrl.T.Helper()
@@ -222,20 +208,6 @@ func (m *MockAppspaceUserModel) Delete(arg0 domain.AppspaceID, arg1 domain.Proxy
 func (mr *MockAppspaceUserModelMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceUserModel)(nil).Delete), arg0, arg1)
-}
-
-// DeleteAuth mocks base method
-func (m *MockAppspaceUserModel) DeleteAuth(arg0 domain.AppspaceID, arg1 domain.ProxyID, arg2, arg3 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteAuth", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteAuth indicates an expected call of DeleteAuth
-func (mr *MockAppspaceUserModelMockRecorder) DeleteAuth(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuth", reflect.TypeOf((*MockAppspaceUserModel)(nil).DeleteAuth), arg0, arg1, arg2, arg3)
 }
 
 // Get mocks base method

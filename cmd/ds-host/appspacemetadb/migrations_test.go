@@ -91,6 +91,10 @@ func TestMigrateUpToV1(t *testing.T) {
 		("def", "email", "d@e.f", datetime("now"))`)
 
 	migrateUpToV1(dbe)
+	err := dbe.checkErr()
+	if err != nil {
+		t.Error(err)
+	}
 
 	auths := []AuthsV1{}
 	dbe.handle.Select(&auths, `SELECT * FROM user_auth_ids ORDER BY proxy_id`)
@@ -102,14 +106,14 @@ func TestMigrateUpToV1(t *testing.T) {
 		t.Error("expected created to be non-null")
 	}
 	expected := []AuthsV1{
-		{"abc", "email", "a@b.c", auths[0].Created},
-		{"def", "email", "d@e.f", auths[1].Created},
+		{"abc", "email", "a@b.c", "", auths[0].Created},
+		{"def", "email", "d@e.f", "", auths[1].Created},
 	}
 	if !cmp.Equal(auths, expected) {
 		t.Error(cmp.Diff(auths, expected))
 	}
 
-	err := dbe.checkErr()
+	err = dbe.checkErr()
 	if err != nil {
 		t.Error(err)
 	}
@@ -140,8 +144,8 @@ func TestMigrateDownFromV1(t *testing.T) {
 	migrateUpToV1(dbe)
 
 	// Add another auth with a later creation date to make sure the down-migration keeps the earlier one:
-	dbe.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, created)
-		VALUES ("abc", "dropid", "new.dropid", datetime("now", "+1 day"))`)
+	dbe.exec(`INSERT INTO user_auth_ids (proxy_id, type, identifier, extra_name, created)
+		VALUES ("abc", "dropid", "new.dropid", "", datetime("now", "+1 day"))`)
 
 	migrateDownFromV1(dbe)
 

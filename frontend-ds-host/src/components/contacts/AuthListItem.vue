@@ -19,13 +19,14 @@ const emit = defineEmits<{
 			<span v-if="auth.type=='dropid'" class="">
 				DropID:
 			</span>
-			<span v-if="auth.type=='email'" class="">
+			<span v-else-if="auth.type=='email'" class="">
 				Email:
 			</span>
-			<span v-if="auth.type=='tsnetid'" class="">
+			<span v-else-if="auth.type=='tsnetid'" class="">
 				Tailscale:
 			</span>
-			{{ auth.identifier }}
+			<span v-if="auth.type ==='tsnetid'">{{ auth.extra_name }} ({{ auth.identifier }})</span>
+			<span v-else>{{ auth.identifier }}</span>
 		</span>
 		<button class="btn text-red-700 text-right"
 			v-if="controls && !removed"

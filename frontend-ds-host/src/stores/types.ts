@@ -219,6 +219,7 @@ export interface RemoteAppspace {
 export interface AppspaceUserAuth {
 	type: string,
 	identifier: string,
+	extra_name: string,
 	created: Date,
 }
 

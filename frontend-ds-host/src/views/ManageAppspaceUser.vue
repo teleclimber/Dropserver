@@ -60,6 +60,7 @@ watchEffect( () => {
 			edit_auths.push({
 				type: auth.type,
 				identifier: auth.identifier,
+				extra_name: auth.extra_name,
 				op:'',
 			});
 		});
@@ -153,7 +154,8 @@ function addAuth() {
 		edit_auths.push({
 			op: 'add',
 			type: 'dropid',
-			identifier: add_auth_dropid.value
+			identifier: add_auth_dropid.value,
+			extra_name: ''
 		});
 		add_auth_dropid.value = "";
 		show_add_auth.value = false;
@@ -165,7 +167,8 @@ function addAuth() {
 		edit_auths.push({
 			op: 'add',
 			type: 'tsnetid',
-			identifier: peer.full_id
+			identifier: peer.full_id,
+			extra_name: peer.login_name
 		});
 		add_auth_tsnetid.value = '';
 		show_add_auth.value = false;
@@ -176,7 +179,6 @@ const invalid = computed( () => {
 	if( display_name.value.trim() === "" ) return "display name can not be empty";
 	if( display_name.value.length > 29 ) return "display name is too long";
 	if( invalid_add_auth.value !== "" ) return invalid_add_auth.value
-	console.log( edit_auths );
 	if( !props.proxy_id && !edit_auths.some(a => a.op != "remove") ) {
 		return "a new user must have at least one login method";
 	}
