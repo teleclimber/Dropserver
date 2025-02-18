@@ -529,6 +529,13 @@ type AppspaceTSNet struct {
 	Connect    bool       `db:"connect" json:"connect"`
 }
 
+type UpdateAppspaceTSNet struct {
+	AppspaceTSNet
+	Tags    []string `json:"tags"`
+	Deleted bool     `json:"deleted"`
+	// signin key
+}
+
 type RemoteAppspace struct {
 	UserID      UserID    `db:"user_id"`
 	DomainName  string    `db:"domain_name"`
@@ -708,12 +715,14 @@ type TSNetAppspaceStatus struct {
 	IP6             string                  `json:"ip6,omitempty"`
 	ListeningTLS    bool                    `json:"listening_tls,omitempty"` // If the TLS server is on for this node.
 	Tailnet         string                  `json:"tailnet,omitempty"`
+	KeyExpiry       *time.Time              `json:"key_expiry,omitempty"`
 	Name            string                  `json:"name,omitempty"` // DNS name, which is sometimes machine name
 	HTTPSAvailable  bool                    `json:"https_available"`
 	MagicDNSEnabled bool                    `json:"magic_dns_enabled"`
 	Tags            []string                `json:"tags"`
 	ErrMessage      string                  `json:"err_message,omitempty"`
 	State           string                  `json:"state,omitempty"` // State from tsnet. But not ideal. Use "connected" instead of "running"
+	Usable          bool                    `json:"usable"`
 	BrowseToURL     string                  `json:"browse_to_url,omitempty"`
 	LoginFinished   bool                    `json:"login_finished,omitempty"`
 	Warnings        map[string]TSNetWarning `json:"warnings,omitempty"`

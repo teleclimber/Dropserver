@@ -13,6 +13,14 @@ type NewAppspaceData = {
 	dropid: string
 }
 
+type TSNetUpateData = {
+	control_url: string,
+	hostname: string,
+	connect: boolean,
+	tags?: string[]
+	// add signin key
+}
+
 function tsnetPeerUsersFromRaw(raw:any) :TSNetPeerUser[] {
 	if( !Array.isArray(raw) ) return [];
 	return raw.map( (r:any) => {
@@ -72,12 +80,14 @@ function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
 		ip6: strFromRaw(raw.ip6),
 		listening_tls: !!raw.listening_tls,
 		tailnet: strFromRaw(raw?.tailnet),
+		key_expiry: raw.key_expiry ? new Date(raw.key_expiry) : undefined,
 		name: strFromRaw(raw.name),
 		https_available: !!raw.https_available,
 		magic_dns_enabled: !!raw.magic_dns_enabled,
-		tags: raw.tags,
+		tags: raw.tags|| [],
 		err_message: strFromRaw(raw?.err_message),
 		state: strFromRaw(raw?.state),
+		usable: !!raw?.usable,
 		browse_to_url: strFromRaw(raw?.browse_to_url),
 		login_finished: !!raw?.login_finished,
 		warnings,
@@ -221,7 +231,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		a.value.paused = pause;
 	}
 
-	async function setTSNetData(appspace_id:number, tsnet_data:AppspaceTSNetData) {
+	async function setTSNetData(appspace_id:number, tsnet_data:TSNetUpateData) {//todo change that type
 		const a = mustGetAppspace(appspace_id);
 		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet', tsnet_data);
 		// check that it returned OK!

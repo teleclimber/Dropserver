@@ -58,6 +58,7 @@ type AppspaceStatus interface {
 }
 
 type AppspaceTSNet interface {
+	UpdateAppspace(domain.UpdateAppspaceTSNet)
 	GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 	GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -15,6 +16,7 @@ import (
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/health"
 	"tailscale.com/ipn"
+	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
 )
@@ -23,6 +25,7 @@ type tsNodeConfig struct {
 	controlURL string
 	hostname   string
 	connect    bool
+	tags       []string
 	// auto-users
 	// funnel bool
 }
@@ -140,6 +143,17 @@ func (n *AppspaceTSNode) startNode() error {
 		return err
 	}
 
+	if len(n.desiredConfig.tags) != 0 {
+		tags := make([]string, len(n.desiredConfig.tags))
+		for i, t := range n.desiredConfig.tags {
+			tags[i] = fmt.Sprintf("tag:%s", t)
+		}
+		maskedPrefs := ipn.MaskedPrefs{
+			Prefs:            ipn.Prefs{AdvertiseTags: tags},
+			AdvertiseTagsSet: true}
+		lc.EditPrefs(context.Background(), &maskedPrefs)
+	}
+
 	bwCtx, bwCancel := context.WithCancel(context.Background())
 	n.busWatcherCtxCancel = bwCancel
 	busWatcher, err := lc.WatchIPNBus(bwCtx, 0)
@@ -157,35 +171,30 @@ func (n *AppspaceTSNode) startNode() error {
 				}
 				break
 			}
-			magicDNS := n.nodeStatus.magicDNS
-			var tags []string
+
 			if newData.NetMap != nil {
-				status, err := lc.Status(context.Background())
-				if err != nil {
-					logger.Clone().AddNote("buswatcher lc.Status()").Error(err)
-				}
-				if status != nil && status.CurrentTailnet != nil {
-					magicDNS = status.CurrentTailnet.MagicDNSEnabled
-				}
-				if status != nil && status.Self != nil && status.Self.Tags != nil {
-					tags = status.Self.Tags.AsSlice()
-				}
 				// note that netmap contains much more than peers!
 				// it also contains UserProfiles:
-				fmt.Println("peers:")
-				for id, peer := range newData.NetMap.Peers {
-					fmt.Println(id, peer.ComputedNameWithHost(), "disp:", peer.DisplayName(false), "tags:", peer.Tags(), peer.User())
-				}
-				fmt.Println("user profiles:")
-				for id, p := range newData.NetMap.UserProfiles {
-					fmt.Println(id, p.DisplayName, p.LoginName)
-				}
+				// fmt.Println("peers:")
+				// for id, peer := range newData.NetMap.Peers {
+				// 	fmt.Println(id, peer.ComputedNameWithHost(), "disp:", peer.DisplayName(false), "tags:", peer.Tags(), peer.User())
+				// }
+				// fmt.Println("user profiles:")
+				// for id, p := range newData.NetMap.UserProfiles {
+				// 	fmt.Println(id, p.DisplayName, p.LoginName)
+				// }
 
 				n.ingestPeers(lc, newData.NetMap.Peers)
 				// send notification in goroutine
 				go n.sendPeerUsersEvent()
 			}
-			if n.nodeStatus.ingest(newData, magicDNS, tags) {
+
+			lcStatus, err := lc.Status(context.Background())
+			if err != nil {
+				logger.Clone().AddNote("buswatcher lc.Status()").Error(err)
+			}
+
+			if n.nodeStatus.ingest(newData, lcStatus) {
 				n.sendStatus()
 			}
 
@@ -213,7 +222,6 @@ func (n *AppspaceTSNode) startNode() error {
 
 func (n *AppspaceTSNode) startStopHTTPS() {
 	if n.ln443 == nil && n.nodeStatus.magicDNS && n.nodeStatus.httpsAvailable {
-		fmt.Println(n.appspaceID, "starting HTTPS server")
 		var err error
 		n.ln443, err = n.tsnetServer.ListenTLS("tcp", ":443")
 		if err != nil {
@@ -223,7 +231,6 @@ func (n *AppspaceTSNode) startStopHTTPS() {
 		go n.handler(n.ln443)
 		n.sendStatus()
 	} else if n.ln443 != nil && (!n.nodeStatus.magicDNS || !n.nodeStatus.httpsAvailable) {
-		fmt.Println(n.appspaceID, "stopping HTTPS server")
 		err := n.ln443.Close()
 		if err != nil {
 			n.getLogger("startStopHTTPS ln443.Close()").Error(err)
@@ -237,6 +244,12 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loggerFn := n.getLogger("http.Serve").AppspaceID(n.appspaceID).Clone
 		loggerFn().Debug("tsnet got request")
+
+		status := n.getStatus()
+		if !status.Usable {
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
 
 		// Set the appspace in the context for use in appspace router. We're handling
 		// requests over time, so reload the appspace every time in case it changes.
@@ -358,14 +371,14 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 
 	// then fire event that says peers changed.
 
-	for i, u := range n.users {
-		fmt.Println("user", i, u.id, u.displayName, u.loginName, u.sharee)
-		fmt.Printf("user %d nodes: ", i)
-		for _, nd := range u.nodes {
-			fmt.Printf("(id:%s name:%s) ", nd.ID, nd.Name)
-		}
-		fmt.Print("\n")
-	}
+	// for i, u := range n.users {
+	// 	fmt.Println("user", i, u.id, u.displayName, u.loginName, u.sharee)
+	// 	fmt.Printf("user %d nodes: ", i)
+	// 	for _, nd := range u.nodes {
+	// 		fmt.Printf("(id:%s name:%s) ", nd.ID, nd.Name)
+	// 	}
+	// 	fmt.Print("\n")
+	// }
 }
 
 func (n *AppspaceTSNode) sendStatus() {
@@ -431,6 +444,7 @@ type tsNodeStatus struct {
 	tailnet        string
 	magicDNS       bool
 	tags           []string
+	keyExpiry      *time.Time
 	httpsAvailable bool
 	ip4            string
 	ip6            string
@@ -444,18 +458,15 @@ type tsNodeStatus struct {
 }
 
 // ingest note that any part of the status is non-nil only if it changed.
-func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool, tags []string) (changed bool) {
+func (n *tsNodeStatus) ingest(data ipn.Notify, lcStatus *ipnstate.Status) (changed bool) {
+	if n.ingestLCStatus(lcStatus) {
+		changed = true
+	}
+
 	if data.NetMap != nil {
 		changed = true                 // but maybe not?
 		n.dnsName = data.NetMap.Name   // Name is "dns name with trailing dot"
 		n.tailnet = data.NetMap.Domain // Domain is "tailnet name"
-	}
-	if magicDNS != n.magicDNS {
-		n.magicDNS = magicDNS
-		changed = true
-	}
-	if tags != nil {
-		n.tags = tags
 	}
 	if data.NetMap != nil {
 		https := len(data.NetMap.DNS.CertDomains) != 0
@@ -513,10 +524,48 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, magicDNS bool, tags []string) (ch
 	return
 }
 
+func (n *tsNodeStatus) ingestLCStatus(lcStatus *ipnstate.Status) bool {
+	if lcStatus == nil {
+		return false
+	}
+	changed := false
+	if lcStatus.CurrentTailnet != nil {
+		magicDNS := lcStatus.CurrentTailnet.MagicDNSEnabled
+		if n.magicDNS != magicDNS {
+			n.magicDNS = magicDNS
+			changed = true
+		}
+	}
+	if lcStatus.Self != nil && lcStatus.Self.Tags != nil {
+		tags := lcStatus.Self.Tags.AsSlice()
+		if tags != nil {
+			n.tags = tags
+		}
+	}
+	if lcStatus.Self != nil {
+		statusKeyExp := lcStatus.Self.KeyExpiry
+		if statusKeyExp != nil {
+			if n.keyExpiry == nil {
+				n.keyExpiry = statusKeyExp
+				changed = true
+			} else if !n.keyExpiry.Equal(*statusKeyExp) {
+				n.keyExpiry = statusKeyExp
+				changed = true
+			}
+		} else if n.keyExpiry != nil { // if statusKeyExp is nil
+			n.keyExpiry = nil
+			changed = true
+		}
+	}
+
+	return changed
+}
+
 func (n *tsNodeStatus) reset() {
 	n.dnsName = ""
 	n.tailnet = ""
 	n.magicDNS = false
+	n.keyExpiry = nil
 	n.tags = []string{}
 	n.httpsAvailable = false
 	n.ip4 = ""
@@ -542,6 +591,7 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 	ret := domain.TSNetAppspaceStatus{
 		Tailnet:         n.tailnet,
 		MagicDNSEnabled: n.magicDNS,
+		KeyExpiry:       n.keyExpiry,
 		Tags:            n.tags,
 		Name:            n.dnsName,
 		IP4:             n.ip4,
@@ -549,6 +599,7 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 		HTTPSAvailable:  n.httpsAvailable,
 		ErrMessage:      n.errMessage,
 		State:           n.state,
+		Usable:          n.state == "Running" && len(n.tags) != 0,
 		BrowseToURL:     n.browseToURL,
 		LoginFinished:   n.loginFinished,
 		Warnings:        warnings,

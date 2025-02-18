@@ -54,6 +54,7 @@ type AppspaceRoutes struct {
 		Get(domain.AppspaceID) domain.AppspaceStatusEvent
 	} `checkinject:"required"`
 	AppspaceTSNet interface {
+		UpdateAppspace(domain.UpdateAppspaceTSNet)
 		GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 		GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 	} `checkinject:"required"`
@@ -376,18 +377,21 @@ func (a *AppspaceRoutes) getTSNetPeerUsers(w http.ResponseWriter, r *http.Reques
 func (a *AppspaceRoutes) updateTSNet(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 
-	reqData := domain.AppspaceTSNet{}
+	reqData := domain.UpdateAppspaceTSNet{}
 	err := readJSON(r, &reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	reqData.AppspaceID = appspace.AppspaceID
 
 	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.ControlURL, reqData.Hostname, reqData.Connect)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+
+	go a.AppspaceTSNet.UpdateAppspace(reqData)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -400,6 +404,12 @@ func (a *AppspaceRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+
+	go a.AppspaceTSNet.UpdateAppspace(domain.UpdateAppspaceTSNet{
+		AppspaceTSNet: domain.AppspaceTSNet{
+			AppspaceID: appspace.AppspaceID},
+		Deleted: true,
+	})
 
 	w.WriteHeader(http.StatusOK)
 }

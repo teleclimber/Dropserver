@@ -110,7 +110,7 @@ const num_tsnet_peers = computed( () => {
 
 // Here we want all peers that are unmatched
 const tsnet_peer_users = computed( () => {
-	if( appspace.value?.tsnet_status.state !== 'Running') return;
+	if( !appspace.value?.tsnet_status.usable ) return;
 	const peers = appspacesStore.watchTSNetPeerUsers(props.appspace_id);
 	if( peers === undefined ) return;
 	const ret : TSNetPeerUser[] = [];

@@ -126,7 +126,7 @@ func main() {
 	eventRelations := &events.Relations{}
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
-	appspaceTSNetModelEvents := &events.AppspaceTSNetModelEvents{}
+	appspaceTSNetModelEvents := &events.AppspaceTSNetModelEvents{} // not currently used.
 	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{
 		Relations: eventRelations}
 	appspaceTSNetPeersEvents := &events.AppspaceTSNetPeersEvents{
@@ -585,7 +585,6 @@ func main() {
 		AppspaceModel:             appspaceModel,
 		AppspaceTSNetModel:        appspaceTSNetModel,
 		AppspaceRouter:            fromTSNet,
-		AppspaceTSNetModelEvents:  appspaceTSNetModelEvents,
 		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
 		AppspaceTSNetPeersEvents:  appspaceTSNetPeersEvents,
 		AppspaceLocation2Path:     appspaceLocation2Path,

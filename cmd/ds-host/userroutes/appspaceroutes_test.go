@@ -116,15 +116,15 @@ func TestGetAppspacesForApp(t *testing.T) {
 	stat := testmocks.NewMockAppspaceStatus(mockCtrl)
 	stat.EXPECT().Get(gomock.Any()).Return(domain.AppspaceStatusEvent{})
 
-	tsnetStatus := testmocks.NewMockAppspaceTSNet(mockCtrl)
-	tsnetStatus.EXPECT().GetStatus(gomock.Any()).Return(domain.TSNetAppspaceStatus{})
+	appspaceTSNet := testmocks.NewMockAppspaceTSNet(mockCtrl)
+	appspaceTSNet.EXPECT().GetStatus(gomock.Any()).Return(domain.TSNetAppspaceStatus{})
 
 	a := AppspaceRoutes{
 		AppModel:           am,
 		AppspaceModel:      asm,
 		AppspaceTSNetModel: atm,
 		AppspaceStatus:     stat,
-		AppspaceTSNet:      tsnetStatus,
+		AppspaceTSNet:      appspaceTSNet,
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)

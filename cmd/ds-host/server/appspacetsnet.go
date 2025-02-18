@@ -3,6 +3,7 @@ package server
 // not clear if "server" is the right package for this. Proba need its own pacakge.
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -22,10 +23,6 @@ type AppspaceTSNet struct {
 		GetAllConnect() ([]domain.AppspaceTSNet, error)
 		Get(domain.AppspaceID) (domain.AppspaceTSNet, error)
 	} `checkinject:"required"`
-	AppspaceTSNetModelEvents interface {
-		Subscribe() <-chan domain.AppspaceTSNetModelEvent
-		Unsubscribe(ch <-chan domain.AppspaceTSNetModelEvent)
-	} `checkinject:"required"`
 	AppspaceTSNetStatusEvents interface {
 		Send(data domain.TSNetAppspaceStatus)
 	} `checkinject:"required"`
@@ -43,7 +40,6 @@ type AppspaceTSNet struct {
 }
 
 func (a *AppspaceTSNet) StopAll() { // maybe rename to Shutdown to convey we're de-initializing
-	a.AppspaceTSNetModelEvents.Unsubscribe(a.tsnetModelEventsChan)
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	wg := sync.WaitGroup{}
@@ -61,36 +57,32 @@ func (a *AppspaceTSNet) Init() {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	a.servers = make(map[domain.AppspaceID]*AppspaceTSNode)
-	a.tsnetModelEventsChan = a.AppspaceTSNetModelEvents.Subscribe()
-
-	go func() {
-		for modelEvent := range a.tsnetModelEventsChan {
-			go a.updateAppspace(modelEvent)
-		}
-	}()
 }
 
-func (a *AppspaceTSNet) updateAppspace(modelEvent domain.AppspaceTSNetModelEvent) {
+func (a *AppspaceTSNet) UpdateAppspace(data domain.UpdateAppspaceTSNet) {
 	config := tsNodeConfig{
-		controlURL: modelEvent.ControlURL,
-		hostname:   modelEvent.Hostname,
-		connect:    !modelEvent.Deleted && modelEvent.Connect,
+		controlURL: data.ControlURL,
+		hostname:   data.Hostname,
+		connect:    !data.Deleted && data.Connect,
+		tags:       data.Tags,
 	}
+
+	a.getLogger("UpdateAppspace").AppspaceID(data.AppspaceID).Debug(fmt.Sprintf("%#v", data))
 
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
-	node, exists := a.servers[modelEvent.AppspaceID]
+	node, exists := a.servers[data.AppspaceID]
 	if exists {
 		if node.deleteNode {
 			// no-op: if node is deleting, let it delete. We call StartAppspcae at the end to re-create node if necessary
-		} else if modelEvent.Deleted {
-			a.getLogger("updateAppspace").AppspaceID(modelEvent.AppspaceID).Debug("model data deleted, deleting node and files")
+		} else if data.Deleted {
+			a.getLogger("updateAppspace").AppspaceID(data.AppspaceID).Debug("model data deleted, deleting node and files")
 			node.deleteNode = true
 			go func(n *AppspaceTSNode) {
 				n.stop()
 				err := os.RemoveAll(n.tsnetDir)
 				if err != nil {
-					a.getLogger("updateAppspace").AppspaceID(modelEvent.AppspaceID).AddNote("deleting node files: os.RemoveAll()").Error(err)
+					a.getLogger("updateAppspace").AppspaceID(data.AppspaceID).AddNote("deleting node files: os.RemoveAll()").Error(err)
 				}
 				a.serversMux.Lock()
 				defer a.serversMux.Unlock()
@@ -101,13 +93,13 @@ func (a *AppspaceTSNet) updateAppspace(modelEvent domain.AppspaceTSNetModelEvent
 			go node.setConfig(config)
 		}
 	} else if !exists && config.connect {
-		appspace, err := a.AppspaceModel.GetFromID(modelEvent.AppspaceID)
+		appspace, err := a.AppspaceModel.GetFromID(data.AppspaceID)
 		if err != nil {
-			a.getLogger("updateAppspace AppspaceModel.GetFromID()").AppspaceID(modelEvent.AppspaceID).Error(err)
+			a.getLogger("updateAppspace AppspaceModel.GetFromID()").AppspaceID(data.AppspaceID).Error(err)
 			return
 		}
 		node = a.makeNodeStruct(*appspace)
-		a.servers[modelEvent.AppspaceID] = node
+		a.servers[data.AppspaceID] = node
 		go node.setConfig(config)
 	}
 }

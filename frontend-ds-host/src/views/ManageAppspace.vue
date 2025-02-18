@@ -20,6 +20,7 @@ import DataDef from '../components/ui/DataDef.vue';
 import UsageSummaryValue from '../components/UsageSummaryValue.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
+import MessageWarn from '@/components/ui/MessageWarn.vue';
 import MinimalAppUrlData from '@/components/appspace/MinimalAppUrlData.vue';
 
 const props = defineProps<{
@@ -111,6 +112,8 @@ const show_edit_tsnet_config = ref(false);
 const tsnet_control_url = ref('');
 const tsnet_hostname = ref('');
 const tsnet_connect = ref(true);
+const tsnet_tags = ref('');
+
 function showEditTSNetConfig() {
 	tsnet_control_url.value = appspace.value?.tsnet_data?.control_url || '';
 	tsnet_hostname.value = appspace.value?.tsnet_data?.hostname || appspace.value?.domain_name.split('.')[0] || '';
@@ -122,9 +125,13 @@ async function saveTSNetConfig() {
 	await appspacesStore.setTSNetData(props.appspace_id, {
 		control_url:tsnet_control_url.value,
 		hostname: tsnet_hostname.value,
-		connect: tsnet_connect.value
+		connect: tsnet_connect.value,
+		tags: tagsFromString(tsnet_tags.value)
 	});
 	show_edit_tsnet_config.value = false;
+}
+function tagsFromString(str :string) :string[] {
+	return str.split(/, /).map( s => s.trim() ).filter( s => s !== '' );
 }
 
 async function tsnetSetConnect(connect:boolean) {
@@ -246,6 +253,9 @@ const show_tsnet_users = ref(false);
 						<span v-else-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'" class="p-2 bg-red-200 text-red-800">
 							Off
 						</span>
+						<span v-else-if="appspace.tsnet_status.tags.length===0" class="p-2 bg-orange-100 text-orange-600">
+							No tag
+						</span>
 						<span v-else-if="appspace.tsnet_status.state == 'Running'" class="p-2 bg-green-200 text-green-800">
 							Connected
 						</span>
@@ -270,7 +280,6 @@ const show_tsnet_users = ref(false);
 					<p v-if="appspace.tsnet_status.transitory == 'connecting'">Connecting...</p>
 					<p v-else-if="appspace.tsnet_status.transitory == 'disconnecting'">Disconnecting...</p>
 				</div>
-
 				<div v-else-if="appspace.tsnet_data" class="px-4 sm:px-6 my-5">
 					<div v-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'">
 						<div class="flex justify-between">
@@ -287,6 +296,11 @@ const show_tsnet_users = ref(false);
 						
 					</div>
 					<div v-else-if="appspace.tsnet_status.url">
+						<MessageWarn v-if="appspace.tsnet_status.tags.length === 0 " head="No Tags">
+							An appspace's Tailscale node must have a tag. 
+							Open the admin panel for {{ appspace.tsnet_status.control_url }}
+							to add an appropriate tag and disable node expiration (see docs).
+						</MessageWarn>
 						<DataDef field="Appspace Address:">
 							<a class="text-blue-700 hover:text-blue-500 underline" :href="appspace.tsnet_status.url">{{appspace.tsnet_status.url}}</a>
 						</DataDef>
@@ -295,36 +309,45 @@ const show_tsnet_users = ref(false);
 							<span v-if="appspace.tsnet_data.control_url ==''">(Tailscale)</span>
 							<span v-else>({{ appspace.tsnet_data.control_url }})</span>
 						</DataDef>
-						<DataDef field="Users:">
-							{{ tsnet_peer_matched_users.size }} of {{ tsnet_peer_users?.length || 0 }}
-							peers have access to this appspace
-							<a href="#" @click.stop.prevent="show_tsnet_users = !show_tsnet_users" class=btn>
-								{{ show_tsnet_users?"hide" : "show" }} peers
-							</a>
+						<DataDef v-if="appspace.tsnet_status.key_expiry" field="Key Expiry:">
+							{{ appspace.tsnet_status.key_expiry.toLocaleDateString() }}
+							<span class="text-orange-600 block italic">
+								Recommended: disable Key Expiry for this node 
+								in the admin panel for {{ appspace.tsnet_status.control_url }}.
+							</span>
 						</DataDef>
-						<ul v-if="show_tsnet_users" class="border-gray-200 border-t my-4">
-							<li v-for="u in tsnet_peer_users" class="border-gray-200 border-b py-2 flex flex-col md:flex-row justify-between">
-								<span>
-									<p>
-										<span class="font-bold">{{ u.display_name }}</span>
-										({{ u.login_name }})
-									</p>
-									<p class="italic text-gray-500" v-if="u.sharee">appspace node was shared with them</p>
-									<p v-if="tsnet_peer_matched_users.has(u.id)">
-										Appspace user "{{ tsnet_peer_matched_users.get(u.id)?.display_name }}"
-										<router-link class="btn" :to="{name:'appspace-user', params:{appspace_id: props.appspace_id, proxy_id:tsnet_peer_matched_users.get(u.id)?.proxy_id}}">Edit</router-link>
-									</p>
-								</span>
-								<span v-if="tsnet_peer_matched_users.has(u.id)" class="justify-self-end">
-									matched
-									<!-- maybe link to manage user? -->
-									 <!-- maybe the user display name if different? -->
-								</span>
-								<span v-else class="justify-self-end">
-									add/match
-								</span>
-							</li>
-						</ul>
+						<template v-if="appspace.tsnet_status.usable">
+							<DataDef field="Users:">
+								{{ tsnet_peer_matched_users.size }} of {{ tsnet_peer_users?.length || 0 }}
+								peers are users of this appspace
+								<a href="#" @click.stop.prevent="show_tsnet_users = !show_tsnet_users" class=btn>
+									{{ show_tsnet_users?"hide" : "show" }} peers
+								</a>
+							</DataDef>
+							<ul v-if="show_tsnet_users" class="border-gray-200 border-t my-4">
+								<li v-for="u in tsnet_peer_users" class="border-gray-200 border-b py-2 flex flex-col md:flex-row justify-between">
+									<span>
+										<p>
+											<span class="font-bold">{{ u.display_name }}</span>
+											({{ u.login_name }})
+										</p>
+										<p class="italic text-gray-500" v-if="u.sharee">appspace node was shared with them</p>
+										<p v-if="tsnet_peer_matched_users.has(u.id)">
+											Appspace user "{{ tsnet_peer_matched_users.get(u.id)?.display_name }}"
+											<router-link class="btn" :to="{name:'appspace-user', params:{appspace_id: props.appspace_id, proxy_id:tsnet_peer_matched_users.get(u.id)?.proxy_id}}">Edit</router-link>
+										</p>
+									</span>
+									<span v-if="tsnet_peer_matched_users.has(u.id)" class="justify-self-end">
+										matched
+										<!-- maybe link to manage user? -->
+										<!-- maybe the user display name if different? -->
+									</span>
+									<span v-else class="justify-self-end">
+										add/match
+									</span>
+								</li>
+							</ul>
+						</template>
 						<div class="flex justify-end">
 							<button v-if="appspace.tsnet_data" @click.stop.prevent="tsnetSetConnect(!appspace.tsnet_data.connect)" class="btn btn-blue">
 								{{ appspace.tsnet_data.connect ? 'Disconnect' : 'Connect'}}
@@ -346,6 +369,11 @@ const show_tsnet_users = ref(false);
 							<input type="text" v-model="tsnet_control_url"
 								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 							<p>Leave blank to use Tailscale.com. Otherwise enter your Headscale (or other) URL.</p>
+						</DataDef>
+						<DataDef field="Tags:">
+							<input type="text" v-model="tsnet_tags"
+								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+							<p>Node must have at least one tag.</p>
 						</DataDef>
 						<div class="flex justify-between">
 							<input type="button" class="btn py-2" @click="show_edit_tsnet_config = !show_edit_tsnet_config" value="Cancel" />
@@ -373,6 +401,7 @@ const show_tsnet_users = ref(false);
 					<p>Magic DNS: {{ appspace.tsnet_status.magic_dns_enabled }}</p>
 				</DataDef>
 				<DataDef field="tailnet:">{{appspace.tsnet_status.tailnet}} at {{  appspace.tsnet_status.control_url }}</DataDef>
+				<DataDef field="Key expiry:">{{ appspace.tsnet_status.key_expiry?.toLocaleDateString() || "none" }}</DataDef>
 				<DataDef field="name:">{{appspace.tsnet_status.name}}</DataDef>
 				<DataDef field="tags:">{{ appspace.tsnet_status.tags?.join(", ") }}</DataDef>
 				<DataDef field="err_message:">{{appspace.tsnet_status.err_message}}</DataDef>

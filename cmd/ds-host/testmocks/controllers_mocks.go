@@ -574,6 +574,18 @@ func (mr *MockAppspaceTSNetMockRecorder) GetStatus(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatus", reflect.TypeOf((*MockAppspaceTSNet)(nil).GetStatus), arg0)
 }
 
+// UpdateAppspace mocks base method
+func (m *MockAppspaceTSNet) UpdateAppspace(arg0 domain.UpdateAppspaceTSNet) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdateAppspace", arg0)
+}
+
+// UpdateAppspace indicates an expected call of UpdateAppspace
+func (mr *MockAppspaceTSNetMockRecorder) UpdateAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAppspace", reflect.TypeOf((*MockAppspaceTSNet)(nil).UpdateAppspace), arg0)
+}
+
 // MockAppspaceRouter is a mock of AppspaceRouter interface
 type MockAppspaceRouter struct {
 	ctrl     *gomock.Controller
