@@ -25,6 +25,7 @@ type tsNodeConfig struct {
 	controlURL string
 	hostname   string
 	connect    bool
+	authKey    string
 	tags       []string
 	// auto-users
 	// funnel bool
@@ -113,6 +114,7 @@ func (n *AppspaceTSNode) createServer() error {
 	s.Dir = n.tsnetDir
 	s.Hostname = n.desiredConfig.hostname
 	s.ControlURL = n.desiredConfig.controlURL
+	s.AuthKey = n.desiredConfig.authKey
 
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {

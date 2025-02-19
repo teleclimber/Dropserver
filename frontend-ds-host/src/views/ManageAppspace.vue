@@ -111,6 +111,7 @@ const data_schema_mismatch = computed( ()=> {
 const show_edit_tsnet_config = ref(false);
 const tsnet_control_url = ref('');
 const tsnet_hostname = ref('');
+const tsnet_auth_key = ref('');
 const tsnet_connect = ref(true);
 const tsnet_tags = ref('');
 
@@ -125,6 +126,7 @@ async function saveTSNetConfig() {
 	await appspacesStore.setTSNetData(props.appspace_id, {
 		control_url:tsnet_control_url.value,
 		hostname: tsnet_hostname.value,
+		auth_key: tsnet_auth_key.value,
 		connect: tsnet_connect.value,
 		tags: tagsFromString(tsnet_tags.value)
 	});
@@ -253,6 +255,9 @@ const show_tsnet_users = ref(false);
 						<span v-else-if="appspace.tsnet_status.state == '' || appspace.tsnet_status.state == 'Off'" class="p-2 bg-red-200 text-red-800">
 							Off
 						</span>
+						<span v-else-if="appspace.tsnet_status.state == 'NeedsLogin'" class="p-2 bg-orange-100 text-orange-600">
+							Needs Authentication
+						</span>
 						<span v-else-if="appspace.tsnet_status.tags.length===0" class="p-2 bg-orange-100 text-orange-600">
 							No tag
 						</span>
@@ -267,7 +272,7 @@ const show_tsnet_users = ref(false);
 				
 				<div v-if="appspace.tsnet_status.browse_to_url !== '' && !appspace.tsnet_status.login_finished && appspace.tsnet_status.transitory != 'disconnecting'" class="px-4 sm:px-6 my-5">
 					<p>The node needs to be authenticated. Click this link and follow the instructions:</p>
-					<p><a class="text-blue-700 hover:text-blue-500 underline" :href="appspace.tsnet_status.browse_to_url">
+					<p><a class="text-blue-700 hover:text-blue-500 underline" :href="appspace.tsnet_status.browse_to_url" target="_blank">
 						{{ appspace.tsnet_status.browse_to_url }}
 					</a></p>
 					<div class="flex justify-start mt-4">
@@ -364,11 +369,14 @@ const show_tsnet_users = ref(false);
 							<input type="text" v-model="tsnet_hostname"
 								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 						</DataDef>
-						<!--  also key, and other configs... -->
 						<DataDef field="Control URL:">
 							<input type="text" v-model="tsnet_control_url"
 								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 							<p>Leave blank to use Tailscale.com. Otherwise enter your Headscale (or other) URL.</p>
+						</DataDef>
+						<DataDef field="Auth Key:">
+							<input type="text" v-model="tsnet_auth_key"
+								class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 						</DataDef>
 						<DataDef field="Tags:">
 							<input type="text" v-model="tsnet_tags"

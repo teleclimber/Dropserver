@@ -532,6 +532,7 @@ type AppspaceTSNet struct {
 type UpdateAppspaceTSNet struct {
 	AppspaceTSNet
 	Tags    []string `json:"tags"`
+	AuthKey string   `json:"auth_key"`
 	Deleted bool     `json:"deleted"`
 	// signin key
 }

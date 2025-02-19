@@ -64,6 +64,7 @@ func (a *AppspaceTSNet) UpdateAppspace(data domain.UpdateAppspaceTSNet) {
 		controlURL: data.ControlURL,
 		hostname:   data.Hostname,
 		connect:    !data.Deleted && data.Connect,
+		authKey:    data.AuthKey,
 		tags:       data.Tags,
 	}
 

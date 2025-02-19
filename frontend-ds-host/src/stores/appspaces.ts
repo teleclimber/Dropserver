@@ -17,6 +17,7 @@ type TSNetUpateData = {
 	control_url: string,
 	hostname: string,
 	connect: boolean,
+	auth_key?: string,
 	tags?: string[]
 	// add signin key
 }
