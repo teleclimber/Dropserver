@@ -8,6 +8,7 @@ import { useAppspaceUsersStore } from '@/stores/appspace_users';
 
 import DataDef from '@/components/ui/DataDef.vue';
 import MessageWarn from '@/components/ui/MessageWarn.vue';
+import SmallMessage from '@/components/ui/SmallMessage.vue';
 
 const props = defineProps<{
 	appspace_id: number,
@@ -163,6 +164,12 @@ const show_tsnet_users = ref(false);
 				</MessageWarn>
 				<DataDef field="Appspace Address:">
 					<a class="text-blue-700 hover:text-blue-500 underline" :href="tsnet_status.url">{{tsnet_status.url}}</a>
+					<SmallMessage mood="info" v-if="!tsnet_status.magic_dns_enabled" class="my-2">
+						Enable MagicDNS in Tailscale admin panel to get a nicer address.
+					</SmallMessage>
+					<SmallMessage mood="info" v-if="!tsnet_status.https_available" class="my-2">
+						Recommended: enable HTTPS in the Tailscale admin panel.
+					</SmallMessage>
 				</DataDef>
 				<DataDef field="Tailnet:">
 					{{ tsnet_status.tailnet }}
