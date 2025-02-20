@@ -204,9 +204,9 @@ export interface Appspace {
 	app_version: string,
 	upgrade_version: string|undefined,
 	status: AppspaceStatus,
-	tsnet_status: AppspaceTSNetStatus,
 	ver_data: AppVersionUI | undefined,
-	tsnet_data: AppspaceTSNetData | undefined
+	tsnet_data: AppspaceTSNetData | undefined,
+	tsnet_status: AppspaceTSNetStatus
 }
 
 export interface RemoteAppspace {
