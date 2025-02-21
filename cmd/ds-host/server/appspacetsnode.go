@@ -638,8 +638,8 @@ func ingestNode(nv tailcfg.NodeView) domain.TSNetUserDevice {
 	return domain.TSNetUserDevice{
 		ID:          string(nv.StableID()),
 		Name:        nv.Name(),
-		Online:      nv.Online(),
-		LastSeen:    nv.LastSeen(),
+		Online:      nv.Online().Clone(),
+		LastSeen:    nv.LastSeen().Clone(),
 		OS:          nv.Hostinfo().OS(), // lots more to do here
 		DeviceModel: nv.Hostinfo().DeviceModel(),
 		App:         nv.Hostinfo().App(),
