@@ -8,7 +8,7 @@ import (
 	"tailscale.com/ipn/ipnstate"
 )
 
-func TestDropserverIdentifier(t *testing.T) {
+func TestFullIdentifier(t *testing.T) {
 	cases := []struct {
 		id         string
 		controlURL string
@@ -28,7 +28,7 @@ func TestDropserverIdentifier(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.id+c.controlURL, func(t *testing.T) {
-			result := dropserverIdentifier(c.id, c.controlURL)
+			result := fullIdentifier(c.id, c.controlURL)
 			if result != c.expected {
 				t.Errorf("expected: %s, got %s", c.expected, result)
 			}

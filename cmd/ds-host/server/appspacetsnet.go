@@ -36,7 +36,7 @@ type AppspaceTSNet struct {
 	tsnetModelEventsChan <-chan domain.AppspaceTSNetModelEvent
 
 	serversMux sync.Mutex
-	servers    map[domain.AppspaceID]*AppspaceTSNode
+	servers    map[domain.AppspaceID]*TSNetNode
 }
 
 func (a *AppspaceTSNet) StopAll() { // maybe rename to Shutdown to convey we're de-initializing
@@ -45,7 +45,7 @@ func (a *AppspaceTSNet) StopAll() { // maybe rename to Shutdown to convey we're 
 	wg := sync.WaitGroup{}
 	for _, s := range a.servers {
 		wg.Add(1)
-		go func(appspaceNode *AppspaceTSNode) {
+		go func(appspaceNode *TSNetNode) {
 			appspaceNode.stop()
 			wg.Done()
 		}(s)
@@ -56,7 +56,7 @@ func (a *AppspaceTSNet) StopAll() { // maybe rename to Shutdown to convey we're 
 func (a *AppspaceTSNet) Init() {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
-	a.servers = make(map[domain.AppspaceID]*AppspaceTSNode)
+	a.servers = make(map[domain.AppspaceID]*TSNetNode)
 }
 
 func (a *AppspaceTSNet) UpdateAppspace(data domain.UpdateAppspaceTSNet) {
@@ -79,7 +79,7 @@ func (a *AppspaceTSNet) UpdateAppspace(data domain.UpdateAppspaceTSNet) {
 		} else if data.Deleted {
 			a.getLogger("updateAppspace").AppspaceID(data.AppspaceID).Debug("model data deleted, deleting node and files")
 			node.deleteNode = true
-			go func(n *AppspaceTSNode) {
+			go func(n *TSNetNode) {
 				n.stop()
 				err := os.RemoveAll(n.tsnetDir)
 				if err != nil {
@@ -144,7 +144,7 @@ func (a *AppspaceTSNet) start(tsnetData domain.AppspaceTSNet) error {
 	return nil
 }
 
-func (a *AppspaceTSNet) get(appspaceID domain.AppspaceID) *AppspaceTSNode {
+func (a *AppspaceTSNet) get(appspaceID domain.AppspaceID) *TSNetNode {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	if node, exists := a.servers[appspaceID]; exists {
@@ -153,7 +153,7 @@ func (a *AppspaceTSNet) get(appspaceID domain.AppspaceID) *AppspaceTSNode {
 	return nil
 }
 
-func (a *AppspaceTSNet) addGet(appspace domain.Appspace) *AppspaceTSNode {
+func (a *AppspaceTSNet) addGet(appspace domain.Appspace) *TSNetNode {
 	a.serversMux.Lock()
 	defer a.serversMux.Unlock()
 	if node, exists := a.servers[appspace.AppspaceID]; exists {
@@ -163,16 +163,43 @@ func (a *AppspaceTSNet) addGet(appspace domain.Appspace) *AppspaceTSNode {
 	return a.servers[appspace.AppspaceID]
 }
 
-func (a *AppspaceTSNet) makeNodeStruct(appspace domain.Appspace) *AppspaceTSNode {
-	return &AppspaceTSNode{
-		Config:                    a.Config,
-		AppspaceLocation2Path:     a.AppspaceLocation2Path,
-		AppspaceModel:             a.AppspaceModel,
-		AppspaceRouter:            a.AppspaceRouter,
-		AppspaceTSNetStatusEvents: a.AppspaceTSNetStatusEvents,
-		AppspaceTSNetPeersEvents:  a.AppspaceTSNetPeersEvents,
-		appspaceID:                appspace.AppspaceID,
-		tsnetDir:                  a.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey),
+type statusEventsAdapter struct {
+	appspaceTSNetStatusEvents interface {
+		Send(data domain.TSNetAppspaceStatus)
+	}
+	appspaceID domain.AppspaceID
+}
+
+func (t *statusEventsAdapter) Send(tsnetStatus domain.TSNetStatus) {
+	t.appspaceTSNetStatusEvents.Send(domain.TSNetAppspaceStatus{
+		TSNetStatus: tsnetStatus,
+		AppspaceID:  t.appspaceID})
+}
+
+type peersEventsAdapter struct {
+	appspaceTSNetPeersEvents interface {
+		Send(data domain.AppspaceID)
+	}
+	appspaceID domain.AppspaceID
+}
+
+func (t *peersEventsAdapter) Send() {
+	t.appspaceTSNetPeersEvents.Send(t.appspaceID)
+}
+
+func (a *AppspaceTSNet) makeNodeStruct(appspace domain.Appspace) *TSNetNode {
+	return &TSNetNode{
+		Config: a.Config,
+		Router: a.AppspaceRouter,
+		TSNetStatusEvents: &statusEventsAdapter{
+			appspaceTSNetStatusEvents: a.AppspaceTSNetStatusEvents,
+			appspaceID:                appspace.AppspaceID},
+		TSNetPeersEvents: &peersEventsAdapter{
+			appspaceTSNetPeersEvents: a.AppspaceTSNetPeersEvents,
+			appspaceID:               appspace.AppspaceID},
+		hasAppspaceID: true,
+		appspaceID:    appspace.AppspaceID,
+		tsnetDir:      a.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey),
 	}
 }
 
@@ -185,11 +212,17 @@ func (a *AppspaceTSNet) rmServer(appspaceID domain.AppspaceID) {
 func (a *AppspaceTSNet) GetStatus(appspaceID domain.AppspaceID) domain.TSNetAppspaceStatus {
 	node := a.get(appspaceID)
 	if node != nil {
-		return node.getStatus()
+		status := node.getStatus()
+		return domain.TSNetAppspaceStatus{
+			TSNetStatus: status,
+			AppspaceID:  appspaceID,
+		}
 	}
 	return domain.TSNetAppspaceStatus{
+		TSNetStatus: domain.TSNetStatus{
+			State: "Off",
+		},
 		AppspaceID: appspaceID,
-		State:      "Off",
 	}
 }
 

@@ -27,28 +27,21 @@ type tsNodeConfig struct {
 	connect    bool
 	authKey    string
 	tags       []string
-	// auto-users
-	// funnel bool
 }
 
-// AppspaceTSNode refs an appspace's tsnet node
-type AppspaceTSNode struct {
-	Config                *domain.RuntimeConfig
-	AppspaceLocation2Path interface {
-		TailscaleNodeStore(locationKey string) string
+// TSNetNode ref controls a tsnet node for use in http serving
+type TSNetNode struct {
+	Config            *domain.RuntimeConfig
+	Router            http.Handler
+	TSNetStatusEvents interface {
+		Send(data domain.TSNetStatus)
 	}
-	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	}
-	AppspaceRouter            http.Handler
-	AppspaceTSNetStatusEvents interface {
-		Send(data domain.TSNetAppspaceStatus)
-	}
-	AppspaceTSNetPeersEvents interface {
-		Send(data domain.AppspaceID)
+	TSNetPeersEvents interface {
+		Send()
 	}
 
-	appspaceID domain.AppspaceID
+	hasAppspaceID bool
+	appspaceID    domain.AppspaceID // used for logging and http handler
 
 	tsnetDir string
 
@@ -68,7 +61,7 @@ type AppspaceTSNode struct {
 	users    []tsUser
 }
 
-func (n *AppspaceTSNode) setConfig(config tsNodeConfig) {
+func (n *TSNetNode) setConfig(config tsNodeConfig) {
 	if n.deleteNode {
 		return
 	}
@@ -100,13 +93,13 @@ func (n *AppspaceTSNode) setConfig(config tsNodeConfig) {
 	}
 }
 
-func (n *AppspaceTSNode) createServer() error {
+func (n *TSNetNode) createServer() error {
 	n.servMux.Lock()
 	defer n.servMux.Unlock()
 
 	if n.tsnetServer != nil {
-		err := errors.New("appspace tsnet node already running")
-		n.getLogger("createServer").AppspaceID(n.appspaceID).Error(err)
+		err := errors.New("tsnet node already running")
+		n.getLogger("createServer").Error(err)
 		return err
 	}
 	s := new(tsnet.Server)
@@ -119,7 +112,7 @@ func (n *AppspaceTSNode) createServer() error {
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {
 		if !strings.Contains(format, "restart with TS_AUTHKEY set") {
-			n.getLogger("createServer").AppspaceID(n.appspaceID).AddNote("tsnet UserLogf").Log(fmt.Sprintf(format, args...))
+			n.getLogger("createServer").AddNote("tsnet UserLogf").Log(fmt.Sprintf(format, args...))
 		}
 	}
 
@@ -128,8 +121,8 @@ func (n *AppspaceTSNode) createServer() error {
 	return nil
 }
 
-func (n *AppspaceTSNode) startNode() error {
-	logger := n.getLogger("startNode").AppspaceID(n.appspaceID)
+func (n *TSNetNode) startNode() error {
+	logger := n.getLogger("startNode")
 
 	n.nodeStatus.transitory = "connecting"
 	go n.sendStatus()
@@ -222,7 +215,7 @@ func (n *AppspaceTSNode) startNode() error {
 	return nil
 }
 
-func (n *AppspaceTSNode) startStopHTTPS() {
+func (n *TSNetNode) startStopHTTPS() {
 	if n.ln443 == nil && n.nodeStatus.magicDNS && n.nodeStatus.httpsAvailable {
 		var err error
 		n.ln443, err = n.tsnetServer.ListenTLS("tcp", ":443")
@@ -242,9 +235,9 @@ func (n *AppspaceTSNode) startStopHTTPS() {
 	}
 }
 
-func (n *AppspaceTSNode) handler(ln net.Listener) {
+func (n *TSNetNode) handler(ln net.Listener) {
 	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		loggerFn := n.getLogger("http.Serve").AppspaceID(n.appspaceID).Clone
+		loggerFn := n.getLogger("http.Serve").Clone
 		loggerFn().Debug("tsnet got request")
 
 		status := n.getStatus()
@@ -253,21 +246,9 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 			return
 		}
 
-		// Set the appspace in the context for use in appspace router. We're handling
-		// requests over time, so reload the appspace every time in case it changes.
-		appspace, err := n.AppspaceModel.GetFromID(n.appspaceID)
-		if err != nil {
-			loggerFn().AddNote("AppspaceModel.GetFromID").Error(err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+		if n.hasAppspaceID {
+			r = r.WithContext(domain.CtxWithAppspaceID(r.Context(), n.appspaceID))
 		}
-		if appspace == nil {
-			loggerFn().AddNote("AppspaceModel.GetFromID").Log("no appspace returned")
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-
-		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
 
 		lc, err := n.tsnetServer.LocalClient()
 		if err != nil {
@@ -281,13 +262,10 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 			http.Error(w, "tsnet whois error", http.StatusInternalServerError)
 			return
 		}
-		// Set the user id from [tail|head]scale for use in determining the ProxyID later
-		fullID := dropserverIdentifier(who.UserProfile.ID.String(), n.userFacingControlURL())
+		fullID := fullIdentifier(who.UserProfile.ID.String(), n.userFacingControlURL())
 		r = r.WithContext(domain.CtxWithTSNetUserID(r.Context(), fullID))
 
-		// AppspaceRouter expects Proxy ID to be set alrady!
-		// Actually no, AppspaceRouter is FromTSNet!!
-		n.AppspaceRouter.ServeHTTP(w, r)
+		n.Router.ServeHTTP(w, r)
 	}))
 	if err != http.ErrServerClosed { // it always returns an error
 		n.getLogger("handler").AddNote("http.Serve()").Error(err) // "Error: tsnet: use of closed network connection" when shutting down the server.
@@ -295,7 +273,7 @@ func (n *AppspaceTSNode) handler(ln net.Listener) {
 	}
 }
 
-func (n *AppspaceTSNode) stop() {
+func (n *TSNetNode) stop() {
 	n.servMux.Lock()
 	defer n.servMux.Unlock()
 
@@ -325,12 +303,12 @@ func (n *AppspaceTSNode) stop() {
 
 // might need a context here that gets passed to WhoIsNodeKey
 // and maybe check before each iteration of the loop.
-func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeView) {
+func (n *TSNetNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeView) {
 	n.usersMux.Lock()
 	defer n.usersMux.Unlock()
 	n.users = make([]tsUser, 0) // ooff, we delete the original data? That means we lose the ability to know if it changed?
 
-	loggerFn := n.getLogger("ingestPeers").AppspaceID(n.appspaceID).Clone
+	loggerFn := n.getLogger("ingestPeers").Clone
 	for _, nv := range peers {
 		var userID string
 		who, err := lc.WhoIsNodeKey(context.Background(), nv.Key())
@@ -383,20 +361,19 @@ func (n *AppspaceTSNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.
 	// }
 }
 
-func (n *AppspaceTSNode) sendStatus() {
-	n.AppspaceTSNetStatusEvents.Send(n.getStatus())
+func (n *TSNetNode) sendStatus() {
+	n.TSNetStatusEvents.Send(n.getStatus())
 }
 
-func (n *AppspaceTSNode) getStatus() domain.TSNetAppspaceStatus {
+func (n *TSNetNode) getStatus() domain.TSNetStatus {
 	stat := n.nodeStatus.asDomain()
-	stat.AppspaceID = n.appspaceID
 	stat.ListeningTLS = n.ln443 != nil
 	stat.URL = n.buildURL()
 	stat.ControlURL = n.userFacingControlURL()
 	return stat
 }
 
-func (n *AppspaceTSNode) buildURL() string {
+func (n *TSNetNode) buildURL() string {
 	proto := "http"
 	if n.ln443 != nil {
 		proto = "https"
@@ -411,11 +388,11 @@ func (n *AppspaceTSNode) buildURL() string {
 	return fmt.Sprintf("%s://%s", proto, addr)
 }
 
-func (n *AppspaceTSNode) sendPeerUsersEvent() {
-	n.AppspaceTSNetPeersEvents.Send(n.appspaceID)
+func (n *TSNetNode) sendPeerUsersEvent() {
+	n.TSNetPeersEvents.Send()
 }
 
-func (n *AppspaceTSNode) getPeerUsers() []domain.TSNetPeerUser {
+func (n *TSNetNode) getPeerUsers() []domain.TSNetPeerUser {
 	ret := make([]domain.TSNetPeerUser, len(n.users))
 	for i, u := range n.users {
 		ret[i] = u.asDomain()
@@ -423,7 +400,7 @@ func (n *AppspaceTSNode) getPeerUsers() []domain.TSNetPeerUser {
 	return ret
 }
 
-func (n *AppspaceTSNode) userFacingControlURL() string {
+func (n *TSNetNode) userFacingControlURL() string {
 	if n.tsnetServer == nil {
 		return ""
 	}
@@ -433,8 +410,11 @@ func (n *AppspaceTSNode) userFacingControlURL() string {
 	return n.tsnetServer.ControlURL
 }
 
-func (n *AppspaceTSNode) getLogger(note string) *record.DsLogger {
-	r := record.NewDsLogger().AddNote("AppspaceTSNode").AppspaceID(n.appspaceID)
+func (n *TSNetNode) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("TSNetNode")
+	if n.hasAppspaceID {
+		r = r.AppspaceID(n.appspaceID)
+	}
 	if note != "" {
 		r.AddNote(note)
 	}
@@ -580,7 +560,7 @@ func (n *tsNodeStatus) reset() {
 	n.transitory = ""
 }
 
-func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
+func (n *tsNodeStatus) asDomain() domain.TSNetStatus {
 	warnings := make(map[string]domain.TSNetWarning)
 	for w, d := range n.warnings {
 		warnings[w] = domain.TSNetWarning{
@@ -590,7 +570,7 @@ func (n *tsNodeStatus) asDomain() domain.TSNetAppspaceStatus {
 			ImpactsConnectivity: d.ImpactsConnectivity,
 		}
 	}
-	ret := domain.TSNetAppspaceStatus{
+	ret := domain.TSNetStatus{
 		Tailnet:         n.tailnet,
 		MagicDNSEnabled: n.magicDNS,
 		KeyExpiry:       n.keyExpiry,
@@ -655,11 +635,11 @@ func (u *tsUser) asDomain() domain.TSNetPeerUser {
 		DisplayName: u.displayName,
 		Sharee:      u.sharee,
 		Devices:     u.nodes, // do we need to clone that? NO, I don't think so,
-		FullID:      dropserverIdentifier(id, u.controlURL),
+		FullID:      fullIdentifier(id, u.controlURL),
 	}
 }
 
-func dropserverIdentifier(id, controlURL string) string {
+func fullIdentifier(id, controlURL string) string {
 	id = strings.TrimPrefix(id, "userid:")
 	if controlURL == "" {
 		controlURL = "tailscale.com"

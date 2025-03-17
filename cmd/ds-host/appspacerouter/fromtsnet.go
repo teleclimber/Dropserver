@@ -10,7 +10,7 @@ import (
 
 type FromTSNet struct {
 	AppspaceModel interface {
-		GetFromDomain(string) (*domain.Appspace, error)
+		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		GetByAuth(appspaceID domain.AppspaceID, authType string, identifier string) (domain.AppspaceUser, error)
@@ -25,20 +25,41 @@ type FromTSNet struct {
 func (f *FromTSNet) Init() {
 	f.mux = chi.NewRouter()
 
-	// the appspacetsnet server will load the appspace, since it has it right there.
-	// mux.Use(f.loadAppspace)
+	f.mux.Use(f.loadAppspace)
 
-	// appspacetsnet server will put the ts id in context
-	// But we need to look up a proxy id if there is one
-	// Then the big questions become how to handle users?
+	// appspace TSNetNode server puts the tsnet user id in context
 	f.mux.Use(f.getProxyID)
 
-	//after that need to pass on to the actual appspace router.
+	// after that need to pass on to the actual appspace router.
 	f.AppspaceRouter.BuildRoutes(f.mux)
 }
 
 func (f *FromTSNet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mux.ServeHTTP(w, r)
+}
+
+func (f *FromTSNet) loadAppspace(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appspaceID, ok := domain.CtxAppspaceID(r.Context())
+		if !ok {
+			// That's a developer error, so panic
+			panic("no appspace ID in context")
+		}
+		appspace, err := f.AppspaceModel.GetFromID(appspaceID)
+		if err != nil {
+			f.getLogger(appspaceID).AddNote("AppspaceModel.GetFromID").Error(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		if appspace == nil {
+			f.getLogger(appspaceID).AddNote("AppspaceModel.GetFromID").Log("no appspace returned")
+			// this is an internal error because tsnet should have shut down before the appspace got deleted
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (f *FromTSNet) getProxyID(next http.Handler) http.Handler {

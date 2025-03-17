@@ -96,6 +96,22 @@ func CtxAppUrl(ctx context.Context) (string, bool) {
 	return t, ok
 }
 
+// AppspaceID
+const appspaceIDCtxKey = ctxKey("appspace ID")
+
+// CtxWithAppspaceID sets the appspace ID that is relevant
+// to the request
+func CtxWithAppspaceID(ctx context.Context, appspaceID AppspaceID) context.Context {
+	return context.WithValue(ctx, appspaceIDCtxKey, appspaceID)
+}
+
+// CtxAppspaceID gets the appspace ID that is relevant
+// to the request
+func CtxAppspaceID(ctx context.Context) (AppspaceID, bool) {
+	t, ok := ctx.Value(appspaceIDCtxKey).(AppspaceID)
+	return t, ok
+}
+
 // Appspace Data
 const appspaceDataCtxKey = ctxKey("appspace data")
 

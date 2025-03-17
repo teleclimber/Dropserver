@@ -707,9 +707,8 @@ type EditAppspaceUserAuth struct {
 	Operation  EditOperation `json:"operation"`
 }
 
-// TSNetAppspaceStatus is info about the tsnet server for an appspace
-type TSNetAppspaceStatus struct {
-	AppspaceID      AppspaceID              `json:"appspace_id"`
+// TSNetStatus is info about the tsnet server
+type TSNetStatus struct {
 	ControlURL      string                  `json:"control_url"`
 	URL             string                  `json:"url,omitempty"`
 	IP4             string                  `json:"ip4,omitempty"`
@@ -734,6 +733,10 @@ type TSNetWarning struct {
 	Text                string `json:"text"`
 	Severity            string `json:"severity"`
 	ImpactsConnectivity bool   `json:"impacts_connectivity"`
+}
+type TSNetAppspaceStatus struct {
+	TSNetStatus
+	AppspaceID AppspaceID `json:"appspace_id"`
 }
 
 type TSNetUserDevice struct {
