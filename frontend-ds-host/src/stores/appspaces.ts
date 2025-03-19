@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, AppspaceTSNetStatus, TSNetWarning, AppspaceTSNetData, TSNetPeerUser, TSNetUserDevice } from './types';
+import { LoadState, Appspace, AppspaceStatus, TSNetUpdateData, TSNetStatus, TSNetWarning, TSNetPeerUser, TSNetUserDevice } from './types';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -11,15 +11,6 @@ type NewAppspaceData = {
 	domain_name: string,
 	subdomain: string,
 	dropid: string
-}
-
-type TSNetUpateData = {
-	control_url: string,
-	hostname: string,
-	connect: boolean,
-	auth_key?: string,
-	tags?: string[]
-	// add signin key
 }
 
 function tsnetPeerUsersFromRaw(raw:any) :TSNetPeerUser[] {
@@ -62,7 +53,7 @@ function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 	}
 }
 
-function tsnetStatusFromRaw(raw:any) :AppspaceTSNetStatus {
+function tsnetStatusFromRaw(raw:any) :TSNetStatus {
 	const warnings : TSNetWarning[] = [];
 	if( Array.isArray(raw.warnings) ) {
 		raw.warnings.forEach((w:any) => {
@@ -232,7 +223,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		a.value.paused = pause;
 	}
 
-	async function setTSNetData(appspace_id:number, tsnet_data:TSNetUpateData) {//todo change that type
+	async function setTSNetData(appspace_id:number, tsnet_data:TSNetUpdateData) {
 		const a = mustGetAppspace(appspace_id);
 		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet', tsnet_data);
 		// check that it returned OK!

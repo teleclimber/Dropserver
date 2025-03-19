@@ -146,7 +146,7 @@ export interface TSNetWarning {
 	severity: string,
 	impacts_connectivity: boolean
 }
-export interface AppspaceTSNetStatus {
+export interface TSNetStatus {
 	control_url: string,
 	url: string,
 	ip4: string,
@@ -167,7 +167,15 @@ export interface AppspaceTSNetStatus {
 	transitory: string
 }
 
-export interface AppspaceTSNetData {
+export interface TSNetUpdateData {
+	control_url: string,
+	hostname: string,
+	connect: boolean,
+	auth_key?: string,
+	tags?: string[]
+}
+
+export interface TSNetData {
 	control_url: string,
 	hostname: string,
 	connect: boolean
@@ -205,8 +213,8 @@ export interface Appspace {
 	upgrade_version: string|undefined,
 	status: AppspaceStatus,
 	ver_data: AppVersionUI | undefined,
-	tsnet_data: AppspaceTSNetData | undefined,
-	tsnet_status: AppspaceTSNetStatus
+	tsnet_data: TSNetData | undefined,
+	tsnet_status: TSNetStatus
 }
 
 export interface RemoteAppspace {
