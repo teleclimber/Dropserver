@@ -20,7 +20,7 @@ import UsageSummaryValue from '../components/UsageSummaryValue.vue';
 import LogViewer from '../components/ui/LogViewer.vue';
 import MessageSad from '@/components/ui/MessageSad.vue';
 import MinimalAppUrlData from '@/components/appspace/MinimalAppUrlData.vue';
-import ManageTSNetNode from '@/components/appspace/ManageTSNetNode.vue';
+import ManageAppspaceTSNet from '@/components/appspace/ManageAppspaceTSNet.vue';
 
 const props = defineProps<{
 	appspace_id: number
@@ -180,12 +180,12 @@ const data_schema_mismatch = computed( ()=> {
 				</div>
 			</div>
 
-			<ManageTSNetNode 
+			<ManageAppspaceTSNet 
 				v-if="appspace"
 				:appspace_id="appspace_id"
 				:suggested_name="tsnet_suggested_name"
 				:tsnet_data="appspace.tsnet_data"
-				:tsnet_status="appspace.tsnet_status"></ManageTSNetNode>
+				:tsnet_status="appspace.tsnet_status"></ManageAppspaceTSNet>
 
 			<ManageAppspaceUsers :appspace_id="appspace_id"></ManageAppspaceUsers>
 
