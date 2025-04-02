@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -35,19 +34,8 @@ func TestCreate(t *testing.T) {
 	hostname := "somenode"
 	connect := true
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(domain.AppspaceTSNetModelEvent{
-		Deleted: false,
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: aID,
-			ControlURL: controlURL,
-			Hostname:   hostname,
-			Connect:    connect},
-	})
-
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents,
+		DB: &domain.DB{Handle: h},
 	}
 
 	model.PrepareStatements()
@@ -62,15 +50,12 @@ func TestGet(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(gomock.Any())
-
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: &domain.DB{Handle: h},
+	}
 
 	model.PrepareStatements()
 
@@ -91,7 +76,15 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, ControlURL: controlURL, Hostname: "somenode", Connect: true}) {
+	expected := domain.AppspaceTSNet{
+		AppspaceID: aID,
+		TSNetCommon: domain.TSNetCommon{
+			ControlURL: controlURL,
+			Hostname:   "somenode",
+			Connect:    true,
+		},
+	}
+	if !reflect.DeepEqual(tsnet, expected) {
 		t.Error("Got wrong tsnet:", tsnet)
 	}
 }
@@ -105,25 +98,8 @@ func TestUpsert(t *testing.T) {
 
 	aID := domain.AppspaceID(7)
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(domain.AppspaceTSNetModelEvent{
-		Deleted: false,
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: aID,
-			ControlURL: "https://www.example.com",
-			Hostname:   "somenode",
-			Connect:    true}})
-	appspaceTSNetModelEvents.EXPECT().Send(domain.AppspaceTSNetModelEvent{
-		Deleted: false,
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: aID,
-			ControlURL: "https://www.example2.com",
-			Hostname:   "othernode",
-			Connect:    false}})
-
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: &domain.DB{Handle: h}}
 	model.PrepareStatements()
 
 	err := model.CreateOrUpdate(aID, "https://www.example.com", "somenode", true)
@@ -140,7 +116,14 @@ func TestUpsert(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !reflect.DeepEqual(tsnet, domain.AppspaceTSNet{AppspaceID: aID, ControlURL: "https://www.example2.com", Hostname: "othernode", Connect: false}) {
+	expected := domain.AppspaceTSNet{
+		AppspaceID: aID,
+		TSNetCommon: domain.TSNetCommon{
+			ControlURL: "https://www.example2.com",
+			Hostname:   "othernode",
+			Connect:    false,
+		}}
+	if !reflect.DeepEqual(tsnet, expected) {
 		t.Error("Got wrong tsnet:", tsnet)
 	}
 }
@@ -152,12 +135,8 @@ func TestSetConnect(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(gomock.Any()).Times(2)
-
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: &domain.DB{Handle: h}}
 	model.PrepareStatements()
 
 	aID := domain.AppspaceID(7)
@@ -193,12 +172,8 @@ func TestGetConnect(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(gomock.Any()).Times(3)
-
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: &domain.DB{Handle: h}}
 	model.PrepareStatements()
 
 	tsnets, err := model.GetAllConnect()
@@ -255,15 +230,8 @@ func TestDelete(t *testing.T) {
 
 	aID7 := domain.AppspaceID(7)
 
-	appspaceTSNetModelEvents := testmocks.NewMockAppspaceTSNetModelEvents(mockCtrl)
-	appspaceTSNetModelEvents.EXPECT().Send(gomock.Any())
-	appspaceTSNetModelEvents.EXPECT().Send(domain.AppspaceTSNetModelEvent{
-		Deleted:       true,
-		AppspaceTSNet: domain.AppspaceTSNet{AppspaceID: aID7}})
-
 	model := &AppspaceTSNetModel{
-		DB:                       &domain.DB{Handle: h},
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: &domain.DB{Handle: h}}
 	model.PrepareStatements()
 
 	err := model.CreateOrUpdate(aID7, "", "somenode", true)

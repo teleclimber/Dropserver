@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -20,14 +21,6 @@ import (
 	"tailscale.com/tailcfg"
 	"tailscale.com/tsnet"
 )
-
-type tsNodeConfig struct {
-	controlURL string
-	hostname   string
-	connect    bool
-	authKey    string
-	tags       []string
-}
 
 // TSNetNode ref controls a tsnet node for use in http serving
 type TSNetNode struct {
@@ -45,8 +38,7 @@ type TSNetNode struct {
 
 	tsnetDir string
 
-	desiredConfig tsNodeConfig
-	deleteNode    bool
+	//createConfig domain.TSNetCreateConfig // oh no soem of this data is used to regular connect too!!
 
 	servMux     sync.Mutex
 	tsnetServer *tsnet.Server
@@ -55,45 +47,116 @@ type TSNetNode struct {
 
 	busWatcherCtxCancel context.CancelFunc
 
+	transitoryMux   sync.Mutex
+	transitoryState transitory
+
 	nodeStatus tsNodeStatus
 
 	usersMux sync.Mutex
 	users    []tsUser
 }
 
-func (n *TSNetNode) setConfig(config tsNodeConfig) {
-	if n.deleteNode {
-		return
+// createTailnetNode creates a new node on the tailnet using the
+// config. It expects an empty tailscaled dir
+func (n *TSNetNode) createTailnetNode(config domain.TSNetCreateConfig) error {
+	if !n.setTransitory(transitoryConnect) {
+		return errors.New("unable to create node: transitory state in effect")
 	}
-	n.servMux.Lock()
-	defer n.servMux.Unlock()
-	n.desiredConfig = config
-	if n.tsnetServer == nil { // nil implies fully stopped and ready to start again with new config
-		if config.connect {
-			go n.startNode()
-		}
-	} else {
-		if !config.connect {
-			n.getLogger("setConfig").Debug("connect:false, calling stop")
-			go n.stop()
-		} else {
-			if config.controlURL != n.tsnetServer.ControlURL {
-				// restart. But this requires much more because the locally saved files must be deleted.
-				// This is likely better handled externally, so just stop the node if ith's the wrong controlURL.
-				n.getLogger("setConfig").Debug(fmt.Sprintf("control url changed %s -> %s, calling stop", config.controlURL, n.tsnetServer.ControlURL))
-				go n.stop()
-				// delete files?
-				//n.createNode("")
-			} else if config.hostname != n.tsnetServer.Hostname {
-				// TODO How to use edit prefs?
-				n.getLogger("setConfig").Debug(fmt.Sprintf("hostname changed %s -> %s, nothing for now", config.hostname, n.tsnetServer.Hostname))
 
-			}
-		}
+	hasF, err := n.hasFiles()
+	if err != nil {
+		return err
 	}
+	if hasF {
+		n.unsetTransitory()
+		return errors.New("unable to create node: local data already exists")
+	}
+
+	err = n.createServer(createConfig{
+		controlURL: config.ControlURL,
+		hostname:   config.Hostname,
+		authKey:    config.AuthKey,
+	})
+	if err != nil {
+		n.unsetTransitory()
+		return err
+	}
+
+	go n.startNode(config.Tags) // goroutine allows caller to call synchronously and get errors above.
+
+	return nil
 }
 
-func (n *TSNetNode) createServer() error {
+// connect the tsnet node. Expects the node to exist
+// with local tailscaled files present
+func (n *TSNetNode) connect(config domain.TSNetCommon) error {
+	if !n.setTransitory(transitoryConnect) {
+		return errors.New("unable to connect node: transitory state in effect")
+	}
+
+	hasF, err := n.hasFiles()
+	if err != nil {
+		n.unsetTransitory()
+		return err
+	}
+	if !hasF {
+		n.unsetTransitory()
+		return errors.New("unable to connect node: no local data for the node")
+	}
+
+	err = n.createServer(createConfig{
+		controlURL: config.ControlURL,
+		hostname:   config.Hostname,
+	})
+	if err != nil {
+		n.unsetTransitory()
+		return err
+	}
+
+	go n.startNode(nil)
+
+	return nil
+}
+func (n *TSNetNode) delete() error {
+	// check gthings??
+	err := n.stop()
+	if err != nil {
+		return err
+	}
+	return n.deleteFiles()
+}
+
+// hasFiles returns true if there are any files or directories
+// inside the tailscaled directory
+func (n *TSNetNode) hasFiles() (bool, error) {
+	entries, err := os.ReadDir(n.tsnetDir)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		n.getLogger("hasFiles ReadDir").Error(err)
+		return false, err
+	}
+	return len(entries) != 0, nil
+}
+func (n *TSNetNode) deleteFiles() error {
+	// check to make sure the node is actually stopped?
+	err := os.RemoveAll(n.tsnetDir)
+	if err != nil {
+		n.getLogger("deleteFiles").Error(err)
+		return err
+	}
+	return nil
+}
+
+type createConfig struct {
+	controlURL string // always needed
+	hostname   string // always needed
+	authKey    string // optional
+}
+
+// createServer creates an instance of tsnet.Server.
+func (n *TSNetNode) createServer(config createConfig) error {
 	n.servMux.Lock()
 	defer n.servMux.Unlock()
 
@@ -105,9 +168,9 @@ func (n *TSNetNode) createServer() error {
 	s := new(tsnet.Server)
 
 	s.Dir = n.tsnetDir
-	s.Hostname = n.desiredConfig.hostname
-	s.ControlURL = n.desiredConfig.controlURL
-	s.AuthKey = n.desiredConfig.authKey
+	s.Hostname = config.hostname
+	s.ControlURL = config.controlURL
+	s.AuthKey = config.authKey
 
 	s.Logf = nil
 	s.UserLogf = func(format string, args ...any) {
@@ -121,14 +184,12 @@ func (n *TSNetNode) createServer() error {
 	return nil
 }
 
-func (n *TSNetNode) startNode() error {
+func (n *TSNetNode) startNode(tags []string) error {
 	logger := n.getLogger("startNode")
 
-	n.nodeStatus.transitory = "connecting"
-	go n.sendStatus()
-
-	err := n.createServer()
-	if err != nil {
+	if n.tsnetServer == nil {
+		err := errors.New("tsnetServer is nil") // maybe this is a panic..
+		n.getLogger("startNode").Error(err)
 		return err
 	}
 
@@ -138,13 +199,13 @@ func (n *TSNetNode) startNode() error {
 		return err
 	}
 
-	if len(n.desiredConfig.tags) != 0 {
-		tags := make([]string, len(n.desiredConfig.tags))
-		for i, t := range n.desiredConfig.tags {
-			tags[i] = fmt.Sprintf("tag:%s", t)
+	if len(tags) != 0 {
+		ts := make([]string, len(tags))
+		for i, t := range tags {
+			ts[i] = fmt.Sprintf("tag:%s", t)
 		}
 		maskedPrefs := ipn.MaskedPrefs{
-			Prefs:            ipn.Prefs{AdvertiseTags: tags},
+			Prefs:            ipn.Prefs{AdvertiseTags: ts},
 			AdvertiseTagsSet: true}
 		lc.EditPrefs(context.Background(), &maskedPrefs)
 	}
@@ -189,7 +250,9 @@ func (n *TSNetNode) startNode() error {
 				logger.Clone().AddNote("buswatcher lc.Status()").Error(err)
 			}
 
-			if n.nodeStatus.ingest(newData, lcStatus) {
+			tChanged := n.updateConnectTransitory(newData.State)
+			iChanged := n.nodeStatus.ingest(newData, lcStatus)
+			if tChanged || iChanged {
 				n.sendStatus()
 			}
 
@@ -273,24 +336,26 @@ func (n *TSNetNode) handler(ln net.Listener) {
 	}
 }
 
-func (n *TSNetNode) stop() {
+func (n *TSNetNode) stop() error {
 	n.servMux.Lock()
 	defer n.servMux.Unlock()
 
-	if n.tsnetServer == nil {
-		return
-	}
-	n.nodeStatus.transitory = "disconnecting"
-	go n.sendStatus()
+	n.setTransitory(transitoryDisconnect)
 
-	n.ln80.Close()
+	if n.ln80 != nil {
+		n.ln80.Close()
+		n.ln80 = nil
+	}
 	if n.ln443 != nil {
 		n.ln443.Close()
 		n.ln443 = nil
 	}
-	err := n.tsnetServer.Close()
-	if err != nil {
-		n.getLogger("stop Close()").Error(err)
+	if n.tsnetServer != nil {
+		err := n.tsnetServer.Close()
+		if err != nil {
+			n.getLogger("stop Close()").Error(err)
+			return err
+		}
 	}
 	if n.busWatcherCtxCancel != nil {
 		n.busWatcherCtxCancel()
@@ -298,7 +363,70 @@ func (n *TSNetNode) stop() {
 	}
 	n.tsnetServer = nil
 	n.nodeStatus.reset()
-	go n.sendStatus()
+	n.unsetTransitory()
+
+	return nil
+}
+
+type transitory int
+
+const (
+	transitoryNone transitory = iota
+	transitoryConnect
+	transitoryDisconnect
+)
+
+func (t transitory) String() string {
+	switch t {
+	case transitoryNone:
+		return ""
+	case transitoryConnect:
+		return "connect"
+	case transitoryDisconnect:
+		return "disconnect"
+	}
+	panic("unhandled transitory value")
+}
+
+func (n *TSNetNode) setTransitory(newState transitory) bool {
+	n.transitoryMux.Lock()
+	defer n.transitoryMux.Unlock()
+
+	// allow change to transitory state if it was none,
+	// or if it is changing from connect to disconnect.
+	// (to allow stopping stuck connects)
+	if n.transitoryState == transitoryNone ||
+		(n.transitoryState == transitoryConnect && newState == transitoryDisconnect) {
+		n.transitoryState = newState
+		go n.sendStatus()
+		return true
+	}
+	return false
+}
+func (n *TSNetNode) unsetTransitory() {
+	n.transitoryMux.Lock()
+	defer n.transitoryMux.Unlock()
+	n.transitoryState = transitoryNone
+	go n.sendStatus() // this may actually be more of a pain thatn worth it
+}
+
+// updateConnectTransitory unsets the transitory state
+// if transitory state was connect and
+// the ipn state indicates it's running
+func (n *TSNetNode) updateConnectTransitory(state *ipn.State) bool {
+	if state == nil {
+		return false
+	}
+	n.transitoryMux.Lock()
+	defer n.transitoryMux.Unlock()
+
+	if n.transitoryState == transitoryConnect &&
+		(*state == ipn.Running || *state == ipn.NeedsLogin || *state == ipn.NeedsMachineAuth) {
+		// note that right now we don't get "NeedsLogin" anymore. We used to.
+		n.transitoryState = transitoryNone
+		return true
+	}
+	return false
 }
 
 // might need a context here that gets passed to WhoIsNodeKey
@@ -362,7 +490,9 @@ func (n *TSNetNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeV
 }
 
 func (n *TSNetNode) sendStatus() {
-	n.TSNetStatusEvents.Send(n.getStatus())
+	if n.TSNetStatusEvents != nil { // nil check so tests don't have to mock this
+		n.TSNetStatusEvents.Send(n.getStatus())
+	}
 }
 
 func (n *TSNetNode) getStatus() domain.TSNetStatus {
@@ -370,6 +500,9 @@ func (n *TSNetNode) getStatus() domain.TSNetStatus {
 	stat.ListeningTLS = n.ln443 != nil
 	stat.URL = n.buildURL()
 	stat.ControlURL = n.userFacingControlURL()
+	n.transitoryMux.Lock()
+	defer n.transitoryMux.Unlock()
+	stat.Transitory = n.transitoryState.String()
 	return stat
 }
 
@@ -435,8 +568,6 @@ type tsNodeStatus struct {
 	browseToURL    string
 	loginFinished  bool
 	warnings       map[string]health.UnhealthyState
-	transitory     string // "" or "connect" or "disconnect" ["deleting"?] indicates if server was commanded to start or to stop.
-	// TODO add node expiry
 }
 
 // ingest note that any part of the status is non-nil only if it changed.
@@ -482,9 +613,6 @@ func (n *tsNodeStatus) ingest(data ipn.Notify, lcStatus *ipnstate.Status) (chang
 	if data.State != nil {
 		changed = true
 		n.state = data.State.String()
-		if *data.State == ipn.Running || *data.State == ipn.NeedsLogin || *data.State == ipn.NeedsMachineAuth {
-			n.transitory = ""
-		}
 	}
 	if data.BrowseToURL != nil {
 		changed = true
@@ -557,7 +685,6 @@ func (n *tsNodeStatus) reset() {
 	n.browseToURL = ""
 	n.loginFinished = false
 	//n.warnings = ""
-	n.transitory = ""
 }
 
 func (n *tsNodeStatus) asDomain() domain.TSNetStatus {
@@ -585,7 +712,6 @@ func (n *tsNodeStatus) asDomain() domain.TSNetStatus {
 		BrowseToURL:     n.browseToURL,
 		LoginFinished:   n.loginFinished,
 		Warnings:        warnings,
-		Transitory:      n.transitory,
 	}
 	return ret
 }

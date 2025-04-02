@@ -13,10 +13,6 @@ import (
 type AppspaceTSNetModel struct {
 	DB *domain.DB
 
-	AppspaceTSNetModelEvents interface {
-		Send(domain.AppspaceTSNetModelEvent)
-	} `checkinject:"required"`
-
 	stmt struct {
 		upsert         *sqlx.Stmt
 		delete         *sqlx.Stmt
@@ -39,8 +35,6 @@ func (m *AppspaceTSNetModel) PrepareStatements() {
 		SET control_url = ?, hostname = ?, connect = ?`)
 
 	m.stmt.setConnect = p.Prep(`UPDATE appspace_tsnet SET connect = ? WHERE appspace_id = ?`)
-
-	// set hostname?
 
 	m.stmt.delete = p.Prep(`DELETE FROM appspace_tsnet WHERE appspace_id = ?`)
 }
@@ -72,7 +66,6 @@ func (m *AppspaceTSNetModel) CreateOrUpdate(appspaceID domain.AppspaceID, contro
 	if err != nil {
 		m.getLogger("CreateTSNet() upsert").AppspaceID(appspaceID).Error(err)
 	}
-	m.sendModifiedEvent(appspaceID)
 	return err
 }
 
@@ -81,7 +74,6 @@ func (m *AppspaceTSNetModel) SetConnect(appspaceID domain.AppspaceID, connect bo
 	if err != nil {
 		m.getLogger("SetConnect() update").AppspaceID(appspaceID).Error(err)
 	}
-	m.sendModifiedEvent(appspaceID)
 	return err
 }
 
@@ -90,31 +82,7 @@ func (m *AppspaceTSNetModel) Delete(appspaceID domain.AppspaceID) error {
 	if err != nil {
 		m.getLogger("Delete() delete").AppspaceID(appspaceID).Error(err)
 	}
-
-	m.AppspaceTSNetModelEvents.Send(domain.AppspaceTSNetModelEvent{
-		Deleted: true,
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: appspaceID,
-		},
-	})
-
 	return err
-}
-
-func (m *AppspaceTSNetModel) sendModifiedEvent(appspaceID domain.AppspaceID) {
-	data, err := m.Get(appspaceID)
-	if err != nil {
-		return
-	}
-	m.AppspaceTSNetModelEvents.Send(domain.AppspaceTSNetModelEvent{
-		Deleted: false,
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: appspaceID,
-			ControlURL: data.ControlURL,
-			Hostname:   data.Hostname,
-			Connect:    data.Connect,
-		},
-	})
 }
 
 func (m *AppspaceTSNetModel) getLogger(note string) *record.DsLogger {

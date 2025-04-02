@@ -2,11 +2,76 @@ package server
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"tailscale.com/ipn/ipnstate"
 )
+
+func TestHasFiles(t *testing.T) {
+	dir, err := os.MkdirTemp("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	n := &TSNetNode{
+		tsnetDir: filepath.Join(dir, "blah")}
+
+	has, err := n.hasFiles()
+	if err != nil {
+		t.Error(err)
+	}
+	if has {
+		t.Error("expected false")
+	}
+
+	n.tsnetDir = dir
+	has, err = n.hasFiles()
+	if err != nil {
+		t.Error(err)
+	}
+	if has {
+		t.Error("expected false")
+	}
+
+	err = os.WriteFile(filepath.Join(dir, "bar.txt"), make([]byte, 10), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+	has, err = n.hasFiles()
+	if err != nil {
+		t.Error(err)
+	}
+	if !has {
+		t.Error("expected true")
+	}
+}
+
+func TestTransitory(t *testing.T) {
+	n := &TSNetNode{}
+	n.setTransitory(transitoryConnect)
+	if n.transitoryState != transitoryConnect {
+		t.Error("expected transitoryConnect")
+	}
+	n.unsetTransitory()
+	if n.transitoryState != transitoryNone {
+		t.Error("expected transitoryNone")
+	}
+	n.setTransitory(transitoryDisconnect)
+	if n.transitoryState != transitoryDisconnect {
+		t.Error("expected transitoryDisconnect")
+	}
+	ret := n.setTransitory(transitoryConnect)
+	if ret {
+		t.Error("expected false since we can't change from disconnect to connect")
+	}
+	if n.transitoryState != transitoryDisconnect {
+		t.Error("expected transitoryDisconnect")
+	}
+}
 
 func TestFullIdentifier(t *testing.T) {
 	cases := []struct {

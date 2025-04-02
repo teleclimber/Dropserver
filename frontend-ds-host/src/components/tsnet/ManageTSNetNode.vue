@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 
-import type { TSNetData, TSNetStatus, TSNetUpdateData } from '@/stores/types';
+import type { TSNetData, TSNetStatus, TSNetCreateConfig } from '@/stores/types';
 
 import DataDef from '@/components/ui/DataDef.vue';
 import MessageWarn from '@/components/ui/MessageWarn.vue';
@@ -17,7 +17,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'config-saved', config: TSNetUpdateData): void,
+  (e: 'create-node', config: TSNetCreateConfig): void,
   (e: 'set-connect', connect: boolean): void,
   (e: 'delete'): void
 }>();
@@ -36,12 +36,15 @@ function showEditConfig() {
 	show_edit_config.value = true;
 }
 
-async function saveConfig() {
-	emit('config-saved', {
+async function createNode() {
+	//TODO validate before save and also while editing.
+	// control url and hostname
+	// control url should be a domain or url
+	// hostname valid chars?
+	emit('create-node', {
 		control_url:control_url.value,
 		hostname: hostname.value,
 		auth_key: auth_key.value,
-		connect: connect.value,
 		tags: tagsFromString(tags.value)
 	});
 	show_edit_config.value = false;
@@ -70,10 +73,10 @@ const show_users = ref(false);
 		<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
 			<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
 			<div>
-				<span v-if="tsnet_status.transitory == 'connecting'" class="p-2 bg-gray-200 text-gray-700">
+				<span v-if="tsnet_status.transitory == 'connect'" class="p-2 bg-gray-200 text-gray-700">
 					Connecting...
 				</span>
-				<span v-else-if="tsnet_status.transitory == 'disconnecting'" class="p-2 bg-gray-200 text-gray-700">
+				<span v-else-if="tsnet_status.transitory == 'disconnect'" class="p-2 bg-gray-200 text-gray-700">
 					Disconnecting...
 				</span>
 				<button v-else-if="!tsnet_data" @click.stop.prevent="showEditConfig()" :disabled="show_edit_config" class="btn btn-blue">
@@ -108,7 +111,7 @@ const show_users = ref(false);
 			</ul>
 		</MessageWarn>
 		
-		<div v-if="tsnet_status.browse_to_url !== '' && !tsnet_status.login_finished && tsnet_status.transitory != 'disconnecting'" class="px-4 sm:px-6 my-5">
+		<div v-if="tsnet_status.browse_to_url !== '' && !tsnet_status.login_finished && tsnet_status.transitory != 'disconnect'" class="px-4 sm:px-6 my-5">
 			<p>The node needs to be authenticated. Click this link and follow the instructions:</p>
 			<p><a class="text-blue-700 hover:text-blue-500 underline" :href="tsnet_status.browse_to_url" target="_blank">
 				{{ tsnet_status.browse_to_url }}
@@ -120,8 +123,8 @@ const show_users = ref(false);
 			</div>
 		</div>
 		<div v-else-if="tsnet_status.transitory" class="px-4 sm:px-6 my-5">
-			<p v-if="tsnet_status.transitory == 'connecting'">Connecting...</p>
-			<p v-else-if="tsnet_status.transitory == 'disconnecting'">Disconnecting...</p>
+			<p v-if="tsnet_status.transitory == 'connect'">Connecting...</p>
+			<p v-else-if="tsnet_status.transitory == 'disconnect'">Disconnecting...</p>
 		</div>
 		<div v-else-if="tsnet_data" class="px-4 sm:px-6 my-5">
 			<template v-if="tsnet_status.state == '' || tsnet_status.state == 'Off'">
@@ -188,7 +191,7 @@ const show_users = ref(false);
 			<p>{{ for_appspace ? 'Connect this appspace to a tailnet.' : 'Connect this instance to a tailnet.' }}
 				This will create a node on the tailnet with its own address.
 				You can also connect to alternative control servers such as a Headscale instance.</p>
-			<form @submit.prevent="saveConfig" @keyup.esc="show_edit_config = !show_edit_config">
+			<form @submit.prevent="createNode" @keyup.esc="show_edit_config = !show_edit_config">
 				<DataDef field="Hostname:">
 					<input type="text" v-model="hostname"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">

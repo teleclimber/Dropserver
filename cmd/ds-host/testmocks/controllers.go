@@ -58,7 +58,10 @@ type AppspaceStatus interface {
 }
 
 type AppspaceTSNet interface {
-	UpdateAppspace(domain.UpdateAppspaceTSNet)
+	Create(domain.AppspaceID, domain.TSNetCreateConfig) error
+	Connect(domain.AppspaceID) error
+	Disconnect(domain.AppspaceID)
+	Delete(domain.AppspaceID) error
 	GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 	GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 }

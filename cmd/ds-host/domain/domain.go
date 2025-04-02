@@ -282,8 +282,15 @@ type SignupViewData struct {
 // Data Models:
 
 // Settings represents admin-settable parameters
+type UserTSNetSettings struct {
+	ControlURL string `db:"tsnet_control_url" json:"control_url"`
+	Hostname   string `db:"tsnet_hostname" json:"hostname"`
+	Connect    bool   `db:"tsnet_connect" json:"connect"`
+}
+
 type Settings struct {
-	RegistrationOpen bool `json:"registration_open" db:"registration_open"` //may not need json here?
+	UserTSNetSettings
+	RegistrationOpen bool `json:"registration_open" db:"registration_open"`
 }
 
 // UserID represents the user ID
@@ -521,20 +528,25 @@ type Appspace struct {
 	// Config AppspaceConfig ..this one is harder
 }
 
-// AppspaceTSNet contains the appspace's tailscale node config data
-type AppspaceTSNet struct {
-	AppspaceID AppspaceID `db:"appspace_id" json:"-"`
-	ControlURL string     `db:"control_url" json:"control_url"`
-	Hostname   string     `db:"hostname" json:"hostname"`
-	Connect    bool       `db:"connect" json:"connect"`
+// TSNetCommon is the tsnet data that is stored for both
+// appspace and user tsnet nodes
+type TSNetCommon struct {
+	ControlURL string `db:"control_url" json:"control_url"`
+	Hostname   string `db:"hostname" json:"hostname"`
+	Connect    bool   `db:"connect" json:"connect"`
 }
 
-type UpdateAppspaceTSNet struct {
-	AppspaceTSNet
-	Tags    []string `json:"tags"`
-	AuthKey string   `json:"auth_key"`
-	Deleted bool     `json:"deleted"`
-	// signin key
+// AppspaceTSNet contains the appspace's tailscale node config data
+type AppspaceTSNet struct {
+	TSNetCommon
+	AppspaceID AppspaceID `db:"appspace_id" json:"-"`
+}
+
+type TSNetCreateConfig struct {
+	ControlURL string   `json:"control_url"`
+	Hostname   string   `json:"hostname"`
+	Tags       []string `json:"tags"`
+	AuthKey    string   `json:"auth_key"`
 }
 
 type RemoteAppspace struct {

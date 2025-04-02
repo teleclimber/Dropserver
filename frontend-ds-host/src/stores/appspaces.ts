@@ -3,7 +3,8 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, TSNetUpdateData, TSNetStatus, TSNetWarning, TSNetPeerUser, TSNetUserDevice } from './types';
+import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser } from './types';
+import { tsnetDataFromRaw, tsnetPeerUsersFromRaw, tsnetStatusFromRaw } from './helpers/tsnet';
 
 type NewAppspaceData = {
 	app_id:number,
@@ -11,33 +12,6 @@ type NewAppspaceData = {
 	domain_name: string,
 	subdomain: string,
 	dropid: string
-}
-
-function tsnetPeerUsersFromRaw(raw:any) :TSNetPeerUser[] {
-	if( !Array.isArray(raw) ) return [];
-	return raw.map( (r:any) => {
-		let devices :TSNetUserDevice[] = [];
-		if( Array.isArray(r.devices) ) devices = r.devices.map( (d:any) => {
-			return {
-				id: d.id+'',
-				name: d.name +'',
-				online: d.online,
-				last_seen: typeof d.last_seen === 'undefined' ? undefined : new Date(d.last_seen),
-				os: d.os+'',
-				device_model: d.device_model+'',
-				app: d.app+'',
-			}
-		});
-		return {
-			id: r.id+'',
-			full_id: r.full_id+'',
-			control_url: r.control_url+'',
-			login_name: r.login_name+'',
-			display_name: r.display_name+'',
-			sharee: !!r.sharee,
-			devices: devices
-		}
-	});
 }
 
 function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
@@ -51,51 +25,6 @@ function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 		app_version_schema: Number(raw.app_version_schema),
 		problem: !!raw.problem
 	}
-}
-
-function tsnetStatusFromRaw(raw:any) :TSNetStatus {
-	const warnings : TSNetWarning[] = [];
-	if( Array.isArray(raw.warnings) ) {
-		raw.warnings.forEach((w:any) => {
-			warnings.push({
-				title: raw.title+'',
-				text: raw.text+'',
-				severity: raw.severuty+'',
-				impacts_connectivity: !! raw.impacts_connectivity
-			})
-		});
-	}
-	return {
-		control_url: strFromRaw(raw.control_url),
-		url: strFromRaw(raw.url),
-		ip4: strFromRaw(raw.ip4),
-		ip6: strFromRaw(raw.ip6),
-		listening_tls: !!raw.listening_tls,
-		tailnet: strFromRaw(raw?.tailnet),
-		key_expiry: raw.key_expiry ? new Date(raw.key_expiry) : undefined,
-		name: strFromRaw(raw.name),
-		https_available: !!raw.https_available,
-		magic_dns_enabled: !!raw.magic_dns_enabled,
-		tags: raw.tags|| [],
-		err_message: strFromRaw(raw?.err_message),
-		state: strFromRaw(raw?.state),
-		usable: !!raw?.usable,
-		browse_to_url: strFromRaw(raw?.browse_to_url),
-		login_finished: !!raw?.login_finished,
-		warnings,
-		transitory: strFromRaw(raw.transitory)
-	}
-}
-function appspaceTSNetFromRaw(raw:any) {
-	return {
-		control_url: strFromRaw(raw.control_url),
-		hostname: strFromRaw(raw.hostname),
-		connect: !!raw.connect
-	}
-}
-function strFromRaw(raw:any) :string {
-	if( !raw ) return '';
-	return raw+'';
 }
 
 function appspaceFromRaw(raw:any) :Appspace {
@@ -113,7 +42,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 		tsnet_status: tsnetStatusFromRaw(raw.tsnet_status),
 		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
 		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined,
-		tsnet_data: raw.tsnet_data ? appspaceTSNetFromRaw(raw.tsnet_data) : undefined
+		tsnet_data: tsnetDataFromRaw(raw.tsnet_data)
 	}
 }
 
@@ -223,14 +152,27 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		a.value.paused = pause;
 	}
 
-	async function setTSNetData(appspace_id:number, tsnet_data:TSNetUpdateData) {
+	async function createTSNetNode(appspace_id:number, config :TSNetCreateConfig ) {
 		const a = mustGetAppspace(appspace_id);
-		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet', tsnet_data);
+		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet', config);
 		// check that it returned OK!
 		// set the value  on local data !
-		a.value.tsnet_data = tsnet_data;
+		a.value.tsnet_data = {
+			connect:true,
+			control_url:config.control_url,
+			hostname: config.hostname
+		};
 		triggerRef(a);
 	}
+
+	async function connectTSNetNode(appspace_id:number, connect:boolean) {
+		const a = mustGetAppspace(appspace_id);
+		if( !a.value.tsnet_data ) throw new Error("Expected tsnet data to connect");
+		const data = await ax.post('/api/appspace/'+appspace_id+'/tsnet/connect', {connect});
+		a.value.tsnet_data.connect = connect;
+		triggerRef(a);
+	}
+
 	async function deleteTSNetData(appspace_id:number) {
 		const a = mustGetAppspace(appspace_id);
 		const data = await ax.delete('/api/appspace/'+appspace_id+'/tsnet');
@@ -277,7 +219,7 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		getAppspacesForAppVersion,
 		createAppspace,
 		setPause,
-		setTSNetData, deleteTSNetData,
+		createTSNetNode, connectTSNetNode, deleteTSNetData,
 		watchTSNetPeerUsers, unWatchTSNetPeerUsers,
 		deleteAppspace
 	}

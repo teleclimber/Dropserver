@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 
-import type { TSNetData, TSNetStatus, AppspaceUser, TSNetUpdateData } from '@/stores/types';
+import type { TSNetData, TSNetStatus, AppspaceUser, TSNetCreateConfig } from '@/stores/types';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppspaceUsersStore } from '@/stores/appspace_users';
@@ -18,17 +18,13 @@ const props = defineProps<{
 const appspacesStore = useAppspacesStore();
 const appspaceUsersStore = useAppspaceUsersStore();
 
-async function saveTSNetConfig(config :TSNetUpdateData) {
-	await appspacesStore.setTSNetData(props.appspace_id, config);
+async function saveTSNetConfig(config :TSNetCreateConfig) {
+	await appspacesStore.createTSNetNode(props.appspace_id, config);
 }
 
 async function tsnetSetConnect(connect:boolean) {
 	if( !props.tsnet_data ) return;
-	await appspacesStore.setTSNetData(props.appspace_id, {
-		control_url: props.tsnet_data.control_url,
-		hostname: props.tsnet_data.hostname,
-		connect: connect
-	});
+	await appspacesStore.connectTSNetNode(props.appspace_id, connect);
 }
 
 async function tsnetDeleteConfig() {
@@ -60,7 +56,7 @@ const tsnet_peer_matched_users = computed( () => {
 		:suggested_name="suggested_name"
 		:num_peers="tsnet_peer_users?.length || 0"
 		:num_matched_peers="tsnet_peer_matched_users.size"
-		@config-saved="saveTSNetConfig"
+		@create-node="saveTSNetConfig"
 		@set-connect="tsnetSetConnect"
 		@delete="tsnetDeleteConfig">
 

@@ -12,7 +12,9 @@ type SubscribeIDs interface {
 		domain.AppspaceID
 }
 type DataTypes interface {
-	domain.AppURLData |
+	struct{} |
+		domain.TSNetStatus |
+		domain.AppURLData |
 		domain.AppspaceID |
 		domain.AppspaceStatusEvent |
 		domain.AppspaceTSNetModelEvent |

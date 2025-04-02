@@ -126,7 +126,6 @@ func main() {
 	eventRelations := &events.Relations{}
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
-	appspaceTSNetModelEvents := &events.AppspaceTSNetModelEvents{} // not currently used.
 	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{
 		Relations: eventRelations}
 	appspaceTSNetPeersEvents := &events.AppspaceTSNetPeersEvents{
@@ -174,8 +173,7 @@ func main() {
 		AppspaceFilesEvents: appspaceFilesEvents}
 
 	appspaceTSNetModel := &appspacetsnetmodel.AppspaceTSNetModel{
-		DB:                       db,
-		AppspaceTSNetModelEvents: appspaceTSNetModelEvents}
+		DB: db}
 	appspaceTSNetModel.PrepareStatements()
 
 	appspaceModel := &appspacemodel.AppspaceModel{

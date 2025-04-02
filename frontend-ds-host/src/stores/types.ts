@@ -167,12 +167,11 @@ export interface TSNetStatus {
 	transitory: string
 }
 
-export interface TSNetUpdateData {
+export interface TSNetCreateConfig {
 	control_url: string,
 	hostname: string,
-	connect: boolean,
-	auth_key?: string,
-	tags?: string[]
+	auth_key: string,
+	tags: string[]
 }
 
 export interface TSNetData {

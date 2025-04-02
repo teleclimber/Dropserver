@@ -546,6 +546,60 @@ func (m *MockAppspaceTSNet) EXPECT() *MockAppspaceTSNetMockRecorder {
 	return m.recorder
 }
 
+// Connect mocks base method
+func (m *MockAppspaceTSNet) Connect(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Connect", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Connect indicates an expected call of Connect
+func (mr *MockAppspaceTSNetMockRecorder) Connect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockAppspaceTSNet)(nil).Connect), arg0)
+}
+
+// Create mocks base method
+func (m *MockAppspaceTSNet) Create(arg0 domain.AppspaceID, arg1 domain.TSNetCreateConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Create indicates an expected call of Create
+func (mr *MockAppspaceTSNetMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAppspaceTSNet)(nil).Create), arg0, arg1)
+}
+
+// Delete mocks base method
+func (m *MockAppspaceTSNet) Delete(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockAppspaceTSNetMockRecorder) Delete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAppspaceTSNet)(nil).Delete), arg0)
+}
+
+// Disconnect mocks base method
+func (m *MockAppspaceTSNet) Disconnect(arg0 domain.AppspaceID) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Disconnect", arg0)
+}
+
+// Disconnect indicates an expected call of Disconnect
+func (mr *MockAppspaceTSNetMockRecorder) Disconnect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockAppspaceTSNet)(nil).Disconnect), arg0)
+}
+
 // GetPeerUsers mocks base method
 func (m *MockAppspaceTSNet) GetPeerUsers(arg0 domain.AppspaceID) []domain.TSNetPeerUser {
 	m.ctrl.T.Helper()
@@ -572,18 +626,6 @@ func (m *MockAppspaceTSNet) GetStatus(arg0 domain.AppspaceID) domain.TSNetAppspa
 func (mr *MockAppspaceTSNetMockRecorder) GetStatus(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatus", reflect.TypeOf((*MockAppspaceTSNet)(nil).GetStatus), arg0)
-}
-
-// UpdateAppspace mocks base method
-func (m *MockAppspaceTSNet) UpdateAppspace(arg0 domain.UpdateAppspaceTSNet) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UpdateAppspace", arg0)
-}
-
-// UpdateAppspace indicates an expected call of UpdateAppspace
-func (mr *MockAppspaceTSNetMockRecorder) UpdateAppspace(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAppspace", reflect.TypeOf((*MockAppspaceTSNet)(nil).UpdateAppspace), arg0)
 }
 
 // MockAppspaceRouter is a mock of AppspaceRouter interface

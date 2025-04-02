@@ -2,6 +2,7 @@ package userroutes
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -48,13 +49,17 @@ type AppspaceRoutes struct {
 	AppspaceTSNetModel interface {
 		Get(domain.AppspaceID) (domain.AppspaceTSNet, error)
 		CreateOrUpdate(appspaceID domain.AppspaceID, backendURL string, hostname string, connect bool) error
+		SetConnect(domain.AppspaceID, bool) error
 		Delete(domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceStatus interface {
 		Get(domain.AppspaceID) domain.AppspaceStatusEvent
 	} `checkinject:"required"`
 	AppspaceTSNet interface {
-		UpdateAppspace(domain.UpdateAppspaceTSNet)
+		Create(domain.AppspaceID, domain.TSNetCreateConfig) error
+		Connect(domain.AppspaceID) error
+		Disconnect(domain.AppspaceID)
+		Delete(domain.AppspaceID) error
 		GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 		GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 	} `checkinject:"required"`
@@ -96,7 +101,8 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 		r.Get("/usage", a.getUsage)
 		r.Post("/pause", a.changeAppspacePause)
 		r.Get("/tsnet/peerusers", a.getTSNetPeerUsers)
-		r.Post("/tsnet", a.updateTSNet)
+		r.Post("/tsnet/connect", a.connectTSNet)
+		r.Post("/tsnet", a.createTSNet)
 		r.Delete("/tsnet", a.deleteTSNet)
 		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
@@ -374,26 +380,65 @@ func (a *AppspaceRoutes) getTSNetPeerUsers(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, users)
 }
 
-func (a *AppspaceRoutes) updateTSNet(w http.ResponseWriter, r *http.Request) {
+func (a *AppspaceRoutes) createTSNet(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 
-	reqData := domain.UpdateAppspaceTSNet{}
+	reqData := domain.TSNetCreateConfig{}
 	err := readJSON(r, &reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	reqData.AppspaceID = appspace.AppspaceID
 
-	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.ControlURL, reqData.Hostname, reqData.Connect)
+	// TODO validate inputs...
+
+	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.ControlURL, reqData.Hostname, true)
 	if err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 
-	go a.AppspaceTSNet.UpdateAppspace(reqData)
+	err = a.AppspaceTSNet.Create(appspace.AppspaceID, reqData)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+type ConnectReq struct {
+	Connect bool `json:"connect"`
+}
+
+func (a *AppspaceRoutes) connectTSNet(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+
+	fmt.Println("in connectTSNET")
+
+	reqData := ConnectReq{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = a.AppspaceTSNetModel.SetConnect(appspace.AppspaceID, reqData.Connect)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+
+	if reqData.Connect {
+		err = a.AppspaceTSNet.Connect(appspace.AppspaceID)
+		if err != nil {
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		a.AppspaceTSNet.Disconnect(appspace.AppspaceID)
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 func (a *AppspaceRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
@@ -405,11 +450,7 @@ func (a *AppspaceRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go a.AppspaceTSNet.UpdateAppspace(domain.UpdateAppspaceTSNet{
-		AppspaceTSNet: domain.AppspaceTSNet{
-			AppspaceID: appspace.AppspaceID},
-		Deleted: true,
-	})
+	a.AppspaceTSNet.Delete(appspace.AppspaceID)
 
 	w.WriteHeader(http.StatusOK)
 }
