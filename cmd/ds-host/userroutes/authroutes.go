@@ -27,7 +27,7 @@ type AuthRoutes struct {
 		Get() (domain.Settings, error)
 	} `checkinject:"required"`
 	UserModel interface {
-		Create(email, password string) (domain.User, error)
+		CreateWithEmail(email, password string) (domain.User, error)
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		MakeAdmin(userID domain.UserID) error
 	} `checkinject:"required"`
@@ -198,9 +198,9 @@ func (a *AuthRoutes) postSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.UserModel.Create(email, password)
+	user, err := a.UserModel.CreateWithEmail(email, password)
 	if err != nil {
-		if err == domain.ErrEmailExists {
+		if err == domain.ErrIdentifierExists {
 			viewData.Message = "Account already exists with that email"
 			a.Views.Signup(w, viewData)
 		} else {

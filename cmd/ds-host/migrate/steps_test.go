@@ -72,3 +72,18 @@ func TestAllSteps(t *testing.T) {
 		}
 	}
 }
+
+func runMigrationUpTo(t *testing.T, args *stepArgs, to string) {
+	for _, s := range MigrationSteps {
+		err := s.up(args)
+		if err != nil {
+			t.Fatal("Step returned an error", s, err)
+		}
+		if s.name == to {
+			break
+		}
+	}
+	if args.dbErr != nil {
+		t.Fatal(args.dbErr)
+	}
+}

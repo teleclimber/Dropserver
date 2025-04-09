@@ -149,7 +149,7 @@ func TestChangeEmailInUse(t *testing.T) {
 	uid := domain.UserID(1)
 
 	um := testmocks.NewMockUserModel(mockCtrl)
-	um.EXPECT().UpdateEmail(uid, "uvw@xyz.com").Return(domain.ErrEmailExists)
+	um.EXPECT().UpdateEmail(uid, "uvw@xyz.com").Return(domain.ErrIdentifierExists)
 
 	u := UserRoutes{UserModel: um}
 

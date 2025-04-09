@@ -18,7 +18,7 @@ type AdminRoutes struct {
 	} `checkinject:"required"`
 	SettingsModel interface {
 		Get() (domain.Settings, error)
-		Set(domain.Settings) error
+		SetRegistrationOpen(bool) error
 	} `checkinject:"required"`
 	UserInvitationModel interface {
 		GetAll() ([]domain.UserInvitation, error)
@@ -124,9 +124,7 @@ func (a *AdminRoutes) patchSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// gotta validate the fields that aren't bool.
-
-	err = a.SettingsModel.Set(*reqData)
+	err = a.SettingsModel.SetRegistrationOpen(reqData.Open)
 	if err != nil {
 		returnError(w, err)
 		return

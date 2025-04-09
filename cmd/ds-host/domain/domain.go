@@ -281,15 +281,9 @@ type SignupViewData struct {
 ///////////////////////////////////
 // Data Models:
 
-// Settings represents admin-settable parameters
-type UserTSNetSettings struct {
-	ControlURL string `db:"tsnet_control_url" json:"control_url"`
-	Hostname   string `db:"tsnet_hostname" json:"hostname"`
-	Connect    bool   `db:"tsnet_connect" json:"connect"`
-}
-
+// Settings represents some admin-settable parameters
+// Some other parameters like tsnet must be fetched separately
 type Settings struct {
-	UserTSNetSettings
 	RegistrationOpen bool `json:"registration_open" db:"registration_open"`
 }
 
@@ -313,8 +307,10 @@ type ProxyID string
 
 // User is basic representation of a DropServer User
 type User struct {
-	UserID UserID `db:"user_id"`
-	Email  string
+	UserID          UserID `db:"user_id"`
+	Email           string
+	TSNetIdentifier string `db:"tsnet_identifier"`
+	TSNetExtraName  string `db:"tsnet_extra_name"`
 }
 
 // Cookie represents the server-side representation of a stored cookie

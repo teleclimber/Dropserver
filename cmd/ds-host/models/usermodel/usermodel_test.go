@@ -64,7 +64,7 @@ func TestGetAll(t *testing.T) {
 	}
 
 	for _, u := range users {
-		dbu, err := userModel.Create(u.email, u.pw)
+		dbu, err := userModel.CreateWithEmail(u.email, u.pw)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func TestGetAll(t *testing.T) {
 	}
 }
 
-func TestCreate(t *testing.T) {
+func TestCreateWithEmail(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -115,7 +115,7 @@ func TestCreate(t *testing.T) {
 
 	userModel.PrepareStatements()
 
-	user, err := userModel.Create("bob@foo.com", "secretsauce")
+	user, err := userModel.CreateWithEmail("bob@foo.com", "secretsauce")
 	if err != nil {
 		t.Error(err)
 	}
@@ -125,7 +125,7 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-func TestCreateDupe(t *testing.T) {
+func TestCreateEmailDupe(t *testing.T) {
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
@@ -137,21 +137,68 @@ func TestCreateDupe(t *testing.T) {
 
 	userModel.PrepareStatements()
 
-	_, err := userModel.Create("bOb@foO.com", "secretsauce")
+	_, err := userModel.CreateWithEmail("bOb@foO.com", "secretsauce")
 	if err != nil {
 		t.Error(err)
 	}
 
-	_, err = userModel.Create("Bob@Foo.com", "moresauce")
+	_, err = userModel.CreateWithEmail("Bob@Foo.com", "moresauce")
 	if err == nil {
 		t.Error("should have errored")
-	} else if err != domain.ErrEmailExists {
+	} else if err != domain.ErrIdentifierExists {
+		t.Error("wrong error", err)
+	}
+}
+
+func TestCreateWithTSNet(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	userModel := &UserModel{
+		DB: db}
+
+	userModel.PrepareStatements()
+
+	user, err := userModel.CreateWithTSNet("bob@foo.com", "Bob@Foo")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if user.TSNetIdentifier != "bob@foo.com" {
+		t.Error("input name does not match output name", user)
+	}
+}
+
+func TestCreateTSnNetDupe(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	userModel := &UserModel{
+		DB: db}
+
+	userModel.PrepareStatements()
+
+	_, err := userModel.CreateWithTSNet("bob@foo.com", "Bob@Foo")
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = userModel.CreateWithTSNet("bob@foo.com", "Bob@Foo")
+	if err == nil {
+		t.Error("should have errored")
+	} else if err != domain.ErrIdentifierExists {
 		t.Error("wrong error", err)
 	}
 }
 
 func TestGetFromEmail(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
 	user, err := userModel.GetFromEmail("bOb@foO.cOm")
@@ -165,7 +212,7 @@ func TestGetFromEmail(t *testing.T) {
 }
 
 func TestGetFromEmailNoRows(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
 	// There should be an error, but no panics
@@ -178,7 +225,7 @@ func TestGetFromEmailNoRows(t *testing.T) {
 }
 
 func TestPassword(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
 	cases := []struct {
@@ -213,7 +260,7 @@ func TestPassword(t *testing.T) {
 }
 
 func TestUpdateEmail(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
 	bob, err := userModel.GetFromEmail("bob@foo.com")
@@ -237,10 +284,10 @@ func TestUpdateEmail(t *testing.T) {
 }
 
 func TestUpdateEmailDupe(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
-	_, err := userModel.Create("alice@wonder.land", "whiterabbit")
+	_, err := userModel.CreateWithEmail("alice@wonder.land", "whiterabbit")
 	if err != nil {
 		t.Error(err)
 	}
@@ -254,13 +301,13 @@ func TestUpdateEmailDupe(t *testing.T) {
 	if err == nil {
 		t.Error("expected error because of dupe email")
 	}
-	if err != domain.ErrEmailExists {
+	if err != domain.ErrIdentifierExists {
 		t.Error(err)
 	}
 }
 
 func TestUpdatePassword(t *testing.T) {
-	userModel := initBobModel()
+	userModel := initBobEmailModel()
 	defer userModel.DB.Handle.Close()
 
 	bob, err := userModel.GetFromEmail("bob@foo.com")
@@ -283,7 +330,7 @@ func TestUpdatePassword(t *testing.T) {
 	}
 }
 
-func initBobModel() *UserModel {
+func initBobEmailModel() *UserModel {
 	h := migrate.MakeSqliteDummyDB()
 
 	db := &domain.DB{
@@ -294,12 +341,71 @@ func initBobModel() *UserModel {
 
 	userModel.PrepareStatements()
 
-	_, err := userModel.Create("BoB@Foo.Com", "secretsauce")
+	_, err := userModel.CreateWithEmail("BoB@Foo.Com", "secretsauce")
 	if err != nil {
 		panic(err)
 	}
 
 	return userModel
+}
+
+func TestUpdateDeleteTSNet(t *testing.T) {
+	userModel := initBobEmailModel()
+
+	user, err := userModel.GetFromEmail("bOb@foO.cOm")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = userModel.UpdateTSNet(user.UserID, "1@headscale.my.site", "Bob@my.site")
+	if err != nil {
+		t.Error(err)
+	}
+	user, err = userModel.GetFromID(user.UserID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.TSNetIdentifier != "1@headscale.my.site" || user.TSNetExtraName != "Bob@my.site" {
+		t.Error("wrong tsnet values", user)
+	}
+
+	err = userModel.DeleteTSNet(user.UserID)
+	if err != nil {
+		t.Error(err)
+	}
+	user, err = userModel.GetFromID(user.UserID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.TSNetIdentifier != "" || user.TSNetExtraName != "" {
+		t.Error("wrong tsnet values", user)
+	}
+}
+
+func TestGetFromTSNet(t *testing.T) {
+	h := migrate.MakeSqliteDummyDB()
+	defer h.Close()
+
+	db := &domain.DB{
+		Handle: h}
+
+	userModel := &UserModel{
+		DB: db}
+
+	userModel.PrepareStatements()
+
+	_, err := userModel.CreateWithTSNet("1@headscale.my.site", "Bob@Foo")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := userModel.GetFromTSNet("1@headscale.my.site")
+	if err != nil {
+		t.Error(err)
+	}
+	if user.TSNetExtraName != "Bob@Foo" {
+		t.Error("got wrong data")
+	}
 }
 
 // /////// admin

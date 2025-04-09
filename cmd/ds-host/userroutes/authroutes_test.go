@@ -276,7 +276,7 @@ func TestSignupPostEmailExists(t *testing.T) {
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(domain.User{}, domain.ErrEmailExists)
+	userModel.EXPECT().CreateWithEmail(email, password).Return(domain.User{}, domain.ErrIdentifierExists)
 
 	a := &AuthRoutes{
 		SetupKey:      sk,
@@ -311,7 +311,7 @@ func TestSignupPost(t *testing.T) {
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: true}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(domain.User{
+	userModel.EXPECT().CreateWithEmail(email, password).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 
@@ -353,7 +353,7 @@ func TestSignupPostSetupKey(t *testing.T) {
 	sm.EXPECT().Get().Return(domain.Settings{RegistrationOpen: false}, nil)
 
 	userModel := testmocks.NewMockUserModel(mockCtrl)
-	userModel.EXPECT().Create(email, password).Return(domain.User{
+	userModel.EXPECT().CreateWithEmail(email, password).Return(domain.User{
 		UserID: userID,
 		Email:  email}, nil)
 	userModel.EXPECT().MakeAdmin(userID).Return(nil)

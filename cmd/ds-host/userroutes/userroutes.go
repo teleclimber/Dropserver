@@ -286,7 +286,7 @@ func (u *UserRoutes) changeUserEmail(w http.ResponseWriter, r *http.Request) {
 
 	err = u.UserModel.UpdateEmail(userID, data.Email)
 	if err != nil {
-		if err == domain.ErrEmailExists {
+		if err == domain.ErrIdentifierExists {
 			w.WriteHeader(http.StatusOK) // Status OK means request was technically correct but action did not take place
 			w.Write([]byte("Email already in use"))
 		} else {

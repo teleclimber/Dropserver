@@ -42,3 +42,11 @@ func (ns NullString) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(ns.String)
 }
+
+// ForceString returns the string or empty string if not Valid
+func (ns NullString) ForceString() string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}

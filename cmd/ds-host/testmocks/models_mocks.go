@@ -117,19 +117,34 @@ func (m *MockUserModel) EXPECT() *MockUserModelMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method
-func (m *MockUserModel) Create(arg0, arg1 string) (domain.User, error) {
+// CreateWithEmail mocks base method
+func (m *MockUserModel) CreateWithEmail(arg0, arg1 string) (domain.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateWithEmail", arg0, arg1)
 	ret0, _ := ret[0].(domain.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create
-func (mr *MockUserModelMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
+// CreateWithEmail indicates an expected call of CreateWithEmail
+func (mr *MockUserModelMockRecorder) CreateWithEmail(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockUserModel)(nil).Create), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithEmail", reflect.TypeOf((*MockUserModel)(nil).CreateWithEmail), arg0, arg1)
+}
+
+// CreateWithTSNet mocks base method
+func (m *MockUserModel) CreateWithTSNet(arg0, arg1 string) (domain.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateWithTSNet", arg0, arg1)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateWithTSNet indicates an expected call of CreateWithTSNet
+func (mr *MockUserModelMockRecorder) CreateWithTSNet(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithTSNet", reflect.TypeOf((*MockUserModel)(nil).CreateWithTSNet), arg0, arg1)
 }
 
 // DeleteAdmin mocks base method
@@ -144,6 +159,20 @@ func (m *MockUserModel) DeleteAdmin(arg0 domain.UserID) error {
 func (mr *MockUserModelMockRecorder) DeleteAdmin(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAdmin", reflect.TypeOf((*MockUserModel)(nil).DeleteAdmin), arg0)
+}
+
+// DeleteTSNet mocks base method
+func (m *MockUserModel) DeleteTSNet(arg0 domain.UserID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTSNet", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTSNet indicates an expected call of DeleteTSNet
+func (mr *MockUserModelMockRecorder) DeleteTSNet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTSNet", reflect.TypeOf((*MockUserModel)(nil).DeleteTSNet), arg0)
 }
 
 // GetAll mocks base method
@@ -221,6 +250,21 @@ func (mr *MockUserModelMockRecorder) GetFromID(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromID", reflect.TypeOf((*MockUserModel)(nil).GetFromID), arg0)
 }
 
+// GetFromTSNet mocks base method
+func (m *MockUserModel) GetFromTSNet(arg0 string) (domain.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFromTSNet", arg0)
+	ret0, _ := ret[0].(domain.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFromTSNet indicates an expected call of GetFromTSNet
+func (mr *MockUserModelMockRecorder) GetFromTSNet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromTSNet", reflect.TypeOf((*MockUserModel)(nil).GetFromTSNet), arg0)
+}
+
 // IsAdmin mocks base method
 func (m *MockUserModel) IsAdmin(arg0 domain.UserID) bool {
 	m.ctrl.T.Helper()
@@ -277,6 +321,20 @@ func (mr *MockUserModelMockRecorder) UpdatePassword(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePassword", reflect.TypeOf((*MockUserModel)(nil).UpdatePassword), arg0, arg1)
 }
 
+// UpdateTSNet mocks base method
+func (m *MockUserModel) UpdateTSNet(arg0 domain.UserID, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateTSNet", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateTSNet indicates an expected call of UpdateTSNet
+func (mr *MockUserModelMockRecorder) UpdateTSNet(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTSNet", reflect.TypeOf((*MockUserModel)(nil).UpdateTSNet), arg0, arg1, arg2)
+}
+
 // MockSettingsModel is a mock of SettingsModel interface
 type MockSettingsModel struct {
 	ctrl     *gomock.Controller
@@ -300,6 +358,20 @@ func (m *MockSettingsModel) EXPECT() *MockSettingsModelMockRecorder {
 	return m.recorder
 }
 
+// DeleteTSNet mocks base method
+func (m *MockSettingsModel) DeleteTSNet() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTSNet")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTSNet indicates an expected call of DeleteTSNet
+func (mr *MockSettingsModelMockRecorder) DeleteTSNet() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTSNet", reflect.TypeOf((*MockSettingsModel)(nil).DeleteTSNet))
+}
+
 // Get mocks base method
 func (m *MockSettingsModel) Get() (domain.Settings, error) {
 	m.ctrl.T.Helper()
@@ -315,18 +387,19 @@ func (mr *MockSettingsModelMockRecorder) Get() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSettingsModel)(nil).Get))
 }
 
-// Set mocks base method
-func (m *MockSettingsModel) Set(arg0 domain.Settings) error {
+// GetTSNet mocks base method
+func (m *MockSettingsModel) GetTSNet() (domain.TSNetCommon, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "GetTSNet")
+	ret0, _ := ret[0].(domain.TSNetCommon)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Set indicates an expected call of Set
-func (mr *MockSettingsModelMockRecorder) Set(arg0 interface{}) *gomock.Call {
+// GetTSNet indicates an expected call of GetTSNet
+func (mr *MockSettingsModelMockRecorder) GetTSNet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockSettingsModel)(nil).Set), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTSNet", reflect.TypeOf((*MockSettingsModel)(nil).GetTSNet))
 }
 
 // SetRegistrationOpen mocks base method
@@ -341,6 +414,34 @@ func (m *MockSettingsModel) SetRegistrationOpen(arg0 bool) error {
 func (mr *MockSettingsModelMockRecorder) SetRegistrationOpen(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRegistrationOpen", reflect.TypeOf((*MockSettingsModel)(nil).SetRegistrationOpen), arg0)
+}
+
+// SetTSNet mocks base method
+func (m *MockSettingsModel) SetTSNet(arg0 domain.TSNetCommon) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetTSNet", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetTSNet indicates an expected call of SetTSNet
+func (mr *MockSettingsModelMockRecorder) SetTSNet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTSNet", reflect.TypeOf((*MockSettingsModel)(nil).SetTSNet), arg0)
+}
+
+// SetTSNetConnect mocks base method
+func (m *MockSettingsModel) SetTSNetConnect(arg0 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetTSNetConnect", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetTSNetConnect indicates an expected call of SetTSNetConnect
+func (mr *MockSettingsModelMockRecorder) SetTSNetConnect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTSNetConnect", reflect.TypeOf((*MockSettingsModel)(nil).SetTSNetConnect), arg0)
 }
 
 // MockUserInvitationModel is a mock of UserInvitationModel interface

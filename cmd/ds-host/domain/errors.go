@@ -15,8 +15,8 @@ var ErrUniqueConstraintViolation = errors.New("unique constraint violation")
 // ErrStorageExceeded indicates that a storage quota has been or will be exceeded
 var ErrStorageExceeded = errors.New("storage limit reached")
 
-// ErrEmailExists is returned when a user email already exists
-var ErrEmailExists = errors.New("email exists")
+// ErrIdentifierExists is returned when a user email or other unique identifier already exists
+var ErrIdentifierExists = errors.New("identifier exists")
 
 // ErrBadAuth is returned when a user name / passwordcombintaion is incorrect
 var ErrBadAuth = errors.New("authentication incorrect")

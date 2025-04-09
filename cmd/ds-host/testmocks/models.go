@@ -18,12 +18,16 @@ type CookieModel interface {
 }
 
 type UserModel interface {
-	Create(email, password string) (domain.User, error)
+	CreateWithEmail(string, string) (domain.User, error)
+	CreateWithTSNet(string, string) (domain.User, error)
 	UpdateEmail(userID domain.UserID, email string) error
 	UpdatePassword(userID domain.UserID, password string) error
 	GetFromID(userID domain.UserID) (domain.User, error)
 	GetFromEmail(email string) (domain.User, error)
 	GetFromEmailPassword(email, password string) (domain.User, error)
+	UpdateTSNet(domain.UserID, string, string) error
+	DeleteTSNet(domain.UserID) error
+	GetFromTSNet(string) (domain.User, error)
 	GetAll() ([]domain.User, error)
 	IsAdmin(userID domain.UserID) bool
 	GetAllAdmins() ([]domain.UserID, error)
@@ -34,8 +38,11 @@ type UserModel interface {
 // SettingsModel is used to get and set settings
 type SettingsModel interface {
 	Get() (domain.Settings, error)
-	Set(domain.Settings) error
 	SetRegistrationOpen(bool) error
+	GetTSNet() (domain.TSNetCommon, error)
+	SetTSNet(domain.TSNetCommon) error
+	SetTSNetConnect(bool) error
+	DeleteTSNet() error
 }
 
 // UserInvitationModel is the interface to the UserInvitation model

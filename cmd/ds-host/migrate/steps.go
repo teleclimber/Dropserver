@@ -56,9 +56,9 @@ var MigrationSteps []MigrationStep = []MigrationStep{{
 	down:                 appsFromURLsDown,
 	appspaceMetaDBSchema: 0,
 }, {
-	name:                 "2408-tailscale",
-	up:                   tailscaleIntegrationUp,
-	down:                 tailscaleIntegrationDown,
+	name:                 "2408-tsnet",
+	up:                   tsnetIntegrationUp,
+	down:                 tsnetIntegrationDown,
 	appspaceMetaDBSchema: 1,
 },
 }
