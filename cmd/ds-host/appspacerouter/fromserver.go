@@ -8,7 +8,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/getcleanhost"
 )
 
-type FromServer struct {
+type FromPublic struct {
 	Authenticator interface {
 		AppspaceUserProxyID(http.Handler) http.Handler
 		SetForAppspace(http.ResponseWriter, domain.ProxyID, domain.AppspaceID, string) (string, error)
@@ -26,18 +26,18 @@ type FromServer struct {
 	mux *chi.Mux
 }
 
-func (f *FromServer) Init() {
+func (f *FromPublic) Init() {
 	f.mux = chi.NewRouter()
 	f.mux.Use(f.loadAppspace)
 	f.mux.Use(f.Authenticator.AppspaceUserProxyID, f.processLoginToken)
 	f.AppspaceRouter.BuildRoutes(f.mux)
 }
 
-func (f *FromServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (f *FromPublic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mux.ServeHTTP(w, r)
 }
 
-func (f *FromServer) loadAppspace(next http.Handler) http.Handler {
+func (f *FromPublic) loadAppspace(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO: use of r.Host not good enough. see the requestHost function of https://github.com/go-chi/hostrouter
 		// May need to determine host at server and stash it in context.
@@ -64,7 +64,7 @@ func (f *FromServer) loadAppspace(next http.Handler) http.Handler {
 	})
 }
 
-func (f *FromServer) processLoginToken(next http.Handler) http.Handler {
+func (f *FromPublic) processLoginToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loginTokenValues := r.URL.Query()["dropserver-login-token"]
 		if len(loginTokenValues) == 0 {

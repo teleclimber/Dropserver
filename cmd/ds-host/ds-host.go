@@ -552,20 +552,20 @@ func main() {
 	appspaceRouter.Init()
 	appspaceStatus.AppspaceRouter = appspaceRouter
 
-	fromServer := &appspacerouter.FromServer{
+	appspaceFromPublic := &appspacerouter.FromPublic{
 		Authenticator:  authenticator,
 		V0TokenManager: v0tokenManager,
 		AppspaceModel:  appspaceModel,
 		AppspaceRouter: appspaceRouter,
 	}
-	fromServer.Init()
+	appspaceFromPublic.Init()
 
-	fromTSNet := &appspacerouter.FromTSNet{
+	appspaceFromTSNet := &appspacerouter.FromTSNet{
 		AppspaceModel:     appspaceModel,
 		AppspaceUserModel: appspaceUserModel,
 		AppspaceRouter:    appspaceRouter,
 	}
-	fromTSNet.Init()
+	appspaceFromTSNet.Init()
 
 	services := &sandboxservices.ServiceMaker{
 		AppspaceUserModel: appspaceUserModel}
@@ -576,13 +576,13 @@ func main() {
 		Config:             runtimeConfig,
 		CertificateManager: certificateManager,
 		UserRoutes:         userRoutes,
-		AppspaceRouter:     fromServer}
+		AppspaceRouter:     appspaceFromPublic}
 
 	appspaceTSNet := &server.AppspaceTSNet{
 		Config:                    runtimeConfig,
 		AppspaceModel:             appspaceModel,
 		AppspaceTSNetModel:        appspaceTSNetModel,
-		AppspaceRouter:            fromTSNet,
+		AppspaceRouter:            appspaceFromTSNet,
 		AppspaceTSNetStatusEvents: appspaceTSNetStatusEvents,
 		AppspaceTSNetPeersEvents:  appspaceTSNetPeersEvents,
 		AppspaceLocation2Path:     appspaceLocation2Path,

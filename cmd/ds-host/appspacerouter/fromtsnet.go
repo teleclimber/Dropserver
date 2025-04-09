@@ -87,5 +87,5 @@ func (f *FromTSNet) getProxyID(next http.Handler) http.Handler {
 }
 
 func (f *FromTSNet) getLogger(appspaceID domain.AppspaceID) *record.DsLogger {
-	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("FromTSNet")
+	return record.NewDsLogger().AppspaceID(appspaceID).AddNote("appspaces FromTSNet")
 }

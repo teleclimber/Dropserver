@@ -19,7 +19,7 @@ func TestLoadAppspaceNotFound(t *testing.T) {
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(nil, nil)
 
-	router := &FromServer{
+	router := &FromPublic{
 		AppspaceModel: appspaceModel}
 
 	nextCalled := false
@@ -52,7 +52,7 @@ func TestLoadAppspace(t *testing.T) {
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromDomain("as1.ds.dev").Return(&domain.Appspace{AppVersion: "1.2.3"}, nil)
 
-	router := &FromServer{
+	router := &FromPublic{
 		AppspaceModel: appspaceModel}
 
 	nextCalled := false
@@ -86,7 +86,7 @@ func TestLoadAppspace(t *testing.T) {
 }
 
 func TestLoginTokenNoToken(t *testing.T) {
-	r := &FromServer{}
+	r := &FromPublic{}
 
 	nextCalled := false
 	handler := r.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +106,7 @@ func TestLoginTokenNoToken(t *testing.T) {
 }
 
 func TestLoginTokenTwoTokens(t *testing.T) {
-	r := &FromServer{}
+	r := &FromPublic{}
 
 	nextCalled := false
 	handler := r.processLoginToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +134,7 @@ func TestLoginTokenNotfound(t *testing.T) {
 	v0TokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
 	v0TokenManager.EXPECT().CheckToken(appspaceID, "abcd").Return(domain.V0AppspaceLoginToken{}, false)
 
-	r := &FromServer{
+	r := &FromPublic{
 		V0TokenManager: v0TokenManager,
 	}
 
@@ -170,7 +170,7 @@ func TestLoginToken(t *testing.T) {
 	authenticator := testmocks.NewMockAuthenticator(mockCtrl)
 	authenticator.EXPECT().SetForAppspace(gomock.Any(), proxyID, appspaceID, domainName).Return("cid", nil)
 
-	r := &FromServer{
+	r := &FromPublic{
 		V0TokenManager: v0TokenManager,
 		Authenticator:  authenticator,
 	}
