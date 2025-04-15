@@ -128,6 +128,8 @@ const show_users = ref(false);
 		</div>
 		<div v-else-if="tsnet_data" class="px-4 sm:px-6 my-5">
 			<template v-if="tsnet_status.state == '' || tsnet_status.state == 'Off'">
+				<DataDef field="Control URL:">{{  tsnet_data.control_url || "tailscale.com" }}</DataDef>
+				<DataDef field="Desired Hostname:">{{ tsnet_data.hostname }}</DataDef>
 				<div class="flex justify-between">
 					<button @click.stop.prevent="deleteConfig()" class="btn text-red-700">
 						<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

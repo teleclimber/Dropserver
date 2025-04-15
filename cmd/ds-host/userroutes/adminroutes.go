@@ -19,12 +19,24 @@ type AdminRoutes struct {
 	SettingsModel interface {
 		Get() (domain.Settings, error)
 		SetRegistrationOpen(bool) error
+		GetTSNet() (domain.TSNetCommon, error)
+		SetTSNet(domain.TSNetCommon) error
+		SetTSNetConnect(bool) error
+		DeleteTSNet() error
 	} `checkinject:"required"`
 	UserInvitationModel interface {
 		GetAll() ([]domain.UserInvitation, error)
 		Get(email string) (domain.UserInvitation, error)
 		Create(email string) error
 		Delete(email string) error
+	} `checkinject:"required"`
+	UserTSNet interface {
+		Create(domain.TSNetCreateConfig) error
+		Connect(bool) error
+		Disconnect()
+		Delete() error
+		GetStatus() domain.TSNetStatus
+		GetPeerUsers() []domain.TSNetPeerUser
 	} `checkinject:"required"`
 }
 
@@ -35,10 +47,15 @@ func (a *AdminRoutes) subRouter() http.Handler {
 
 	r.Get("/user/", a.getUsers)
 	r.Get("/settings", a.getSettings)
-	r.Patch("/settings", a.patchSettings)
+	r.Post("/settings/registration", a.postRegistration)
+	r.Post("/settings/tsnet/connect", a.postTSNetConnect)
+	r.Post("/settings/tsnet", a.postTSNet)
+	r.Delete("/settings/tsnet", a.deleteTSNet)
 	r.Get("/invitation/", a.getInvitations)
 	r.Post("/invitation", a.postInvitation)
 	r.Delete("/invitation/{email}", a.deleteInvitation)
+	r.Get("/tsnet", a.getTSNetStatus)
+	r.Get("/tsnet/peerusers", a.getTSNetPeerUsers)
 
 	return r
 }
@@ -96,7 +113,8 @@ func (a *AdminRoutes) getUsers(w http.ResponseWriter, r *http.Request) {
 
 // SettingsResp represents admin settings
 type SettingsResp struct {
-	RegistrationOpen bool `json:"registration_open"`
+	RegistrationOpen bool               `json:"registration_open"`
+	TSNet            domain.TSNetCommon `json:"tsnet"`
 }
 
 func (a *AdminRoutes) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -106,18 +124,25 @@ func (a *AdminRoutes) getSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tsnetConfig, err := a.SettingsModel.GetTSNet()
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
 	respData := SettingsResp{
 		RegistrationOpen: settings.RegistrationOpen,
-	}
+		TSNet:            tsnetConfig}
 
 	writeJSON(w, respData)
 }
 
-// TODO this is really not the right way to go about patching settings.
-// We should really have a route for each setting to post against.
-// Work for another day
-func (a *AdminRoutes) patchSettings(w http.ResponseWriter, r *http.Request) {
-	reqData := &domain.Settings{}
+type RegistrationPost struct {
+	Open bool `json:"open"`
+}
+
+func (a *AdminRoutes) postRegistration(w http.ResponseWriter, r *http.Request) {
+	reqData := &RegistrationPost{}
 	err := readJSON(r, reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -128,6 +153,91 @@ func (a *AdminRoutes) patchSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		returnError(w, err)
 		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AdminRoutes) getTSNetStatus(w http.ResponseWriter, r *http.Request) {
+	status := a.UserTSNet.GetStatus()
+	writeJSON(w, status)
+}
+
+func (a *AdminRoutes) getTSNetPeerUsers(w http.ResponseWriter, r *http.Request) {
+	peerUsers := a.UserTSNet.GetPeerUsers()
+	writeJSON(w, peerUsers)
+}
+
+func (a *AdminRoutes) postTSNet(w http.ResponseWriter, r *http.Request) {
+	reqData := domain.TSNetCreateConfig{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// TODO gotta validate the fields that aren't bool.
+
+	err = a.SettingsModel.SetTSNet(domain.TSNetCommon{
+		ControlURL: reqData.ControlURL,
+		Hostname:   reqData.Hostname,
+		Connect:    true})
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	err = a.UserTSNet.Create(reqData)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AdminRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
+	err := a.SettingsModel.DeleteTSNet()
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	err = a.UserTSNet.Delete()
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+type PostConnect struct {
+	Connect bool `js:"connect"`
+}
+
+func (a *AdminRoutes) postTSNetConnect(w http.ResponseWriter, r *http.Request) {
+	reqData := PostConnect{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = a.SettingsModel.SetTSNetConnect(reqData.Connect)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	if reqData.Connect {
+		err = a.UserTSNet.Connect(true)
+		if err != nil {
+			returnError(w, err)
+			return
+		}
+	} else {
+		a.UserTSNet.Disconnect()
 	}
 
 	w.WriteHeader(http.StatusOK)

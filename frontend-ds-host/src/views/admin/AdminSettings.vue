@@ -5,6 +5,7 @@ import { useInstanceSettingsStore } from '@/stores/admin/instance_settings';
 
 import ViewWrap from '../../components/ViewWrap.vue';
 import BigLoader from '@/components/ui/BigLoader.vue';
+import ManageUserTSNet from '@/components/admin/ManageUserTSNet.vue';
 
 const settings_store = useInstanceSettingsStore();
 settings_store.loadData();
@@ -35,6 +36,8 @@ async function formSubmitted() {
 
 <template>
 	<ViewWrap>
+		<ManageUserTSNet></ManageUserTSNet>
+		
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">New User Registration:</h3>

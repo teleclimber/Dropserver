@@ -124,6 +124,8 @@ func main() {
 
 	// events
 	eventRelations := &events.Relations{}
+	userTSNetEvents := &events.UserTSNetStatusEvents{}
+	userTSNetPeersEvents := &events.UserTSNetPeersEvents{}
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	appspaceStatusEvents := &events.AppspaceStatusEvents{}
 	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{
@@ -440,7 +442,9 @@ func main() {
 	adminRoutes := &userroutes.AdminRoutes{
 		UserModel:           userModel,
 		SettingsModel:       settingsModel,
-		UserInvitationModel: userInvitationModel}
+		UserInvitationModel: userInvitationModel,
+		//UserTSNet: below
+	}
 
 	applicationRoutes := &userroutes.ApplicationRoutes{
 		AppGetter:       appGetter,
@@ -509,8 +513,6 @@ func main() {
 
 	userRoutes := &userroutes.UserRoutes{
 		Config:                    runtimeConfig,
-		Authenticator:             authenticator,
-		AuthRoutes:                authRoutes,
 		AppspaceLoginRoutes:       appspaceLoginRoutes,
 		AdminRoutes:               adminRoutes,
 		ApplicationRoutes:         applicationRoutes,
@@ -526,9 +528,16 @@ func main() {
 		MigrationJobEvents:        migrationJobEvents,
 		AppGetterEvents:           appGetterEvents,
 		UserModel:                 userModel,
+		UserTSNetStatusEvents:     userTSNetEvents,
+		UserTSNetPeersEvents:      userTSNetPeersEvents,
 		Views:                     views}
-	userRoutes.Init()
 	userRoutes.DumpRoutes(*dumpRoutesFlag)
+
+	userFromPublic := &userroutes.FromPublic{
+		Authenticator: authenticator,
+		AuthRoutes:    authRoutes,
+		UserRoutes:    userRoutes}
+	userFromPublic.Init()
 
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
 		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
@@ -575,8 +584,18 @@ func main() {
 	mainServer := &server.Server{
 		Config:             runtimeConfig,
 		CertificateManager: certificateManager,
-		UserRoutes:         userRoutes,
+		UserRoutes:         userFromPublic,
 		AppspaceRouter:     appspaceFromPublic}
+
+	userTSNet := &server.UserTSNet{
+		Config:        runtimeConfig,
+		SettingsModel: settingsModel,
+		//TODO UserRoutes: ,
+		TSNetStatusEvents: userTSNetEvents,
+		TSNetPeersEvents:  userTSNetPeersEvents,
+	}
+	userTSNet.Connect(false)
+	adminRoutes.UserTSNet = userTSNet
 
 	appspaceTSNet := &server.AppspaceTSNet{
 		Config:                    runtimeConfig,
@@ -609,6 +628,8 @@ func main() {
 
 		remoteAppGetter.Stop()
 		appGetter.Stop()
+
+		userTSNet.Disconnect()
 
 		appspaceTSNet.StopAll()
 

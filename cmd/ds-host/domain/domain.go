@@ -86,6 +86,7 @@ type RuntimeConfig struct {
 		AppsPath         string
 		AppspacesPath    string
 		CertificatesPath string
+		UserTSNetPath    string
 	}
 }
 

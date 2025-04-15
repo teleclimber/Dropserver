@@ -43,23 +43,27 @@ type routeGroup interface {
 
 // UserRoutes handles routes for appspaces.
 type UserRoutes struct {
-	Config        *domain.RuntimeConfig `checkinject:"required"`
-	Authenticator interface {
-		AccountUser(http.Handler) http.Handler
-	} `checkinject:"required"`
-	Views interface {
+	Config *domain.RuntimeConfig `checkinject:"required"`
+	Views  interface {
 		GetStaticFS() fs.FS
 	} `checkinject:"required"`
-	AuthRoutes           routeGroup `checkinject:"required"`
-	AppspaceLoginRoutes  routeGroup `checkinject:"required"`
-	ApplicationRoutes    subRoutes  `checkinject:"required"`
-	AppspaceRoutes       subRoutes  `checkinject:"required"`
-	RemoteAppspaceRoutes subRoutes  `checkinject:"required"`
-	ContactRoutes        subRoutes  `checkinject:"required"`
-	DomainRoutes         subRoutes  `checkinject:"required"`
-	DropIDRoutes         subRoutes  `checkinject:"required"`
-	MigrationJobRoutes   subRoutes  `checkinject:"required"`
-	AdminRoutes          subRoutes  `checkinject:"required"`
+	AppspaceLoginRoutes   routeGroup `checkinject:"required"`
+	ApplicationRoutes     subRoutes  `checkinject:"required"`
+	AppspaceRoutes        subRoutes  `checkinject:"required"`
+	RemoteAppspaceRoutes  subRoutes  `checkinject:"required"`
+	ContactRoutes         subRoutes  `checkinject:"required"`
+	DomainRoutes          subRoutes  `checkinject:"required"`
+	DropIDRoutes          subRoutes  `checkinject:"required"`
+	MigrationJobRoutes    subRoutes  `checkinject:"required"`
+	AdminRoutes           subRoutes  `checkinject:"required"`
+	UserTSNetStatusEvents interface {
+		Subscribe() <-chan domain.TSNetStatus
+		Unsubscribe(ch <-chan domain.TSNetStatus)
+	} `checkinject:"required"`
+	UserTSNetPeersEvents interface {
+		Subscribe() <-chan struct{}
+		Unsubscribe(ch <-chan struct{})
+	} `checkinject:"required"`
 	AppspaceStatusEvents interface {
 		SubscribeOwner(domain.UserID) <-chan domain.AppspaceStatusEvent
 		Unsubscribe(ch <-chan domain.AppspaceStatusEvent)
@@ -91,14 +95,7 @@ type UserRoutes struct {
 	mux *chi.Mux
 }
 
-func (u *UserRoutes) Init() {
-	r := chi.NewRouter()
-
-	r.Use(addCSPHeaders)
-
-	// Load auth user ID for all requests.
-	r.Use(u.Authenticator.AccountUser)
-
+func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 	// serve frontend assets as a directory
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(u.Views.GetStaticFS()))))
 
@@ -108,12 +105,11 @@ func (u *UserRoutes) Init() {
 	}
 	r.Handle("/frontend-assets/*", http.FileServer(http.FS(frontendFS)))
 
-	r.Group(u.AuthRoutes.routeGroup)
-
 	r.Group(func(r chi.Router) {
 		r.Use(mustBeAuthenticated)
 
 		// add a "update cookie" as a trailing middleware. It'll only get called if request doesn't get aborted. (I think? Does it really matter?)
+		// ^^ but only if not tsnet
 
 		r.Group(u.AppspaceLoginRoutes.routeGroup)
 
@@ -141,11 +137,6 @@ func (u *UserRoutes) Init() {
 	r.Get("/*", u.serveAppIndex)
 
 	u.mux = r
-}
-
-// ServeHTTP handles http traffic to the user routes
-func (u *UserRoutes) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	u.mux.ServeHTTP(res, req)
 }
 
 func (u *UserRoutes) DumpRoutes(dumpRoutes string) {
@@ -377,11 +368,26 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	appGetterCh := u.AppGetterEvents.SubscribeOwner(authUserID)
 	defer u.AppGetterEvents.Unsubscribe(appGetterCh)
 
+	var userTSNetStatusCh <-chan domain.TSNetStatus
+	var userTSNetPeersCh <-chan struct{}
+	isAdmin := u.UserModel.IsAdmin(authUserID)
+	if isAdmin {
+		userTSNetStatusCh = u.UserTSNetStatusEvents.Subscribe()
+		defer u.UserTSNetStatusEvents.Unsubscribe(userTSNetStatusCh)
+
+		userTSNetPeersCh = u.UserTSNetPeersEvents.Subscribe()
+		defer u.UserTSNetPeersEvents.Unsubscribe(userTSNetPeersCh)
+	}
+
 	rc := http.NewResponseController(w)
 	for {
 		select {
 		case <-clientGone:
 			return
+		case stat := <-userTSNetStatusCh:
+			u.sendSSEEvent(w, "UserTSNetStatus", stat)
+		case <-userTSNetPeersCh:
+			u.sendSSEEvent(w, "UserTSNetPeers", "")
 		case stat := <-asStatCh:
 			u.sendSSEEvent(w, "AppspaceStatus", stat)
 		case stat := <-asTSNetStatCh:

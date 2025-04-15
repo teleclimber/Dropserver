@@ -6,6 +6,40 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
+type UserTSNetStatusEvents struct {
+	subscribers eventSubs[domain.TSNetStatus]
+}
+
+func (e *UserTSNetStatusEvents) Subscribe() <-chan domain.TSNetStatus {
+	return e.subscribers.subscribe()
+}
+
+func (e *UserTSNetStatusEvents) Unsubscribe(ch <-chan domain.TSNetStatus) {
+	e.subscribers.unsubscribe(ch)
+}
+
+func (e *UserTSNetStatusEvents) Send(data domain.TSNetStatus) {
+	e.subscribers.send(data)
+}
+
+// UserTSNetPeersEvents peers changed notification
+// It sends an empty struct{}
+type UserTSNetPeersEvents struct {
+	subscribers eventSubs[struct{}]
+}
+
+func (e *UserTSNetPeersEvents) Subscribe() <-chan struct{} {
+	return e.subscribers.subscribe()
+}
+
+func (e *UserTSNetPeersEvents) Unsubscribe(ch <-chan struct{}) {
+	e.subscribers.unsubscribe(ch)
+}
+
+func (e *UserTSNetPeersEvents) Send() {
+	e.subscribers.send(struct{}{})
+}
+
 /////////////////////////////////////////
 // migration job events
 
@@ -99,6 +133,7 @@ func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
 	e.ownerSubs.send(data.OwnerID, data)
 }
 
+// /////////////////
 type AppspaceTSNetStatusEvents struct {
 	Relations interface {
 		GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool)
