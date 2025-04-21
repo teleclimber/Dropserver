@@ -308,10 +308,11 @@ type ProxyID string
 
 // User is basic representation of a DropServer User
 type User struct {
-	UserID          UserID `db:"user_id"`
-	Email           string
-	TSNetIdentifier string `db:"tsnet_identifier"`
-	TSNetExtraName  string `db:"tsnet_extra_name"`
+	UserID          UserID `json:"user_id"`
+	Email           string `json:"email"`
+	HasPassword     bool   `json:"has_password"`
+	TSNetIdentifier string `json:"tsnet_identifier"`
+	TSNetExtraName  string `json:"tsnet_extra_name"`
 }
 
 // Cookie represents the server-side representation of a stored cookie

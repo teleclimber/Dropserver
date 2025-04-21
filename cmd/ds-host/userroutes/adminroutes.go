@@ -1,11 +1,15 @@
 package userroutes
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -13,8 +17,12 @@ import (
 type AdminRoutes struct {
 	UserModel interface {
 		GetAll() ([]domain.User, error)
+		GetFromID(domain.UserID) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 		GetAllAdmins() ([]domain.UserID, error)
+		CreateWithTSNet(string, string) (domain.User, error)
+		UpdateTSNet(domain.UserID, string, string) error
+		DeleteTSNet(domain.UserID) error
 	} `checkinject:"required"`
 	SettingsModel interface {
 		Get() (domain.Settings, error)
@@ -46,6 +54,9 @@ func (a *AdminRoutes) subRouter() http.Handler {
 	// TODO admin-only middleware
 
 	r.Get("/user/", a.getUsers)
+	r.Post("/user/", a.postUser)
+	r.Post("/user/{user_id}/tsnet", a.postUserTSNet)
+	r.Delete("/user/{user_id}/tsnet", a.deleteUserTSNet)
 	r.Get("/settings", a.getSettings)
 	r.Post("/settings/registration", a.postRegistration)
 	r.Post("/settings/tsnet/connect", a.postTSNetConnect)
@@ -94,25 +105,145 @@ func (a *AdminRoutes) getUsers(w http.ResponseWriter, r *http.Request) {
 
 	usersResp := []UserData{}
 	for _, u := range users {
-		ur := UserData{
-			UserID:  int(u.UserID),
-			Email:   u.Email,
-			IsAdmin: false}
+		ur := UserData{u, false}
 		for _, uid := range admins {
 			if uid == u.UserID {
 				ur.IsAdmin = true
 				break
 			}
 		}
-
 		usersResp = append(usersResp, ur)
 	}
 
 	writeJSON(w, usersResp)
 }
 
-// SettingsResp represents admin settings
-type SettingsResp struct {
+type postUserReq struct {
+	TSNetID string `json:"tsnet_id"`
+}
+
+// postUser creates a new user with TSNet user id.
+// In the future creating with email should be possible too.
+// It returns the created user.
+func (a *AdminRoutes) postUser(w http.ResponseWriter, r *http.Request) {
+	reqData := postUserReq{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		a.getLogger("postUser readJSON").Debug(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	peerUser, err := a.getTSNetUser(reqData.TSNetID)
+	if err != nil {
+		a.getLogger("postUserTSNet").Debug(err.Error())
+		writeBadRequest(w, "tsnet_id", "unable to find peer")
+		return
+	}
+	user, err := a.UserModel.CreateWithTSNet(peerUser.FullID, peerUser.LoginName)
+	if err == domain.ErrIdentifierExists {
+		writeBadRequest(w, "tsnet_id", "peer already associated with another user")
+		return
+	} else if err != nil {
+		writeServerError(w)
+	}
+	writeJSON(w, UserData{user, false})
+}
+
+type userTSNetReq struct {
+	TSNetID string `json:"tsnet_id"`
+}
+
+type userTSNetResp struct {
+	TSNetIdentifier string `json:"tsnet_identifier"`
+	TSNetExtraName  string `json:"tsnet_extra_name"`
+}
+
+// postUserTSNet receives a tsnet identifier (just the bare tsnet id)
+// and updates the user db with the full identifier and extra name
+// based on the connected tsnet data.
+// It sends back the user data pertaining to tsnet.
+func (a *AdminRoutes) postUserTSNet(w http.ResponseWriter, r *http.Request) {
+	userID, err := userIDFromRequest(r)
+	if err != nil {
+		a.getLogger("postUserTSNet userIDFromRequest").Debug(err.Error())
+		writeBadRequest(w, "user_id", err.Error())
+		return
+	}
+
+	reqData := userTSNetReq{}
+	err = readJSON(r, &reqData)
+	if err != nil {
+		a.getLogger("postUserTSNet readJSON").Debug(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	peerUser, err := a.getTSNetUser(reqData.TSNetID)
+	if err != nil {
+		a.getLogger("postUserTSNet").Debug(err.Error())
+		writeBadRequest(w, "tsnet_id", "unable to find peer")
+		return
+	}
+
+	err = a.UserModel.UpdateTSNet(userID, peerUser.FullID, peerUser.LoginName)
+	if err != nil {
+		writeServerError(w)
+		return
+	}
+
+	writeJSON(w, userTSNetResp{
+		TSNetIdentifier: peerUser.FullID,
+		TSNetExtraName:  peerUser.LoginName,
+	})
+}
+
+func (a *AdminRoutes) getTSNetUser(tsnetID string) (domain.TSNetPeerUser, error) {
+	if tsnetID == "" {
+		return domain.TSNetPeerUser{}, errors.New("tsnet_id can not be empty")
+	}
+	peerUser := domain.TSNetPeerUser{}
+	found := false
+	for _, peerUser = range a.UserTSNet.GetPeerUsers() {
+		if peerUser.ID == tsnetID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return domain.TSNetPeerUser{}, errors.New("tsnet id was not found among current peer users")
+	}
+	return peerUser, nil
+}
+
+func (a *AdminRoutes) deleteUserTSNet(w http.ResponseWriter, r *http.Request) {
+	userID, err := userIDFromRequest(r)
+	if err != nil {
+		writeBadRequest(w, "user_id", err.Error())
+		return
+	}
+
+	err = a.UserModel.DeleteTSNet(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeOK(w)
+}
+
+func userIDFromRequest(r *http.Request) (domain.UserID, error) {
+	userIDStr, err := url.QueryUnescape(chi.URLParam(r, "user_id"))
+	if err != nil {
+		return 0, fmt.Errorf("unable to read user_id from params: %w", err)
+	}
+	userIDInt, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		return 0, fmt.Errorf("unable to convert user_id to int: %w", err)
+	}
+	return domain.UserID(userIDInt), nil
+}
+
+// settingsResp represents admin settings
+type settingsResp struct {
 	RegistrationOpen bool               `json:"registration_open"`
 	TSNet            domain.TSNetCommon `json:"tsnet"`
 }
@@ -130,19 +261,19 @@ func (a *AdminRoutes) getSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respData := SettingsResp{
+	respData := settingsResp{
 		RegistrationOpen: settings.RegistrationOpen,
 		TSNet:            tsnetConfig}
 
 	writeJSON(w, respData)
 }
 
-type RegistrationPost struct {
+type registrationPost struct {
 	Open bool `json:"open"`
 }
 
 func (a *AdminRoutes) postRegistration(w http.ResponseWriter, r *http.Request) {
-	reqData := &RegistrationPost{}
+	reqData := &registrationPost{}
 	err := readJSON(r, reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -212,12 +343,12 @@ func (a *AdminRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-type PostConnect struct {
+type postConnect struct {
 	Connect bool `js:"connect"`
 }
 
 func (a *AdminRoutes) postTSNetConnect(w http.ResponseWriter, r *http.Request) {
-	reqData := PostConnect{}
+	reqData := postConnect{}
 	err := readJSON(r, &reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -254,12 +385,12 @@ func (a *AdminRoutes) getInvitations(w http.ResponseWriter, r *http.Request) {
 }
 
 // PostInvitation is for incoming post requests to create invitation
-type PostInvitation struct {
+type postInvitation struct {
 	Email string `json:"email"`
 }
 
 func (a *AdminRoutes) postInvitation(w http.ResponseWriter, r *http.Request) {
-	reqData := &PostInvitation{}
+	reqData := &postInvitation{}
 	err := readJSON(r, reqData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -299,4 +430,12 @@ func (a *AdminRoutes) deleteInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AdminRoutes) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("AdminRoutes")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

@@ -123,6 +123,12 @@ func TestCreateWithEmail(t *testing.T) {
 	if user.Email != "bob@foo.com" {
 		t.Error("input name does not match output name", user)
 	}
+	if !user.HasPassword {
+		t.Error("expected HasPassword to be true")
+	}
+	if user.TSNetIdentifier != "" {
+		t.Errorf("expected empty tsnet identifier, got %s", user.TSNetIdentifier)
+	}
 }
 
 func TestCreateEmailDupe(t *testing.T) {
@@ -169,6 +175,9 @@ func TestCreateWithTSNet(t *testing.T) {
 
 	if user.TSNetIdentifier != "bob@foo.com" {
 		t.Error("input name does not match output name", user)
+	}
+	if user.HasPassword {
+		t.Error("expected has password to be false")
 	}
 }
 

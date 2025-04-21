@@ -30,6 +30,7 @@ import ManageDropID from '../views/ManageDropID.vue';
 
 import AdminHome from '../views/admin/AdminHome.vue';
 import Users from '../views/admin/Users.vue';
+import ManageUser from '../views/admin/ManageUser.vue';
 import AdminSettings from '../views/admin/AdminSettings.vue';
 
 const routes: Array<RouteRecordRaw> = [
@@ -281,7 +282,19 @@ const routes: Array<RouteRecordRaw> = [
 		meta: {
 			title: "Admin - Users"
 		}
-	},{
+	}, {
+		path: '/admin/users/:user_id',
+		name: 'admin-user',
+		component: ManageUser,
+		props: route => {
+			return {
+				user_id: numericIdParam(route, 'user_id')
+			}
+		},
+		meta: {
+			title: "Admin - Manage User"
+		}
+	}, {
 		path: '/admin/settings',
 		name: 'admin-settings',
 		component: AdminSettings,
@@ -291,6 +304,12 @@ const routes: Array<RouteRecordRaw> = [
 	}
 ];
 
+export function numericIdParam(route:RouteLocationNormalized, param_name: string) :number {
+	const p = route.params[param_name];
+	if( Array.isArray(p) ) throw new Error("numeric id can not be an array "+param_name);
+	return parseInt(p as string);
+}
+// TODO replace app and appspace with numeric id
 export function appspaceIdParam(route:RouteLocationNormalized) :number {
 	const p = route.params.appspace_id;
 	if( Array.isArray(p) ) throw new Error("id can not be an array");

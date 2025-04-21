@@ -60,11 +60,11 @@ func (p *prepper) exec(query string) *sqlx.Stmt {
 func (m *UserModel) PrepareStatements() {
 	p := prepper{handle: m.DB.Handle}
 
-	m.stmt.selectID = p.exec(`SELECT user_id, email, tsnet_identifier, tsnet_extra_name FROM users WHERE user_id = ?`)
+	m.stmt.selectID = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE user_id = ?`)
 
-	m.stmt.selectEmail = p.exec(`SELECT user_id, email, tsnet_identifier, tsnet_extra_name FROM users WHERE email = ?`)
+	m.stmt.selectEmail = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE email = ?`)
 
-	m.stmt.selectAll = p.exec(`SELECT user_id, email, tsnet_identifier, tsnet_extra_name FROM users`)
+	m.stmt.selectAll = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users`)
 
 	m.stmt.insertUser = p.exec(`INSERT INTO users 
 		("email", "password", "tsnet_identifier", "tsnet_extra_name") VALUES (?, ?, ?, ?)`)
@@ -74,7 +74,7 @@ func (m *UserModel) PrepareStatements() {
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
 
 	m.stmt.updateTSNet = p.exec(`UPDATE users SET tsnet_identifier = ?, tsnet_extra_name = ? WHERE user_id = ?`)
-	m.stmt.selectTSNet = p.exec(`SELECT user_id, email, tsnet_identifier, tsnet_extra_name FROM users WHERE tsnet_identifier = ?`)
+	m.stmt.selectTSNet = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE tsnet_identifier = ?`)
 
 	m.stmt.selectAdmin = p.exec(`SELECT EXISTS(SELECT 1 FROM admin_users WHERE user_id = ?)`)
 	m.stmt.selectAllAdmins = p.exec(`SELECT * FROM admin_users`)
@@ -146,7 +146,7 @@ func (m *UserModel) insert(email nulltypes.NullString, pw_hash []byte, tsnet_id,
 
 	userID := domain.UserID(lastID)
 
-	user, err = m.GetFromID(userID)
+	user, err = m.GetFromID(userID) // urgh this should in a transaction
 	if err != nil {
 		// maybe log that we failed to get the user we just created?
 		return user, err
@@ -228,6 +228,7 @@ func (m *UserModel) DeleteTSNet(userID domain.UserID) error {
 type dbUser struct {
 	UserID     uint32               `db:"user_id"`
 	Email      nulltypes.NullString `db:"email"`
+	Password   nulltypes.NullString `db:"password"`
 	TSNetID    nulltypes.NullString `db:"tsnet_identifier"`
 	TSNetExtra nulltypes.NullString `db:"tsnet_extra_name"`
 }
@@ -325,6 +326,7 @@ func userFromDB(u dbUser) domain.User {
 	return domain.User{
 		UserID:          domain.UserID(u.UserID),
 		Email:           u.Email.ForceString(),
+		HasPassword:     u.Password.Valid,
 		TSNetIdentifier: u.TSNetID.ForceString(),
 		TSNetExtraName:  u.TSNetExtra.ForceString(),
 	}

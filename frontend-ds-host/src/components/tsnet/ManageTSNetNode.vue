@@ -175,7 +175,7 @@ const show_users = ref(false);
 					 	At least the listing. The number could be passed in. -->
 					<DataDef field="Users:">
 						{{ num_matched_peers }} of {{ num_peers }} peers are
-						{{ for_appspace ? 'users of this appspace' : 'linked to users of this instance' }} 
+						{{ for_appspace ? 'users of this appspace' : 'linked to users' }} 
 						<button @click.stop.prevent="show_users = !show_users" class=btn>
 							{{ show_users?"hide" : "show" }} peers
 						</button>

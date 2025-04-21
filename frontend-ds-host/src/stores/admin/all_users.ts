@@ -1,4 +1,4 @@
-import { ref, computed, ShallowRef, shallowRef } from 'vue';
+import { ref, computed, ShallowRef, shallowRef, triggerRef } from 'vue';
 import { defineStore } from 'pinia';
 import {ax} from '@/controllers/userapi';
 import { LoadState, UserForAdmin } from '../types';
@@ -7,6 +7,9 @@ function userFromRaw(raw:any) :UserForAdmin {
 	return {
 		user_id: Number(raw.user_id),
 		email: raw.email+"",
+		has_password: !!raw.has_password,
+		tsnet_identifier: raw.tsnet_identifier+'',
+		tsnet_extra_name: raw.tsnet_extra_name+'',
 		is_admin: !!raw.is_admin
 	};
 }
@@ -31,6 +34,31 @@ export const useAdminAllUsersStore = defineStore('admin-all-users', () => {
 		}
 	}
 
-	return {is_loaded, fetch, users}
+	async function createWithTSNet(tsnet_id:string) {
+		const resp = await ax.post(`/api/admin/user/`, {tsnet_id: tsnet_id});
+		const u = userFromRaw(resp.data);
+		users.value.set(u.user_id, shallowRef(u));
+		triggerRef(users);
+	}
+
+	async function updateTSNet(user_id: number, tsnet_id :string) {
+		const user = users.value.get(user_id);
+		if( !user ) throw new Error("user not found");
+		const resp = await ax.post(`/api/admin/user/${user_id}/tsnet`, {tsnet_id: tsnet_id});
+		user.value.tsnet_identifier = resp.data.tsnet_identifier;
+		user.value.tsnet_extra_name = resp.data.tsnet_extra_name;
+		triggerRef(user);
+	}
+
+	async function deleteTSNet(user_id: number) {
+		const user = users.value.get(user_id);
+		if( !user ) throw new Error("user not found");
+		const resp = await ax.delete(`/api/admin/user/${user_id}/tsnet`);
+		user.value.tsnet_identifier = "";
+		user.value.tsnet_extra_name = "";
+		triggerRef(user);
+	}
+
+	return {is_loaded, fetch, users, createWithTSNet, updateTSNet, deleteTSNet}
 });
 

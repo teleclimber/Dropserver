@@ -219,9 +219,8 @@ func (u *UserRoutes) getInstanceData(w http.ResponseWriter, r *http.Request) {
 
 // UserData is single user
 type UserData struct {
-	Email   string `json:"email"`
-	UserID  int    `json:"user_id"`
-	IsAdmin bool   `json:"is_admin"`
+	domain.User
+	IsAdmin bool `json:"is_admin"`
 }
 
 // getUserData returns a json with {email: ""...""} I think, so far.
@@ -240,10 +239,7 @@ func (u *UserRoutes) getUserData(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := u.UserModel.IsAdmin(user.UserID)
 
-	userData := UserData{
-		UserID:  int(user.UserID),
-		Email:   user.Email,
-		IsAdmin: isAdmin}
+	userData := UserData{user, isAdmin}
 
 	writeJSON(w, userData)
 }

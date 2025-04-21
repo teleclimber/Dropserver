@@ -13,6 +13,9 @@ export interface AdminInvite {
 export interface UserForAdmin {
 	user_id: number,
 	email: string,
+	has_password: boolean,
+	tsnet_identifier: string,
+	tsnet_extra_name: string,
 	is_admin: boolean
 }
 
