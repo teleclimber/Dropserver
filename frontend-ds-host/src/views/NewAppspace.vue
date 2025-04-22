@@ -147,7 +147,7 @@ if( dropIDsStore.is_loaded ) setInitialDropID();
 else watch( () => dropIDsStore.dropids, setInitialDropID );
 function setInitialDropID() {
 	if( dropIDsStore.dropids.size !== 0 ) {
-		dropid.value = dropIDsStore.dropids.entries().next().value[1].value.compound_id;
+		dropid.value = dropIDsStore.dropids.entries().next().value![1].value.compound_id;
 	}
 }
 
@@ -232,8 +232,8 @@ function cancel() {
 					<DataDef field="Subdomain:">
 						<input type="text" v-model="subdomain" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 						<p class="mt-2 py-1 px-3 rounded-xl flex flex-col sm:flex-row sm:justify-between items-baseline" :class="domain_valid_classes">
-							<div class="font-medium">{{full_domain}}</div>
-							<div>{{domain_valid || "OK"}}</div>
+							<span class="font-medium">{{full_domain}}</span>
+							<span>{{domain_valid || "OK"}}</span>
 						</p>
 					</DataDef>
 

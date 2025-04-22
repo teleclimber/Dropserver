@@ -24,7 +24,7 @@ const dropid :Ref<UserDropID|undefined> = ref();
 
 watchEffect( () => {
 	if( dropIDsStore.dropids.size !== 0 ) {
-		dropid.value = dropIDsStore.dropids.entries().next().value[1].value;
+		dropid.value = dropIDsStore.dropids.entries().next().value![1].value;
 	}
 });
 
