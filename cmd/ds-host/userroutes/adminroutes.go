@@ -51,7 +51,7 @@ type AdminRoutes struct {
 func (a *AdminRoutes) subRouter() http.Handler {
 	r := chi.NewRouter()
 
-	// TODO admin-only middleware
+	r.Use(a.mustBeAdmin)
 
 	r.Get("/user/", a.getUsers)
 	r.Post("/user/", a.postUser)
@@ -71,23 +71,20 @@ func (a *AdminRoutes) subRouter() http.Handler {
 	return r
 }
 
-// TODO: do this next
-// func mustBeAdmin(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		_, ok := domain.CtxAuthUserID(r.Context())
-// 		if !ok {
-// 			// TODO: only do this when request is for an html page.
-// 			if strings.HasPrefix(r.URL.Path, "/api") {
-// 				w.WriteHeader(http.StatusUnauthorized)
-// 			} else {
-// 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-// 			}
-// 			return
-// 		}
-
-// 		next.ServeHTTP(w, r)
-// 	})
-// }
+func (a *AdminRoutes) mustBeAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := domain.CtxAuthUserID(r.Context())
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if !a.UserModel.IsAdmin(userID) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
 // getUsers returns the list of users on the system
 func (a *AdminRoutes) getUsers(w http.ResponseWriter, r *http.Request) {

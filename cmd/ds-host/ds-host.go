@@ -539,6 +539,11 @@ func main() {
 		UserRoutes:    userRoutes}
 	userFromPublic.Init()
 
+	userFromTSNet := &userroutes.FromTSNet{
+		UserModel:  userModel,
+		UserRoutes: userRoutes}
+	userFromTSNet.Init()
+
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
 		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
 			AppspaceModel:  appspaceModel,
@@ -588,9 +593,9 @@ func main() {
 		AppspaceRouter:     appspaceFromPublic}
 
 	userTSNet := &server.UserTSNet{
-		Config:        runtimeConfig,
-		SettingsModel: settingsModel,
-		//TODO UserRoutes: ,
+		Config:            runtimeConfig,
+		SettingsModel:     settingsModel,
+		UserRoutes:        userFromTSNet,
 		TSNetStatusEvents: userTSNetEvents,
 		TSNetPeersEvents:  userTSNetPeersEvents,
 	}

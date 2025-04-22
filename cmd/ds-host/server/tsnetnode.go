@@ -301,7 +301,6 @@ func (n *TSNetNode) startStopHTTPS() {
 func (n *TSNetNode) handler(ln net.Listener) {
 	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loggerFn := n.getLogger("http.Serve").Clone
-		loggerFn().Debug("tsnet got request")
 
 		status := n.getStatus()
 		if !status.Usable {
