@@ -32,6 +32,7 @@ import AdminHome from '../views/admin/AdminHome.vue';
 import Users from '../views/admin/Users.vue';
 import ManageUser from '../views/admin/ManageUser.vue';
 import AdminSettings from '../views/admin/AdminSettings.vue';
+import { useAuthUserStore } from '@/stores/auth_user';
 
 const routes: Array<RouteRecordRaw> = [
 	{
@@ -331,7 +332,7 @@ const router = createRouter({
 	routes
 });
 
-router.beforeEach((to, _, next) => {
+router.beforeEach((to) => {
 	let title = '';
 	const rt = to.meta.title
 	if( typeof rt === 'string' ) {
@@ -339,7 +340,16 @@ router.beforeEach((to, _, next) => {
 	}
 	title += 'Dropserver';
 	document.title = title;
-	next();
+});
+
+router.beforeEach( async (to) => {
+	if( to.path.startsWith('/admin') ) {
+		const userStore = useAuthUserStore();
+		await userStore.fetch();
+		if( !userStore.is_admin ) {
+			return { name: 'home' };
+		}
+	}
 });
 
 export default router;
