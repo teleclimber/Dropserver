@@ -10,7 +10,7 @@ export interface AdminInvite {
 	email: string
 }
 
-export interface UserForAdmin {
+export interface User {
 	user_id: number,
 	email: string,
 	has_password: boolean,

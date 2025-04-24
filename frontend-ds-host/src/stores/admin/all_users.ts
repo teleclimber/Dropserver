@@ -1,24 +1,14 @@
 import { ref, computed, ShallowRef, shallowRef, triggerRef } from 'vue';
 import { defineStore } from 'pinia';
-import {ax} from '@/controllers/userapi';
-import { LoadState, UserForAdmin } from '../types';
-
-function userFromRaw(raw:any) :UserForAdmin {
-	return {
-		user_id: Number(raw.user_id),
-		email: raw.email+"",
-		has_password: !!raw.has_password,
-		tsnet_identifier: raw.tsnet_identifier+'',
-		tsnet_extra_name: raw.tsnet_extra_name+'',
-		is_admin: !!raw.is_admin
-	};
-}
+import { ax } from '@/controllers/userapi';
+import { LoadState, User } from '../types';
+import { userFromRaw } from '../helpers';
 
 export const useAdminAllUsersStore = defineStore('admin-all-users', () => {
 	const load_state = ref(LoadState.NotLoaded);
 	const is_loaded = computed( () => load_state.value === LoadState.Loaded );
 
-	const users : ShallowRef<Map<number,ShallowRef<UserForAdmin>>> = shallowRef(new Map());
+	const users : ShallowRef<Map<number,ShallowRef<User>>> = shallowRef(new Map());
 	
 	async function fetch() {
 		if( load_state.value === LoadState.NotLoaded ) {

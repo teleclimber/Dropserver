@@ -346,7 +346,7 @@ router.beforeEach( async (to) => {
 	if( to.path.startsWith('/admin') ) {
 		const userStore = useAuthUserStore();
 		await userStore.fetch();
-		if( !userStore.is_admin ) {
+		if( !userStore.user.is_admin ) {
 			return { name: 'home' };
 		}
 	}

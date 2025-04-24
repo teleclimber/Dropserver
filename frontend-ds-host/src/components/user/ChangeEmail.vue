@@ -12,7 +12,7 @@ authUserStore.fetch();
 const email_input :Ref<HTMLInputElement|null> = ref(null);
 const email = ref("");
 watchEffect( () => {
-	if( authUserStore.is_loaded ) email.value = authUserStore.email;
+	if( authUserStore.is_loaded ) email.value = authUserStore.user.email;
 });
 
 onMounted( () => {

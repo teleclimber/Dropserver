@@ -40,25 +40,43 @@ dropIDStore.loadData();
 	<ViewWrap>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">Account</h3>
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Login</h3>
 				<p class="mt-1 max-w-2xl text-sm text-gray-500">Use this email and password to log in to this Dropserver account. Do not share these credentials.</p>
 			</div>
 			<div class="py-5">
 				<DataDef field="Email:">
 					<ChangeEmail v-if="show_change_email" @close="show_change_email=false"></ChangeEmail>
 					<div v-else class="flex justify-between">
-						<span>{{authUserStore.email || '...'}}</span>
+						<span v-if="authUserStore.user.email">{{authUserStore.user.email }}</span>
+						<span v-else class="text-gray-500 italic">No email set</span>
 						<button class="btn" @click="openChangeEmail">Change</button>
 					</div>
 				</DataDef>
 				<DataDef field="Password:">
 					<ChangePassword v-if="show_change_pw" @close="show_change_pw=false"></ChangePassword>
 					<div v-else class="flex justify-between">
-						<span>********</span>
+						<span v-if="authUserStore.user.has_password">********</span>
+						<span v-else class="text-gray-500 italic">No password set</span>
 						<button class="btn" @click="openChangePw">Change</button>
 					</div>
-					
 				</DataDef>
+			</div>
+		</div>
+		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
+				<p class="mt-1 max-w-2xl text-sm text-gray-500">
+					<template v-if="authUserStore.user.tsnet_identifier">
+						Connect to ds-host without a username and password via a tailscale connection.
+					</template>
+					<template v-else>
+						Tailscale is not set up on this instance or your accout is not associated with a tsnet user.
+					</template>
+				</p>
+			</div>
+			<div class="py-5" v-if="authUserStore.user.tsnet_identifier">
+				<DataDef field="TSNet ID:">{{authUserStore.user.tsnet_identifier }}</DataDef>
+				<DataDef field="TSNet User:">{{authUserStore.user.tsnet_extra_name }}</DataDef>
 			</div>
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">

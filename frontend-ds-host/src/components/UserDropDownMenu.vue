@@ -4,10 +4,10 @@
 			<router-link 
 				:to="{name:'user'}" v-if="authUserStore.is_loaded"
 				class="block px-4 py-4 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-				>{{authUserStore.email}}</router-link>
+				>{{ authUserStore.user.email || authUserStore.user.tsnet_extra_name }}</router-link>
 			<router-link
 				to="/admin"
-				v-if="authUserStore.is_admin && !in_admin"
+				v-if="authUserStore.user.is_admin && !in_admin"
 				class="block px-4 py-4 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
 				>Instance Administation</router-link>
 			<router-link

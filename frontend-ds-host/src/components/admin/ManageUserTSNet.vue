@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, Ref, shallowRef, ShallowRef, computed, onMounted } from 'vue';
 
-import type { UserForAdmin, TSNetCreateConfig } from '@/stores/types';
+import type { User, TSNetCreateConfig } from '@/stores/types';
 
 import { useInstanceSettingsStore } from '@/stores/admin/instance_settings';
 import { useAdminTSNetStore } from '@/stores/admin/tsnet';
@@ -33,7 +33,7 @@ async function tsnetDeleteConfig() {
 }
 
 const tsnet_peer_matched_users = computed( () => {
-	const ret : Map<string,UserForAdmin> = new Map();
+	const ret : Map<string,User> = new Map();
 	adminTSNetStore.peer_users.forEach( (pu) => {
 		const matched_user = adminUsersStore.users.values().find( u => u.value.tsnet_identifier === pu.full_id );
 		if( matched_user ) ret.set(pu.id, matched_user.value);
@@ -42,7 +42,7 @@ const tsnet_peer_matched_users = computed( () => {
 });
 
 const show_select_id = ref('');
-const select_options :ShallowRef<UserForAdmin[]> = shallowRef([]);
+const select_options :ShallowRef<User[]> = shallowRef([]);
 const original_user_id :Ref<number|undefined> = ref();
 const selected_user_id :Ref<number>= ref(0);
 function showSelect(peer_user_id:string) {

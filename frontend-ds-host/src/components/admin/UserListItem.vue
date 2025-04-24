@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type {UserForAdmin} from '@/stores/types';
+import type {User} from '@/stores/types';
 
 const props = defineProps<{
-	user: UserForAdmin
+	user: User
 }>();
 
 </script>

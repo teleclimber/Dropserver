@@ -1,7 +1,8 @@
-import { ref, computed } from 'vue';
+import { ref, Ref, computed } from 'vue';
 import { defineStore } from 'pinia';
-import {ax, get} from '../controllers/userapi';
-import { LoadState } from './types';
+import { ax, get } from '../controllers/userapi';
+import { LoadState, User } from './types';
+import { userFromRaw } from './helpers';
 
 export const useAuthUserStore = defineStore('authenticated-user', () => {
 	const load_state = ref(LoadState.NotLoaded);
@@ -9,23 +10,25 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 
 	const logged_in = ref(true);	// assumed true until a request fails.
 
+	const user :Ref<User> = ref({
+		email: "",
+		has_password: false,
+		is_admin: false,
+		tsnet_extra_name: '',
+		tsnet_identifier:'',
+		user_id:-1,
+	});
+
 	const user_id = ref(-1);
-	const email = ref("");
-	const is_admin = ref(false);
 
 	async function fetch() {
 		if( load_state.value === LoadState.NotLoaded ) {
 			load_state.value = LoadState.Loading;
 			const resp_data = await get('/user/');
-			setFromRaw(resp_data);
+			user_id.value = Number(resp_data.user_id);
+			user.value = userFromRaw(resp_data);
 			load_state.value = LoadState.Loaded;
 		}
-	}
-
-	function setFromRaw(raw:any) {
-		user_id.value = Number(raw.user_id);
-		email .value= raw.email+"";
-		is_admin.value = !!raw.is_admin;
 	}
 
 	function setUnauthorized() {
@@ -44,7 +47,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 			return resp.data;
 		}
 		else if( resp.status === 204 ) {	// "No content" means "Perfect, No Notes"
-			email.value = new_email;
+			user.value.email = new_email;//todo check thsi is reactive
 			return '';
 		}
 		else throw new Error("got unexpected response status "+resp.status);
@@ -66,9 +69,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		load_state,
 		is_loaded,
 		logged_in,
-		user_id,
-		email,
-		is_admin,
+		user_id, user,
 		setUnauthorized,
 		changeEmail,
 		changePassword
