@@ -3,6 +3,7 @@ import { ref, Ref, shallowRef, ShallowRef, computed, onMounted } from 'vue';
 
 import type { User, TSNetCreateConfig } from '@/stores/types';
 
+import { useAuthUserStore } from '@/stores/auth_user';
 import { useInstanceSettingsStore } from '@/stores/admin/instance_settings';
 import { useAdminTSNetStore } from '@/stores/admin/tsnet';
 import { useAdminAllUsersStore } from '@/stores/admin/all_users';
@@ -10,6 +11,7 @@ import { useAdminAllUsersStore } from '@/stores/admin/all_users';
 import ManageTSNetNode from '../tsnet/ManageTSNetNode.vue';
 import DataDef from '../ui/DataDef.vue';
 
+const authUserStore = useAuthUserStore();
 const instanceSettingsStore = useInstanceSettingsStore();
 const adminTSNetStore = useAdminTSNetStore();
 const adminUsersStore = useAdminAllUsersStore();
@@ -25,6 +27,13 @@ async function createTSNetNode(config :TSNetCreateConfig) {
 }
 
 async function tsnetSetConnect(connect:boolean) {
+	if( !connect && authUserStore.using_tsnet ) {
+		if( !confirm('You are using Tailscale right now. '
+			+'If you disconnect you lose access to Dropserver '
+			+'until you can log back in using a different method.') ) {
+				return;
+		}
+	}
 	await instanceSettingsStore.setTSNetConnect( connect );
 }
 

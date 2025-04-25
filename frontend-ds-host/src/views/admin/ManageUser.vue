@@ -1,11 +1,12 @@
 <script setup lang="ts" >
 import { ref, Ref, computed, onMounted, nextTick } from 'vue';
 
+import { useAuthUserStore } from '@/stores/auth_user';
 import { useAdminAllUsersStore } from '@/stores/admin/all_users';
 import { useAdminTSNetStore } from '@/stores/admin/tsnet';
-import type { TSNetPeerUser } from '@/stores/types';
 
 import BigLoader from '@/components/ui/BigLoader.vue';
+import SmallMessage from '@/components/ui/SmallMessage.vue';
 import DataDef from '@/components/ui/DataDef.vue';
 import ViewWrap from '../../components/ViewWrap.vue';
 
@@ -13,6 +14,7 @@ const props = defineProps<{
 	user_id: number
 }>();
 
+const authUserStore = useAuthUserStore();
 const adminTSNetStore = useAdminTSNetStore();
 const adminUsersStore = useAdminAllUsersStore();
 
@@ -47,7 +49,12 @@ function showChangeTSNet() {
 }
 async function saveTSNet() {
 	if( tsnet_input_elem.value === undefined ) throw new Error("no input element for tsnet id");
-	if( tsnet_input_value.value === "" ) await adminUsersStore.deleteTSNet(props.user_id);
+	if( tsnet_input_value.value === "" ) {
+		if( props.user_id === authUserStore.user_id && authUserStore.using_tsnet ) {
+			alert("Sorry, doing this would disconnect you from ds-host. Log in with a username and password to make this change.")
+		}
+		else await adminUsersStore.deleteTSNet(props.user_id);
+	}
 	else await adminUsersStore.updateTSNet(props.user_id, tsnet_input_value.value);
 	show_change_tsnet.value = false;
 }
@@ -56,6 +63,9 @@ async function saveTSNet() {
 
 <template>
 	<ViewWrap>
+		<SmallMessage mood="info" v-if="user && authUserStore.user_id === user.user_id">
+			This is you.
+		</SmallMessage>
 		<div v-if="user" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Email & Password</h3>

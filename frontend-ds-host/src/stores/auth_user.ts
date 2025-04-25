@@ -20,6 +20,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 	});
 
 	const user_id = ref(-1);
+	const using_tsnet = ref(false);
 
 	async function fetch() {
 		if( load_state.value === LoadState.NotLoaded ) {
@@ -27,6 +28,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 			const resp_data = await get('/user/');
 			user_id.value = Number(resp_data.user_id);
 			user.value = userFromRaw(resp_data);
+			using_tsnet.value = !!resp_data.using_tsnet;
 			load_state.value = LoadState.Loaded;
 		}
 	}
@@ -69,7 +71,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		load_state,
 		is_loaded,
 		logged_in,
-		user_id, user,
+		user_id, using_tsnet, user,
 		setUnauthorized,
 		changeEmail,
 		changePassword

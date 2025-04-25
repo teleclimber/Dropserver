@@ -12,6 +12,7 @@ import MessageSad from '../components/ui/MessageSad.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import ChangeEmail from '@/components/user/ChangeEmail.vue';
 import ChangePassword from '@/components/user/ChangePassword.vue';
+import SmallMessage from '@/components/ui/SmallMessage.vue';
 
 const authUserStore = useAuthUserStore();
 authUserStore.fetch();
@@ -67,7 +68,7 @@ dropIDStore.loadData();
 				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
 				<p class="mt-1 max-w-2xl text-sm text-gray-500">
 					<template v-if="authUserStore.user.tsnet_identifier">
-						Connect to ds-host without a username and password via a tailscale connection.
+						Access Dropserver without a username and password via a Tailscale connection.
 					</template>
 					<template v-else>
 						Tailscale is not set up on this instance or your accout is not associated with a tsnet user.
@@ -75,6 +76,9 @@ dropIDStore.loadData();
 				</p>
 			</div>
 			<div class="py-5" v-if="authUserStore.user.tsnet_identifier">
+				<SmallMessage mood="info" v-if="authUserStore.using_tsnet" class="mx-4 sm:mx-6 ">
+					You are connected to Dropserver using this network right now.
+				</SmallMessage>
 				<DataDef field="TSNet ID:">{{authUserStore.user.tsnet_identifier }}</DataDef>
 				<DataDef field="TSNet User:">{{authUserStore.user.tsnet_extra_name }}</DataDef>
 			</div>

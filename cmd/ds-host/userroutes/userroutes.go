@@ -167,7 +167,6 @@ func mustBeAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, ok := domain.CtxAuthUserID(r.Context())
 		if !ok {
-			// TODO: only do this when request is for an html page.
 			if strings.HasPrefix(r.URL.Path, "/api") {
 				w.WriteHeader(http.StatusUnauthorized)
 			} else {
@@ -223,7 +222,12 @@ type UserData struct {
 	IsAdmin bool `json:"is_admin"`
 }
 
-// getUserData returns a json with {email: ""...""} I think, so far.
+type CurrentUserData struct {
+	UserData
+	UsingTSNet bool `json:"using_tsnet"`
+}
+
+// getUserData returns the currently logged in user.
 func (u *UserRoutes) getUserData(w http.ResponseWriter, r *http.Request) {
 	userID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
@@ -239,7 +243,9 @@ func (u *UserRoutes) getUserData(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := u.UserModel.IsAdmin(user.UserID)
 
-	userData := UserData{user, isAdmin}
+	_, usingTSNet := domain.CtxTSNetUserID(r.Context())
+
+	userData := CurrentUserData{UserData{user, isAdmin}, usingTSNet}
 
 	writeJSON(w, userData)
 }
