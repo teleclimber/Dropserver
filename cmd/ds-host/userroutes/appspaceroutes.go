@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -390,7 +391,12 @@ func (a *AppspaceRoutes) createTSNet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO validate inputs...
+	err = validator.TSNetCreateConfig(reqData)
+	if err != nil {
+		a.getLogger("createTSNet validator").Debug(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	err = a.AppspaceTSNetModel.CreateOrUpdate(appspace.AppspaceID, reqData.ControlURL, reqData.Hostname, true)
 	if err != nil {
@@ -505,4 +511,12 @@ func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceResp
 		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}
+}
+
+func (a *AppspaceRoutes) getLogger(note string) *record.DsLogger {
+	l := record.NewDsLogger().AddNote("AppspaceRoutes")
+	if note != "" {
+		l.AddNote(note)
+	}
+	return l
 }

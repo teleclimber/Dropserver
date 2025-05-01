@@ -6,9 +6,51 @@ import (
 	"strings"
 
 	goValidator "github.com/go-playground/validator/v10"
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
-var goVal = goValidator.New()
+var goVal = func() *goValidator.Validate {
+	goVal := goValidator.New()
+	goVal.RegisterValidation("alphanumdash", ValidateAlphaNumDash)
+	goVal.RegisterValidation("startalpha", ValidateStartAlpha)
+	goVal.RegisterValidation("startalphanum", ValidateStartAlphaNum)
+	goVal.RegisterValidation("endalphanum", ValidateEndAlphaNum)
+	goVal.RegisterAlias("tsnetcontrolurl", "max=500") // allow anything, if it doesn't connect it doesn't connect.
+	goVal.RegisterAlias("tsnetmachinename", "max=63,alphanumdash,startalphanum,endalphanum")
+	goVal.RegisterAlias("tsnettag", "max=50,alphanumdash,startalpha")
+	goVal.RegisterAlias("tsnetauthkey", "max=500")
+	return goVal
+}()
+
+var alphaNumDashRegex = regexp.MustCompile("^[a-zA-Z0-9-]*$")
+
+// ValidateAlphaNumDash for strings that can contain alphanum and dashes
+func ValidateAlphaNumDash(fl goValidator.FieldLevel) bool {
+	return alphaNumDashRegex.MatchString(fl.Field().String())
+}
+
+var startAlphaRegex = regexp.MustCompile("^[a-zA-Z]")
+
+// ValidateStartAlpha verifies a string starts with an alpha character
+func ValidateStartAlpha(fl goValidator.FieldLevel) bool {
+	return startAlphaRegex.MatchString(fl.Field().String())
+}
+
+var startAlphaNumRegex = regexp.MustCompile("^[a-zA-Z0-9]")
+
+// ValidateStartAlphaNum verifies a string starts with an alphanum character
+func ValidateStartAlphaNum(fl goValidator.FieldLevel) bool {
+	return startAlphaNumRegex.MatchString(fl.Field().String())
+}
+
+var endAlphaNumRegex = regexp.MustCompile("[a-zA-Z0-9]$")
+
+// ValidateEndAlphaNum verifies a string ends with an alphanum character
+func ValidateEndAlphaNum(fl goValidator.FieldLevel) bool {
+	return endAlphaNumRegex.MatchString(fl.Field().String())
+}
+
+//////////////////////////////////////////////////////
 
 // Password validates a password for logging in or registering
 func Password(pw string) error {
@@ -87,7 +129,7 @@ func DropIDHandle(handle string) error {
 
 func TSNetIDFull(tsnetid string) error {
 	id, controlURL := SplitTSNetID(tsnetid)
-	err := TSNetIDHandle(id)
+	err := TSNetIdentifier(id)
 	if err != nil {
 		return err
 	}
@@ -98,8 +140,12 @@ func TSNetIDFull(tsnetid string) error {
 	return nil
 }
 
-func TSNetIDHandle(handle string) error {
+func TSNetIdentifier(handle string) error {
 	return goVal.Var(handle, "min=1,max=30,alphanum")
+}
+
+func TSNetCreateConfig(c domain.TSNetCreateConfig) error {
+	return goVal.Struct(c)
 }
 
 // UserProxyID validates an appspace user proxy id

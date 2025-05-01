@@ -175,6 +175,13 @@ func (a *AdminRoutes) postUserTSNet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = validator.TSNetIdentifier(reqData.TSNetID)
+	if err != nil {
+		a.getLogger("postUserTSNet validator.TSNetIdentifier").Debug(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	peerUser, err := a.getTSNetUser(reqData.TSNetID)
 	if err != nil {
 		a.getLogger("postUserTSNet").Debug(err.Error())
@@ -304,7 +311,12 @@ func (a *AdminRoutes) postTSNet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO gotta validate the fields that aren't bool.
+	err = validator.TSNetCreateConfig(reqData)
+	if err != nil {
+		a.getLogger("postTSNet validator").Debug(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	err = a.SettingsModel.SetTSNet(domain.TSNetCommon{
 		ControlURL: reqData.ControlURL,

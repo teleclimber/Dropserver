@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 import type { TSNetData, TSNetStatus, TSNetCreateConfig } from '@/stores/types';
 
@@ -36,11 +36,38 @@ function showEditConfig() {
 	show_edit_config.value = true;
 }
 
+// from backend validtaor: "max=63,alphanumdash,startalphanum,endalphanum"
+const alphaNumDashRe = /^[a-zA-Z0-9-]*$/
+const hostname_invalid = computed( () => {
+	const n = hostname.value.trim();
+	console.log("hostname validatoin", n);
+	if( n === '' ) return "Name can not be blank";
+	if( n.length > 63 ) return "Name is too long";
+	if( !alphaNumDashRe.test(n) ) return "Name should consist of alphanumeric and dash characters";
+	if( n.startsWith('-') || n.endsWith('-') ) return "Name should not start or end with a dash";
+	return '';
+});
+
+const startAlphaRe = /^[a-zA-Z]/
+
+// "max=50,alphanumdash,startalpha"
+const tags_invalid = computed( () => {
+	console.log("tags", tagsFromString(tags.value).map( t => `|${t}|`).join(' '));
+	return tagsFromString(tags.value).reduce( (msg, t) => {
+		if( msg != '' ) return msg;
+		if( t.length > 50 ) return 'Tags must be less than 50 characters';
+		if( !alphaNumDashRe.test(t) ) return 'Tags should consist of alphanumeric and dash characters';
+		if( !startAlphaRe.test(t) ) return 'Tags must start with alphabetic character';
+		return '';
+	}, '');
+});
+
+const create_invalid = computed( () => {
+	return !!(hostname_invalid.value || tags_invalid.value);
+});
+
 async function createNode() {
-	//TODO validate before save and also while editing.
-	// control url and hostname
-	// control url should be a domain or url
-	// hostname valid chars?
+	if( create_invalid.value ) return;
 	emit('create-node', {
 		control_url:control_url.value,
 		hostname: hostname.value,
@@ -50,7 +77,7 @@ async function createNode() {
 	show_edit_config.value = false;
 }
 function tagsFromString(str :string) :string[] {
-	return str.split(/, /).map( s => s.trim() ).filter( s => s !== '' );
+	return str.split(/[, ]/).map( s => s.trim() ).filter( s => s !== '' );
 }
 
 async function setConnect(connect:boolean) {
@@ -197,6 +224,7 @@ const show_users = ref(false);
 				<DataDef field="Hostname:">
 					<input type="text" v-model="hostname"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+					<SmallMessage v-if="hostname_invalid" mood="warn">{{ hostname_invalid }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Control URL:">
 					<input type="text" v-model="control_url"
@@ -210,13 +238,15 @@ const show_users = ref(false);
 				<DataDef field="Tags:">
 					<input type="text" v-model="tags"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-					<p>Node must have at least one tag.</p>
+					<SmallMessage v-if="tags_invalid" mood="warn">{{ tags_invalid }}</SmallMessage>
+					<p v-else>Node must have at least one tag.</p>
 				</DataDef>
 				<div class="flex justify-between">
 					<input type="button" class="btn py-2" @click="show_edit_config = !show_edit_config" value="Cancel" />
 					<input
 						type="submit"
 						class="btn-blue"
+						:disabled="create_invalid"
 						value="Connect" />
 				</div>
 			</form>

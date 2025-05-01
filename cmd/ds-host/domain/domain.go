@@ -541,10 +541,10 @@ type AppspaceTSNet struct {
 }
 
 type TSNetCreateConfig struct {
-	ControlURL string   `json:"control_url"`
-	Hostname   string   `json:"hostname"`
-	Tags       []string `json:"tags"`
-	AuthKey    string   `json:"auth_key"`
+	ControlURL string   `json:"control_url" validate:"tsnetcontrolurl"`
+	Hostname   string   `json:"hostname" validate:"tsnetmachinename"`
+	Tags       []string `json:"tags" validate:"required,dive,tsnettag"`
+	AuthKey    string   `json:"auth_key" validate:"tsnetauthkey"`
 }
 
 type RemoteAppspace struct {

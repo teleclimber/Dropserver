@@ -4,6 +4,231 @@ import (
 	"testing"
 )
 
+func TestValidateAlphaNumDashRegex(t *testing.T) {
+	cases := []struct {
+		str string
+		res bool
+	}{
+		{"", true},
+		{"1", true},
+		{"-", true},
+		{"a-", true},
+		{"abc123", true},
+		{"abc-123", true},
+		{"123-abc", true},
+		{"-abc-123", true},
+		{"---", true},
+		{"%", false},
+	}
+
+	for _, c := range cases {
+		res := alphaNumDashRegex.MatchString(c.str)
+		if c.res != res {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, res, c.res)
+		}
+	}
+}
+
+func TestValidateStartAlpha(t *testing.T) {
+	cases := []struct {
+		str string
+		res bool
+	}{
+		{"", false},
+		{"a123", true},
+		{"1abc", false},
+		{"123-abc", false},
+		{"%", false},
+	}
+
+	for _, c := range cases {
+		res := startAlphaRegex.MatchString(c.str)
+		if c.res != res {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, res, c.res)
+		}
+	}
+}
+
+func TestValidateStartAlphaNum(t *testing.T) {
+	cases := []struct {
+		str string
+		res bool
+	}{
+		{"", false},
+		{"a123", true},
+		{"1abc", true},
+		{"123-abc", true},
+		{"%", false},
+	}
+
+	for _, c := range cases {
+		res := startAlphaNumRegex.MatchString(c.str)
+		if c.res != res {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, res, c.res)
+		}
+	}
+}
+func TestValidateEndAlphaNum(t *testing.T) {
+	cases := []struct {
+		str string
+		res bool
+	}{
+		{"", false},
+		{"a", true},
+		{"1", true},
+		{"a123", true},
+		{"1abc", true},
+		{"123-abc", true},
+		{"%", false},
+	}
+
+	for _, c := range cases {
+		res := endAlphaNumRegex.MatchString(c.str)
+		if c.res != res {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, res, c.res)
+		}
+	}
+}
+
+type testControlURL struct {
+	ControlURL string `validate:"tsnetcontrolurl"`
+}
+
+func TestValidateTSNetControlURLStruct(t *testing.T) {
+	cases := []struct {
+		str   string
+		isErr bool
+	}{
+		{"", false},
+		{"a", false},
+		{"foo.bar", false},
+	}
+	for _, c := range cases {
+		err := goVal.Struct(testControlURL{c.str})
+		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, err, c.isErr)
+		}
+	}
+}
+
+type testTSNetMachineName struct {
+	MachineName string `validate:"tsnetmachinename"`
+}
+
+func TestValidateTSNetMachineNameStruct(t *testing.T) {
+	cases := []struct {
+		str   string
+		isErr bool
+	}{
+		{"", true},
+		{"1", false},
+		{"a", false},
+		{"abc-123", false},
+		{"-abc-123", true},
+		{"abc-123-", true},
+		{"abc-def-1-abc-def-2-abc-def-3-abc-def-4-abc-def-5-abc-def-6-over-63", true},
+		{"%", true},
+	}
+
+	for _, c := range cases {
+		err := goVal.Struct(testTSNetMachineName{c.str})
+		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, err, c.isErr)
+		}
+	}
+}
+
+// func TestValidateTSNetMachineName(t *testing.T) {
+// 	cases := []struct {
+// 		str   string
+// 		isErr bool
+// 	}{
+// 		{"", true},
+// 		{"1", false},
+// 		{"a", false},
+// 		{"abc-123", false},
+// 		{"-abc-123", true},
+// 		{"abc-123-", true},
+// 		{"abc-def-1-abc-def-2-abc-def-3-abc-def-4-abc-def-5-abc-def-6-over-63", true},
+// 		{"%", true},
+// 	}
+
+// 	for _, c := range cases {
+// 		err := TSNetMachineName(c.str)
+// 		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+// 			t.Errorf("mismatch for %s, got %v expected %v", c.str, err, c.isErr)
+// 		}
+// 	}
+// }
+
+type testTSNetTag struct {
+	Tag string `validate:"tsnettag"`
+}
+
+func TestValidateTSNetTagStruct(t *testing.T) {
+	cases := []struct {
+		str   string
+		isErr bool
+	}{
+		{"", true},
+		{"abc-123", false},
+		{"123-abc", true},
+		{"abc-", false},
+		{"abc-def-1-abc-def-2-abc-def-3-abc-def-4-abc-def-5-over-fifty", true},
+		{"%", true},
+	}
+
+	for _, c := range cases {
+		err := goVal.Struct(testTSNetTag{c.str})
+		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+			t.Errorf("mismatch for %s, got %v expected %v", c.str, err, c.isErr)
+		}
+	}
+}
+
+type testTSNetTagArray struct {
+	Tag []string `validate:"required,dive,tsnettag"`
+}
+
+func TestValidateTSNetTagArray(t *testing.T) {
+	cases := []struct {
+		arr   []string
+		isErr bool
+	}{
+		{nil, true},
+		{[]string{}, false},
+		{[]string{"abc-123"}, false},
+		{[]string{"abc-123", "%"}, true},
+	}
+	for _, c := range cases {
+		err := goVal.Struct(testTSNetTagArray{c.arr})
+		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+			t.Errorf("mismatch for %s, got %v expected %v", c.arr, err, c.isErr)
+		}
+	}
+}
+
+// func TestValidateTSNetTag(t *testing.T) {
+// 	cases := []struct {
+// 		str   string
+// 		isErr bool
+// 	}{
+// 		{"", true},
+// 		{"abc-123", false},
+// 		{"123-abc", true},
+// 		{"abc-", false},
+// 		{"abc-def-1-abc-def-2-abc-def-3-abc-def-4-abc-def-5-over-fifty", true},
+// 		{"%", true},
+// 	}
+
+// 	for _, c := range cases {
+// 		err := TSNetTag(c.str)
+// 		if (err != nil && !c.isErr) || (err == nil && c.isErr) {
+// 			t.Errorf("mismatch for %s, got %v expected %v", c.str, err, c.isErr)
+// 		}
+// 	}
+// }
+
 func TestPassword(t *testing.T) {
 
 	cases := []struct {
