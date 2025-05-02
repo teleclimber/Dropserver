@@ -22,18 +22,18 @@ const emit = defineEmits<{
   (e: 'delete'): void
 }>();
 
-const show_edit_config = ref(false);
+const show_create_config = ref(false);
 const control_url = ref('');
 const hostname = ref('');
 const auth_key = ref('');
 const connect = ref(true);
 const tags = ref('');
 
-function showEditConfig() {
+function showCreateConfig() {
 	control_url.value = props.tsnet_data?.control_url || '';
 	hostname.value = props.tsnet_data?.hostname || props.suggested_name;
 	connect.value = props.tsnet_data ? props.tsnet_data.connect : true;
-	show_edit_config.value = true;
+	show_create_config.value = true;
 }
 
 // from backend validtaor: "max=63,alphanumdash,startalphanum,endalphanum"
@@ -74,7 +74,7 @@ async function createNode() {
 		auth_key: auth_key.value,
 		tags: tagsFromString(tags.value)
 	});
-	show_edit_config.value = false;
+	show_create_config.value = false;
 }
 function tagsFromString(str :string) :string[] {
 	return str.split(/[, ]/).map( s => s.trim() ).filter( s => s !== '' );
@@ -106,7 +106,8 @@ const show_users = ref(false);
 				<span v-else-if="tsnet_status.transitory == 'disconnect'" class="p-2 bg-gray-200 text-gray-700">
 					Disconnecting...
 				</span>
-				<button v-else-if="!tsnet_data" @click.stop.prevent="showEditConfig()" :disabled="show_edit_config" class="btn btn-blue">
+				<template v-else-if="show_create_config"></template>
+				<button v-else-if="!tsnet_data" @click.stop.prevent="showCreateConfig()" class="btn btn-blue">
 					Create Node
 				</button>
 				<span v-else-if="tsnet_status.state == '' || tsnet_status.state == 'Off'" class="p-2 bg-red-200 text-red-800">
@@ -149,15 +150,16 @@ const show_users = ref(false);
 				</button>
 			</div>
 		</div>
-		<div v-else-if="tsnet_status.transitory" class="px-4 sm:px-6 my-5">
-			<p v-if="tsnet_status.transitory == 'connect'">Connecting...</p>
-			<p v-else-if="tsnet_status.transitory == 'disconnect'">Disconnecting...</p>
-		</div>
 		<div v-else-if="tsnet_data" class="px-4 sm:px-6 my-5">
 			<template v-if="tsnet_status.state == '' || tsnet_status.state == 'Off'">
 				<DataDef field="Control URL:">{{  tsnet_data.control_url || "tailscale.com" }}</DataDef>
 				<DataDef field="Desired Hostname:">{{ tsnet_data.hostname }}</DataDef>
-				<div class="flex justify-between">
+				<div v-if="tsnet_status.transitory == 'connect'" class="flex">
+					<button @click.stop.prevent="setConnect(false)" class="btn btn-blue">
+						Cancel
+					</button>
+				</div>
+				<div v-else class="flex justify-between">
 					<button @click.stop.prevent="deleteConfig()" class="btn text-red-700">
 						<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -168,7 +170,6 @@ const show_users = ref(false);
 						Connect
 					</button>
 				</div>
-				
 			</template>
 			<template v-else-if="tsnet_status.url">
 				<MessageWarn v-if="tsnet_status.tags.length === 0 " head="No Tags">
@@ -216,11 +217,11 @@ const show_users = ref(false);
 				</div>
 			</template>
 		</div>
-		<div v-else-if="show_edit_config" class="px-4 sm:px-6 my-5">
+		<div v-else-if="show_create_config" class="px-4 sm:px-6 my-5">
 			<p>{{ for_appspace ? 'Connect this appspace to a tailnet.' : 'Connect this instance to a tailnet.' }}
 				This will create a node on the tailnet with its own address.
 				You can also connect to alternative control servers such as a Headscale instance.</p>
-			<form @submit.prevent="createNode" @keyup.esc="show_edit_config = !show_edit_config">
+			<form @submit.prevent="createNode" @keyup.esc="show_create_config = !show_create_config">
 				<DataDef field="Hostname:">
 					<input type="text" v-model="hostname"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
@@ -242,7 +243,7 @@ const show_users = ref(false);
 					<p v-else>Node must have at least one tag.</p>
 				</DataDef>
 				<div class="flex justify-between">
-					<input type="button" class="btn py-2" @click="show_edit_config = !show_edit_config" value="Cancel" />
+					<input type="button" class="btn py-2" @click="show_create_config = !show_create_config" value="Cancel" />
 					<input
 						type="submit"
 						class="btn-blue"
