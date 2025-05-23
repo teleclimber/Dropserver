@@ -23,7 +23,7 @@ const emit = defineEmits<{
 				Email:
 			</span>
 			<span v-else-if="auth.type=='tsnetid'" class="">
-				Tailscale:
+				Tailnet ID:
 			</span>
 			<span v-if="auth.type ==='tsnetid'">{{ auth.extra_name }} ({{ auth.identifier }})</span>
 			<span v-else>{{ auth.identifier }}</span>

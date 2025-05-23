@@ -6,7 +6,7 @@
 				class="block px-4 py-4 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
 				>{{ authUserStore.user.email || authUserStore.user.tsnet_extra_name }}
 				<span v-if="authUserStore.using_tsnet" class="bg-gray-200 text-gray-800 px-1 uppercase text-xs font-semibold">
-					via Tailscale Network
+					via a tailnet
 				</span>
 			</router-link>
 			<router-link

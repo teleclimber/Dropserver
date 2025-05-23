@@ -83,14 +83,17 @@ async function saveTSNet() {
 		</div>
 		<div v-if="user" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailnet Access</h3>
 			</div>
 			<div class="p-4 sm:px-6">
-				<template  v-if="show_change_tsnet && adminTSNetStore.tsnet_status.usable">
+				<template  v-if="show_change_tsnet ">
+					<SmallMessage mood="warn" v-if="!adminTSNetStore.tsnet_status.usable">
+						This instance is not connected to a tailnet. Connect it to select a different ID.
+					</SmallMessage>
 					<form @submit.prevent="saveTSNet" @keyup.esc="show_change_tsnet = false">
 						<DataDef field="TS Network User:">
 							<select ref="tsnet_input_elem" v-model="tsnet_input_value">
-								<option value="">No tsnet user</option>
+								<option value="">No tailnet ID</option>
 								<option v-for="pu in tsnet_peer_unmatched_users" :value="pu.id">{{ pu.display_name }} ({{ pu.login_name }})</option>
 							</select>
 						</DataDef>
@@ -103,22 +106,19 @@ async function saveTSNet() {
 						</div>
 					</form>
 				</template>
-				<template v-else-if="show_change_tsnet">
-					tsnet node not connected. Connect it to change.
-				</template>
 				<template class="p-4 sm:px-6" v-else-if="user.tsnet_identifier">
-					<DataDef field="Tsnet ID:">
+					<DataDef field="Tailnet ID:">
 						{{ user.tsnet_identifier }}
 						<button class="btn" @click.stop.prevent="showChangeTSNet">change</button>
 					</DataDef>
 					<DataDef field="Login Name:">{{ user.tsnet_extra_name }}</DataDef>
 				</template>
 				<template v-else-if="adminTSNetStore.tsnet_status.usable">
-					No tsnet id set for this user
+					No tailnet ID set for this user
 					<button class="btn" @click.stop.prevent="showChangeTSNet">change</button>
 				</template>
 				<template v-else>
-					tsnet node not create or not connected. Connect ds-host to a tailsclae network.
+					This instance is not connected to a tailnet.
 				</template>
 			</div>
 		</div>

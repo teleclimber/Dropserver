@@ -65,22 +65,18 @@ dropIDStore.loadData();
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Tailnet Access</h3>
 				<p class="mt-1 max-w-2xl text-sm text-gray-500">
-					<template v-if="authUserStore.user.tsnet_identifier">
-						Access Dropserver without a username and password via a Tailscale connection.
-					</template>
-					<template v-else>
-						Tailscale is not set up on this instance or your accout is not associated with a tsnet user.
-					</template>
+					Access Dropserver without a username and password using a private network
+					managed by Tailscale.com or a compatible alternative.
 				</p>
 			</div>
 			<div class="py-5" v-if="authUserStore.user.tsnet_identifier">
-				<SmallMessage mood="info" v-if="authUserStore.using_tsnet" class="mx-4 sm:mx-6 ">
-					You are connected to Dropserver using this network right now.
+				<SmallMessage mood="info" v-if="authUserStore.using_tsnet" class="mx-4 sm:mx-6">
+					You are connected to Dropserver using this tailnet ID right now.
 				</SmallMessage>
-				<DataDef field="TSNet ID:">{{authUserStore.user.tsnet_identifier }}</DataDef>
-				<DataDef field="TSNet User:">{{authUserStore.user.tsnet_extra_name }}</DataDef>
+				<DataDef field="Tailnet ID:">{{authUserStore.user.tsnet_identifier }}</DataDef>
+				<DataDef field="Tailnet User:">{{authUserStore.user.tsnet_extra_name }}</DataDef>
 			</div>
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">

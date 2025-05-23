@@ -14,7 +14,7 @@ const props = defineProps<{
 			<div v-if="user.email" class="">{{ user.email }}</div>
 			<div v-else class="italic text-gray-500">No email set</div>
 			<div v-if="user.tsnet_identifier">{{ user.tsnet_identifier }} ({{ user.tsnet_extra_name }})</div>
-			<div v-else class="italic text-gray-500">No tailscale identifier</div>
+			<div v-else class="italic text-gray-500">No tailnet identifier</div>
 		</div>
 		<div class="self-center flex flex-row items-baseline">
 			<span 

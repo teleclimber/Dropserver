@@ -245,7 +245,7 @@ function cancel() {
 						<span class="font-medium mr-2">Type:</span>
 						<select v-model="add_auth_type" class="mr-4">
 							<option value="dropid">DropID</option>
-							<option value="tsnetid">Tailscale</option>
+							<option value="tsnetid">Tailnet ID</option>
 						</select>
 						<span v-if="add_auth_type==='dropid'">
 							<span class="font-medium mr-2">DropID:</span>
@@ -254,10 +254,10 @@ function cancel() {
 						</span>
 						<template v-else-if="add_auth_type==='tsnetid'">
 							<span v-if="tsnet_peer_users===undefined" class="italic">
-								Tailscale node is not connected.
+								Not connected to a tailnet.
 							</span>
 							<span v-else-if="num_tsnet_peers===0" class="italic">
-								There are no peers in this network.
+								There are no peers in this tailnet.
 							</span>
 							<span v-else-if="tsnet_peer_users?.length===0" class="italic">
 								All peers are already appspace users.

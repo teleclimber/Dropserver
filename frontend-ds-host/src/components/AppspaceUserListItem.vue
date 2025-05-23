@@ -21,7 +21,7 @@ const avatar_url = getAvatarUrl(props.user);
 			<ul>
 				<li v-for="auth in user.auths" class="text-gray-600">
 					<template v-if="auth.type === 'tsnetid'">
-						<span>Tailscale: </span>
+						<span>Tailnet ID: </span>
 						<span>{{ auth.extra_name }} ({{ auth.identifier.split("@")[1] }})</span>
 					</template>
 					<template v-else>

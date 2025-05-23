@@ -40,7 +40,6 @@ function showCreateConfig() {
 const alphaNumDashRe = /^[a-zA-Z0-9-]*$/
 const hostname_invalid = computed( () => {
 	const n = hostname.value.trim();
-	console.log("hostname validatoin", n);
 	if( n === '' ) return "Name can not be blank";
 	if( n.length > 63 ) return "Name is too long";
 	if( !alphaNumDashRe.test(n) ) return "Name should consist of alphanumeric and dash characters";
@@ -52,7 +51,6 @@ const startAlphaRe = /^[a-zA-Z]/
 
 // "max=50,alphanumdash,startalpha"
 const tags_invalid = computed( () => {
-	console.log("tags", tagsFromString(tags.value).map( t => `|${t}|`).join(' '));
 	return tagsFromString(tags.value).reduce( (msg, t) => {
 		if( msg != '' ) return msg;
 		if( t.length > 50 ) return 'Tags must be less than 50 characters';
@@ -86,7 +84,7 @@ async function setConnect(connect:boolean) {
 }
 
 async function deleteConfig() {
-	if( confirm("Delete tailscale node configuration data?") ) {
+	if( confirm("Delete tailnet node configuration data?") ) {
 		emit('delete');
 	}
 }
@@ -98,7 +96,7 @@ const show_users = ref(false);
 <template>
 	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
-			<h3 class="text-lg leading-6 font-medium text-gray-900">Tailscale</h3>
+			<h3 class="text-lg leading-6 font-medium text-gray-900">Tailnet Node</h3>
 			<div>
 				<span v-if="tsnet_status.transitory == 'connect'" class="p-2 bg-gray-200 text-gray-700">
 					Connecting...
@@ -128,8 +126,8 @@ const show_users = ref(false);
 			</div>
 		</div>
 
-		<MessageWarn head="TSNet Error Message" v-if="tsnet_status.err_message">{{ tsnet_status.err_message }}</MessageWarn>
-		<MessageWarn head="TSNet Warnings" v-if="tsnet_status.warnings.length">
+		<MessageWarn head="Tailnet Error Message" v-if="tsnet_status.err_message">{{ tsnet_status.err_message }}</MessageWarn>
+		<MessageWarn head="Tailnet Warnings" v-if="tsnet_status.warnings.length">
 			<ul v-for="warn in tsnet_status.warnings">
 				<li>
 					<h3>{{ warn.title }}</h3>
@@ -173,17 +171,17 @@ const show_users = ref(false);
 			</template>
 			<template v-else-if="tsnet_status.url">
 				<MessageWarn v-if="tsnet_status.tags.length === 0 " head="No Tags">
-					A Tailscale node must have a tag. 
+					A tailnet node must have a tag. 
 					Open the admin panel for {{ tsnet_status.control_url }}
 					to add an appropriate tag and disable node expiration (see docs).
 				</MessageWarn>
 				<DataDef :field="for_appspace ? 'Appspace Address:' : 'Address:'">
 					<a class="text-blue-700 hover:text-blue-500 underline" :href="tsnet_status.url">{{tsnet_status.url}}</a>
 					<SmallMessage mood="info" v-if="!tsnet_status.magic_dns_enabled" class="my-2">
-						Enable MagicDNS in Tailscale admin panel to get a nicer address.
+						Enable MagicDNS in your tailnet's admin panel to get a nicer address.
 					</SmallMessage>
 					<SmallMessage mood="info" v-if="!tsnet_status.https_available" class="my-2">
-						Recommended: enable HTTPS in the Tailscale admin panel.
+						Recommended: enable HTTPS in your tailnet's admin panel.
 					</SmallMessage>
 				</DataDef>
 				<DataDef field="Tailnet:">
@@ -202,16 +200,20 @@ const show_users = ref(false);
 					<!-- users stuff may need to be a separate component.
 					 	At least the listing. The number could be passed in. -->
 					<DataDef field="Users:">
-						{{ num_matched_peers }} of {{ num_peers }} peers are
-						{{ for_appspace ? 'users of this appspace' : 'linked to users' }} 
+						{{ num_matched_peers }} of {{ num_peers }} tailnet users are
+						{{ for_appspace ? 'users of this appspace' : 'linked to ds-host users' }} 
 						<button @click.stop.prevent="show_users = !show_users" class=btn>
 							{{ show_users?"hide" : "show" }} peers
 						</button>
 					</DataDef>
-					<slot name="users" v-if="show_users" >defautl</slot><!-- does taht work?-->
+					<slot name="users" v-if="show_users" >default</slot>
 				</template>
 				<div class="flex justify-end mt-4">
-					<button v-if="tsnet_data" @click.stop.prevent="setConnect(!tsnet_data.connect)" class="btn btn-blue">
+					<button 
+						v-if="tsnet_data" 
+						@click.stop.prevent="setConnect(!tsnet_data.connect)"
+						:disabled="tsnet_status.transitory == 'disconnect'"
+						class="btn btn-blue">
 						{{ tsnet_data.connect ? 'Disconnect' : 'Connect'}}
 					</button>
 				</div>
@@ -230,7 +232,7 @@ const show_users = ref(false);
 				<DataDef field="Control URL:">
 					<input type="text" v-model="control_url"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-					<p>Leave blank to use Tailscale.com. Otherwise enter your Headscale (or other) URL.</p>
+					<p>Leave blank to use Tailscale.com or enter your alternative control URL.</p>
 				</DataDef>
 				<DataDef field="Auth Key:">
 					<input type="text" v-model="auth_key"

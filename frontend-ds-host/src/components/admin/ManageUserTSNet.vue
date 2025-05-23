@@ -28,7 +28,7 @@ async function createTSNetNode(config :TSNetCreateConfig) {
 
 async function tsnetSetConnect(connect:boolean) {
 	if( !connect && authUserStore.using_tsnet ) {
-		if( !confirm('You are using Tailscale right now. '
+		if( !confirm('You are connected through your tailnet right now. '
 			+'If you disconnect you lose access to Dropserver '
 			+'until you can log back in using a different method.') ) {
 				return;
@@ -108,7 +108,7 @@ async function saveSelect() {
 				<template v-for="u in adminTSNetStore.peer_users">
 					<li v-if="show_select_id == u.id" class="border border-yellow-200 p-3 bg-yellow-100">
 						<form @submit.prevent="saveSelect" @keyup.esc="cancelSelect">
-							<DataDef field="TSNet User:">
+							<DataDef field="Tailnet User:">
 								<span class="font-bold">{{ u.display_name }}</span>
 								({{ u.login_name }})
 								<span class="bg-amber-500 text-amber-50 px-2 text-sm rounded whitespace-nowrap" v-if="u.sharee">shared out</span>
@@ -118,7 +118,7 @@ async function saveSelect() {
 									<option v-for="o in select_options" :value="o.user_id">{{ o.user_id }} {{ o.email }}</option>
 									<option :value="-1">Create new user</option>
 								</select>
-								<span v-else class="text-gray-500 italic">All users already associated with a tsnet user.</span>
+								<span v-else class="text-gray-500 italic">All users are already associated with a tailnet user.</span>
 							</DataDef>
 							<div class="flex justify-between pt-2">
 								<input type="button" class="btn" @click="cancelSelect" value="Cancel" />
