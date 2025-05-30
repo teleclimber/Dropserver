@@ -534,7 +534,7 @@ type TSNetCommon struct {
 	Connect    bool   `db:"connect" json:"connect"`
 }
 
-// AppspaceTSNet contains the appspace's tailscale node config data
+// AppspaceTSNet contains the appspace's tailnet node config data
 type AppspaceTSNet struct {
 	TSNetCommon
 	AppspaceID AppspaceID `db:"appspace_id" json:"-"`

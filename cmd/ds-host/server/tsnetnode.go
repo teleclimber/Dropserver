@@ -57,7 +57,7 @@ type TSNetNode struct {
 }
 
 // createTailnetNode creates a new node on the tailnet using the
-// config. It expects an empty tailscaled dir
+// config. It expects an empty tailnet-store dir
 func (n *TSNetNode) createTailnetNode(config domain.TSNetCreateConfig) error {
 	if !n.setTransitory(transitoryConnect) {
 		return errors.New("unable to create node: transitory state in effect")
@@ -88,7 +88,7 @@ func (n *TSNetNode) createTailnetNode(config domain.TSNetCreateConfig) error {
 }
 
 // connect the tsnet node. Expects the node to exist
-// with local tailscaled files present
+// with local tailnet-store files present
 func (n *TSNetNode) connect(config domain.TSNetCommon) error {
 	if !n.setTransitory(transitoryConnect) {
 		return errors.New("unable to connect node: transitory state in effect")
@@ -127,7 +127,7 @@ func (n *TSNetNode) delete() error {
 }
 
 // hasFiles returns true if there are any files or directories
-// inside the tailscaled directory
+// inside the tailnet-store directory
 func (n *TSNetNode) hasFiles() (bool, error) {
 	entries, err := os.ReadDir(n.tsnetDir)
 	if os.IsNotExist(err) {

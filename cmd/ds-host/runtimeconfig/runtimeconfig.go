@@ -239,7 +239,7 @@ func setExec(rtc *domain.RuntimeConfig) {
 
 	rtc.Exec.CertificatesPath = filepath.Join(rtc.DataDir, "certificates")
 
-	rtc.Exec.UserTSNetPath = filepath.Join(rtc.DataDir, "tsnet")
+	rtc.Exec.UserTSNetPath = filepath.Join(rtc.DataDir, "tailnet-store")
 
 	rtc.Exec.UserRoutesDomain = rtc.ExternalAccess.Domain
 	if rtc.ExternalAccess.Subdomain != "" {

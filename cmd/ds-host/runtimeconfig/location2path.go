@@ -56,8 +56,8 @@ func (s *AppspaceLocation2Path) Backup(locationKey string, backupFile string) st
 func (s *AppspaceLocation2Path) DenoDir(locationKey string) string {
 	return filepath.Join(s.Base(locationKey), "deno-dir")
 }
-func (s *AppspaceLocation2Path) TailscaleNodeStore(locationKey string) string {
-	return filepath.Join(s.Base(locationKey), "tailscale-store")
+func (s *AppspaceLocation2Path) TailnetNodeStore(locationKey string) string {
+	return filepath.Join(s.Base(locationKey), "tailnet-store")
 }
 
 func checkNotEmpty(loc string, desc string) {

@@ -29,7 +29,7 @@ type AppspaceTSNet struct {
 		Send(data domain.AppspaceID)
 	} `checkinject:"required"`
 	AppspaceLocation2Path interface {
-		TailscaleNodeStore(locationKey string) string
+		TailnetNodeStore(locationKey string) string
 	} `checkinject:"required"`
 
 	tsnetModelEventsChan <-chan domain.AppspaceTSNetModelEvent
@@ -203,7 +203,7 @@ func (a *AppspaceTSNet) makeNodeStruct(appspace domain.Appspace) *TSNetNode {
 			appspaceID:               appspace.AppspaceID},
 		hasAppspaceID: true,
 		appspaceID:    appspace.AppspaceID,
-		tsnetDir:      a.AppspaceLocation2Path.TailscaleNodeStore(appspace.LocationKey),
+		tsnetDir:      a.AppspaceLocation2Path.TailnetNodeStore(appspace.LocationKey),
 	}
 }
 
