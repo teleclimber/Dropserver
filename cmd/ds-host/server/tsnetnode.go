@@ -43,7 +43,9 @@ type TSNetNode struct {
 	servMux     sync.Mutex
 	tsnetServer *tsnet.Server
 	ln80        net.Listener
-	ln443       net.Listener
+
+	ln443Mux sync.Mutex
+	ln443    net.Listener
 
 	busWatcherCtxCancel context.CancelFunc
 
@@ -269,7 +271,7 @@ func (n *TSNetNode) startNode(tags []string) error {
 		logger.Clone().AddNote("Listen()").Error(err)
 		return err
 	}
-	go n.handler(n.ln80)
+	go n.handler(n.ln80, false)
 
 	n.sendStatus()
 
@@ -279,6 +281,8 @@ func (n *TSNetNode) startNode(tags []string) error {
 }
 
 func (n *TSNetNode) startStopHTTPS() {
+	n.ln443Mux.Lock()
+	defer n.ln443Mux.Unlock()
 	if n.ln443 == nil && n.nodeStatus.magicDNS && n.nodeStatus.httpsAvailable {
 		var err error
 		n.ln443, err = n.tsnetServer.ListenTLS("tcp", ":443")
@@ -286,25 +290,36 @@ func (n *TSNetNode) startStopHTTPS() {
 			n.getLogger("startStopHTTPS ListenTLS()").Error(err)
 			return
 		}
-		go n.handler(n.ln443)
-		n.sendStatus()
+		go n.handler(n.ln443, true)
+		go n.sendStatus()
 	} else if n.ln443 != nil && (!n.nodeStatus.magicDNS || !n.nodeStatus.httpsAvailable) {
 		err := n.ln443.Close()
 		if err != nil {
 			n.getLogger("startStopHTTPS ln443.Close()").Error(err)
 		}
 		n.ln443 = nil
-		n.sendStatus()
+		go n.sendStatus()
 	}
 }
 
-func (n *TSNetNode) handler(ln net.Listener) {
+func (n *TSNetNode) listeningTLS() bool {
+	n.ln443Mux.Lock()
+	defer n.ln443Mux.Unlock()
+	return n.ln443 != nil
+}
+
+func (n *TSNetNode) handler(ln net.Listener, isTLS bool) {
 	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		loggerFn := n.getLogger("http.Serve").Clone
 
 		status := n.getStatus()
 		if !status.Usable {
 			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		if !isTLS && n.listeningTLS() {
+			http.Redirect(w, r, n.tlsRedirectURL(r), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -345,10 +360,14 @@ func (n *TSNetNode) stop() error {
 		n.ln80.Close()
 		n.ln80 = nil
 	}
+
+	n.ln443Mux.Lock()
 	if n.ln443 != nil {
 		n.ln443.Close()
 		n.ln443 = nil
 	}
+	n.ln443Mux.Unlock()
+
 	if n.tsnetServer != nil {
 		err := n.tsnetServer.Close()
 		if err != nil {
@@ -496,7 +515,7 @@ func (n *TSNetNode) sendStatus() {
 
 func (n *TSNetNode) getStatus() domain.TSNetStatus {
 	stat := n.nodeStatus.asDomain()
-	stat.ListeningTLS = n.ln443 != nil
+	stat.ListeningTLS = n.listeningTLS()
 	stat.URL = n.buildURL()
 	stat.ControlURL = n.userFacingControlURL()
 	n.transitoryMux.Lock()
@@ -507,7 +526,7 @@ func (n *TSNetNode) getStatus() domain.TSNetStatus {
 
 func (n *TSNetNode) buildURL() string {
 	proto := "http"
-	if n.ln443 != nil {
+	if n.listeningTLS() {
 		proto = "https"
 	}
 	addr := n.nodeStatus.ip4
@@ -518,6 +537,10 @@ func (n *TSNetNode) buildURL() string {
 		addr = strings.TrimRight(n.nodeStatus.dnsName, ".")
 	}
 	return fmt.Sprintf("%s://%s", proto, addr)
+}
+
+func (n *TSNetNode) tlsRedirectURL(r *http.Request) string {
+	return fmt.Sprintf("https://%s%s", strings.TrimRight(n.nodeStatus.dnsName, "."), r.URL.Path) // but you also need the path and everything else.
 }
 
 func (n *TSNetNode) sendPeerUsersEvent() {
