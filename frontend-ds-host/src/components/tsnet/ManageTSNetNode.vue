@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, Ref, computed, nextTick } from 'vue';
 
 import type { TSNetData, TSNetStatus, TSNetCreateConfig } from '@/stores/types';
 
@@ -22,18 +22,41 @@ const emit = defineEmits<{
   (e: 'delete'): void
 }>();
 
+const title_term = computed( () => {
+	return props.tsnet_data?.control_url ? 'Tailnet' : 'Tailscale';
+});
 const show_create_config = ref(false);
-const control_url = ref('');
+
 const hostname = ref('');
-const auth_key = ref('');
+const hostname_input :Ref<HTMLInputElement|undefined> = ref();
 const connect = ref(true);
+const control_url = ref('');
+const show_control_url_input = ref(false);
+const control_url_input :Ref<HTMLInputElement|undefined> = ref();
+const auth_key = ref('');
 const tags = ref('');
 
 function showCreateConfig() {
 	control_url.value = props.tsnet_data?.control_url || '';
+	show_control_url_input.value = false;
 	hostname.value = props.tsnet_data?.hostname || props.suggested_name;
 	connect.value = props.tsnet_data ? props.tsnet_data.connect : true;
 	show_create_config.value = true;
+	nextTick( () => {
+		hostname_input.value?.select();
+	});
+}
+
+function showControlUrlInput() {
+	show_control_url_input.value = true
+	nextTick( () => {
+		control_url_input.value?.focus();
+	});
+}
+
+function hideControlUrlInput() {
+	show_control_url_input.value = false
+	hostname_input.value?.select();
 }
 
 // from backend validtaor: "max=63,alphanumdash,startalphanum,endalphanum"
@@ -45,6 +68,13 @@ const hostname_invalid = computed( () => {
 	if( !alphaNumDashRe.test(n) ) return "Name should consist of alphanumeric and dash characters";
 	if( n.startsWith('-') || n.endsWith('-') ) return "Name should not start or end with a dash";
 	return '';
+});
+
+const control_url_invalid = computed( () => {
+	if( !show_control_url_input.value ) return false
+	// TODO validate control url
+	if( control_url.value.trim() == '' ) return true;
+	return false;
 });
 
 const startAlphaRe = /^[a-zA-Z]/
@@ -61,13 +91,13 @@ const tags_invalid = computed( () => {
 });
 
 const create_invalid = computed( () => {
-	return !!(hostname_invalid.value || tags_invalid.value);
+	return !!(hostname_invalid.value || control_url_invalid.value || tags_invalid.value);
 });
 
 async function createNode() {
 	if( create_invalid.value ) return;
 	emit('create-node', {
-		control_url:control_url.value,
+		control_url: show_control_url_input.value ? control_url.value : '',
 		hostname: hostname.value,
 		auth_key: auth_key.value,
 		tags: tagsFromString(tags.value)
@@ -96,7 +126,12 @@ const show_users = ref(false);
 <template>
 	<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 		<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
-			<h3 class="text-lg leading-6 font-medium text-gray-900">Tailnet Node</h3>
+			<div>
+				<h3 class="text-lg leading-6 font-medium text-gray-900">{{ title_term }} Node</h3>
+				<p class="mt-1 max-w-2xl text-sm text-gray-500">
+					{{ for_appspace ? 'Connect this appspace to a tailnet.' : 'Connect this instance to a tailnet.' }}
+				</p>
+			</div>
 			<div>
 				<span v-if="tsnet_status.transitory == 'connect'" class="p-2 bg-gray-200 text-gray-700">
 					Connecting...
@@ -220,21 +255,24 @@ const show_users = ref(false);
 			</template>
 		</div>
 		<div v-else-if="show_create_config" class="px-4 sm:px-6 my-5">
-			<p>{{ for_appspace ? 'Connect this appspace to a tailnet.' : 'Connect this instance to a tailnet.' }}
-				This will create a node on the tailnet with its own address.
-				You can also connect to alternative control servers such as a Headscale instance.</p>
 			<form @submit.prevent="createNode" @keyup.esc="show_create_config = !show_create_config">
 				<DataDef field="Hostname:">
-					<input type="text" v-model="hostname"
+					<input type="text" v-model="hostname" ref="hostname_input"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 					<SmallMessage v-if="hostname_invalid" mood="warn">{{ hostname_invalid }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Control URL:">
-					<input type="text" v-model="control_url"
-						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-					<p>Leave blank to use Tailscale.com or enter your alternative control URL.</p>
+					<div v-if="show_control_url_input">
+						<input type="text" v-model="control_url" ref="control_url_input"
+							class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+						<button class="btn" @click="hideControlUrlInput()">use tailscale.com</button>
+					</div>
+					<p v-else>
+						Tailscale.com
+						<button class="btn" @click="showControlUrlInput()">use alt control URL</button>
+					</p>
 				</DataDef>
-				<DataDef field="Auth Key:">
+				<DataDef field="Auth Key (Optional):">
 					<input type="text" v-model="auth_key"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 				</DataDef>
