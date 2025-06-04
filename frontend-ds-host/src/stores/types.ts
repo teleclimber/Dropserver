@@ -173,8 +173,7 @@ export interface TSNetStatus {
 export interface TSNetCreateConfig {
 	control_url: string,
 	hostname: string,
-	auth_key: string,
-	tags: string[]
+	auth_key: string
 }
 
 export interface TSNetData {

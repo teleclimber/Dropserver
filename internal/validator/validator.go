@@ -17,7 +17,6 @@ var goVal = func() *goValidator.Validate {
 	goVal.RegisterValidation("endalphanum", ValidateEndAlphaNum)
 	goVal.RegisterAlias("tsnetcontrolurl", "max=500") // allow anything, if it doesn't connect it doesn't connect.
 	goVal.RegisterAlias("tsnetmachinename", "max=63,alphanumdash,startalphanum,endalphanum")
-	goVal.RegisterAlias("tsnettag", "max=50,alphanumdash,startalpha")
 	goVal.RegisterAlias("tsnetauthkey", "max=500")
 	return goVal
 }()
@@ -144,7 +143,7 @@ func TSNetIdentifier(handle string) error {
 	return goVal.Var(handle, "min=1,max=30,alphanum")
 }
 
-func TSNetCreateConfig(c domain.TSNetCreateConfig) error {
+func TSNetCreateConfig(c domain.TSNetCreateConfig) error { // dependence on domain is not ideal
 	return goVal.Struct(c)
 }
 

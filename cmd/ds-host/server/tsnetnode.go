@@ -60,6 +60,7 @@ type TSNetNode struct {
 
 // createTailnetNode creates a new node on the tailnet using the
 // config. It expects an empty tailnet-store dir
+// It then starts the node in a goroutine
 func (n *TSNetNode) createTailnetNode(config domain.TSNetCreateConfig) error {
 	if !n.setTransitory(transitoryConnect) {
 		return errors.New("unable to create node: transitory state in effect")
@@ -84,7 +85,7 @@ func (n *TSNetNode) createTailnetNode(config domain.TSNetCreateConfig) error {
 		return err
 	}
 
-	go n.startNode(config.Tags) // goroutine allows caller to call synchronously and get errors above.
+	go n.startNode()
 
 	return nil
 }
@@ -115,7 +116,7 @@ func (n *TSNetNode) connect(config domain.TSNetCommon) error {
 		return err
 	}
 
-	go n.startNode(nil)
+	go n.startNode()
 
 	return nil
 }
@@ -186,7 +187,7 @@ func (n *TSNetNode) createServer(config createConfig) error {
 	return nil
 }
 
-func (n *TSNetNode) startNode(tags []string) error {
+func (n *TSNetNode) startNode() error {
 	logger := n.getLogger("startNode")
 
 	if n.tsnetServer == nil {
@@ -199,17 +200,6 @@ func (n *TSNetNode) startNode(tags []string) error {
 	if err != nil {
 		logger.Clone().AddNote("LocalClient()").Error(err)
 		return err
-	}
-
-	if len(tags) != 0 {
-		ts := make([]string, len(tags))
-		for i, t := range tags {
-			ts[i] = fmt.Sprintf("tag:%s", t)
-		}
-		maskedPrefs := ipn.MaskedPrefs{
-			Prefs:            ipn.Prefs{AdvertiseTags: ts},
-			AdvertiseTagsSet: true}
-		lc.EditPrefs(context.Background(), &maskedPrefs)
 	}
 
 	bwCtx, bwCancel := context.WithCancel(context.Background())

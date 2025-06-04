@@ -34,7 +34,6 @@ const control_url = ref('');
 const show_control_url_input = ref(false);
 const control_url_input :Ref<HTMLInputElement|undefined> = ref();
 const auth_key = ref('');
-const tags = ref('');
 
 function showCreateConfig() {
 	control_url.value = props.tsnet_data?.control_url || '';
@@ -77,21 +76,9 @@ const control_url_invalid = computed( () => {
 	return false;
 });
 
-const startAlphaRe = /^[a-zA-Z]/
-
-// "max=50,alphanumdash,startalpha"
-const tags_invalid = computed( () => {
-	return tagsFromString(tags.value).reduce( (msg, t) => {
-		if( msg != '' ) return msg;
-		if( t.length > 50 ) return 'Tags must be less than 50 characters';
-		if( !alphaNumDashRe.test(t) ) return 'Tags should consist of alphanumeric and dash characters';
-		if( !startAlphaRe.test(t) ) return 'Tags must start with alphabetic character';
-		return '';
-	}, '');
-});
 
 const create_invalid = computed( () => {
-	return !!(hostname_invalid.value || control_url_invalid.value || tags_invalid.value);
+	return !!(hostname_invalid.value || control_url_invalid.value );
 });
 
 async function createNode() {
@@ -99,14 +86,11 @@ async function createNode() {
 	emit('create-node', {
 		control_url: show_control_url_input.value ? control_url.value : '',
 		hostname: hostname.value,
-		auth_key: auth_key.value,
-		tags: tagsFromString(tags.value)
+		auth_key: auth_key.value
 	});
 	show_create_config.value = false;
 }
-function tagsFromString(str :string) :string[] {
-	return str.split(/[, ]/).map( s => s.trim() ).filter( s => s !== '' );
-}
+
 
 async function setConnect(connect:boolean) {
 	if( !props.tsnet_data ) return;
@@ -275,12 +259,6 @@ const show_users = ref(false);
 				<DataDef field="Auth Key (Optional):">
 					<input type="text" v-model="auth_key"
 						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-				</DataDef>
-				<DataDef field="Tags:">
-					<input type="text" v-model="tags"
-						class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-					<SmallMessage v-if="tags_invalid" mood="warn">{{ tags_invalid }}</SmallMessage>
-					<p v-else>Node must have at least one tag.</p>
 				</DataDef>
 				<div class="flex justify-between">
 					<input type="button" class="btn py-2" @click="show_create_config = !show_create_config" value="Cancel" />
