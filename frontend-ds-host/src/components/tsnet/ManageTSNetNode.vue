@@ -46,16 +46,25 @@ function showCreateConfig() {
 	});
 }
 
+const control_url_invalid = ref('');
 function showControlUrlInput() {
 	show_control_url_input.value = true
 	nextTick( () => {
+		validateControURL();
 		control_url_input.value?.focus();
 	});
 }
-
 function hideControlUrlInput() {
-	show_control_url_input.value = false
+	show_control_url_input.value = false;
+	control_url_invalid.value = '';
 	hostname_input.value?.select();
+}
+function validateControURL() {
+	if( control_url_input.value ) {
+		console.debug("valid", control_url_input.value.validity.valid);
+		if( !control_url_input.value.validity.valid ) control_url_invalid.value = "Enter a valid URL that starts with http:// or https://";
+		else control_url_invalid.value = '';
+	}
 }
 
 // from backend validtaor: "max=63,alphanumdash,startalphanum,endalphanum"
@@ -69,28 +78,19 @@ const hostname_invalid = computed( () => {
 	return '';
 });
 
-const control_url_invalid = computed( () => {
-	if( !show_control_url_input.value ) return false
-	// TODO validate control url
-	if( control_url.value.trim() == '' ) return true;
-	return false;
-});
-
-
 const create_invalid = computed( () => {
-	return !!(hostname_invalid.value || control_url_invalid.value );
+	return !!(hostname_invalid.value || control_url_invalid.value || auth_key.value.length > 500 );
 });
 
 async function createNode() {
 	if( create_invalid.value ) return;
 	emit('create-node', {
-		control_url: show_control_url_input.value ? control_url.value : '',
+		control_url: show_control_url_input.value ? control_url.value.trim() : '',
 		hostname: hostname.value,
 		auth_key: auth_key.value
 	});
 	show_create_config.value = false;
 }
-
 
 async function setConnect(connect:boolean) {
 	if( !props.tsnet_data ) return;
@@ -247,8 +247,16 @@ const show_users = ref(false);
 				</DataDef>
 				<DataDef field="Control URL:">
 					<div v-if="show_control_url_input">
-						<input type="text" v-model="control_url" ref="control_url_input"
+						<input 
+							type="url"
+							required
+							placeholder="https://mycontrolurl.com"
+							pattern="https?:\/\/.*"
+							v-model="control_url"
+							@input="validateControURL"
+							ref="control_url_input"
 							class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+						<SmallMessage v-if="control_url_invalid" mood="warn">{{ control_url_invalid }}</SmallMessage>
 						<button class="btn" @click="hideControlUrlInput()">use tailscale.com</button>
 					</div>
 					<p v-else>
