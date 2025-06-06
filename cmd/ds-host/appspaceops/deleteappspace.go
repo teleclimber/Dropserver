@@ -20,6 +20,9 @@ type DeleteAppspace struct {
 	AppspaceTSNetModel interface {
 		Delete(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
+	AppspaceTSNet interface {
+		Delete(appspaceID domain.AppspaceID) error
+	} `checkinject:"required"`
 	DomainController interface {
 		StopManaging(string)
 	} `checkinject:"required"`
@@ -48,6 +51,8 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 	d.SandboxManager.StopAppspace(appspace.AppspaceID)
 
 	d.AppspaceTSNetModel.Delete(appspace.AppspaceID)
+
+	d.AppspaceTSNet.Delete(appspace.AppspaceID)
 
 	// Delete from cookies table?
 

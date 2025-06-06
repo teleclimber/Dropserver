@@ -614,6 +614,7 @@ func main() {
 	appspaceTSNet.Init()
 	userAppspaceRoutes.AppspaceTSNet = appspaceTSNet
 	manageAppspaceUsers.AppspaceTSNet = appspaceTSNet
+	deleteAppspace.AppspaceTSNet = appspaceTSNet
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
