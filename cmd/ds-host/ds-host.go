@@ -299,6 +299,7 @@ func main() {
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceUserModel:      appspaceUserModel,
+		UserModel:              userModel,
 		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,
 		MigrationJobController: migrationJobCtl}

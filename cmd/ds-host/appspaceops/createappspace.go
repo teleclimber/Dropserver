@@ -22,6 +22,9 @@ type CreateAppspace struct {
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
 	} `checkinject:"required"`
+	UserModel interface {
+		GetFromID(domain.UserID) (domain.User, error)
+	} `checkinject:"required"`
 	DomainController interface {
 		CheckAppspaceDomain(userID domain.UserID, dom string, subdomain string) (domain.DomainCheckResult, error)
 		StartManaging(dom string) error
@@ -64,6 +67,11 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
 
+	user, err := c.UserModel.GetFromID(dropID.UserID)
+	if err != nil {
+		return domain.AppspaceID(0), domain.JobID(0), err
+	}
+
 	inAppspace := domain.Appspace{
 		OwnerID:     dropID.UserID,
 		AppID:       appVersion.AppID,
@@ -87,11 +95,19 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 	}
 
 	// Create owner user
-	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, dropID.DisplayName, "", []domain.EditAppspaceUserAuth{{
+	auths := make([]domain.EditAppspaceUserAuth, 0)
+	auths = append(auths, domain.EditAppspaceUserAuth{ // TODO only do dropid if it exists
 		Type:       "dropid",
 		Identifier: dropIDStr,
-		Operation:  domain.EditOperationAdd,
-	}})
+		Operation:  domain.EditOperationAdd})
+	if user.TSNetIdentifier != "" {
+		auths = append(auths, domain.EditAppspaceUserAuth{
+			Type:       "tsnetid",
+			Identifier: user.TSNetIdentifier,
+			ExtraName:  user.TSNetExtraName,
+			Operation:  domain.EditOperationAdd})
+	}
+	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, dropID.DisplayName, "", auths)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}

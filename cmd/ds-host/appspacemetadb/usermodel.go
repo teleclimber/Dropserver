@@ -28,10 +28,6 @@ type appspaceUser struct {
 	Created     time.Time      `db:"created"`
 }
 
-func validateAuthType(t string) bool {
-	return t == "email" || t == "dropid" || t == "tsnetid"
-}
-
 // ErrAuthIDExists is returned when the appspace already has a user with that auth identifier string
 var ErrAuthIDExists = errors.New("auth ID not unique in this appspace")
 
@@ -130,6 +126,10 @@ func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditA
 }
 
 func addAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, authID string, extraName string) error {
+	err := validator.AppspaceUserAuthType(authType)
+	if err != nil {
+		return err
+	}
 	stmt, err := sp.Preparex(`INSERT INTO user_auth_ids 
 		(proxy_id, type, identifier, extra_name, created) 
 		VALUES (?, ?, ?, ?, datetime("now"))`)
