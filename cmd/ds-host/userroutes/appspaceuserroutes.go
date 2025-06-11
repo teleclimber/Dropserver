@@ -36,6 +36,7 @@ type AppspaceUserRoutes struct {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
 		Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
+		UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, auth domain.EditAppspaceUserAuth) error
 		UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error
 		Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID) error
 	} `checkinject:"required"`
@@ -59,6 +60,7 @@ func (a *AppspaceUserRoutes) subRouter() http.Handler {
 	r.Route("/{proxyid}", func(r chi.Router) {
 		r.Use(a.userCtx)
 		r.Get("/", a.getUser)
+		r.Patch("/auth", a.updateUserAuth)
 		r.Patch("/", a.updateUserMeta)
 		r.Delete("/", a.deleteUser)
 		r.Get("/avatar/{filename}", a.getAvatar)
@@ -283,6 +285,38 @@ func (a *AppspaceUserRoutes) updateUserMeta(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, appspaceUser)
+}
+
+func (a *AppspaceUserRoutes) updateUserAuth(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	user, _ := domain.CtxAppspaceUserData(r.Context())
+
+	reqData := PostAuth{}
+	err := readJSON(r, &reqData)
+	if err != nil {
+		http.Error(w, "failed to read JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	editAuth, err := getEditAuth(reqData, true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = a.AppspaceUserModel.UpdateAuth(appspace.AppspaceID, user.ProxyID, editAuth)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	user, err = a.AppspaceUserModel.Get(appspace.AppspaceID, user.ProxyID)
+	if err != nil {
+		writeServerError(w)
+		return
+	}
+
+	writeJSON(w, user)
 }
 
 var errNoOp = errors.New("edit is no-op")

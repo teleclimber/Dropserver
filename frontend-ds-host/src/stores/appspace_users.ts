@@ -91,6 +91,12 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		if( user === undefined ) throw new Error(`expected user to exist in appspace id ${appspace_id} proxy id: ${proxy_id}`);
 		return user;
 	}
+	function setUser(appspace_id: number, user: AppspaceUser) {
+		const users = mustGetUsers(appspace_id);
+		const userI = users.findIndex( u => u.proxy_id == user.proxy_id );
+		if( userI == -1 ) throw new Error(`expected user to exist in appspace id ${appspace_id} proxy id: ${user.proxy_id}`);
+		users[userI] = user;
+	}
 	function findByAuth(appspace_id: number, auth_type:string, auth_id: string ) :AppspaceUser|undefined {
 		const users = getUsers(appspace_id);
 		return users?.find( u => {
@@ -106,12 +112,13 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 	}
 	
 	async function updateUserMeta(appspace_id:number, proxy_id:string, data:PostAppspaceUser, avatarData:Blob|null) {
-		const users = mustGetUsers(appspace_id);
-		const userI = users.findIndex( u => u.proxy_id == proxy_id );
-		if( userI == -1 ) throw new Error(`expected user to exist in appspace id ${appspace_id} proxy id: ${proxy_id}`);
 		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
-		const new_user = userFromRaw(resp.data);
-		users[userI] = new_user;
+		setUser(appspace_id, userFromRaw(resp.data));
+	}
+
+	async function updateUserAuth(appspace_id:number, proxy_id:string, auth:PostAuth) {
+		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id+'/auth', auth);
+		setUser(appspace_id, userFromRaw(resp.data));
 	}
 
 	return { 
@@ -124,7 +131,8 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		mustGetUser,
 		findByAuth,
 		addNewUser,
-		updateUserMeta
+		updateUserMeta,
+		updateUserAuth
 	};
 });
 

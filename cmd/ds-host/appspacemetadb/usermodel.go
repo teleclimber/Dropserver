@@ -102,25 +102,62 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, displayName string, ava
 	return proxyID, nil
 }
 
+func (u *UserModel) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.ProxyID, auth domain.EditAppspaceUserAuth) error {
+	log := u.getLogger("UpdateAuth()").AppspaceID(appspaceID).Clone
+
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		log().AddNote("Beginx()").Error(err)
+		return err
+	}
+	defer tx.Rollback()
+
+	err = updateAuthSP(tx, proxyID, auth, true)
+	if err != nil {
+		log().AddNote("updateAuthSP()").Error(err)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log().AddNote("Commit").Error(err)
+	}
+	return err
+}
+
 func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditAppspaceUserAuth, allowRemove bool) error {
 	var err error
 	for _, auth := range auths {
-		if auth.Operation == domain.EditOperationAdd {
-			err = addAuthSP(sp, proxyID, auth.Type, auth.Identifier, auth.ExtraName)
-			if err != nil {
-				return err
-			}
-		} else if auth.Operation == domain.EditOperationRemove {
-			if !allowRemove {
-				return fmt.Errorf("got a remove op with allowRemove false: %s %s", auth.Type, auth.Identifier)
-			}
-			err = deleteAuthSP(sp, proxyID, auth.Type, auth.Identifier)
-			if err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unknown operation (\"%s\") for %s %s", auth.Operation, auth.Type, auth.Identifier)
+		err = updateAuthSP(sp, proxyID, auth, allowRemove)
+		if err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+func updateAuthSP(sp stmtPreparer, proxyID domain.ProxyID, auth domain.EditAppspaceUserAuth, allowRemove bool) error {
+	var err error
+	if auth.Operation == domain.EditOperationAdd {
+		err = addAuthSP(sp, proxyID, auth.Type, auth.Identifier, auth.ExtraName)
+		if err != nil {
+			return err
+		}
+	} else if auth.Operation == domain.EditOperationRemove {
+		if !allowRemove {
+			return fmt.Errorf("got a remove op with allowRemove false: %s %s", auth.Type, auth.Identifier)
+		}
+		err = deleteAuthSP(sp, proxyID, auth.Type, auth.Identifier)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("unknown operation (\"%s\") for %s %s", auth.Operation, auth.Type, auth.Identifier)
 	}
 	return nil
 }

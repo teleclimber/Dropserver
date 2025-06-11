@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, Ref, shallowRef, ShallowRef, computed, onMounted } from 'vue';
+import { ref, Ref, shallowRef, ShallowRef, computed, onMounted, nextTick } from 'vue';
 
 import type { User, TSNetCreateConfig } from '@/stores/types';
 
@@ -50,29 +50,29 @@ const tsnet_peer_matched_users = computed( () => {
 	return ret;
 });
 
+const select_user_input :Ref<HTMLSelectElement|undefined> = ref();
 const show_select_id = ref('');
 const select_options :ShallowRef<User[]> = shallowRef([]);
-const original_user_id :Ref<number|undefined> = ref();
-const selected_user_id :Ref<number>= ref(0);
+const selected_user_id :Ref<number>= ref(-99);
 function showSelect(peer_user_id:string) {
 	if( show_select_id.value !== '' ) return;
+	selected_user_id.value = -99;
 	select_options.value = [];
 	const cur_user = tsnet_peer_matched_users.value.get(peer_user_id);
 	if( cur_user === undefined ) {
-		original_user_id.value = undefined;
 		adminUsersStore.users.values().forEach( u => {
-			if( !u.value.tsnet_identifier || u.value.tsnet_identifier === peer_user_id ) {
+			if( !u.value.tsnet_identifier ) {
 				select_options.value.push(u.value);
 			}
 		});
-
 	}
-	else {
-
-	}
-	
 	show_select_id.value = peer_user_id;
-	// next tick focus select..
+	nextTick( () => {
+		// the select elem is in a v-for, so the ref might be an array.
+		const sels = select_user_input.value;
+		if( Array.isArray(sels) ) sels[0].focus();
+		else if( sels?.focus ) sels.focus();
+	});
 }
 
 function cancelSelect() {
@@ -80,6 +80,7 @@ function cancelSelect() {
 }
 
 async function saveSelect() {
+	if( selected_user_id.value < -1 ) return;
 	if( selected_user_id.value === -1 ) {
 		await adminUsersStore.createWithTSNet(show_select_id.value);
 	}
@@ -114,17 +115,18 @@ async function saveSelect() {
 								<span class="bg-amber-500 text-amber-50 px-2 text-sm rounded whitespace-nowrap" v-if="u.sharee">shared out</span>
 							</DataDef>
 							<DataDef field="Dropserver User:">
-								<select v-if="select_options.length" v-model="selected_user_id">
+								<select v-model="selected_user_id" ref="select_user_input">
+									<option value="-99">Select Dropserver user</option>
 									<option v-for="o in select_options" :value="o.user_id">{{ o.user_id }} {{ o.email }}</option>
 									<option :value="-1">Create new user</option>
 								</select>
-								<span v-else class="text-gray-500 italic">All users are already associated with a tailnet user.</span>
 							</DataDef>
 							<div class="flex justify-between pt-2">
 								<input type="button" class="btn" @click="cancelSelect" value="Cancel" />
 								<input
 									type="submit"
 									class="btn-blue"
+									:disabled="selected_user_id < -1"
 									value="Save" />
 							</div>
 						</form>
@@ -135,12 +137,13 @@ async function saveSelect() {
 								<span class="font-bold">{{ u.display_name }}</span>
 								({{ u.login_name }})
 								<span class="bg-amber-500 text-amber-50 px-2 text-sm rounded whitespace-nowrap" v-if="u.sharee">shared out</span>
-								
 							</span>
 							<span v-if="tsnet_peer_matched_users.has(u.id)" class="justify-self-end flex items-baseline">
 								<span class="italic mr-1">User:</span>
 								{{ tsnet_peer_matched_users.get(u.id)?.user_id }} ({{ tsnet_peer_matched_users.get(u.id)?.email }})
-								<router-link class="btn mx-4" :to="{name:'admin-user', params:{user_id:tsnet_peer_matched_users.get(u.id)?.user_id}}">view</router-link>
+								<router-link class="btn ml-4" :to="{name:'admin-user', params:{user_id:tsnet_peer_matched_users.get(u.id)?.user_id}}">
+									view
+								</router-link>
 							</span>
 							<button v-else-if="show_select_id == ''" class="justify-self-end btn ml-4" @click.stop.prevent="showSelect(u.id)">select</button>
 						</div>
