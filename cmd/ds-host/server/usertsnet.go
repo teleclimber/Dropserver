@@ -78,7 +78,7 @@ func (u *UserTSNet) Disconnect() {
 	u.serverMux.Lock()
 	defer u.serverMux.Unlock()
 	if u.server != nil {
-		go u.server.stop() // TODO not coverd by lock! Need a sync call to a stop function
+		u.server.stop()
 	}
 }
 

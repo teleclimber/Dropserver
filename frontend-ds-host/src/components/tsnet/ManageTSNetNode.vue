@@ -183,7 +183,7 @@ const show_users = ref(false);
 						</svg>
 						<span class="hidden sm:inline-block">delete configuration</span>
 					</button>
-					<button @click.stop.prevent="setConnect(true)" class="btn btn-blue">
+					<button @click.stop.prevent="setConnect(true)" class="btn btn-blue" :disabled="tsnet_status.transitory != ''">
 						Connect
 					</button>
 				</div>

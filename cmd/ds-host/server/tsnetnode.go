@@ -38,8 +38,6 @@ type TSNetNode struct {
 
 	tsnetDir string
 
-	//createConfig domain.TSNetCreateConfig // oh no soem of this data is used to regular connect too!!
-
 	servMux     sync.Mutex
 	tsnetServer *tsnet.Server
 	ln80        net.Listener
@@ -121,7 +119,6 @@ func (n *TSNetNode) connect(config domain.TSNetCommon) error {
 	return nil
 }
 func (n *TSNetNode) delete() error {
-	// check gthings??
 	err := n.stop()
 	if err != nil {
 		return err
@@ -155,7 +152,7 @@ func (n *TSNetNode) deleteFiles() error {
 type createConfig struct {
 	controlURL string // always needed
 	hostname   string // always needed
-	authKey    string // optional
+	authKey    string // can be empty string
 }
 
 // createServer creates an instance of tsnet.Server.
@@ -188,17 +185,17 @@ func (n *TSNetNode) createServer(config createConfig) error {
 }
 
 func (n *TSNetNode) startNode() error {
-	logger := n.getLogger("startNode")
+	log := n.getLogger("startNode").Clone
 
 	if n.tsnetServer == nil {
 		err := errors.New("tsnetServer is nil") // maybe this is a panic..
-		n.getLogger("startNode").Error(err)
+		log().Error(err)
 		return err
 	}
 
 	lc, err := n.tsnetServer.LocalClient()
 	if err != nil {
-		logger.Clone().AddNote("LocalClient()").Error(err)
+		log().AddNote("LocalClient()").Error(err)
 		return err
 	}
 
@@ -206,59 +203,14 @@ func (n *TSNetNode) startNode() error {
 	n.busWatcherCtxCancel = bwCancel
 	busWatcher, err := lc.WatchIPNBus(bwCtx, 0)
 	if err != nil {
-		logger.Clone().AddNote("WatchIPNBus()").Error(err)
+		log().AddNote("WatchIPNBus()").Error(err)
 		return err
 	}
-
-	go func() { // this should be a separate func
-		for {
-			newData, err := busWatcher.Next()
-			if err != nil {
-				if !strings.Contains(err.Error(), "context canceled") {
-					logger.Clone().AddNote("busWatcher.Next()").Error(err)
-				}
-				break
-			}
-
-			if newData.NetMap != nil {
-				// note that netmap contains much more than peers!
-				// it also contains UserProfiles:
-				// fmt.Println("peers:")
-				// for id, peer := range newData.NetMap.Peers {
-				// 	fmt.Println(id, peer.ComputedNameWithHost(), "disp:", peer.DisplayName(false), "tags:", peer.Tags(), peer.User())
-				// }
-				// fmt.Println("user profiles:")
-				// for id, p := range newData.NetMap.UserProfiles {
-				// 	fmt.Println(id, p.DisplayName, p.LoginName)
-				// }
-
-				n.ingestPeers(lc, newData.NetMap.Peers)
-				// send notification in goroutine
-				go n.sendPeerUsersEvent()
-			}
-
-			lcStatus, err := lc.Status(context.Background())
-			if err != nil {
-				logger.Clone().AddNote("buswatcher lc.Status()").Error(err)
-			}
-
-			tChanged := n.updateConnectTransitory(newData.State)
-			iChanged := n.nodeStatus.ingest(newData, lcStatus)
-			if tChanged || iChanged {
-				n.sendStatus()
-			}
-
-			n.startStopHTTPS()
-		}
-		err = busWatcher.Close()
-		if err != nil {
-			logger.Clone().AddNote("busWatcher.Close error").Error(err)
-		}
-	}()
+	go n.busWatcherLoop(busWatcher, lc)
 
 	n.ln80, err = n.tsnetServer.Listen("tcp", ":80")
 	if err != nil {
-		logger.Clone().AddNote("Listen()").Error(err)
+		log().AddNote("Listen()").Error(err)
 		return err
 	}
 	go n.handler(n.ln80, false)
@@ -268,6 +220,42 @@ func (n *TSNetNode) startNode() error {
 	n.startStopHTTPS()
 
 	return nil
+}
+
+func (n *TSNetNode) busWatcherLoop(busWatcher *tailscale.IPNBusWatcher, lc *tailscale.LocalClient) {
+	log := n.getLogger("busWatcherLoop").Clone
+
+	for {
+		newData, err := busWatcher.Next()
+		if err != nil {
+			if !strings.Contains(err.Error(), "context canceled") {
+				log().AddNote("busWatcher.Next()").Error(err)
+			}
+			break
+		}
+
+		if newData.NetMap != nil {
+			n.ingestPeers(lc, newData.NetMap.Peers)
+			go n.sendPeerUsersEvent()
+		}
+
+		lcStatus, err := lc.Status(context.Background())
+		if err != nil {
+			log().AddNote("buswatcher lc.Status()").Error(err)
+		}
+
+		tChanged := n.updateConnectTransitory(newData.State)
+		iChanged := n.nodeStatus.ingest(newData, lcStatus)
+		if tChanged || iChanged {
+			n.sendStatus()
+		}
+
+		n.startStopHTTPS()
+	}
+	err := busWatcher.Close()
+	if err != nil {
+		log().AddNote("busWatcher.Close error").Error(err)
+	}
 }
 
 func (n *TSNetNode) startStopHTTPS() {
@@ -300,7 +288,7 @@ func (n *TSNetNode) listeningTLS() bool {
 
 func (n *TSNetNode) handler(ln net.Listener, isTLS bool) {
 	err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		loggerFn := n.getLogger("http.Serve").Clone
+		log := n.getLogger("http.Serve").Clone
 
 		status := n.getStatus()
 		if !status.Usable {
@@ -319,13 +307,13 @@ func (n *TSNetNode) handler(ln net.Listener, isTLS bool) {
 
 		lc, err := n.tsnetServer.LocalClient()
 		if err != nil {
-			loggerFn().AddNote("tsnetServer.LocalClient").Error(err)
+			log().AddNote("tsnetServer.LocalClient").Error(err)
 			http.Error(w, "tsnet error", http.StatusInternalServerError)
 			return
 		}
 		who, err := lc.WhoIs(r.Context(), r.RemoteAddr)
 		if err != nil {
-			loggerFn().AddNote("lc.WhoIs").Error(err)
+			log().AddNote("lc.WhoIs").Error(err)
 			http.Error(w, "tsnet whois error", http.StatusInternalServerError)
 			return
 		}
@@ -345,18 +333,6 @@ func (n *TSNetNode) stop() error {
 	defer n.servMux.Unlock()
 
 	n.setTransitory(transitoryDisconnect)
-
-	if n.ln80 != nil {
-		n.ln80.Close()
-		n.ln80 = nil
-	}
-
-	n.ln443Mux.Lock()
-	if n.ln443 != nil {
-		n.ln443.Close()
-		n.ln443 = nil
-	}
-	n.ln443Mux.Unlock()
 
 	if n.tsnetServer != nil {
 		err := n.tsnetServer.Close()
@@ -444,13 +420,13 @@ func (n *TSNetNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeV
 	defer n.usersMux.Unlock()
 	n.users = make([]tsUser, 0) // ooff, we delete the original data? That means we lose the ability to know if it changed?
 
-	loggerFn := n.getLogger("ingestPeers").Clone
+	log := n.getLogger("ingestPeers").Clone
 	for _, nv := range peers {
 		var userID string
 		who, err := lc.WhoIsNodeKey(context.Background(), nv.Key())
 		if err != nil {
 			err = fmt.Errorf("whoIsNodeKey error: %w", err)
-			loggerFn().Error(err)
+			log().Error(err)
 			// maybe set as lastUsersError
 			continue
 		} else if who.UserProfile != nil {
@@ -459,7 +435,7 @@ func (n *TSNetNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeV
 				// that's something that I'd like to know about!
 				// But what is the meaning of this??
 				err = fmt.Errorf("who.UserProfile.ID.String() != nv.User().String(): %s != %s", userID, nv.User().String())
-				loggerFn().Error(err)
+				log().Error(err)
 				// add error to stack?
 			}
 		}
@@ -481,20 +457,6 @@ func (n *TSNetNode) ingestPeers(lc *tailscale.LocalClient, peers []tailcfg.NodeV
 			}
 		}
 	}
-
-	// sort users,
-	// and then sort their devices, online first, then anything so long as it's stable.
-
-	// then fire event that says peers changed.
-
-	// for i, u := range n.users {
-	// 	fmt.Println("user", i, u.id, u.displayName, u.loginName, u.sharee)
-	// 	fmt.Printf("user %d nodes: ", i)
-	// 	for _, nd := range u.nodes {
-	// 		fmt.Printf("(id:%s name:%s) ", nd.ID, nd.Name)
-	// 	}
-	// 	fmt.Print("\n")
-	// }
 }
 
 func (n *TSNetNode) sendStatus() {

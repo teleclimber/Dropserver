@@ -1,7 +1,5 @@
 package server
 
-// not clear if "server" is the right package for this. Proba need its own pacakge.
-
 import (
 	"errors"
 	"net/http"
@@ -31,8 +29,6 @@ type AppspaceTSNet struct {
 	AppspaceLocation2Path interface {
 		TailnetNodeStore(locationKey string) string
 	} `checkinject:"required"`
-
-	tsnetModelEventsChan <-chan domain.AppspaceTSNetModelEvent
 
 	serversMux sync.Mutex
 	servers    map[domain.AppspaceID]*TSNetNode
@@ -98,7 +94,7 @@ func (a *AppspaceTSNet) Disconnect(appspaceID domain.AppspaceID) {
 	defer a.serversMux.Unlock()
 	node, exists := a.servers[appspaceID]
 	if exists {
-		go node.stop()
+		node.stop()
 	}
 }
 
