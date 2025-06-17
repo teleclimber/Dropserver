@@ -666,9 +666,9 @@ type AppRouteOptions struct {
 // a user can ue to communicate with other DropServer instances
 type DropID struct {
 	UserID      UserID    `db:"user_id" json:"user_id"`
-	Handle      string    `db:"handle" json:"handle" validate:"nonzero,max=100"`
-	Domain      string    `db:"domain" json:"domain" validate:"nonzero,max=100"`
-	DisplayName string    `db:"display_name" json:"display_name" validate:"max=100"`
+	Handle      string    `db:"handle" json:"handle"`
+	Domain      string    `db:"domain" json:"domain"`
+	DisplayName string    `db:"display_name" json:"display_name"`
 	Created     time.Time `db:"created" json:"created_dt"`
 }
 

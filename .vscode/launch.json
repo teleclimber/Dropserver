@@ -43,6 +43,12 @@
 			"port": 2345,
 			"remotePath": "/path/to/dropserver/code",	// replace with path to ds code on remote machine
 		},{
+			"name": "ds-host local",
+			"type": "go",
+			"request": "attach",
+			"mode": "local",
+			"processId": 0
+		},{
 			"name": "ds-dev local launch",
 			"type": "go",
 			"request": "launch",

@@ -72,8 +72,6 @@ func (f *FromTSNet) getProxyID(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		}
 
-		f.getLogger(appspace.AppspaceID).Debug("tsnet user id: " + tsUserID)
-
 		u, err := f.AppspaceUserModel.GetByAuth(appspace.AppspaceID, "tsnetid", tsUserID)
 		if err == domain.ErrNoRowsInResultSet {
 			f.getLogger(appspace.AppspaceID).Debug("getProxyID() no sql rows for tsnetid")

@@ -128,7 +128,7 @@ func CtxAppspaceData(ctx context.Context) (Appspace, bool) {
 	return t, ok
 }
 
-// Tailscale UserID
+// TSNet (tailnet) UserID
 const tsnetUserIDCtxKey = ctxKey("tsnet user id")
 
 // CtxWithTSNetUserID sets the tsnet userid of the request

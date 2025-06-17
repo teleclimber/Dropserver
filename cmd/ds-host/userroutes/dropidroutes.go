@@ -126,7 +126,7 @@ func (d *DropIDRoutes) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if valErr != nil {
-		writeBadRequest(w, "domain", err.Error())
+		writeBadRequest(w, "domain", valErr.Error())
 		return
 	}
 

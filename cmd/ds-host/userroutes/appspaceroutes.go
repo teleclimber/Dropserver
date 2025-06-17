@@ -2,7 +2,6 @@ package userroutes
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -337,6 +336,7 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 
 	// Here we should check validity of requested domain?
 
+	// TODO replace dropid with userID, make dropid optional
 	appspaceID, jobID, err := a.CreateAppspace.Create(dropID, version, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
 		returnError(w, err)
@@ -419,8 +419,6 @@ type ConnectReq struct {
 
 func (a *AppspaceRoutes) connectTSNet(w http.ResponseWriter, r *http.Request) {
 	appspace, _ := domain.CtxAppspaceData(r.Context())
-
-	fmt.Println("in connectTSNET")
 
 	reqData := ConnectReq{}
 	err := readJSON(r, &reqData)
