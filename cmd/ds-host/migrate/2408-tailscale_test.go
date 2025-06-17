@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -75,5 +76,55 @@ func TestTSNetIntegrationUp(t *testing.T) {
 	_, err = handle.Exec(`INSERT INTO users ("tsnet_identifier", "tsnet_extra_name") VALUES (?, ?)`, "tsnetuser", "tsnetextra")
 	if err == nil {
 		t.Error("expected error on dupe tsnet user")
+	}
+}
+
+func TestTSNetIntegrationDownNullEmailPass(t *testing.T) {
+	handle, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic("Failed to open in-memory DB " + err.Error())
+	}
+	handle.SetMaxOpenConns(1)
+	db := &domain.DB{
+		Handle: handle}
+	args := &stepArgs{
+		db: db}
+	runMigrationUpTo(t, args, "2506-tsnet")
+
+	// add user with only tsnet data leaving username and password NULL, which should cause error in down migration.
+	_, err = handle.Exec(`INSERT INTO users ("tsnet_identifier", "tsnet_extra_name") VALUES (?, ?)`, "tsnetuser", "tsnetextra")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = tsnetIntegrationDown(args)
+	if err == nil {
+		t.Fatal("expected error due to null email/password")
+	}
+	if !strings.Contains(err.Error(), "to downgrade from 2506-tsnet all users must have an email and password") {
+		t.Error(err)
+	}
+}
+
+func TestTSNetIntegrationDown(t *testing.T) {
+	handle, err := sqlx.Open("sqlite3", ":memory:")
+	if err != nil {
+		panic("Failed to open in-memory DB " + err.Error())
+	}
+	handle.SetMaxOpenConns(1)
+	db := &domain.DB{
+		Handle: handle}
+	args := &stepArgs{
+		db: db}
+	runMigrationUpTo(t, args, "2506-tsnet")
+
+	_, err = handle.Exec(`INSERT INTO users ("email", "password") VALUES (?, ?)`, "useremail", "userpass")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = tsnetIntegrationDown(args)
+	if err != nil {
+		t.Error(err)
 	}
 }
