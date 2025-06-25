@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -36,6 +37,8 @@ func (u *AppspaceLoginRoutes) routeGroup(r chi.Router) {
 }
 
 func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http.Request) {
+	log := u.getLogger("getTokenForRedirect").Clone
+
 	appspaceDomain, ok := readSingleQueryParam(r, "appspace")
 	if !ok {
 		http.Error(w, "Missing or malformed appspace domain query parameter", http.StatusBadRequest)
@@ -50,13 +53,13 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http
 
 	authUserID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
-		// log it because this should not happen
+		log().Log("no auth user ID in context")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	sessionID, ok := domain.CtxSessionID(r.Context())
 	if !ok {
-		// log it because this should not happen
+		log().Log("no session ID in context")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -115,4 +118,10 @@ func (u *AppspaceLoginRoutes) makeRedirectLink(appspaceDomain, token string) str
 	return fmt.Sprintf("%s://%s%s?%s", u.Config.ExternalAccess.Scheme, appspaceDomain, u.Config.Exec.PortString, query.Encode())
 }
 
-// TODO we need a logger here.
+func (e *AppspaceLoginRoutes) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppspaceLoginRoutes")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
+}
