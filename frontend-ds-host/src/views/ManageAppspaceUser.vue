@@ -257,14 +257,14 @@ function cancel() {
 								Not connected to a tailnet.
 							</span>
 							<span v-else-if="num_tsnet_peers===0" class="italic">
-								There are no peers in this tailnet.
+								There are no tailnet users.
 							</span>
 							<span v-else-if="tsnet_peer_users?.length===0" class="italic">
-								All peers are already appspace users.
+								All tailnet users are already appspace users.
 							</span>
 							<span v-else-if="add_auth_type==='tsnetid'">
 								<select v-model="add_auth_tsnetid">
-									<option value="">Choose peer...</option>
+									<option value="">Choose tailnet user...</option>
 									<option v-for="peer in tsnet_peer_users" :value="peer.id">
 										{{ peer.display_name }} ({{ peer.login_name }})
 									</option>

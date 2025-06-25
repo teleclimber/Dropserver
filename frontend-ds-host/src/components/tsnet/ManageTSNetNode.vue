@@ -103,6 +103,13 @@ async function deleteConfig() {
 	}
 }
 
+function nodeAddressClicked(evt :Event) {
+	if( !props.tsnet_status.usable ) {
+		alert('The node is not usable yet.');
+		evt.preventDefault();
+	}
+}
+
 const show_users = ref(false);
 
 </script>
@@ -195,7 +202,9 @@ const show_users = ref(false);
 					to add an appropriate tag and disable node expiration (see docs).
 				</MessageWarn>
 				<DataDef :field="for_appspace ? 'Appspace Address:' : 'Address:'">
-					<a class="text-blue-700 hover:text-blue-500 underline" :href="tsnet_status.url">{{tsnet_status.url}}</a>
+					<a class="text-blue-700 hover:text-blue-500 underline" 
+						:href="tsnet_status.usable ? tsnet_status.url : '#'"
+						@click="nodeAddressClicked">{{tsnet_status.url}}</a>
 					<SmallMessage mood="info" v-if="!tsnet_status.magic_dns_enabled" class="my-2">
 						Enable MagicDNS in your tailnet's admin panel to get a nicer address.
 					</SmallMessage>
@@ -222,7 +231,7 @@ const show_users = ref(false);
 						{{ num_matched_peers }} of {{ num_peers }} tailnet users are
 						{{ for_appspace ? 'users of this appspace' : 'linked to ds-host users' }} 
 						<button @click.stop.prevent="show_users = !show_users" class=btn>
-							{{ show_users?"hide" : "show" }} peers
+							{{ show_users?"hide" : "show" }} users
 						</button>
 					</DataDef>
 					<slot name="users" v-if="show_users" >default</slot>
