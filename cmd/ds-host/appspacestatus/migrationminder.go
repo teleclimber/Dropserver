@@ -26,10 +26,11 @@ func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.Versi
 	var latest domain.Version
 	isRemote := false
 
+	hasCmpVer := true
 	cmpSemver, err := semver.Parse(string(appspace.AppVersion))
 	if err != nil {
 		m.getLogger("GetForAppspace() Parse current").Error(err)
-		return domain.Version(""), isRemote, err
+		hasCmpVer = false
 	}
 
 	versions, err := m.AppModel.GetVersionsForApp(appspace.AppID)
@@ -43,7 +44,9 @@ func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.Versi
 			m.getLogger("GetForAppspace() Parse latest installed").Error(err)
 			return domain.Version(""), isRemote, err
 		}
-		if latestInstalled.GT(cmpSemver) {
+		if !hasCmpVer {
+			latest = li.Version
+		} else if latestInstalled.GT(cmpSemver) {
 			cmpSemver = latestInstalled
 			latest = li.Version
 		}
@@ -66,7 +69,7 @@ func (m *MigrationMinder) GetForAppspace(appspace domain.Appspace) (domain.Versi
 			m.getLogger("GetForAppspace() parse latest remote").Error(err)
 			return domain.Version(""), isRemote, err
 		}
-		if latestRemote.GT(cmpSemver) {
+		if hasCmpVer && latestRemote.GT(cmpSemver) {
 			latest = remote
 			isRemote = true
 		}
