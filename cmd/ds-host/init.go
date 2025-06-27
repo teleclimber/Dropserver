@@ -16,6 +16,14 @@ func copyEmbeddedFiles(rtc domain.RuntimeConfig) {
 	if err != nil {
 		panic(err)
 	}
+
+	// Remove sandbox-code from original location to keep things tidy
+	// See commit 89e0d37
+	err = os.RemoveAll(filepath.Join(rtc.DataDir, "sandbox-code"))
+	if err != nil {
+		panic(err)
+	}
+
 	err = os.MkdirAll(rtc.Exec.RuntimeFilesPath, 0744)
 	if err != nil {
 		panic(err)
