@@ -44,7 +44,7 @@ type RestoreAppspace struct {
 		LockClosed(appspaceID domain.AppspaceID) (chan struct{}, bool)
 	} `checkinject:"required"`
 	AppspaceMetaDB interface {
-		Migrate(appspaceID domain.AppspaceID) error
+		OfflineMigrate(appspaceID domain.AppspaceID) error
 		CloseConn(appspaceID domain.AppspaceID) error
 	} `checkinject:"required"`
 	AppspaceLogger interface {
@@ -192,17 +192,22 @@ func (r *RestoreAppspace) GetMetaInfo(tok string) (domain.AppspaceMetaInfo, erro
 
 // ReplaceData stops the appspace and replaces the data files
 func (r *RestoreAppspace) ReplaceData(tok string, appspaceID domain.AppspaceID) error {
+	log := r.getLogger("ReplaceData").AppspaceID(appspaceID).Clone
+
 	r.SandboxManager.StopAppspace(appspaceID)
 
 	closedCh, ok := r.AppspaceStatus.LockClosed(appspaceID)
 	if !ok {
-		return errors.New("failed to get lock closed")
+		err := errors.New("failed to get lock closed")
+		log().Error(err)
+		return err
 	}
 	defer close(closedCh)
 
 	// close all the things
 	err := r.closeAll(appspaceID)
 	if err != nil {
+		log().AddNote("closeAll").Error(err)
 		return err
 	}
 
@@ -224,16 +229,21 @@ func (r *RestoreAppspace) ReplaceData(tok string, appspaceID domain.AppspaceID) 
 	tokData, ok := r.tokens[tok]
 	if !ok {
 		// probably a sentinel error to say that the token is no longer valid
+		log().AddNote("r.tokens[tok]").Error(domain.ErrTokenNotFound)
 		return domain.ErrTokenNotFound
 	}
 
 	err = r.AppspaceFilesModel.ReplaceData(*appspace, tokData.tempDir)
 	if err != nil {
+		log().AddNote("AppspaceFilesModel.ReplaceData").Error(err)
 		return err
 	}
 
-	err = r.AppspaceMetaDB.Migrate(appspaceID)
+	// TODO: this is pretty bad! Need a way to revert to old data if ReplaceData or Migrate fail!
+
+	err = r.AppspaceMetaDB.OfflineMigrate(appspaceID)
 	if err != nil {
+		log().AddNote("AppspaceMetaDB.Migrate").Error(err)
 		return fmt.Errorf("error running appspace meta DB migration: %w", err)
 	}
 

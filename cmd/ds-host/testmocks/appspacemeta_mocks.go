@@ -106,6 +106,20 @@ func (mr *MockAppspaceMetaDBMockRecorder) Migrate(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Migrate", reflect.TypeOf((*MockAppspaceMetaDB)(nil).Migrate), arg0)
 }
 
+// OfflineMigrate mocks base method
+func (m *MockAppspaceMetaDB) OfflineMigrate(arg0 domain.AppspaceID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfflineMigrate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// OfflineMigrate indicates an expected call of OfflineMigrate
+func (mr *MockAppspaceMetaDBMockRecorder) OfflineMigrate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfflineMigrate", reflect.TypeOf((*MockAppspaceMetaDB)(nil).OfflineMigrate), arg0)
+}
+
 // MockAppspaceInfoModel is a mock of AppspaceInfoModel interface
 type MockAppspaceInfoModel struct {
 	ctrl     *gomock.Controller

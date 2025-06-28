@@ -43,7 +43,8 @@ func (mdb *AppspaceMetaDB) Create(appspaceID domain.AppspaceID) error {
 
 	readyChan := make(chan struct{})
 	conn := &dbConn{
-		readySub: []chan struct{}{readyChan},
+		readySub:   []chan struct{}{readyChan},
+		appspaceID: appspaceID,
 	}
 
 	mdb.startConn(conn, appspaceID, true)
@@ -130,7 +131,8 @@ func (mdb *AppspaceMetaDB) getConnNoLockCheck(appspaceID domain.AppspaceID) (*db
 	} else {
 		readyChan = make(chan struct{})
 		mdb.conns[appspaceID] = &dbConn{
-			readySub: []chan struct{}{readyChan},
+			readySub:   []chan struct{}{readyChan},
+			appspaceID: appspaceID,
 		}
 		conn = mdb.conns[appspaceID]
 
@@ -251,10 +253,11 @@ func setConnError(conn *dbConn, e error) {
 
 // dbConn holds the db handle and relevant request data
 type dbConn struct {
-	statusMux sync.Mutex // not 100% sure what it's covering.
-	handle    *sqlx.DB
-	connError error
-	readySub  []chan struct{}
+	statusMux  sync.Mutex // not 100% sure what it's covering.
+	handle     *sqlx.DB
+	connError  error
+	readySub   []chan struct{}
+	appspaceID domain.AppspaceID
 }
 
 // getHandle returns the DB handle for theis connection
@@ -317,7 +320,7 @@ func (dbc *dbConn) getUnknownSchema() (int, error) {
 // migrateTo runs migration steps necesary to take db to desired version
 func (dbc *dbConn) migrateTo(to int) error {
 	if to < 0 {
-		return fmt.Errorf("invalid to value for migratTo: %d", to)
+		return fmt.Errorf("invalid to value for migrateTo: %d", to)
 	}
 	if to > curSchema {
 		return fmt.Errorf("invalid to value for migrateTo: %d, highest is %d", to, curSchema)
@@ -334,17 +337,29 @@ func (dbc *dbConn) migrateTo(to int) error {
 		return nil
 	}
 
+	dbc.getLogger("migrateTo").AppspaceID(dbc.appspaceID).Log(fmt.Sprintf("About to migrate meta DB from %v to %v", cur, to))
+
 	d := &dbExec{handle: dbc.handle}
 	for i := cur + 1; i <= to; i++ {
+		dbc.getLogger("migrateTo").AppspaceID(dbc.appspaceID).Log(fmt.Sprintf("Migrating meta DB up to %v", i))
 		upMigrations[i](d)
 	}
 	for i := cur - 1; i >= to; i-- {
+		dbc.getLogger("migrateTo").AppspaceID(dbc.appspaceID).Log(fmt.Sprintf("Migrating meta DB down from %v", i))
 		downMigrations[i](d)
 	}
 
 	return d.checkErr()
 
 	// TODO maybe add a step that reads the schema? Just to be sure?
+}
+
+func (dbc *dbConn) getLogger(note string) *record.DsLogger {
+	r := record.NewDsLogger().AddNote("AppspaceMetaDB dbConn")
+	if note != "" {
+		r.AddNote(note)
+	}
+	return r
 }
 
 // getDb returns a db handle for an appspace meta db located at dataPath
