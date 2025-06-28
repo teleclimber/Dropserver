@@ -70,7 +70,6 @@ func (dbm *Manager) GetSchema() string {
 	}
 
 	if numTable == 0 {
-		fmt.Println("GetSchema num table is 0")
 		return ""
 	}
 
