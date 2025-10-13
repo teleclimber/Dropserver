@@ -9,9 +9,9 @@ jobs:
   build_common:
     uses: teleclimber/DropServer/.github/workflows/build_common.yml@master
 
-  build_ds_dev:
+  build_all:
     needs: build_common
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs_on }}
     strategy:
       matrix:
         include:
@@ -76,35 +76,3 @@ jobs:
       with:
         name: ds-dev-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
         path: dist/bin/ds-dev-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
-
-  # build_mac:
-  #   needs: build_common
-  #   runs-on: macos-15-intel
-  #   steps:
-  #   - uses: actions/checkout@v2
-  #     with:
-  #       fetch-depth: 0
-
-  #   - name: Set up Go
-  #     uses: actions/setup-go@v2
-  #     with:
-  #       go-version: 1.24
-
-  #   - name: Download frontend-ds-dev
-  #     uses: actions/download-artifact@v4
-  #     with:
-  #       name: frontend-ds-dev
-  #       path: frontend-ds-dev/dist/
-
-  #   - name: Build ds-dev
-  #     run: go build -ldflags="-X main.cmd_version=`git describe --tags --dirty`" -o dist/bin/ds-dev ./cmd/ds-dev
-
-  #   - name: Archive ds-dev
-  #     run: tar -czf ds-dev-amd64-darwin.tar.gz ds-dev
-  #     working-directory: dist/bin
-
-  #   - name: Upload ds-dev archive
-  #     uses: actions/upload-artifact@v4
-  #     with:
-  #       name: ds-dev-amd64-darwin.tar.gz
-  #       path: dist/bin/ds-dev-amd64-darwin.tar.gz
