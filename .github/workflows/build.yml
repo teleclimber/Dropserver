@@ -1,6 +1,3 @@
-# We don't test on build because for the time being some of our tests are flaky
-# Add tests when we have that under control.
-
 name: Build Dropserver
 
 on: 
