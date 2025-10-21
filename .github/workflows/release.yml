@@ -1,12 +1,9 @@
 name: Release Dropserver
 
-# TODO temporary
-# on:
-#   push:
-#     tags:
-#       - "v*.*.*"
-
-on: workflow_dispatch
+on:
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
   build_all:
@@ -29,26 +26,19 @@ jobs:
         path: artifacts/
         merge-multiple: true
 
-    # TODO temporary...
-    - name: Display structure of downloaded files
-      run: ls -R .
+    - name: Display structure of downloaded files (for debugging)
+      run: ls -l artifacts/
 
     # move files we want to release
     - name: Move built to release
       run: find artifacts/ -regextype posix-extended -iregex '.*ds-(host|dev)-(linux|darwin)-(amd64|arm64).tar.gz' -exec cp '{}' release/ \;
 
-    # TODO temporary...
-    - name: Display structure of downloaded files
-      run: ls -R .
+    - name: Display structure of release files (for debugging)
+      run: ls -l release/
 
-
-    # - name: Create Release
-    #   uses: softprops/action-gh-release@v1
-    #   with:
-    #     body_path: CHANGELOG.txt
-    #     prerelease: false
-    #     files: |
-    #       CHANGELOG.txt
-    #       ds-host-amd64-linux.tar.gz
-    #       ds-dev-amd64-linux.tar.gz
-    #       ds-dev-amd64-darwin.tar.gz
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: CHANGELOG.txt
+        prerelease: false
+        files: release/*
