@@ -1,0 +1,54 @@
+name: Release Dropserver
+
+# TODO temporary
+# on:
+#   push:
+#     tags:
+#       - "v*.*.*"
+
+on: workflow_dispatch
+
+jobs:
+  build_all:
+    uses: teleclimber/DropServer/.github/workflows/build.yml@master
+
+  release:
+    needs: build_all
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Add release dir
+      run: mkdir release/
+    - name: Release notes
+      run: git log $(git tag --list --sort=-version:refname "v*" | head -n 2 | tail -n 1)..HEAD --oneline > release/CHANGELOG.txt
+
+    - uses: actions/download-artifact@v5
+      with:
+        path: artifacts/
+        merge-multiple: true
+
+    # TODO temporary...
+    - name: Display structure of downloaded files
+      run: ls -R .
+
+    # move files we want to release
+    - name: Move built to release
+      run: find artifacts/ -regextype posix-extended -iregex '.*ds-(host|dev)-(linux|darwin)-(amd64|arm64).tar.gz' -exec cp '{}' release/ \;
+
+    # TODO temporary...
+    - name: Display structure of downloaded files
+      run: ls -R .
+
+
+    # - name: Create Release
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     body_path: CHANGELOG.txt
+    #     prerelease: false
+    #     files: |
+    #       CHANGELOG.txt
+    #       ds-host-amd64-linux.tar.gz
+    #       ds-dev-amd64-linux.tar.gz
+    #       ds-dev-amd64-darwin.tar.gz
