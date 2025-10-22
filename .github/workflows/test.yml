@@ -13,7 +13,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs_on: ['ubuntu-24.04', 'ubuntu-24.04-arm', 'macos-15-intel', 'macos-15']
+        include:
+        - runs_on: 'ubuntu-22.04' # test with 22.04 so bwrap will work
+          bwrap: true
+        - runs_on: 'ubuntu-24.04-arm'
+          bwrap: false
+        - runs_on: 'macos-15-intel'
+          bwrap: false
+        - runs_on: 'macos-15'
+          bwrap: false
     runs-on: ${{ matrix.runs_on }}
     steps:
     - uses: actions/checkout@v2
@@ -23,24 +31,25 @@ jobs:
       with:
         deno-version: v2.x
     - name: Install bubblewrap
+      if: ${{ matrix.bwrap }}
       run: sudo apt-get install -y bubblewrap
-
     - name: Download frontend-ds-host
       uses: actions/download-artifact@v4
       with:
         name: frontend-ds-host
         path: frontend-ds-host/dist/
-
     - name: Download frontend-ds-dev
       uses: actions/download-artifact@v4
       with:
         name: frontend-ds-dev
         path: frontend-ds-dev/dist/
-
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
         go-version: 1.24
-
-    - name: Go Tests
+    - name: Go test without bwrap
+      if: ${{ !matrix.bwrap }}
       run: go test -timeout=60s -race ./...
+    - name: Go test with bwrap
+      if: ${{ matrix.bwrap }}
+      run: go test -timeout=60s -tags bwrap -race ./...
