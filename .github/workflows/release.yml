@@ -31,9 +31,9 @@ jobs:
 
     # move files we want to release
     - name: Move ds-dev to release
-      run: find artifacts/ -regextype posix-extended -iregex '.*ds-dev-(linux|darwin)-(amd64|arm64).tar.gz' -exec cp '{}' release/ \;
+      run: find artifacts/ -regextype posix-extended -regex '.*ds-dev-(linux|MacOS)-(x86_64|arm64).tar.gz' -exec cp '{}' release/ \;
     - name: Move ds-host to release
-      run: find artifacts/ -regextype posix-extended -iregex '.*ds-host-linux-(amd64|arm64).tar.gz' -exec cp '{}' release/ \;
+      run: find artifacts/ -regextype posix-extended -regex '.*ds-host-linux-(x86_64|arm64).tar.gz' -exec cp '{}' release/ \;
 
     - name: Display structure of release files (for debugging)
       run: ls -l release/
