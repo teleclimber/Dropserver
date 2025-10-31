@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -47,6 +48,11 @@ var configDefault = []byte(`{
 func Load(configFile string) *domain.RuntimeConfig {
 
 	rtc := loadDefault()
+
+	if runtime.GOOS != "linux" {
+		rtc.Sandbox.UseCGroups = false
+		rtc.Sandbox.UseBubblewrap = false
+	}
 
 	// load JSON, and merge it in simply by passing rtc again
 	if configFile != "" {
