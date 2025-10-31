@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"os/user"
 	"runtime"
 	"syscall"
 
@@ -87,7 +88,14 @@ func main() {
 		panic(err)
 	}
 
-	record.NewDsLogger().Log("ds-host version: " + cmd_version)
+	record.NewDsLogger().Log(fmt.Sprintf("ds-host version: %s on %s", cmd_version, runtime.GOOS))
+
+	currentUser, err := user.Current()
+	if err != nil {
+		record.NewDsLogger().Log("unable to obtain user information.")
+	} else {
+		record.NewDsLogger().Log(fmt.Sprintf("ds-host is running as: %s %s (%s)", currentUser.Username, currentUser.Name, currentUser.Uid))
+	}
 
 	if runtimeConfig.Prometheus.Enable && !*migrateFlag {
 		record.ExposePromMetrics(*runtimeConfig)
