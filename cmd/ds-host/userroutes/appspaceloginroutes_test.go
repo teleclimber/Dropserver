@@ -1,6 +1,7 @@
 package userroutes
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,10 +24,12 @@ func TestOwnerLogin(t *testing.T) {
 	token := "abcdefghiabcdefghiabcdefghi"
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	appspaceModel.EXPECT().GetFromDomain(appspaceDomain).Return(&domain.Appspace{
+	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{
 		AppspaceID: appspaceID,
 		OwnerID:    ownerID,
-		DropID:     dropID}, nil)
+		DropID:     dropID,
+		DomainName: appspaceDomain,
+	}, nil)
 
 	v0tokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
 	v0tokenManager.EXPECT().GetForOwner(appspaceID, dropID).Return(token, nil)
@@ -38,7 +41,7 @@ func TestOwnerLogin(t *testing.T) {
 	}
 
 	query := make(url.Values)
-	query.Add("appspace", appspaceDomain)
+	query.Add("appspace_id", fmt.Sprintf("%v", appspaceID))
 	req, err := http.NewRequest(http.MethodGet, "?"+query.Encode(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -74,9 +77,6 @@ func TestRemoteLogin(t *testing.T) {
 	sessionID := "session-id-abc"
 	token := "abcdefghiabcdefghiabcdefghi"
 
-	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-	appspaceModel.EXPECT().GetFromDomain(appspaceDomain).Return(nil, nil)
-
 	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
 	ds2ds.EXPECT().GetRemoteAPIVersion(appspaceDomain).Return(0, nil)
 
@@ -85,7 +85,6 @@ func TestRemoteLogin(t *testing.T) {
 
 	m := &AppspaceLoginRoutes{
 		Config:         &domain.RuntimeConfig{},
-		AppspaceModel:  appspaceModel,
 		V0RequestToken: v0requestToken,
 		DS2DS:          ds2ds,
 	}
@@ -104,7 +103,7 @@ func TestRemoteLogin(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	m.getTokenForRedirect(rr, req)
+	m.getTokenForRemoteRedirect(rr, req)
 
 	if rr.Result().StatusCode != http.StatusTemporaryRedirect {
 		t.Error("expected redirect")

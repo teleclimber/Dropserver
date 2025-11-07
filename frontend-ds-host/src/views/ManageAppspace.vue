@@ -74,7 +74,7 @@ const display_link = computed( () => {
 });
 const enter_link = computed( () => {
 	if( appspace.value ) {
-		return "/appspacelogin?appspace="+encodeURIComponent(appspace.value.domain_name);
+		return "/appspacelogin?appspace_id="+encodeURIComponent(props.appspace_id);
 	}
 	else return "#";	// maybe return something that makes it clear that clicking is not going to work? or is that taken care of by display link
 });

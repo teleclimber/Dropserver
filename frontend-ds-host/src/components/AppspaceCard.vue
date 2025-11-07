@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import {ref, watchEffect, computed} from 'vue';
+import {ref, computed} from 'vue';
 
 import type { Appspace, AppspaceUserAuth, RemoteAppspace } from '@/stores/types';
-import { useAppsStore } from '@/stores/apps';
 import { useAppspaceUsersStore, getAvatarUrl } from '@/stores/appspace_users';
 
 const props = defineProps<{
@@ -32,13 +31,13 @@ if( props.local_appspace ) {
 	appspaceUsersStore.loadData(a.appspace_id);
 	
 	paused.value = a.paused;
-	enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(a.domain_name)
+	enter_link.value = "/appspacelogin?appspace_id="+encodeURIComponent(a.appspace_id)
 }
 else if( props.remote_appspace ) {
 	is_local.value = false;
 	const a = props.remote_appspace;
 	domain_strong.value = a.domain_name;
-	enter_link.value = "/appspacelogin?appspace="+encodeURIComponent(a.domain_name);
+	enter_link.value = "/remoteappspacelogin?appspace="+encodeURIComponent(a.domain_name);
 }
 else throw new Error("got neither local nor remote appspace");
 

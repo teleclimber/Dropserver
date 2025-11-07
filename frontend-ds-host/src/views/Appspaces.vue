@@ -30,7 +30,7 @@ onMounted( () => {
 	<ViewWrap>
 		<div class="flex m-4 md:m-0 md:mb-6">
 			<router-link to="new-appspace" class="btn btn-blue mr-2">Create Appspace</router-link>
-			<router-link to="new-remote-appspace" class="btn btn-blue">Join Appspace</router-link>
+			<router-link to="new-remote-appspace" class="btn btn-blue">Join Remote Appspace</router-link>
 		</div>
 
 		<h2 class="text-xl font-bold mt-6 mb-2 ml-4 md:ml-0">Your Appspaces:</h2>

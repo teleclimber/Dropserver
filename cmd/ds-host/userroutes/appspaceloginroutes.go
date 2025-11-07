@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -16,6 +17,7 @@ import (
 type AppspaceLoginRoutes struct {
 	Config        *domain.RuntimeConfig `checkinject:"required"`
 	AppspaceModel interface {
+		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 		GetFromDomain(dom string) (*domain.Appspace, error)
 	} `checkinject:"required"`
 	RemoteAppspaceModel interface {
@@ -33,11 +35,67 @@ type AppspaceLoginRoutes struct {
 }
 
 func (u *AppspaceLoginRoutes) routeGroup(r chi.Router) {
-	r.With(mustBeAuthenticated).Get("/appspacelogin", u.getTokenForRedirect)
+	r.Use(mustBeAuthenticated)
+	r.Get("/appspacelogin", u.getTokenForRedirect)
+	r.Get("/remoteappspacelogin", u.getTokenForRemoteRedirect)
 }
 
 func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http.Request) {
 	log := u.getLogger("getTokenForRedirect").Clone
+
+	appspaceIdStr, ok := readSingleQueryParam(r, "appspace_id")
+	if !ok {
+		http.Error(w, "Missing or malformed appspace ID query parameter", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.Atoi(appspaceIdStr)
+	if err != nil {
+		http.Error(w, "Malformed appspace ID query parameter", http.StatusBadRequest)
+		return
+	}
+	appspaceID := domain.AppspaceID(id)
+
+	authUserID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		log().Log("no auth user ID in context")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	appspace, err := u.AppspaceModel.GetFromID(appspaceID)
+	if err == domain.ErrNoRowsInResultSet {
+		http.Error(w, "Appspace not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Here we will change things a bit:
+	// - get auth user's auth ids
+	// - from appspace's meta db find matching appspace users
+	// - [also from appspace_instance_users get an appspace user]
+	// - If exactly one appspace user procedd w/ token and redirect.
+	if appspace.OwnerID == authUserID {
+		// Found an appspace owned by the user requesting a token.
+		// We're assuming the appspace owner is a user.
+		// This is handled differently from "remote" appspaces because
+		// there is no entry for this appspace in owner's "remote" appspaces.
+		token, err := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
+		if err != nil {
+			returnError(w, err)
+			return
+		}
+		http.Redirect(w, r, u.makeRedirectLink(appspace.DomainName, token), http.StatusTemporaryRedirect)
+		return
+	}
+
+	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+}
+
+func (u *AppspaceLoginRoutes) getTokenForRemoteRedirect(w http.ResponseWriter, r *http.Request) {
+	log := u.getLogger("getTokenForRemoteRedirect").Clone
 
 	appspaceDomain, ok := readSingleQueryParam(r, "appspace")
 	if !ok {
@@ -61,27 +119,6 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http
 	if !ok {
 		log().Log("no session ID in context")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	appspace, err := u.AppspaceModel.GetFromDomain(appspaceDomain)
-	if err != nil {
-		// some day appspace model will return an error if appspace not found.
-		// handle that appropriately.
-		returnError(w, err)
-		return
-	}
-	if appspace != nil && appspace.OwnerID == authUserID {
-		// Found an appspace owned by the user requesting a token.
-		// We're assuming the appspace owner is a user.
-		// This is handled differently from "remote" appspaces because
-		// there is no entry for this appspace in owner's "remote" appspaces.
-		token, err := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
-		if err != nil {
-			returnError(w, err)
-			return
-		}
-		http.Redirect(w, r, u.makeRedirectLink(appspaceDomain, token), http.StatusTemporaryRedirect)
 		return
 	}
 

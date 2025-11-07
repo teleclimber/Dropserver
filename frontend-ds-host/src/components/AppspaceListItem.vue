@@ -17,7 +17,7 @@ const app :Ref<App|undefined> = computed( () => {
 	return undefined;
 });
 
-const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.appspace.domain_name));
+const enter_link = ref("/appspacelogin?appspace_id="+encodeURIComponent(props.appspace.appspace_id));
 
 const app_icon_error = ref(false);
 const app_icon = computed( () => {

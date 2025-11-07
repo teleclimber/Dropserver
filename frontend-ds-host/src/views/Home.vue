@@ -81,7 +81,7 @@ const asCards = computed( () => {
 			
 			<div class="flex m-4 md:m-0 md:mb-6">
 				<router-link to="new-appspace" class="btn btn-blue mr-2">Create Appspace</router-link>
-				<router-link to="new-remote-appspace" class="btn btn-blue">Join Appspace</router-link>
+				<router-link to="new-remote-appspace" class="btn btn-blue">Join Remote Appspace</router-link>
 			</div>
 
 			<AppspaceCard v-for="a in asCards" 

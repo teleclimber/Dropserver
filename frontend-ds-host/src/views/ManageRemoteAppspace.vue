@@ -16,7 +16,7 @@ onMounted( () => {
 	remoteAppspacesStore.loadData();
 });
 
-const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.domain));
+const enter_link = ref("/remoteappspacelogin?appspace="+encodeURIComponent(props.domain));
 
 const remote_appspace = computed( () => {
 	if( !remoteAppspacesStore.is_loaded ) return

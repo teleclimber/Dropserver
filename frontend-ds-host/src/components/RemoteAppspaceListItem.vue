@@ -9,7 +9,7 @@ const props = defineProps<{
 
 const protocol = props.remote_appspace.no_tls ? 'http' : 'https';
 const display_link = ref(protocol+'://'+props.remote_appspace.domain_name+props.remote_appspace.port_string);
-const enter_link = ref("/appspacelogin?appspace="+encodeURIComponent(props.remote_appspace.domain_name));
+const enter_link = ref("/remoteappspacelogin?appspace="+encodeURIComponent(props.remote_appspace.domain_name));
 
 </script>
 
