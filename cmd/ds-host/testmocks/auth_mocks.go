@@ -128,19 +128,18 @@ func (mr *MockV0TokenManagerMockRecorder) CheckToken(arg0, arg1 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckToken", reflect.TypeOf((*MockV0TokenManager)(nil).CheckToken), arg0, arg1)
 }
 
-// GetForOwner mocks base method
-func (m *MockV0TokenManager) GetForOwner(arg0 domain.AppspaceID, arg1 string) (string, error) {
+// GetForProxyID mocks base method
+func (m *MockV0TokenManager) GetForProxyID(arg0 domain.AppspaceID, arg1 domain.ProxyID) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetForOwner", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetForProxyID", arg0, arg1)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
-// GetForOwner indicates an expected call of GetForOwner
-func (mr *MockV0TokenManagerMockRecorder) GetForOwner(arg0, arg1 interface{}) *gomock.Call {
+// GetForProxyID indicates an expected call of GetForProxyID
+func (mr *MockV0TokenManagerMockRecorder) GetForProxyID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForOwner", reflect.TypeOf((*MockV0TokenManager)(nil).GetForOwner), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetForProxyID", reflect.TypeOf((*MockV0TokenManager)(nil).GetForProxyID), arg0, arg1)
 }
 
 // SendLoginToken mocks base method

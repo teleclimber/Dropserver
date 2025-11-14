@@ -23,6 +23,9 @@ type AppspaceLoginRoutes struct {
 	RemoteAppspaceModel interface {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
 	} `checkinject:"required"`
+	ManageAppspaceUsers interface {
+		InstanceUser(domain.AppspaceID, domain.UserID) (domain.ProxyID, error)
+	} `checkinject:"required"`
 	DS2DS interface {
 		GetRemoteAPIVersion(domainName string) (int, error)
 	} `checkinject:"required"`
@@ -30,7 +33,7 @@ type AppspaceLoginRoutes struct {
 		RequestToken(ctx context.Context, userID domain.UserID, appspaceDomain string, sessionID string) (string, error)
 	} `checkinject:"required"`
 	V0TokenManager interface {
-		GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error)
+		GetForProxyID(appspaceID domain.AppspaceID, proxyID domain.ProxyID) string
 	} `checkinject:"required"`
 }
 
@@ -72,26 +75,19 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Here we will change things a bit:
-	// - get auth user's auth ids
-	// - from appspace's meta db find matching appspace users
-	// - [also from appspace_instance_users get an appspace user]
-	// - If exactly one appspace user procedd w/ token and redirect.
-	if appspace.OwnerID == authUserID {
-		// Found an appspace owned by the user requesting a token.
-		// We're assuming the appspace owner is a user.
-		// This is handled differently from "remote" appspaces because
-		// there is no entry for this appspace in owner's "remote" appspaces.
-		token, err := u.V0TokenManager.GetForOwner(appspace.AppspaceID, appspace.DropID)
-		if err != nil {
-			returnError(w, err)
-			return
-		}
-		http.Redirect(w, r, u.makeRedirectLink(appspace.DomainName, token), http.StatusTemporaryRedirect)
+	proxyID, err := u.ManageAppspaceUsers.InstanceUser(appspaceID, authUserID)
+	if err == domain.ErrNoRowsInResultSet {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	token := u.V0TokenManager.GetForProxyID(appspace.AppspaceID, proxyID)
+
+	http.Redirect(w, r, u.makeRedirectLink(appspace.DomainName, token), http.StatusTemporaryRedirect)
 }
 
 func (u *AppspaceLoginRoutes) getTokenForRemoteRedirect(w http.ResponseWriter, r *http.Request) {

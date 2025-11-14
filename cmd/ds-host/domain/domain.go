@@ -245,7 +245,6 @@ type TimedToken struct {
 // V0AppspaceLoginToken carries user auth data corresponding to a login token
 type V0AppspaceLoginToken struct {
 	AppspaceID AppspaceID
-	DropID     string
 	ProxyID    ProxyID
 	LoginToken TimedToken
 }
@@ -699,6 +698,11 @@ type AppspaceUserAuth struct {
 	Identifier string    `db:"identifier" json:"identifier"`
 	ExtraName  string    `db:"extra_name" json:"extra_name"`
 	Created    time.Time `db:"created" json:"created_dt"`
+}
+
+type AppspaceUSerAuthQuery struct {
+	Type       string `db:"type"`
+	Identifier string `db:"identifier"`
 }
 
 type EditOperation string

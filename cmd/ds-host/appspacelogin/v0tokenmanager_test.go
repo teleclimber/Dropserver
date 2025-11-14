@@ -17,7 +17,7 @@ func TestCreate(t *testing.T) {
 	a.tokens = make(map[string]domain.V0AppspaceLoginToken)
 	proxyID := domain.ProxyID("proxy-abc")
 
-	tok := a.create(domain.AppspaceID(7), "abc.com/def", proxyID)
+	tok := a.create(domain.AppspaceID(7), proxyID)
 	if tok.AppspaceID != domain.AppspaceID(7) {
 		t.Error("wrong appspace id")
 	}
@@ -35,7 +35,7 @@ func TestCheckToken(t *testing.T) {
 	proxyID := domain.ProxyID("proxy-abc")
 	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(appspaceID, "abc.com/def", proxyID)
+	tok := a.create(appspaceID, proxyID)
 
 	tok, ok := a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if !ok {
@@ -55,7 +55,7 @@ func TestLogInBadTokens(t *testing.T) {
 	proxyID := domain.ProxyID("proxy-abc")
 	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(appspaceID, "abc.com/def", proxyID)
+	tok := a.create(appspaceID, proxyID)
 
 	_, ok := a.CheckToken(appspaceID, "baz")
 	if ok {
@@ -82,7 +82,7 @@ func TestLogInTwice(t *testing.T) {
 	proxyID := domain.ProxyID("proxy-abc")
 	appspaceID := domain.AppspaceID(7)
 
-	tok := a.create(appspaceID, "abc.com/def", proxyID)
+	tok := a.create(appspaceID, proxyID)
 
 	_, ok := a.CheckToken(appspaceID, tok.LoginToken.Token)
 	if !ok {

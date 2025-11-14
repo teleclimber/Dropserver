@@ -349,7 +349,6 @@ func main() {
 	}
 	appGetter.Init()
 
-	// auth
 	authenticator := &authenticator.Authenticator{
 		CookieModel: cookieModel,
 		Config:      runtimeConfig}
@@ -443,6 +442,7 @@ func main() {
 		Config:              runtimeConfig,
 		AppspaceModel:       appspaceModel,
 		RemoteAppspaceModel: remoteAppspaceModel,
+		ManageAppspaceUsers: manageAppspaceUsers,
 		DS2DS:               ds2ds,
 		V0RequestToken:      v0requestToken,
 		V0TokenManager:      v0tokenManager,

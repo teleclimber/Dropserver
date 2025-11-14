@@ -61,10 +61,9 @@ func (m *V0TokenManager) Stop() {
 }
 
 // create an appspace login token
-func (m *V0TokenManager) create(appspaceID domain.AppspaceID, dropID string, proxyID domain.ProxyID) domain.V0AppspaceLoginToken {
+func (m *V0TokenManager) create(appspaceID domain.AppspaceID, proxyID domain.ProxyID) domain.V0AppspaceLoginToken {
 	token := domain.V0AppspaceLoginToken{
 		AppspaceID: appspaceID,
-		DropID:     dropID,
 		ProxyID:    proxyID,
 		LoginToken: domain.TimedToken{
 			Token:   randomString(24),
@@ -123,16 +122,9 @@ func (m *V0TokenManager) purgeTokens() {
 	}
 }
 
-// Get a login token for an appspace owned by the user
-func (m *V0TokenManager) GetForOwner(appspaceID domain.AppspaceID, dropID string) (string, error) {
-	user, err := m.AppspaceUserModel.GetByAuth(appspaceID, "dropid", dropID)
-	if err != nil {
-		// this can happen if an appspace is imported without the new owner among its users.
-		m.getLogger("GetForOwner").Debug("appspace user dropid not found " + dropID)
-		return "", err
-	}
-	tok := m.create(appspaceID, dropID, user.ProxyID)
-	return tok.LoginToken.Token, nil
+func (m *V0TokenManager) GetForProxyID(appspaceID domain.AppspaceID, proxyID domain.ProxyID) string {
+	tok := m.create(appspaceID, proxyID)
+	return tok.LoginToken.Token
 }
 
 // SendLoginToken verifies that drop id can access appspace
@@ -159,7 +151,7 @@ func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID str
 
 	// Should check if user is blocked and things like that when we have those features.
 
-	token := m.create(appspaceID, dropID, user.ProxyID)
+	token := m.create(appspaceID, user.ProxyID)
 
 	// Now send the token. For now we can do this here?
 	data := domain.V0LoginTokenResponse{

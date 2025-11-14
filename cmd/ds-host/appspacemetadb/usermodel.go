@@ -31,7 +31,7 @@ type appspaceUser struct {
 // ErrAuthIDExists is returned when the appspace already has a user with that auth identifier string
 var ErrAuthIDExists = errors.New("auth ID not unique in this appspace")
 
-// UserModel stores the user's DropIDs
+// UserModel stores the appspace user's info and auth details
 type UserModel struct {
 	AppspaceMetaDB interface {
 		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
@@ -365,7 +365,7 @@ func (u *UserModel) GetByAuth(appspaceID domain.AppspaceID, authType string, ide
 	}
 
 	var proxyID domain.ProxyID
-	err = stmt.Get(&proxyID, authType, identifier)
+	err = stmt.Get(&proxyID, authType, identifier) // TODO This returns 1 proxyIDeven if there are several, right?
 	if err == sql.ErrNoRows {
 		return domain.AppspaceUser{}, domain.ErrNoRowsInResultSet
 	} else if err != nil {
@@ -394,6 +394,57 @@ func (u *UserModel) GetByAuth(appspaceID domain.AppspaceID, authType string, ide
 	}
 
 	return u.toDomainUser(appspaceID, user, auths), nil
+}
+
+func (u *UserModel) GetProxyIDsFromAuths(appspaceID domain.AppspaceID, auths []domain.AppspaceUSerAuthQuery) ([]domain.ProxyID, error) {
+	log := u.getLogger("GetProxyIDsFromAuths()").AppspaceID(appspaceID)
+
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return []domain.ProxyID{}, err
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		log.AddNote("Beginx()").Error(err)
+		return []domain.ProxyID{}, err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Preparex(`SELECT proxy_id FROM user_auth_ids WHERE type = ? AND identifier = ?`)
+	if err != nil {
+		log.AddNote("Preparex()").Error(err)
+		return []domain.ProxyID{}, err
+	}
+
+	proxyIDMap := make(map[domain.ProxyID]struct{})
+
+	for _, a := range auths {
+		ps := []domain.ProxyID{}
+		err = stmt.Select(&ps, a.Type, a.Identifier)
+		if err == sql.ErrNoRows {
+			continue
+		} else if err != nil {
+			log.AddNote("Select()").Error(err)
+			return []domain.ProxyID{}, err
+		}
+		for _, proxyID := range ps {
+			proxyIDMap[proxyID] = struct{}{}
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.AddNote("Commit()").Error(err)
+		return []domain.ProxyID{}, err
+	}
+
+	result := make([]domain.ProxyID, 0, len(proxyIDMap))
+	for proxyID := range proxyIDMap {
+		result = append(result, proxyID)
+	}
+
+	return result, nil
 }
 
 // GetAll returns an appspace's list of users.

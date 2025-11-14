@@ -13,31 +13,34 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
-func TestOwnerLogin(t *testing.T) {
+func TestLogin(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	ownerID := domain.UserID(11)
+	proxyID := domain.ProxyID("abc123")
 	appspaceID := domain.AppspaceID(7)
 	appspaceDomain := "some.appspace.com"
-	dropID := "dropid.domain.com/alice"
 	token := "abcdefghiabcdefghiabcdefghi"
 
 	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
 	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{
 		AppspaceID: appspaceID,
 		OwnerID:    ownerID,
-		DropID:     dropID,
 		DomainName: appspaceDomain,
 	}, nil)
 
+	manageAppspaceUsers := testmocks.NewMockManageUsers(mockCtrl)
+	manageAppspaceUsers.EXPECT().InstanceUser(appspaceID, ownerID).Return(proxyID, nil)
+
 	v0tokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
-	v0tokenManager.EXPECT().GetForOwner(appspaceID, dropID).Return(token, nil)
+	v0tokenManager.EXPECT().GetForProxyID(appspaceID, proxyID).Return(token)
 
 	m := &AppspaceLoginRoutes{
-		Config:         &domain.RuntimeConfig{},
-		AppspaceModel:  appspaceModel,
-		V0TokenManager: v0tokenManager,
+		Config:              &domain.RuntimeConfig{},
+		AppspaceModel:       appspaceModel,
+		ManageAppspaceUsers: manageAppspaceUsers,
+		V0TokenManager:      v0tokenManager,
 	}
 
 	query := make(url.Values)
