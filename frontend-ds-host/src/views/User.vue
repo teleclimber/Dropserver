@@ -108,7 +108,7 @@ dropIDStore.loadData();
 			<div class=" ">
 				<DropIDFull v-for="[_, dropid] in dropIDStore.dropids" :key="dropid.value.compound_id" :dropid="dropid.value"></DropIDFull>
 				<MessageSad v-if="dropIDStore.is_loaded && dropIDStore.dropids.size === 0" head="No DropIDs">
-					Create a DropID to create or join appspaces.
+					Create a DropID to create or join appspaces hosted on other instances of Dropserver.
 				</MessageSad>
 			</div>
 		</div>

@@ -60,5 +60,10 @@ var MigrationSteps []MigrationStep = []MigrationStep{{
 	up:                   tsnetIntegrationUp,
 	down:                 tsnetIntegrationDown,
 	appspaceMetaDBSchema: 1,
+}, {
+	name:                 "2511-removedropids",
+	up:                   removeDropIDsUp,
+	down:                 removeDropIDsDown,
+	appspaceMetaDBSchema: 1,
 },
 }

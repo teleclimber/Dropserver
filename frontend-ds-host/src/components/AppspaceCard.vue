@@ -51,14 +51,14 @@ const users = computed( () => {
 	if( !props.local_appspace ) return;
 	const users = appspaceUsersStore.getUsers(props.local_appspace.appspace_id);
 	if( !users ) return;
-	const owner_dropid = props.local_appspace ? props.local_appspace.dropid : "";
+	//const owner_dropid = props.local_appspace ? props.local_appspace.dropid : "";
 	return users.map( sru => {
 		const u = sru;
 		return {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,
 			avatar_url: getAvatarUrl(u),
-			is_owner: u.auths.some( (a:AppspaceUserAuth) => a.type == "dropid" && a.identifier == owner_dropid)
+			is_owner: false //TODO  u.auths.some( (a:AppspaceUserAuth) => a.type == "dropid" && a.identifier == owner_dropid)
 		};
 	});
 });

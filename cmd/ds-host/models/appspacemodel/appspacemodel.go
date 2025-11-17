@@ -56,7 +56,7 @@ func (m *AppspaceModel) PrepareStatements() {
 
 	// insert appspace:
 	m.stmt.insert = p.Prep(`INSERT INTO appspaces
-		("owner_id", "dropid", "app_id", "app_version", domain_name, created, location_key) VALUES (?, ?, ?, ?, ?, datetime("now"), ?)`)
+		("owner_id", "app_id", "app_version", domain_name, created, location_key) VALUES (?, ?, ?, ?, datetime("now"), ?)`)
 
 	// pause
 	m.stmt.pause = p.Prep(`UPDATE appspaces SET paused = ? WHERE appspace_id = ?`)
@@ -158,7 +158,7 @@ func (m *AppspaceModel) GetForAppVersion(appID domain.AppID, version domain.Vers
 func (m *AppspaceModel) Create(appspace domain.Appspace) (*domain.Appspace, error) {
 	logger := m.getLogger("Create()").UserID(appspace.OwnerID).AppID(appspace.AppID).AppVersion(appspace.AppVersion).AddNote(fmt.Sprintf("domain:%v, locationkey:%v", appspace.DomainName, appspace.LocationKey))
 
-	r, err := m.stmt.insert.Exec(appspace.OwnerID, appspace.DropID, appspace.AppID, appspace.AppVersion, appspace.DomainName, appspace.LocationKey)
+	r, err := m.stmt.insert.Exec(appspace.OwnerID, appspace.AppID, appspace.AppVersion, appspace.DomainName, appspace.LocationKey)
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: appspaces.domain" {
 			return nil, errors.New("Domain not unique")

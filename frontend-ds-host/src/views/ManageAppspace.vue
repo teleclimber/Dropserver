@@ -129,8 +129,6 @@ const data_schema_mismatch = computed( ()=> {
 						<a :href="enter_link" class="text-blue-700 underline hover:text-blue-500">{{display_link}}</a>
 					</DataDef>
 
-					<DataDef field="Owner DropID:">{{appspace.dropid}}</DataDef>
-
 					<DataDef field="Created:">{{appspace.created_dt.toLocaleString()}}</DataDef>
 
 					<DataDef field="Application:">

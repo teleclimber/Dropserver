@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 type CreateAppspace struct {
@@ -43,11 +42,11 @@ type CreateAppspace struct {
 // - domain not available
 
 // Create a new appspace
-func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersion, baseDomain, subDomain string) (domain.AppspaceID, domain.JobID, error) {
+func (c *CreateAppspace) Create(ownerID domain.UserID, appVersion domain.AppVersion, baseDomain, subDomain string) (domain.AppspaceID, domain.JobID, error) {
 
 	// Possible race condition here. If you check domain is available then later actually register it.
 	// It would be nice if CheckAppspaceDomain also reserved that name temporarily
-	check, err := c.DomainController.CheckAppspaceDomain(dropID.UserID, baseDomain, subDomain)
+	check, err := c.DomainController.CheckAppspaceDomain(ownerID, baseDomain, subDomain)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
@@ -60,24 +59,21 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 		fullDomain = subDomain + "." + baseDomain
 	}
 
-	dropIDStr := validator.JoinDropID(dropID.Handle, dropID.Domain)
-
 	locationKey, err := c.AppspaceFilesModel.CreateLocation()
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
 
-	user, err := c.UserModel.GetFromID(dropID.UserID)
+	user, err := c.UserModel.GetFromID(ownerID)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
 
 	inAppspace := domain.Appspace{
-		OwnerID:     dropID.UserID,
+		OwnerID:     ownerID,
 		AppID:       appVersion.AppID,
 		AppVersion:  "",
 		DomainName:  fullDomain,
-		DropID:      dropIDStr,
 		LocationKey: locationKey,
 	}
 
@@ -96,10 +92,6 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 
 	// Create owner user
 	auths := make([]domain.EditAppspaceUserAuth, 0)
-	auths = append(auths, domain.EditAppspaceUserAuth{ // TODO only do dropid if it exists
-		Type:       "dropid",
-		Identifier: dropIDStr,
-		Operation:  domain.EditOperationAdd})
 	if user.TSNetIdentifier != "" {
 		auths = append(auths, domain.EditAppspaceUserAuth{
 			Type:       "tsnetid",
@@ -107,7 +99,11 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 			ExtraName:  user.TSNetExtraName,
 			Operation:  domain.EditOperationAdd})
 	}
-	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, dropID.DisplayName, "", auths)
+
+	// TODO come up with display name, either from dropid or instnace user.
+	// Since the appspace is owned by a local user, it's guaranteed there is a user
+	// If they have a display name, then use that?
+	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, "owner", "", auths)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
@@ -115,7 +111,7 @@ func (c *CreateAppspace) Create(dropID domain.DropID, appVersion domain.AppVersi
 	// Or use an AppspaceUserController to do this consistently
 
 	// migrate to whatever version was selected
-	job, err := c.MigrationJobModel.Create(dropID.UserID, appspace.AppspaceID, appVersion.Version, true)
+	job, err := c.MigrationJobModel.Create(ownerID, appspace.AppspaceID, appVersion.Version, true)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}

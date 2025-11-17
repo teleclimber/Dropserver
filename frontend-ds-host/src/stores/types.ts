@@ -206,7 +206,6 @@ export interface Appspace {
 	domain_name: string,
 	no_tls: boolean,
 	port_string: string,
-	dropid: string,
 	created_dt: Date,
 	paused: boolean,
 	app_id: number,

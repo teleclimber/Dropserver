@@ -516,7 +516,6 @@ type Appspace struct {
 	AppspaceID  AppspaceID `db:"appspace_id"`
 	AppID       AppID      `db:"app_id"`
 	AppVersion  Version    `db:"app_version"`
-	DropID      string     `db:"dropid"`
 	DomainName  string     `db:"domain_name"`
 	Created     time.Time  `db:"created"`
 	Paused      bool       `db:"paused"`

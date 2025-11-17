@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router';
 
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppsStore } from '@/stores/apps';
-import { useDropIDsStore } from '@/stores/dropids';
 import { App } from '@/stores/types';
 
 import { DomainNames, checkAppspaceDomain } from '../models/domainnames';
@@ -24,9 +23,6 @@ const appspacesStore = useAppspacesStore();
 
 const appsStore = useAppsStore();
 appsStore.loadData();
-
-const dropIDsStore = useDropIDsStore();
-dropIDsStore.loadData();
 
 const app_pick_elem :Ref<HTMLInputElement|undefined> = ref();
 const domain_pick_elem :Ref<HTMLInputElement|undefined> = ref(); 
@@ -142,22 +138,9 @@ watch( [domain_name, subdomain], async () => {
 	}
 });
 
-const dropid = ref('');
-if( dropIDsStore.is_loaded ) setInitialDropID();
-else watch( () => dropIDsStore.dropids, setInitialDropID );
-function setInitialDropID() {
-	if( dropIDsStore.dropids.size !== 0 ) {
-		dropid.value = dropIDsStore.dropids.entries().next().value![1].value.compound_id;
-	}
-}
-
-// TODO if tehre are no dropids send user to create one
-// Maybe even at top of page. so they see it right wawy.
-
 const ok_to_create = computed( () => {
 	if( !picked_app.value || !version_pick.value ) return false;
 	if( domain_valid.value !== "" ) return false;
-	if( dropid.value === "" ) return false;
 	return true;
 });
 
@@ -167,8 +150,7 @@ async function create() {
 		app_id: picked_app.value!.app_id,
 		app_version: version_pick.value,
 		domain_name: domain_name.value,
-		subdomain: subdomain.value,
-		dropid: dropid.value
+		subdomain: subdomain.value
 	});
 
 	router.replace({
@@ -186,10 +168,6 @@ function cancel() {
 
 <template>
 	<ViewWrap>
-		<MessageSad v-if="dropIDsStore.is_loaded && dropIDsStore.dropids.size === 0" head="Create A DropID First">
-			A DropID is necessary to create an Appspace.
-			Create one <router-link to="/dropid-new" class="text-blue-700 underline">here</router-link>.
-		</MessageSad>
 		<form @submit.prevent="create" @keyup.esc="cancel">
 			<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between">
@@ -237,15 +215,6 @@ function cancel() {
 						</p>
 					</DataDef>
 
-				</div>
-
-				<div class="my-5">
-					<DataDef field="DropID:">
-						<select v-model="dropid" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-							<option value="">Pick DropID</option>
-							<option v-for="[_, d] in dropIDsStore.dropids" :key="d.value.compound_id" :value="d.value.compound_id">{{d.value.compound_id}}</option>
-						</select>
-					</DataDef>
 				</div>
 				<div class="px-4 py-5 sm:px-6 border-t border-gray-200 flex justify-between items-center">
 					<input type="button" class="btn" @click="cancel" value="Cancel" />

@@ -20,7 +20,6 @@ type AppspaceResp struct {
 	DomainName     string                     `json:"domain_name"`
 	NoTLS          bool                       `json:"no_tls"`
 	PortString     string                     `json:"port_string"`
-	DropID         string                     `json:"dropid"`
 	Created        time.Time                  `json:"created_dt"`
 	Paused         bool                       `json:"paused"`
 	Status         domain.AppspaceStatusEvent `json:"status"`
@@ -64,7 +63,7 @@ type AppspaceRoutes struct {
 		GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
 	} `checkinject:"required"`
 	CreateAppspace interface {
-		Create(domain.DropID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
+		Create(domain.UserID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
 	} `checkinject:"required"`
 	PauseAppspace interface {
 		Pause(appspaceID domain.AppspaceID, pause bool) error
@@ -269,7 +268,6 @@ type PostAppspaceReq struct {
 	Version    domain.Version `json:"app_version"`
 	DomainName string         `json:"domain_name"`
 	Subdomain  string         `json:"subdomain"`
-	DropID     string         `json:"dropid"`
 }
 
 // PostAppspaceResp is the return data after creating a new appspace
@@ -312,32 +310,9 @@ func (a *AppspaceRoutes) postNewAppspace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// also need to validate dropid
-	err = validator.DropIDFull(reqData.DropID)
-	if err != nil {
-		returnError(w, err)
-		return
-	}
-	dropIDStr := validator.NormalizeDropIDFull(reqData.DropID)
-	dropIDHandle, dropIDDomain := validator.SplitDropID(dropIDStr)
-	dropID, err := a.DropIDModel.Get(dropIDHandle, dropIDDomain)
-	if err != nil {
-		if err == domain.ErrNoRowsInResultSet {
-			http.Error(w, "DropID not found", http.StatusGone)
-		} else {
-			returnError(w, err)
-		}
-		return
-	}
-	if dropID.UserID != userID {
-		returnError(w, errors.New("DropID user does not match authenticated user"))
-		return
-	}
-
 	// Here we should check validity of requested domain?
 
-	// TODO replace dropid with userID, make dropid optional
-	appspaceID, jobID, err := a.CreateAppspace.Create(dropID, version, reqData.DomainName, reqData.Subdomain)
+	appspaceID, jobID, err := a.CreateAppspace.Create(userID, version, reqData.DomainName, reqData.Subdomain)
 	if err != nil {
 		returnError(w, err)
 	}
@@ -506,7 +481,6 @@ func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceResp
 		DomainName: appspace.DomainName,
 		NoTLS:      a.Config.ExternalAccess.Scheme == "http",
 		PortString: a.Config.Exec.PortString,
-		DropID:     appspace.DropID,
 		Paused:     appspace.Paused,
 		Created:    appspace.Created}
 }

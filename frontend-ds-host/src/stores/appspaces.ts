@@ -11,7 +11,6 @@ type NewAppspaceData = {
 	app_version:string,
 	domain_name: string,
 	subdomain: string,
-	dropid: string
 }
 
 function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
@@ -33,7 +32,6 @@ function appspaceFromRaw(raw:any) :Appspace {
 		domain_name: raw.domain_name+'',
 		no_tls: !!raw.no_tls,
 		port_string: raw.port_string+'',
-		dropid: raw.dropid+'',
 		created_dt: new Date(raw.created_dt),
 		paused: !!raw.paused,
 		app_id: Number(raw.app_id),
