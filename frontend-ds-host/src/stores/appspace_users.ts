@@ -37,7 +37,6 @@ function userFromRaw(raw:any) :AppspaceUser {
 		auths: Array.isArray(raw.auths) ? raw.auths.map(userAuthFromRaw) : [],
 		display_name: raw.display_name+'',
 		avatar: raw.avatar+'',
-		//permissions = raw.permissions;
 		created_dt: new Date(raw.created_dt),
 	};
 }

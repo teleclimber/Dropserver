@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser } from './types';
+import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser, AppspaceUserBase } from './types';
 import { tsnetDataFromRaw, tsnetPeerUsersFromRaw, tsnetStatusFromRaw } from './helpers/tsnet';
 
 type NewAppspaceData = {
@@ -11,6 +11,14 @@ type NewAppspaceData = {
 	app_version:string,
 	domain_name: string,
 	subdomain: string,
+}
+
+function userBaseFromRaw(raw:any) :AppspaceUserBase {
+	return {
+		proxy_id: raw.proxy_id+'',
+		display_name: raw.display_name+'',
+		avatar: raw.avatar+'',
+	};
 }
 
 function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
@@ -29,6 +37,7 @@ function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 function appspaceFromRaw(raw:any) :Appspace {
 	return {
 		appspace_id: Number(raw.appspace_id),
+		owner_id: Number(raw.owner_id),
 		domain_name: raw.domain_name+'',
 		no_tls: !!raw.no_tls,
 		port_string: raw.port_string+'',
@@ -40,7 +49,11 @@ function appspaceFromRaw(raw:any) :Appspace {
 		tsnet_status: tsnetStatusFromRaw(raw.tsnet_status),
 		upgrade_version: raw.upgrade_version ? raw.upgrade_version+'' : undefined,
 		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined,
-		tsnet_data: tsnetDataFromRaw(raw.tsnet_data)
+		tsnet_data: tsnetDataFromRaw(raw.tsnet_data),
+		users: (Array.isArray(raw.users) ? raw.users.map(userBaseFromRaw) : [] ),
+		auth_user:{	// TODO maybe this could be undefined?
+			proxy_id: raw.auth_user?.proxy_id || ''
+		}
 	}
 }
 

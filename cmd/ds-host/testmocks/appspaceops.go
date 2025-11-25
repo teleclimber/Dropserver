@@ -8,4 +8,5 @@ import (
 
 type ManageUsers interface {
 	InstanceUser(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
+	AppspacesForUser(userID domain.UserID) ([]domain.AppspaceUserIDs, error)
 }

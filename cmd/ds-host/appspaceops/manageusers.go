@@ -10,6 +10,7 @@ import (
 
 type ManageUsers struct {
 	AppspaceModel interface {
+		GetAll() ([]domain.Appspace, error)
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		GetProxyIDsFromAuths(domain.AppspaceID, []domain.AppspaceUSerAuthQuery) ([]domain.ProxyID, error)
@@ -125,28 +126,60 @@ func getDisplayNameFromTSNetUser(tsnetU domain.TSNetPeerUser) string {
 // by comparing the userID's identifiers with
 // identifiers in the appspace's auths data
 func (m *ManageUsers) InstanceUser(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error) {
-	// get user's auths. (user's dropids at this point, but also tailnet ids)
-	// For each auth, get proxy id from appspace meta db.
-	// [get instance appspace user, compare proxy ids..]
-	//
-	// if one proxy id return that
-	// if more than one error conflict.
-	// if non erro no result.
+	auths, err := m.getUserAuths(userID)
+	if err != nil {
+		return domain.ProxyID(""), err
+	}
+	proxyID, err := m.getProxyID(appspaceID, auths)
+	return proxyID, err
+}
 
+func (m *ManageUsers) AppspacesForUser(userID domain.UserID) ([]domain.AppspaceUserIDs, error) {
+	ids := make([]domain.AppspaceUserIDs, 0)
+
+	auths, err := m.getUserAuths(userID)
+	if err != nil {
+		return ids, err
+	}
+
+	appspaces, err := m.AppspaceModel.GetAll()
+	if err != nil {
+		return ids, err
+	}
+
+	for _, a := range appspaces {
+		p, err := m.getProxyID(a.AppspaceID, auths)
+		if err == nil {
+			ids = append(ids, domain.AppspaceUserIDs{
+				UserID:     userID,
+				AppspaceID: a.AppspaceID,
+				ProxyID:    p})
+		}
+		// don't check the actual error. Even if it's a db error, keep going.
+		// Maybe the appspace is messed up, don't let that break everything else.
+	}
+	return ids, nil
+}
+
+func (m *ManageUsers) getUserAuths(userID domain.UserID) ([]domain.AppspaceUSerAuthQuery, error) {
 	auths := make([]domain.AppspaceUSerAuthQuery, 0)
 
 	dropIDs, err := m.DropIDModel.GetForUser(userID)
 	if err != nil {
-		return domain.ProxyID(""), err
+		return auths, err
 	}
 	for _, d := range dropIDs {
 		auths = append(auths, domain.AppspaceUSerAuthQuery{
 			Type:       "dropid",
-			Identifier: validator.JoinDropID(d.Domain, d.Handle)})
+			Identifier: validator.JoinDropID(d.Handle, d.Domain)})
 	}
 
 	// TODO also add user's tsnetid if there is one.
 
+	return auths, nil
+}
+
+func (m *ManageUsers) getProxyID(appspaceID domain.AppspaceID, auths []domain.AppspaceUSerAuthQuery) (domain.ProxyID, error) {
 	proxyIDs, err := m.AppspaceUserModel.GetProxyIDsFromAuths(appspaceID, auths)
 	if err != nil {
 		return domain.ProxyID(""), err
@@ -161,6 +194,9 @@ func (m *ManageUsers) InstanceUser(appspaceID domain.AppspaceID, userID domain.U
 	if len(proxyIDs) > 1 {
 		return domain.ProxyID(""), domain.ErrNoRowsInResultSet //TODO need an error here for this situation?
 	}
+
+	// TODO query instance users to verify single user matches appspace user.
+
 	return proxyIDs[0], nil
 }
 

@@ -5,10 +5,18 @@ import { useAppsStore } from '@/stores/apps';
 
 import MinimalAppUrlData from './appspace/MinimalAppUrlData.vue';
 import { RouterLink } from 'vue-router';
+import { useAuthUserStore } from '@/stores/auth_user';
 
 const props = defineProps<{
 	appspace: Appspace
 }>();
+
+const authUserStore = useAuthUserStore();
+authUserStore.fetch();
+
+const is_owned = computed( () => {
+	return props.appspace.owner_id === authUserStore.user_id;
+});
 
 const appsStore = useAppsStore();
 const app :Ref<App|undefined> = computed( () => {
@@ -38,7 +46,7 @@ const app_icon = computed( () => {
 
 		</a>
 		
-		<div class="mt-3 flex items-center">
+		<div v-if="!is_owned" class="mt-3 flex items-center">
 			<div class="w-10 h-10 flex items-center justify-center">
 				<div class="w-7 h-7 rounded-full bg-gray-300  flex justify-center content-center text-gray-400">
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 self-end">
@@ -46,7 +54,7 @@ const app_icon = computed( () => {
 					</svg>
 				</div>
 			</div>
-			<span class="pl-1">todo: owner identifier</span>
+			<span class="pl-1">todo: owner identifier {{ appspace.owner_id }}</span>
 			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-yellow-500">
 				<path fill-rule="evenodd" d="M8 7a5 5 0 113.61 4.804l-1.903 1.903A1 1 0 019 14H8v1a1 1 0 01-1 1H6v1a1 1 0 01-1 1H3a1 1 0 01-1-1v-2a1 1 0 01.293-.707L8.196 8.39A5.002 5.002 0 018 7zm5-3a.75.75 0 000 1.5A1.5 1.5 0 0114.5 7 .75.75 0 0016 7a3 3 0 00-3-3z" clip-rule="evenodd" />
 			</svg>
@@ -83,7 +91,8 @@ const app_icon = computed( () => {
 
 				Paused
 			</span>
-			<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage appspace</router-link>
+			<router-link v-if="is_owned" :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage appspace</router-link>
+			
 		</div>
 	</div>
 </template>

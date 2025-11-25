@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,21 +11,35 @@ import (
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
-// AppspaceResp is
+type AppspaceUserBase struct {
+	ProxyID     domain.ProxyID `json:"proxy_id"`
+	DisplayName string         `json:"display_name"`
+	Avatar      string         `json:"avatar"`
+}
+
+type AppspaceAuthUser struct {
+	ProxyID domain.ProxyID `json:"proxy_id"`
+	// add matching auths!?
+}
+
+// AppspaceResp
 type AppspaceResp struct {
-	AppspaceID     int                        `json:"appspace_id"`
-	AppID          int                        `json:"app_id"`
-	AppVersion     domain.Version             `json:"app_version"`
-	DomainName     string                     `json:"domain_name"`
-	NoTLS          bool                       `json:"no_tls"`
-	PortString     string                     `json:"port_string"`
-	Created        time.Time                  `json:"created_dt"`
-	Paused         bool                       `json:"paused"`
-	Status         domain.AppspaceStatusEvent `json:"status"`
-	TSNetStatus    domain.TSNetAppspaceStatus `json:"tsnet_status"`
-	UpgradeVersion domain.Version             `json:"upgrade_version,omitempty"`
-	AppVersionData *domain.AppVersionUI       `json:"ver_data,omitempty"`
-	TSNetData      *domain.AppspaceTSNet      `json:"tsnet_data,omitempty"`
+	AppspaceID       int                        `json:"appspace_id"`
+	OwnerID          domain.UserID              `json:"owner_id"` // maybe also add OwnerProxyID so taht they can be identified in list of users.
+	AppID            int                        `json:"app_id"`
+	AppVersion       domain.Version             `json:"app_version"`
+	DomainName       string                     `json:"domain_name"`
+	NoTLS            bool                       `json:"no_tls"`
+	PortString       string                     `json:"port_string"`
+	Created          time.Time                  `json:"created_dt"`
+	Paused           bool                       `json:"paused"`
+	Status           domain.AppspaceStatusEvent `json:"status"`
+	TSNetStatus      domain.TSNetAppspaceStatus `json:"tsnet_status"`
+	UpgradeVersion   domain.Version             `json:"upgrade_version,omitempty"`
+	AppVersionData   *domain.AppVersionUI       `json:"ver_data,omitempty"`
+	TSNetData        *domain.AppspaceTSNet      `json:"tsnet_data,omitempty"`
+	Users            []AppspaceUserBase         `json:"users"`
+	AppspaceAuthUser AppspaceAuthUser           `json:"auth_user"` // TODO should this be a pointer with omitempty? Some appspcae may be owned but not have a owner user
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -61,6 +74,12 @@ type AppspaceRoutes struct {
 		Delete(domain.AppspaceID) error
 		GetStatus(domain.AppspaceID) domain.TSNetAppspaceStatus
 		GetPeerUsers(domain.AppspaceID) []domain.TSNetPeerUser
+	} `checkinject:"required"`
+	AppspaceUserModel interface {
+		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
+	} `checkinject:"required"`
+	ManageUsers interface {
+		AppspacesForUser(domain.UserID) ([]domain.AppspaceUserIDs, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
 		Create(domain.UserID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
@@ -178,88 +197,90 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, respData)
 }
 
+// getAppspaces returns all appspaces relevant to the user.
+// Union of owned appspaces and appspaces they have access to
 func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
-	_, ok := r.URL.Query()["app"]
-	if ok {
-		a.getAppspacesForApp(w, r)
-	} else {
-		a.getAppspacesForUser(w, r)
-	}
-}
-
-func (a *AppspaceRoutes) getAppspacesForApp(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
 
-	query := r.URL.Query()
-	appIDStr := query["app"]
-	appIDInt, err := strconv.Atoi(appIDStr[0])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	appID := domain.AppID(appIDInt)
+	respData := make([]AppspaceResp, 0)
 
-	// need to check that app id is owned by owner
-	app, err := a.AppModel.GetFromID(appID)
+	ids, err := a.ManageUsers.AppspacesForUser(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if app.OwnerID != userID {
-		http.Error(w, "app not owned by user", http.StatusForbidden)
-		return
-	}
-	appspaces, err := a.AppspaceModel.GetForApp(appID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	respData := make([]AppspaceResp, len(appspaces))
-	for i, appspace := range appspaces {
-		respData[i] = a.makeAppspaceMeta(*appspace)
-		respData[i].Status = a.AppspaceStatus.Get(appspace.AppspaceID)
-		tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
-		if err == nil {
-			respData[i].TSNetData = &tsnetData
+
+	for _, id := range ids {
+		appspace, err := a.AppspaceModel.GetFromID(id.AppspaceID)
+		if err != nil {
+			returnInternalError(w)
+			return
 		}
-		respData[i].TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
+		appspaceResp, err := a.makeAppspaceResp(*appspace)
+		if err != nil {
+			returnInternalError(w)
+			return
+		}
+		appspaceResp.AppspaceAuthUser.ProxyID = id.ProxyID
+		respData = append(respData, appspaceResp)
 	}
-	writeJSON(w, respData)
-}
 
-func (a *AppspaceRoutes) getAppspacesForUser(w http.ResponseWriter, r *http.Request) {
-	userID, _ := domain.CtxAuthUserID(r.Context())
+	// Include appspaces for which the owner is not a user:
 	appspaces, err := a.AppspaceModel.GetForOwner(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	respData := make([]AppspaceResp, 0)
 	for _, appspace := range appspaces {
-		appspaceResp := a.makeAppspaceMeta(*appspace)
-		appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
-		tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
-		if err == nil {
-			appspaceResp.TSNetData = &tsnetData
+		if appspaceInIDs(appspace.AppspaceID, ids) {
+			continue
 		}
-		appspaceResp.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
-		upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(*appspace)
+		appspaceResp, err := a.makeAppspaceResp(*appspace)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		appspaceResp.UpgradeVersion = upgradeVersion
-
-		ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
-		if err == nil {
-			appspaceResp.AppVersionData = &ver
-		} else if err != domain.ErrNoRowsInResultSet {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			returnInternalError(w)
 			return
 		}
 		respData = append(respData, appspaceResp)
 	}
 	writeJSON(w, respData)
+}
+
+func appspaceInIDs(appspaceID domain.AppspaceID, ids []domain.AppspaceUserIDs) bool {
+	for _, id := range ids {
+		if id.AppspaceID == appspaceID {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceResp, error) {
+	appspaceResp := a.makeAppspaceMeta(appspace)
+	appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
+	tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
+	if err == nil {
+		appspaceResp.TSNetData = &tsnetData
+	}
+	appspaceResp.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
+	ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
+	if err == nil {
+		appspaceResp.AppVersionData = &ver
+	} else if err != domain.ErrNoRowsInResultSet {
+		return appspaceResp, err
+	}
+
+	users, err := a.AppspaceUserModel.GetAll(appspace.AppspaceID)
+	if err != nil {
+		return appspaceResp, err
+	}
+	appspaceResp.Users = make([]AppspaceUserBase, len(users))
+	for i, u := range users {
+		appspaceResp.Users[i] = AppspaceUserBase{
+			ProxyID:     u.ProxyID,
+			DisplayName: u.DisplayName,
+			Avatar:      u.Avatar}
+	}
+	return appspaceResp, nil
 }
 
 // PostAppspaceReq is sent when creating a new appspace
@@ -476,6 +497,7 @@ func (a *AppspaceRoutes) getUsage(w http.ResponseWriter, r *http.Request) {
 func (a *AppspaceRoutes) makeAppspaceMeta(appspace domain.Appspace) AppspaceResp {
 	return AppspaceResp{
 		AppspaceID: int(appspace.AppspaceID),
+		OwnerID:    appspace.OwnerID,
 		AppID:      int(appspace.AppID),
 		AppVersion: appspace.AppVersion,
 		DomainName: appspace.DomainName,

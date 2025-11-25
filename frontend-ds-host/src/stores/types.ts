@@ -201,8 +201,13 @@ export interface TSNetPeerUser {
 	full_id: string
 }
 
+export interface AppspaceAuthUser {
+	proxy_id: string,
+}
+
 export interface Appspace {
 	appspace_id: number,
+	owner_id: number,
 	domain_name: string,
 	no_tls: boolean,
 	port_string: string,
@@ -214,7 +219,9 @@ export interface Appspace {
 	status: AppspaceStatus,
 	ver_data: AppVersionUI | undefined,
 	tsnet_data: TSNetData | undefined,
-	tsnet_status: TSNetStatus
+	tsnet_status: TSNetStatus,
+	users: AppspaceUserBase[],
+	auth_user: AppspaceAuthUser	// TODO | undefined?
 }
 
 export interface RemoteAppspace {
@@ -226,6 +233,13 @@ export interface RemoteAppspace {
 	created_dt: Date
 }
 
+// AppspaceUserBase represents appspace users to non-owner users of the appspace
+export interface AppspaceUserBase {
+	proxy_id: string,
+	display_name: string,
+	avatar: string,
+}
+
 export interface AppspaceUserAuth {
 	type: string,
 	identifier: string,
@@ -233,13 +247,9 @@ export interface AppspaceUserAuth {
 	created: Date,
 }
 
-export interface AppspaceUser {
+export interface AppspaceUser extends AppspaceUserBase {
 	appspace_id: number,
-	proxy_id: string,
 	auths: AppspaceUserAuth[],
-	display_name: string,
-	avatar: string,
-	//permissions = raw.permissions;
 	created_dt: Date,
 }
 

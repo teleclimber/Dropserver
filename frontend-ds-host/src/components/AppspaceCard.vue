@@ -9,8 +9,6 @@ const props = defineProps<{
 	remote_appspace?: RemoteAppspace
 }>();
 
-const appspaceUsersStore = useAppspaceUsersStore();
-
 const is_local = ref(true);
 const domain_strong = ref('');
 const domain = ref('');
@@ -28,8 +26,6 @@ if( props.local_appspace ) {
 		domain_strong.value = a.domain_name
 	}
 
-	appspaceUsersStore.loadData(a.appspace_id);
-	
 	paused.value = a.paused;
 	enter_link.value = "/appspacelogin?appspace_id="+encodeURIComponent(a.appspace_id)
 }
@@ -49,15 +45,11 @@ const app_icon = computed( () => {
 
 const users = computed( () => {
 	if( !props.local_appspace ) return;
-	const users = appspaceUsersStore.getUsers(props.local_appspace.appspace_id);
-	if( !users ) return;
-	//const owner_dropid = props.local_appspace ? props.local_appspace.dropid : "";
-	return users.map( sru => {
-		const u = sru;
+	return props.local_appspace.users.map( u => {
 		return {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,
-			avatar_url: getAvatarUrl(u),
+			avatar_url: '', // TODO, need special route for this? getAvatarUrl(u),
 			is_owner: false //TODO  u.auths.some( (a:AppspaceUserAuth) => a.type == "dropid" && a.identifier == owner_dropid)
 		};
 	});

@@ -680,6 +680,14 @@ type Contact struct {
 	Created     time.Time `db:"created"`
 }
 
+// AppspaceUserIDs conveys the relation between an instance user
+// and an appspace user.
+type AppspaceUserIDs struct {
+	UserID     UserID     `json:"user_id"`
+	AppspaceID AppspaceID `json:"appspace_id"`
+	ProxyID    ProxyID    `json:"proxy_id"`
+}
+
 // AppspaceUser identifies a user of an appspace
 // Not sure we want this to have this form? Auth should be its own struct?
 type AppspaceUser struct {

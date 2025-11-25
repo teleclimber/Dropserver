@@ -1,11 +1,9 @@
 package userroutes
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -97,82 +95,69 @@ func TestGetAppspaceCtxForbidden(t *testing.T) {
 	}
 }
 
-func TestGetAppspacesForApp(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	userID := domain.UserID(7)
-	appID := domain.AppID(11)
-
-	am := testmocks.NewMockAppModel(mockCtrl)
-	am.EXPECT().GetFromID(appID).Return(domain.App{OwnerID: userID}, nil)
-
-	asm := testmocks.NewMockAppspaceModel(mockCtrl)
-	asm.EXPECT().GetForApp(appID).Return([]*domain.Appspace{{DomainName: "appspace.sub.domain", AppID: appID, OwnerID: userID}}, nil)
-
-	atm := testmocks.NewMockAppspaceTSNetModel(mockCtrl)
-	atm.EXPECT().Get(gomock.Any()).Return(domain.AppspaceTSNet{}, nil)
-
-	stat := testmocks.NewMockAppspaceStatus(mockCtrl)
-	stat.EXPECT().Get(gomock.Any()).Return(domain.AppspaceStatusEvent{})
-
-	appspaceTSNet := testmocks.NewMockAppspaceTSNet(mockCtrl)
-	appspaceTSNet.EXPECT().GetStatus(gomock.Any()).Return(domain.TSNetAppspaceStatus{})
-
-	a := AppspaceRoutes{
-		AppModel:           am,
-		AppspaceModel:      asm,
-		AppspaceTSNetModel: atm,
-		AppspaceStatus:     stat,
-		AppspaceTSNet:      appspaceTSNet,
+func TestAppspaceInIDs(t *testing.T) {
+	ids := []domain.AppspaceUserIDs{
+		{
+			UserID:     domain.UserID(1),
+			AppspaceID: domain.AppspaceID(5),
+			ProxyID:    domain.ProxyID("abc"),
+		},
+		{
+			UserID:     domain.UserID(2),
+			AppspaceID: domain.AppspaceID(11),
+			ProxyID:    domain.ProxyID("def"),
+		},
+		{
+			UserID:     domain.UserID(3),
+			AppspaceID: domain.AppspaceID(20),
+			ProxyID:    domain.ProxyID("ghi"),
+		},
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name        string
+		appspaceID  domain.AppspaceID
+		ids         []domain.AppspaceUserIDs
+		expectedRes bool
+	}{
+		{
+			name:        "found in middle",
+			appspaceID:  domain.AppspaceID(11),
+			ids:         ids,
+			expectedRes: true,
+		},
+		{
+			name:        "found at beginning",
+			appspaceID:  domain.AppspaceID(5),
+			ids:         ids,
+			expectedRes: true,
+		},
+		{
+			name:        "found at end",
+			appspaceID:  domain.AppspaceID(20),
+			ids:         ids,
+			expectedRes: true,
+		},
+		{
+			name:        "not found",
+			appspaceID:  domain.AppspaceID(99),
+			ids:         ids,
+			expectedRes: false,
+		},
+		{
+			name:        "empty slice",
+			appspaceID:  domain.AppspaceID(11),
+			ids:         []domain.AppspaceUserIDs{},
+			expectedRes: false,
+		},
 	}
-	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), userID))
 
-	rr := httptest.NewRecorder()
-
-	a.getAppspaces(rr, req)
-
-	if rr.Result().StatusCode != http.StatusOK {
-		t.Errorf("expected OK status, got %v", rr.Result().Status)
-	}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(rr.Result().Body)
-	if !strings.Contains(buf.String(), "appspace.sub.domain") {
-		t.Error("expected JSON response to contain the appspace domain")
-	}
-}
-
-func TestGetAppspacesForAppForbidden(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	userID := domain.UserID(7)
-	appID := domain.AppID(11)
-
-	am := testmocks.NewMockAppModel(mockCtrl)
-	am.EXPECT().GetFromID(appID).Return(domain.App{OwnerID: domain.UserID(13)}, nil)
-
-	a := AppspaceRoutes{
-		AppModel: am,
-	}
-
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/?app=%v", appID), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), userID))
-
-	rr := httptest.NewRecorder()
-
-	a.getAppspaces(rr, req)
-
-	if rr.Result().StatusCode != http.StatusForbidden {
-		t.Errorf("expected Forbidden status, got %v", rr.Result().Status)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := appspaceInIDs(tt.appspaceID, tt.ids)
+			if result != tt.expectedRes {
+				t.Errorf("appspaceInIDs() = %v, want %v", result, tt.expectedRes)
+			}
+		})
 	}
 }

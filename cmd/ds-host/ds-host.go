@@ -486,6 +486,8 @@ func main() {
 		AppspaceStatus:        appspaceStatus,
 		AppspaceExportRoutes:  exportAppspaceRoutes,
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
+		AppspaceUserModel:     appspaceUserModel,
+		ManageUsers:           manageAppspaceUsers,
 		DropIDModel:           dropIDModel,
 		MigrationMinder:       migrationMinder,
 		CreateAppspace:        createAppspace,

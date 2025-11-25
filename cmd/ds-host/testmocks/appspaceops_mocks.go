@@ -33,6 +33,21 @@ func (m *MockManageUsers) EXPECT() *MockManageUsersMockRecorder {
 	return m.recorder
 }
 
+// AppspacesForUser mocks base method
+func (m *MockManageUsers) AppspacesForUser(arg0 domain.UserID) ([]domain.AppspaceUserIDs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppspacesForUser", arg0)
+	ret0, _ := ret[0].([]domain.AppspaceUserIDs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppspacesForUser indicates an expected call of AppspacesForUser
+func (mr *MockManageUsersMockRecorder) AppspacesForUser(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspacesForUser", reflect.TypeOf((*MockManageUsers)(nil).AppspacesForUser), arg0)
+}
+
 // InstanceUser mocks base method
 func (m *MockManageUsers) InstanceUser(arg0 domain.AppspaceID, arg1 domain.UserID) (domain.ProxyID, error) {
 	m.ctrl.T.Helper()

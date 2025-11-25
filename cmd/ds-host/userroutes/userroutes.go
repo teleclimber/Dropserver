@@ -34,6 +34,10 @@ func returnError(res http.ResponseWriter, err error) {
 	}
 }
 
+func returnInternalError(res http.ResponseWriter) {
+	http.Error(res, "Internal server error", http.StatusInternalServerError)
+}
+
 type subRoutes interface {
 	subRouter() http.Handler
 }
