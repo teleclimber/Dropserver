@@ -588,6 +588,20 @@ func (mr *MockAppFilesModelMockRecorder) ExtractPackage(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractPackage", reflect.TypeOf((*MockAppFilesModel)(nil).ExtractPackage), arg0)
 }
 
+// GetLinkPath mocks base method
+func (m *MockAppFilesModel) GetLinkPath(arg0, arg1 string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLinkPath", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetLinkPath indicates an expected call of GetLinkPath
+func (mr *MockAppFilesModelMockRecorder) GetLinkPath(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLinkPath", reflect.TypeOf((*MockAppFilesModel)(nil).GetLinkPath), arg0, arg1)
+}
+
 // ReadManifest mocks base method
 func (m *MockAppFilesModel) ReadManifest(arg0 string) (*domain.AppVersionManifest, error) {
 	m.ctrl.T.Helper()

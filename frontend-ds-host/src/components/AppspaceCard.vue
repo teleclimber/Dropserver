@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import {ref, computed} from 'vue';
 
-import type { Appspace, AppspaceUserAuth, RemoteAppspace } from '@/stores/types';
-import { useAppspaceUsersStore, getAvatarUrl } from '@/stores/appspace_users';
+import type { Appspace, RemoteAppspace } from '@/stores/types';
+import { getAvatarUrl } from '@/stores/appspace_users';
+import { useAuthUserStore } from '@/stores/auth_user';
 
 const props = defineProps<{
 	local_appspace?: Appspace,
 	remote_appspace?: RemoteAppspace
 }>();
+
+const authUserStore = useAuthUserStore();
+authUserStore.fetch();
 
 const is_local = ref(true);
 const domain_strong = ref('');
@@ -40,7 +44,7 @@ else throw new Error("got neither local nor remote appspace");
 const app_icon_error = ref(false);
 const app_icon = computed( () => {
 	if( app_icon_error.value || !props.local_appspace ) return "";
-	return `/api/application/${props.local_appspace.app_id}/version/${props.local_appspace.app_version}/file/app-icon`;
+	return `/api/appspace/${props.local_appspace.appspace_id}/app-icon`;
 });
 
 const users = computed( () => {
@@ -49,8 +53,8 @@ const users = computed( () => {
 		return {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,
-			avatar_url: '', // TODO, need special route for this? getAvatarUrl(u),
-			is_owner: false //TODO  u.auths.some( (a:AppspaceUserAuth) => a.type == "dropid" && a.identifier == owner_dropid)
+			avatar_url: getAvatarUrl(props.local_appspace!.appspace_id, u.avatar),
+			is_owner: props.local_appspace!.owner_id === authUserStore.user_id
 		};
 	});
 });

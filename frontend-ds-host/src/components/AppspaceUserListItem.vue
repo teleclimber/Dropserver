@@ -6,7 +6,7 @@ const props = defineProps<{
 	user: AppspaceUser
 }>();
 
-const avatar_url = getAvatarUrl(props.user);
+const avatar_url = getAvatarUrl(props.user.appspace_id, props.user.avatar);
 
 </script>
 

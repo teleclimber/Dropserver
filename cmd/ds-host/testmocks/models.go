@@ -62,6 +62,7 @@ type AppFilesModel interface {
 	WriteRoutes(locationKey string, routesData []byte) error
 	ReadRoutes(locationKey string) ([]byte, error)
 	Delete(string) error
+	GetLinkPath(string, string) string
 }
 
 // AppModel is the interface for the app model

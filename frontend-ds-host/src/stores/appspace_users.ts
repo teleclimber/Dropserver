@@ -135,8 +135,8 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 	};
 });
 
-export function  getAvatarUrl(u: AppspaceUser) {
-	if( u.avatar ) return `/api/appspace/${u.appspace_id}/user/${u.proxy_id}/avatar/${u.avatar}`;
+export function  getAvatarUrl(appspace_id :number, avatar_file: string) {
+	if( avatar_file ) return `/api/appspace/${appspace_id}/avatar/${avatar_file}`;
 	else return "";
 }
 

@@ -465,10 +465,9 @@ func main() {
 		AppLogger:       appLogger}
 
 	userAppspaceUserRoutes := &userroutes.AppspaceUserRoutes{
-		AppspaceUserModel:     appspaceUserModel,
-		Avatars:               appspaceAvatars,
-		Config:                runtimeConfig,
-		AppspaceLocation2Path: appspaceLocation2Path,
+		AppspaceUserModel: appspaceUserModel,
+		Avatars:           appspaceAvatars,
+		Config:            runtimeConfig,
 	}
 	exportAppspaceRoutes := &userroutes.AppspaceBackupRoutes{
 		AppspaceFilesModel:    appspaceFilesModel,
@@ -480,6 +479,7 @@ func main() {
 	}
 	userAppspaceRoutes := &userroutes.AppspaceRoutes{
 		Config:                *runtimeConfig,
+		AppspaceLocation2Path: appspaceLocation2Path,
 		AppspaceUserRoutes:    userAppspaceUserRoutes,
 		AppspaceModel:         appspaceModel,
 		AppspaceTSNetModel:    appspaceTSNetModel,
@@ -495,7 +495,8 @@ func main() {
 		DeleteAppspace:        deleteAppspace,
 		AppspaceLogger:        appspaceLogger,
 		SandboxRunsModel:      sandboxRunsModel,
-		AppModel:              appModel}
+		AppModel:              appModel,
+		AppFilesModel:         appFilesModel}
 
 	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{
 		RemoteAppspaceModel: remoteAppspaceModel,

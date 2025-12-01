@@ -30,7 +30,7 @@ const enter_link = ref("/appspacelogin?appspace_id="+encodeURIComponent(props.ap
 const app_icon_error = ref(false);
 const app_icon = computed( () => {
 	if( app_icon_error.value || !props.appspace ) return "";
-	return `/api/application/${props.appspace.app_id}/version/${props.appspace.app_version}/file/app-icon`;
+	return `/api/appspace/${props.appspace.appspace_id}/app-icon`;
 });
 
 </script>

@@ -53,46 +53,150 @@ func TestGetAppspaceCtx(t *testing.T) {
 	}
 }
 
-func TestGetAppspaceCtxForbidden(t *testing.T) {
+func TestRouterAppspaceOwnerAuthorization(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	appspaceUserID := domain.UserID(7)
-	reqUserID := domain.UserID(13)
+	appspaceOwnerID := domain.UserID(7)
+	nonOwnerUserID := domain.UserID(13)
 	appspaceID := domain.AppspaceID(11)
 
 	asm := testmocks.NewMockAppspaceModel(mockCtrl)
-	asm.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{AppspaceID: appspaceID, OwnerID: appspaceUserID}, nil)
+	asm.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{AppspaceID: appspaceID, OwnerID: appspaceOwnerID}, nil).Times(2)
+
+	das := testmocks.NewMockDeleteAppspace(mockCtrl)
+	das.EXPECT().Delete(gomock.Any()).Return(nil)
 
 	a := AppspaceRoutes{
-		AppspaceModel: asm,
+		AppspaceModel:         asm,
+		DeleteAppspace:        das,
+		AppspaceUserRoutes:    &mockSubRoutes{},
+		AppspaceExportRoutes:  &mockSubRoutes{},
+		AppspaceRestoreRoutes: &mockSubRoutes{},
 	}
 
-	router := chi.NewMux()
-	router.With(a.appspaceCtx).Get("/{appspace}", func(w http.ResponseWriter, r *http.Request) {
-		appspace, ok := domain.CtxAppspaceData(r.Context())
-		if !ok {
-			t.Error("expected appspace data")
-		}
-		if appspace.AppspaceID != appspaceID {
-			t.Error("did not get the app data expected")
-		}
-	})
-
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", appspaceID), nil)
+	// Test forbidden access for non-owner
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("/%v", appspaceID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), reqUserID))
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), nonOwnerUserID))
 
 	rr := httptest.NewRecorder()
 
+	router := a.subRouter()
 	router.ServeHTTP(rr, req)
 
 	if rr.Result().StatusCode != http.StatusForbidden {
-		t.Errorf("expected Forbidden got status %v", rr.Result().Status)
+		t.Errorf("expected Forbidden for non-owner, got status %v", rr.Result().Status)
 	}
+
+	// Test authorized access for owner
+	req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("/%v", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), appspaceOwnerID))
+
+	rr = httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusOK {
+		t.Errorf("expected OK for owner, got status %v", rr.Result().Status)
+	}
+}
+
+func TestUserIsAppspaceUserOrOwner(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	appspaceOwnerID := domain.UserID(7)
+	authorizedUserID := domain.UserID(13)
+	unauthorizedUserID := domain.UserID(99)
+	appspaceID := domain.AppspaceID(11)
+	appID := domain.AppID(5)
+	appVersion := domain.Version("1.0.0")
+
+	asm := testmocks.NewMockAppspaceModel(mockCtrl)
+	asm.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{
+		AppspaceID: appspaceID,
+		OwnerID:    appspaceOwnerID,
+		AppID:      appID,
+		AppVersion: appVersion,
+	}, nil).Times(3)
+
+	mu := testmocks.NewMockManageUsers(mockCtrl)
+	// Authorized user exists
+	mu.EXPECT().InstanceUser(appspaceID, authorizedUserID).Return(domain.ProxyID("proxy123"), nil)
+	// Unauthorized user does not exist
+	mu.EXPECT().InstanceUser(appspaceID, unauthorizedUserID).Return(domain.ProxyID(""), domain.ErrNoRowsInResultSet)
+
+	am := testmocks.NewMockAppModel(mockCtrl)
+	am.EXPECT().GetVersion(appID, appVersion).Return(domain.AppVersion{LocationKey: "test-location"}, nil).Times(2)
+
+	afm := testmocks.NewMockAppFilesModel(mockCtrl)
+	afm.EXPECT().GetLinkPath("test-location", "app-icon").Return("/path/to/icon.png").Times(2)
+
+	a := AppspaceRoutes{
+		AppspaceModel:         asm,
+		ManageUsers:           mu,
+		AppModel:              am,
+		AppFilesModel:         afm,
+		AppspaceUserRoutes:    &mockSubRoutes{},
+		AppspaceExportRoutes:  &mockSubRoutes{},
+		AppspaceRestoreRoutes: &mockSubRoutes{},
+	}
+
+	router := a.subRouter()
+
+	// Test 1: Owner has access
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v/app-icon", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), appspaceOwnerID))
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode == http.StatusForbidden {
+		t.Errorf("expected owner to have access, got Forbidden")
+	}
+
+	// Test 2: Authorized user has access
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v/app-icon", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), authorizedUserID))
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode == http.StatusForbidden {
+		t.Errorf("expected authorized user to have access, got Forbidden")
+	}
+
+	// Test 3: Unauthorized user is forbidden
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v/app-icon", appspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req = req.WithContext(domain.CtxWithAuthUserID(req.Context(), unauthorizedUserID))
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Result().StatusCode != http.StatusForbidden {
+		t.Errorf("expected unauthorized user to be forbidden, got status %v", rr.Result().Status)
+	}
+}
+
+type mockSubRoutes struct{}
+
+func (m *mockSubRoutes) subRouter() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 }
 
 func TestAppspaceInIDs(t *testing.T) {

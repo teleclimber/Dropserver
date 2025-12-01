@@ -227,7 +227,7 @@ function cancel() {
 						<input type="text" v-model="display_name" ref="display_name_input" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 					</DataDef>
 					<DataDef field="Avatar:">
-						<Avatar :current="user ? getAvatarUrl(user) : ''" @changed="avatarChanged"></Avatar>
+						<Avatar :current="user ? getAvatarUrl(user.appspace_id, user.avatar) : ''" @changed="avatarChanged"></Avatar>
 					</DataDef>
 				</div>
 				<div class="px-4 sm:px-6 flex justify-between">

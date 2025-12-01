@@ -26,8 +26,6 @@ type PostAppspaceUser struct {
 	Auths       []PostAuth `json:"auths"`
 }
 
-// All this needs to be versioned?
-
 // AppspaceUserRoutes handles routes for getting and mainpulating
 // appspace users
 type AppspaceUserRoutes struct {
@@ -44,10 +42,7 @@ type AppspaceUserRoutes struct {
 		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
 		Remove(locationKey string, fn string) error
 	} `checkinject:"required"`
-	Config                *domain.RuntimeConfig `checkinject:"required"`
-	AppspaceLocation2Path interface {
-		Avatar(string, string) string
-	} `checkinject:"required"`
+	Config *domain.RuntimeConfig `checkinject:"required"`
 }
 
 func (a *AppspaceUserRoutes) subRouter() http.Handler {
@@ -63,7 +58,6 @@ func (a *AppspaceUserRoutes) subRouter() http.Handler {
 		r.Patch("/auth", a.updateUserAuth)
 		r.Patch("/", a.updateUserMeta)
 		r.Delete("/", a.deleteUser)
-		r.Get("/avatar/{filename}", a.getAvatar)
 	})
 
 	return r
@@ -367,19 +361,6 @@ func (a *AppspaceUserRoutes) deleteUser(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		returnError(w, err)
 	}
-}
-
-func (a *AppspaceUserRoutes) getAvatar(w http.ResponseWriter, r *http.Request) {
-	appspace, _ := domain.CtxAppspaceData(r.Context())
-	avatarFilename := chi.URLParam(r, "filename")
-
-	err := validator.AppspaceAvatarFilename(avatarFilename)
-	if err != nil {
-		returnError(w, err)
-		return
-	}
-
-	http.ServeFile(w, r, a.AppspaceLocation2Path.Avatar(appspace.LocationKey, avatarFilename))
 }
 
 func validateAuthStrings(authType, authID string) (string, error) {

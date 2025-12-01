@@ -45,13 +45,19 @@ type AppspaceResp struct {
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
 type AppspaceRoutes struct {
 	Config                domain.RuntimeConfig `checkinject:"required"`
-	AppspaceUserRoutes    subRoutes            `checkinject:"required"`
-	AppspaceExportRoutes  subRoutes            `checkinject:"required"`
-	AppspaceRestoreRoutes subRoutes            `checkinject:"required"`
+	AppspaceLocation2Path interface {
+		Avatar(string, string) string
+	} `checkinject:"required"`
+	AppspaceUserRoutes    subRoutes `checkinject:"required"`
+	AppspaceExportRoutes  subRoutes `checkinject:"required"`
+	AppspaceRestoreRoutes subRoutes `checkinject:"required"`
 	AppModel              interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
+	} `checkinject:"required"`
+	AppFilesModel interface {
+		GetLinkPath(string, string) string
 	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetForOwner(domain.UserID) ([]*domain.Appspace, error)
@@ -79,6 +85,7 @@ type AppspaceRoutes struct {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	ManageUsers interface {
+		InstanceUser(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
 		AppspacesForUser(domain.UserID) ([]domain.AppspaceUserIDs, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
@@ -113,18 +120,28 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 
 	r.Route("/{appspace}", func(r chi.Router) {
 		r.Use(a.appspaceCtx)
-		r.Get("/", a.getAppspace) // reutnr app vers UI
-		r.Delete("/", a.deleteAppspace)
-		r.Get("/log", a.getLog)
-		r.Get("/usage", a.getUsage)
-		r.Post("/pause", a.changeAppspacePause)
-		r.Get("/tsnet/peerusers", a.getTSNetPeerUsers)
-		r.Post("/tsnet/connect", a.connectTSNet)
-		r.Post("/tsnet", a.createTSNet)
-		r.Delete("/tsnet", a.deleteTSNet)
-		r.Mount("/user", a.AppspaceUserRoutes.subRouter())
-		r.Mount("/export", a.AppspaceExportRoutes.subRouter())
-		r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
+
+		r.Group(func(r chi.Router) {
+			r.Use(a.userIsAppspaceUserOrOwner)
+			r.Get("/app-icon", a.getAppIcon)
+			r.Get("/avatar/{filename}", a.getUserAvatar)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(a.userIsAppspaceOwner)
+			r.Get("/", a.getAppspace) // reutnr app vers UI
+			r.Delete("/", a.deleteAppspace)
+			r.Get("/log", a.getLog)
+			r.Get("/usage", a.getUsage)
+			r.Post("/pause", a.changeAppspacePause)
+			r.Get("/tsnet/peerusers", a.getTSNetPeerUsers)
+			r.Post("/tsnet/connect", a.connectTSNet)
+			r.Post("/tsnet", a.createTSNet)
+			r.Delete("/tsnet", a.deleteTSNet)
+			r.Mount("/user", a.AppspaceUserRoutes.subRouter())
+			r.Mount("/export", a.AppspaceExportRoutes.subRouter())
+			r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
+		})
 	})
 
 	return r
@@ -132,17 +149,13 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 
 func (a *AppspaceRoutes) appspaceCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID, _ := domain.CtxAuthUserID(r.Context())
-
 		appspaceIDStr := chi.URLParam(r, "appspace")
-
 		appspaceIDInt, err := strconv.Atoi(appspaceIDStr)
 		if err != nil {
 			returnError(w, err)
 			return
 		}
 		appspaceID := domain.AppspaceID(appspaceIDInt)
-
 		appspace, err := a.AppspaceModel.GetFromID(appspaceID)
 		if err != nil {
 			if err == domain.ErrNoRowsInResultSet {
@@ -152,18 +165,74 @@ func (a *AppspaceRoutes) appspaceCtx(next http.Handler) http.Handler {
 			}
 			return
 		}
-		if appspace.OwnerID != userID {
-			returnError(w, errForbidden)
-			return
-		}
-
 		r = r.WithContext(domain.CtxWithAppspaceData(r.Context(), *appspace))
-
 		next.ServeHTTP(w, r)
 	})
 }
 
+func (a *AppspaceRoutes) userIsAppspaceUserOrOwner(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := domain.CtxAuthUserID(r.Context())
+		appspace, _ := domain.CtxAppspaceData(r.Context())
+		if appspace.OwnerID == userID {
+			next.ServeHTTP(w, r)
+			return
+		}
+		_, err := a.ManageUsers.InstanceUser(appspace.AppspaceID, userID)
+		if err == domain.ErrNoRowsInResultSet {
+			returnError(w, errForbidden)
+			return
+		}
+		if err != nil {
+			returnInternalError(w)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *AppspaceRoutes) userIsAppspaceOwner(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := domain.CtxAuthUserID(r.Context())
+		appspace, _ := domain.CtxAppspaceData(r.Context())
+		if appspace.OwnerID != userID {
+			returnError(w, errForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *AppspaceRoutes) getAppIcon(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	appVersion, err := a.AppModel.GetVersion(appspace.AppID, appspace.AppVersion)
+	if err != nil {
+		returnInternalError(w)
+		return
+	}
+	p := a.AppFilesModel.GetLinkPath(appVersion.LocationKey, "app-icon")
+	if p == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, p)
+}
+
+func (a *AppspaceRoutes) getUserAvatar(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	avatarFilename := chi.URLParam(r, "filename")
+
+	err := validator.AppspaceAvatarFilename(avatarFilename)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	http.ServeFile(w, r, a.AppspaceLocation2Path.Avatar(appspace.LocationKey, avatarFilename))
+}
+
 func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
+	userID, _ := domain.CtxAuthUserID(r.Context())
 	appspace, _ := domain.CtxAppspaceData(r.Context())
 	respData := a.makeAppspaceMeta(appspace)
 
@@ -172,12 +241,19 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respData.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
-	tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
-	if err == nil {
-		respData.TSNetData = &tsnetData
+	respData, err := a.makeAppspaceResp(appspace)
+	if err != nil {
+		returnInternalError(w)
+		return
 	}
-	respData.TSNetStatus = a.AppspaceTSNet.GetStatus(appspace.AppspaceID)
+
+	proxyID, err := a.ManageUsers.InstanceUser(appspace.AppspaceID, userID)
+	if err != nil {
+		returnInternalError(w)
+		return
+	}
+
+	respData.AppspaceAuthUser.ProxyID = proxyID
 
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
@@ -185,14 +261,6 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respData.UpgradeVersion = upgradeVersion
-
-	ver, err := a.AppModel.GetVersionForUI(appspace.AppID, appspace.AppVersion)
-	if err == nil {
-		respData.AppVersionData = &ver
-	} else if err != domain.ErrNoRowsInResultSet {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	writeJSON(w, respData)
 }
