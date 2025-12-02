@@ -6,6 +6,7 @@ import { useAppsStore } from '@/stores/apps';
 import MinimalAppUrlData from './appspace/MinimalAppUrlData.vue';
 import { RouterLink } from 'vue-router';
 import { useAuthUserStore } from '@/stores/auth_user';
+import AppLinksCompact from './app/AppLinksCompact.vue';
 
 const props = defineProps<{
 	appspace: Appspace
@@ -70,15 +71,19 @@ const app_icon = computed( () => {
 				</div>
 				<div class="flex flex-col md:flex-row items-baseline">
 					<p class="ml-1">
-						<router-link :to="{name: 'manage-app', params:{id:appspace.app_id}}" class="font-medium text-lg text-blue-600 underline">
+						<span class="font-medium text-lg">
 							{{appspace.ver_data?.name}}
-						</router-link>
+						</span>
 						<span class="bg-gray-200 text-gray-600 px-1 rounded-md ml-1">{{appspace.app_version}}</span>
 					</p>
 					<MinimalAppUrlData v-if="app?.url_data" :cur_ver="appspace.app_version" :url_data="app.url_data" class="self-baseline"></MinimalAppUrlData>
 					<span v-else-if="appspace.upgrade_version" class="ml-1">
 						Upgrade available: <span class="bg-gray-200 text-gray-600 px-1 rounded-md">{{appspace.upgrade_version}}</span>
 					</span>
+					<router-link v-if="is_owned" :to="{name: 'manage-app', params:{id:appspace.app_id}}" class="ml-1 btn">
+						manage
+					</router-link>
+					<AppLinksCompact v-else-if="appspace.ver_data" :ver_data="appspace.ver_data" class="ml-1"></AppLinksCompact>
 				</div>
 				
 			</div>
