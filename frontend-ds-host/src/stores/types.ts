@@ -133,7 +133,6 @@ export type SelectedFile = {
 }
 
 export interface AppspaceStatus {
-	owner_id: number,
 	appspace_id: number, 
 	paused: boolean,
 	temp_paused: boolean,

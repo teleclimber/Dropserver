@@ -23,7 +23,6 @@ function userBaseFromRaw(raw:any) :AppspaceUserBase {
 
 function appspaceStatusFromRaw(raw:any) :AppspaceStatus {
 	return {
-		owner_id: Number(raw.owner_id),
 		appspace_id: Number(raw.appspace_id),
 		paused: !!raw.paused,
 		temp_paused: raw.temp_paused,

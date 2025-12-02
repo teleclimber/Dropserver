@@ -135,7 +135,8 @@ func main() {
 	userTSNetEvents := &events.UserTSNetStatusEvents{}
 	userTSNetPeersEvents := &events.UserTSNetPeersEvents{}
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
-	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	appspaceStatusEvents := &events.AppspaceStatusEvents{
+		Relations: eventRelations}
 	appspaceTSNetStatusEvents := &events.AppspaceTSNetStatusEvents{
 		Relations: eventRelations}
 	appspaceTSNetPeersEvents := &events.AppspaceTSNetPeersEvents{

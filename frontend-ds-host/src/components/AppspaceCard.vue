@@ -16,7 +16,9 @@ authUserStore.fetch();
 const is_local = ref(true);
 const domain_strong = ref('');
 const domain = ref('');
-const paused = ref(false);
+const paused = computed( () => {
+	return !!props.local_appspace?.status.paused;
+});
 const enter_link = ref('');
 
 if( props.local_appspace ) {
@@ -29,8 +31,6 @@ if( props.local_appspace ) {
 	else {
 		domain_strong.value = a.domain_name
 	}
-
-	paused.value = a.paused;
 	enter_link.value = "/appspacelogin?appspace_id="+encodeURIComponent(a.appspace_id)
 }
 else if( props.remote_appspace ) {

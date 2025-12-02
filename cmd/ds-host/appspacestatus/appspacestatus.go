@@ -51,12 +51,11 @@ type tempPause struct {
 }
 
 type statusData struct {
-	ownerID          domain.UserID // ownerID piggybacks on statusDatat to simplify event displatching
-	paused           bool          // paused status is set in appspace DB
-	tempPauses       []tempPause   // pauses for appspace operations like migrations, backups, etc...
-	dataSchema       int           // from appspace metadata
-	appVersionSchema int           // from app files
-	problem          bool          // Something went wrong, appsapce can't be used
+	paused           bool        // paused status is set in appspace DB
+	tempPauses       []tempPause // pauses for appspace operations like migrations, backups, etc...
+	dataSchema       int         // from appspace metadata
+	appVersionSchema int         // from app files
+	problem          bool        // Something went wrong, appsapce can't be used
 }
 
 // possible flags to add:
@@ -288,7 +287,6 @@ func (s *AppspaceStatus) getData(appspaceID domain.AppspaceID) statusData {
 		data.problem = true
 		return data
 	}
-	data.ownerID = appspace.OwnerID
 	data.paused = appspace.Paused
 
 	// load appVersionSchema. Note that it should not change over time, so no need to subscribe.
@@ -399,7 +397,6 @@ func getEvent(appspaceID domain.AppspaceID, status statusData) domain.AppspaceSt
 		pReason = status.tempPauses[0].reason
 	}
 	return domain.AppspaceStatusEvent{
-		OwnerID:          status.ownerID,
 		AppspaceID:       appspaceID,
 		Paused:           status.paused, // maybe add archived, deleted. Or put everything under an "active"
 		TempPaused:       len(status.tempPauses) != 0,
