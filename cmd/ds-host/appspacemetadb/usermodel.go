@@ -396,7 +396,7 @@ func (u *UserModel) GetByAuth(appspaceID domain.AppspaceID, authType string, ide
 	return u.toDomainUser(appspaceID, user, auths), nil
 }
 
-func (u *UserModel) GetProxyIDsFromAuths(appspaceID domain.AppspaceID, auths []domain.AppspaceUSerAuthQuery) ([]domain.ProxyID, error) {
+func (u *UserModel) GetProxyIDsFromAuths(appspaceID domain.AppspaceID, auths []domain.AppspaceUserAuthBare) ([]domain.ProxyID, error) {
 	log := u.getLogger("GetProxyIDsFromAuths()").AppspaceID(appspaceID)
 
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)

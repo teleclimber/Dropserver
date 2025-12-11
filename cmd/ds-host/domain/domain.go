@@ -707,9 +707,22 @@ type AppspaceUserAuth struct {
 	Created    time.Time `db:"created" json:"created_dt"`
 }
 
-type AppspaceUSerAuthQuery struct {
-	Type       string `db:"type"`
-	Identifier string `db:"identifier"`
+type AppspaceUserAuthBare struct {
+	Type       string `db:"type" json:"type"`
+	Identifier string `db:"identifier" json:"identifier"`
+}
+
+type UserIDProxyIDMatches struct {
+	Instance bool
+	Auths    []AppspaceUserAuthBare
+}
+
+type UserIDProxyIDConflicts struct {
+	UserID         UserID
+	ProxyID        ProxyID
+	Conflict       bool
+	ProxyIDMatches map[ProxyID]UserIDProxyIDMatches
+	UserIDMatches  map[UserID]UserIDProxyIDMatches
 }
 
 type EditOperation string

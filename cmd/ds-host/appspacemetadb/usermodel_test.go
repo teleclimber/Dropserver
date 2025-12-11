@@ -272,7 +272,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 1: Single query that matches one user
-	proxyIDs, err := u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{{
+	proxyIDs, err := u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{{
 		Type:       "dropid",
 		Identifier: "user1.com/user1",
 	}})
@@ -287,7 +287,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 2: Multiple queries matching different users
-	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{
+	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{
 		{
 			Type:       "dropid",
 			Identifier: "user1.com/user1",
@@ -318,7 +318,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 3: Multiple queries matching the same user (should return unique proxy ID)
-	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{
+	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{
 		{
 			Type:       "dropid",
 			Identifier: "user3.com/user3",
@@ -339,7 +339,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 4: Query with no matches (should return empty slice)
-	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{{
+	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{{
 		Type:       "dropid",
 		Identifier: "nonexistent.com/user",
 	}})
@@ -351,7 +351,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 5: Mix of matching and non-matching queries
-	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{
+	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{
 		{
 			Type:       "dropid",
 			Identifier: "user1.com/user1",
@@ -373,7 +373,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 
 	// Test 6: Empty query list
-	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUSerAuthQuery{})
+	proxyIDs, err = u.GetProxyIDsFromAuths(asID, []domain.AppspaceUserAuthBare{})
 	if err != nil {
 		t.Error(err)
 	}

@@ -85,7 +85,7 @@ type AppspaceRoutes struct {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	ManageUsers interface {
-		InstanceUser(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
+		GetProxyID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
 		AppspacesForUser(domain.UserID) ([]domain.AppspaceUserIDs, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
@@ -178,7 +178,8 @@ func (a *AppspaceRoutes) userIsAppspaceUserOrOwner(next http.Handler) http.Handl
 			next.ServeHTTP(w, r)
 			return
 		}
-		_, err := a.ManageUsers.InstanceUser(appspace.AppspaceID, userID)
+		// TODO check if owner, if yes next.
+		_, err := a.ManageUsers.GetProxyID(appspace.AppspaceID, userID) // This one may have to change to be OK with conflicts?
 		if err == domain.ErrNoRowsInResultSet {
 			returnError(w, errForbidden)
 			return
@@ -247,12 +248,11 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyID, err := a.ManageUsers.InstanceUser(appspace.AppspaceID, userID)
-	if err != nil {
+	proxyID, err := a.ManageUsers.GetProxyID(appspace.AppspaceID, userID) // TODO allow conflicts or not?
+	if err != nil && err != domain.ErrNoRowsInResultSet {
 		returnInternalError(w)
 		return
 	}
-
 	respData.AppspaceAuthUser.ProxyID = proxyID
 
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
