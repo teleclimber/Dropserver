@@ -167,19 +167,27 @@ func (m *ManageUsers) AppspaceUsers(appspaceID domain.AppspaceID) (map[domain.Pr
 // identifiers in the appspace's auths data.
 // The ProxyID is free of conflicts.
 // If there are conflicts it returns ErrNoRowsInResultSet
-func (m *ManageUsers) GetProxyID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error) {
-	auths, err := m.getUserAuths(userID)
+func (m *ManageUsers) GetProxyIDForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error) {
+	conflicts, err := m.GetConflictsForUserID(appspaceID, userID)
 	if err != nil {
 		return domain.ProxyID(""), err
+	}
+	if conflicts.Conflict {
+		return domain.ProxyID(""), domain.ErrNoRowsInResultSet
+	}
+	return conflicts.ProxyID, nil
+}
+
+func (m *ManageUsers) GetConflictsForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.UserIDProxyIDConflicts, error) {
+	auths, err := m.getUserAuths(userID)
+	if err != nil {
+		return domain.UserIDProxyIDConflicts{}, err
 	}
 	uConflicts, err := m.UserInAppspace(userID, auths, appspaceID)
 	if err != nil {
-		return domain.ProxyID(""), err
+		return domain.UserIDProxyIDConflicts{}, err
 	}
-	if uConflicts.Conflict {
-		return domain.ProxyID(""), domain.ErrNoRowsInResultSet
-	}
-	return uConflicts.ProxyID, nil
+	return uConflicts, nil
 }
 
 // AppspacesForUser returns the appspaces and proxy ids
@@ -226,12 +234,14 @@ func (m *ManageUsers) UserInAppspace(userID domain.UserID, auths []domain.Appspa
 	// Maybe loop over each auth so we know what auth matched what?
 	// Also, would be interesting to think of whether we can guarantee that a single auth returns a single proxy ID
 	// It might simplify things.
-	proxyIDs, err := m.AppspaceUserModel.GetProxyIDsFromAuths(appspaceID, auths)
-	if err != nil {
-		return domain.UserIDProxyIDConflicts{}, err
-	}
-	for _, p := range proxyIDs {
-		ids.add(p, userID) //maybe do addAuth...
+	for _, a := range auths {
+		proxyIDs, err := m.AppspaceUserModel.GetProxyIDsFromAuths(appspaceID, []domain.AppspaceUserAuthBare{a})
+		if err != nil {
+			return domain.UserIDProxyIDConflicts{}, err
+		}
+		for _, p := range proxyIDs {
+			ids.addAuth(p, userID, a)
+		}
 	}
 
 	// TODO get proxy IDS from instance users DB table

@@ -713,16 +713,16 @@ type AppspaceUserAuthBare struct {
 }
 
 type UserIDProxyIDMatches struct {
-	Instance bool
-	Auths    []AppspaceUserAuthBare
+	Instance bool                   `json:"instance"`
+	Auths    []AppspaceUserAuthBare `json:"auths"`
 }
 
 type UserIDProxyIDConflicts struct {
-	UserID         UserID
-	ProxyID        ProxyID
-	Conflict       bool
-	ProxyIDMatches map[ProxyID]UserIDProxyIDMatches
-	UserIDMatches  map[UserID]UserIDProxyIDMatches
+	UserID         UserID                           `json:"user_id"`
+	ProxyID        ProxyID                          `json:"proxy_id"`
+	Conflict       bool                             `json:"conflict"`
+	ProxyIDMatches map[ProxyID]UserIDProxyIDMatches `json:"proxy_id_matches"`
+	UserIDMatches  map[UserID]UserIDProxyIDMatches  `json:"user_id_matches"`
 }
 
 type EditOperation string

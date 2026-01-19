@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser, AppspaceUserBase } from './types';
+import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser, AppspaceUserBase, UserIDProxyIDConflicts, UserIDProxyIDMatches, AppspaceUserAuthBare } from './types';
 import { tsnetDataFromRaw, tsnetPeerUsersFromRaw, tsnetStatusFromRaw } from './helpers/tsnet';
 
 type NewAppspaceData = {
@@ -18,6 +18,46 @@ function userBaseFromRaw(raw:any) :AppspaceUserBase {
 		proxy_id: raw.proxy_id+'',
 		display_name: raw.display_name+'',
 		avatar: raw.avatar+'',
+	};
+}
+
+function appspaceUserAuthBareFromRaw(raw: any): AppspaceUserAuthBare {
+	return {
+		type: raw.type + '',
+		identifier: raw.identifier + ''
+	};
+}
+
+function userIDProxyIDMatchesFromRaw(raw: any): UserIDProxyIDMatches {
+	return {
+		instance: !!raw.instance,
+		auths: Array.isArray(raw.auths) ? raw.auths.map(appspaceUserAuthBareFromRaw) : []
+	};
+}
+
+function userIDProxyIDConflictsFromRaw(raw: any): UserIDProxyIDConflicts | undefined {
+	if (!raw) return undefined;
+
+	const proxy_id_matches: Record<string, UserIDProxyIDMatches> = {};
+	if (raw.proxy_id_matches) {
+		for (const key in raw.proxy_id_matches) {
+			proxy_id_matches[key] = userIDProxyIDMatchesFromRaw(raw.proxy_id_matches[key]);
+		}
+	}
+
+	const user_id_matches: Record<number, UserIDProxyIDMatches> = {};
+	if (raw.user_id_matches) {
+		for (const key in raw.user_id_matches) {
+			user_id_matches[Number(key)] = userIDProxyIDMatchesFromRaw(raw.user_id_matches[key]);
+		}
+	}
+
+	return {
+		user_id: Number(raw.user_id),
+		proxy_id: raw.proxy_id + '',
+		conflict: !!raw.conflict,
+		proxy_id_matches,
+		user_id_matches
 	};
 }
 
@@ -50,9 +90,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 		ver_data: raw.ver_data ? appVersionUIFromRaw(raw.ver_data) : undefined,
 		tsnet_data: tsnetDataFromRaw(raw.tsnet_data),
 		users: (Array.isArray(raw.users) ? raw.users.map(userBaseFromRaw) : [] ),
-		auth_user:{	// TODO maybe this could be undefined?
-			proxy_id: raw.auth_user?.proxy_id || ''
-		}
+		auth_user_id_conflicts: userIDProxyIDConflictsFromRaw(raw.auth_user_id_conflicts)
 	}
 }
 

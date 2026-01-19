@@ -35,7 +35,7 @@ const asCards = computed( () => {
 	const ret :CardData[] = [];
 	if( appspacesStore.is_loaded ) {
 		appspacesStore.appspaces.forEach( (a, id) => {
-			if( a.value.auth_user.proxy_id === '' ) return;	// implies no access
+			if( a.value.auth_user_id_conflicts === undefined ) return;	// implies no access
 			ret.push({
 				local: true,
 				sort_string: a.value.domain_name,

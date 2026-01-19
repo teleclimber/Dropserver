@@ -31,7 +31,7 @@ func TestLogin(t *testing.T) {
 	}, nil)
 
 	manageAppspaceUsers := testmocks.NewMockManageUsers(mockCtrl)
-	manageAppspaceUsers.EXPECT().InstanceUser(appspaceID, ownerID).Return(proxyID, nil)
+	manageAppspaceUsers.EXPECT().GetProxyIDForUserID(appspaceID, ownerID).Return(proxyID, nil)
 
 	v0tokenManager := testmocks.NewMockV0TokenManager(mockCtrl)
 	v0tokenManager.EXPECT().GetForProxyID(appspaceID, proxyID).Return(token)

@@ -24,7 +24,7 @@ type AppspaceLoginRoutes struct {
 		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
 	} `checkinject:"required"`
 	ManageAppspaceUsers interface {
-		GetProxyID(domain.AppspaceID, domain.UserID) (domain.ProxyID, error)
+		GetProxyIDForUserID(domain.AppspaceID, domain.UserID) (domain.ProxyID, error)
 	} `checkinject:"required"`
 	DS2DS interface {
 		GetRemoteAPIVersion(domainName string) (int, error)
@@ -75,7 +75,7 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http
 		return
 	}
 
-	proxyID, err := u.ManageAppspaceUsers.GetProxyID(appspaceID, authUserID)
+	proxyID, err := u.ManageAppspaceUsers.GetProxyIDForUserID(appspaceID, authUserID)
 	if err == domain.ErrNoRowsInResultSet {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

@@ -17,29 +17,24 @@ type AppspaceUserBase struct {
 	Avatar      string         `json:"avatar"`
 }
 
-type AppspaceAuthUser struct {
-	ProxyID domain.ProxyID `json:"proxy_id"`
-	// add matching auths!?
-}
-
 // AppspaceResp
 type AppspaceResp struct {
-	AppspaceID       int                        `json:"appspace_id"`
-	OwnerID          domain.UserID              `json:"owner_id"` // maybe also add OwnerProxyID so taht they can be identified in list of users.
-	AppID            int                        `json:"app_id"`
-	AppVersion       domain.Version             `json:"app_version"`
-	DomainName       string                     `json:"domain_name"`
-	NoTLS            bool                       `json:"no_tls"`
-	PortString       string                     `json:"port_string"`
-	Created          time.Time                  `json:"created_dt"`
-	Paused           bool                       `json:"paused"`
-	Status           domain.AppspaceStatusEvent `json:"status"`
-	TSNetStatus      domain.TSNetAppspaceStatus `json:"tsnet_status"`
-	UpgradeVersion   domain.Version             `json:"upgrade_version,omitempty"`
-	AppVersionData   *domain.AppVersionUI       `json:"ver_data,omitempty"`
-	TSNetData        *domain.AppspaceTSNet      `json:"tsnet_data,omitempty"`
-	Users            []AppspaceUserBase         `json:"users"`
-	AppspaceAuthUser AppspaceAuthUser           `json:"auth_user"` // TODO should this be a pointer with omitempty? Some appspcae may be owned but not have a owner user
+	AppspaceID       int                            `json:"appspace_id"`
+	OwnerID          domain.UserID                  `json:"owner_id"` // maybe also add OwnerProxyID so taht they can be identified in list of users.
+	AppID            int                            `json:"app_id"`
+	AppVersion       domain.Version                 `json:"app_version"`
+	DomainName       string                         `json:"domain_name"`
+	NoTLS            bool                           `json:"no_tls"`
+	PortString       string                         `json:"port_string"`
+	Created          time.Time                      `json:"created_dt"`
+	Paused           bool                           `json:"paused"`
+	Status           domain.AppspaceStatusEvent     `json:"status"`
+	TSNetStatus      domain.TSNetAppspaceStatus     `json:"tsnet_status"`
+	UpgradeVersion   domain.Version                 `json:"upgrade_version,omitempty"`
+	AppVersionData   *domain.AppVersionUI           `json:"ver_data,omitempty"`
+	TSNetData        *domain.AppspaceTSNet          `json:"tsnet_data,omitempty"`
+	Users            []AppspaceUserBase             `json:"users"`
+	AppspaceAuthUser *domain.UserIDProxyIDConflicts `json:"auth_user_id_conflicts"`
 }
 
 // AppspaceRoutes handles routes for appspace uploading, creating, deleting.
@@ -85,8 +80,9 @@ type AppspaceRoutes struct {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	ManageUsers interface {
-		GetProxyID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
-		AppspacesForUser(domain.UserID) ([]domain.AppspaceUserIDs, error)
+		GetProxyIDForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
+		GetConflictsForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.UserIDProxyIDConflicts, error)
+		AppspacesForUser(domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
 		Create(domain.UserID, domain.AppVersion, string, string) (domain.AppspaceID, domain.JobID, error)
@@ -178,8 +174,7 @@ func (a *AppspaceRoutes) userIsAppspaceUserOrOwner(next http.Handler) http.Handl
 			next.ServeHTTP(w, r)
 			return
 		}
-		// TODO check if owner, if yes next.
-		_, err := a.ManageUsers.GetProxyID(appspace.AppspaceID, userID) // This one may have to change to be OK with conflicts?
+		_, err := a.ManageUsers.GetConflictsForUserID(appspace.AppspaceID, userID)
 		if err == domain.ErrNoRowsInResultSet {
 			returnError(w, errForbidden)
 			return
@@ -248,12 +243,12 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyID, err := a.ManageUsers.GetProxyID(appspace.AppspaceID, userID) // TODO allow conflicts or not?
+	userConflicts, err := a.ManageUsers.GetConflictsForUserID(appspace.AppspaceID, userID)
 	if err != nil && err != domain.ErrNoRowsInResultSet {
 		returnInternalError(w)
 		return
 	}
-	respData.AppspaceAuthUser.ProxyID = proxyID
+	respData.AppspaceAuthUser = &userConflicts
 
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
@@ -266,20 +261,21 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 }
 
 // getAppspaces returns all appspaces relevant to the user.
-// Union of owned appspaces and appspaces they have access to
+// Union of owned appspaces and appspaces they have access to,
+// even if there are conflicts with auth identifiers
 func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 	userID, _ := domain.CtxAuthUserID(r.Context())
 
 	respData := make([]AppspaceResp, 0)
 
-	ids, err := a.ManageUsers.AppspacesForUser(userID)
+	appspaceUserConflicts, err := a.ManageUsers.AppspacesForUser(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	for _, id := range ids {
-		appspace, err := a.AppspaceModel.GetFromID(id.AppspaceID)
+	for appspaceID, uc := range appspaceUserConflicts {
+		appspace, err := a.AppspaceModel.GetFromID(appspaceID)
 		if err != nil {
 			returnInternalError(w)
 			return
@@ -289,7 +285,7 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 			returnInternalError(w)
 			return
 		}
-		appspaceResp.AppspaceAuthUser.ProxyID = id.ProxyID
+		appspaceResp.AppspaceAuthUser = &uc
 		respData = append(respData, appspaceResp)
 	}
 
@@ -300,7 +296,8 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, appspace := range appspaces {
-		if appspaceInIDs(appspace.AppspaceID, ids) {
+		if _, ok := appspaceUserConflicts[appspace.AppspaceID]; ok {
+			// skip if we already got this appspace above
 			continue
 		}
 		appspaceResp, err := a.makeAppspaceResp(*appspace)
@@ -311,15 +308,6 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 		respData = append(respData, appspaceResp)
 	}
 	writeJSON(w, respData)
-}
-
-func appspaceInIDs(appspaceID domain.AppspaceID, ids []domain.AppspaceUserIDs) bool {
-	for _, id := range ids {
-		if id.AppspaceID == appspaceID {
-			return true
-		}
-	}
-	return false
 }
 
 func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceResp, error) {

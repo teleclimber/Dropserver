@@ -50,13 +50,20 @@ const app_icon = computed( () => {
 const users = computed( () => {
 	if( !props.local_appspace ) return;
 	return props.local_appspace.users.map( u => {
+		const appspace = props.local_appspace!;
 		return {
 			proxy_id: u.proxy_id,
 			display_name: u.display_name,
-			avatar_url: getAvatarUrl(props.local_appspace!.appspace_id, u.avatar),
-			is_owner: props.local_appspace!.owner_id === authUserStore.user_id
+			avatar_url: getAvatarUrl(appspace.appspace_id, u.avatar),
 		};
 	});
+});
+
+const user_proxy_id = computed( () => {
+	return props.local_appspace?.auth_user_id_conflicts?.proxy_id;
+});
+const user_conflict = computed( () => {
+	return props.local_appspace?.auth_user_id_conflicts?.conflict;
 });
 
 </script>
@@ -98,19 +105,25 @@ const users = computed( () => {
 				<span class="btn" :class="{'text-gray-400': paused}">Enter Appspace</span>
 			</div>
 		</a>
-		<div class="py-2 px-4 flex flex-row items-start bg-gray-50">
-			<div v-for="u in users" class="flex items-center my-1 mr-3 rounded-full text-gray-700">
-				<div class="w-7 h-7 rounded-full bg-gray-300  flex justify-center content-center text-gray-400">
-					<img v-if="u.avatar_url" :src="u.avatar_url" class="rounded-full bg-clip-border"/>
-					<svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 self-end">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-					</svg>
+		<div class="py-2 px-4  bg-gray-50 flex flex-col justify-between">
+			<div class=" flex flex-row items-start">
+				<div v-for="u in users" class="flex items-center my-1 mr-1 pr-2 rounded-full text-gray-700"
+					:class="[u.proxy_id === user_proxy_id ? 'bg-gray-200' : '']">
+					<div class="w-7 h-7 rounded-full bg-gray-300  flex justify-center content-center text-gray-400">
+						<img v-if="u.avatar_url" :src="u.avatar_url" class="rounded-full bg-clip-border"/>
+						<svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 self-end">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+						</svg>
+					</div>
+					<span class="pl-1">{{ u.display_name }}</span>
 				</div>
-				<span class="pl-1">{{ u.display_name }}</span>
-				<svg v-if="u.is_owner" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-yellow-500">
-					<path fill-rule="evenodd" d="M8 7a5 5 0 113.61 4.804l-1.903 1.903A1 1 0 019 14H8v1a1 1 0 01-1 1H6v1a1 1 0 01-1 1H3a1 1 0 01-1-1v-2a1 1 0 01.293-.707L8.196 8.39A5.002 5.002 0 018 7zm5-3a.75.75 0 000 1.5A1.5 1.5 0 0114.5 7 .75.75 0 0016 7a3 3 0 00-3-3z" clip-rule="evenodd" />
-				</svg>
 			</div>
+			<span v-if="user_conflict" class="text-orange-500 flex items-center">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
+					<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+				</svg>
+				conflicts
+			</span>
 		</div>
 	</div>
 </template>

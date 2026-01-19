@@ -128,9 +128,9 @@ func TestUserIsAppspaceUserOrOwner(t *testing.T) {
 
 	mu := testmocks.NewMockManageUsers(mockCtrl)
 	// Authorized user exists
-	mu.EXPECT().InstanceUser(appspaceID, authorizedUserID).Return(domain.ProxyID("proxy123"), nil)
+	mu.EXPECT().GetConflictsForUserID(appspaceID, authorizedUserID).Return(domain.UserIDProxyIDConflicts{}, nil)
 	// Unauthorized user does not exist
-	mu.EXPECT().InstanceUser(appspaceID, unauthorizedUserID).Return(domain.ProxyID(""), domain.ErrNoRowsInResultSet)
+	mu.EXPECT().GetConflictsForUserID(appspaceID, unauthorizedUserID).Return(domain.UserIDProxyIDConflicts{}, domain.ErrNoRowsInResultSet)
 
 	am := testmocks.NewMockAppModel(mockCtrl)
 	am.EXPECT().GetVersion(appID, appVersion).Return(domain.AppVersion{LocationKey: "test-location"}, nil).Times(2)
@@ -264,4 +264,13 @@ func TestAppspaceInIDs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func appspaceInIDs(appspaceID domain.AppspaceID, ids []domain.AppspaceUserIDs) bool {
+	for _, id := range ids {
+		if id.AppspaceID == appspaceID {
+			return true
+		}
+	}
+	return false
 }

@@ -34,10 +34,10 @@ func (m *MockManageUsers) EXPECT() *MockManageUsersMockRecorder {
 }
 
 // AppspacesForUser mocks base method
-func (m *MockManageUsers) AppspacesForUser(arg0 domain.UserID) ([]domain.AppspaceUserIDs, error) {
+func (m *MockManageUsers) AppspacesForUser(arg0 domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppspacesForUser", arg0)
-	ret0, _ := ret[0].([]domain.AppspaceUserIDs)
+	ret0, _ := ret[0].(map[domain.AppspaceID]domain.UserIDProxyIDConflicts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -48,19 +48,64 @@ func (mr *MockManageUsersMockRecorder) AppspacesForUser(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspacesForUser", reflect.TypeOf((*MockManageUsers)(nil).AppspacesForUser), arg0)
 }
 
-// InstanceUser mocks base method
-func (m *MockManageUsers) InstanceUser(arg0 domain.AppspaceID, arg1 domain.UserID) (domain.ProxyID, error) {
+// GetConflictsForUserID mocks base method
+func (m *MockManageUsers) GetConflictsForUserID(arg0 domain.AppspaceID, arg1 domain.UserID) (domain.UserIDProxyIDConflicts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceUser", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetConflictsForUserID", arg0, arg1)
+	ret0, _ := ret[0].(domain.UserIDProxyIDConflicts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConflictsForUserID indicates an expected call of GetConflictsForUserID
+func (mr *MockManageUsersMockRecorder) GetConflictsForUserID(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConflictsForUserID", reflect.TypeOf((*MockManageUsers)(nil).GetConflictsForUserID), arg0, arg1)
+}
+
+// GetProxyIDForUserID mocks base method
+func (m *MockManageUsers) GetProxyIDForUserID(arg0 domain.AppspaceID, arg1 domain.UserID) (domain.ProxyID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProxyIDForUserID", arg0, arg1)
 	ret0, _ := ret[0].(domain.ProxyID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// InstanceUser indicates an expected call of InstanceUser
-func (mr *MockManageUsersMockRecorder) InstanceUser(arg0, arg1 interface{}) *gomock.Call {
+// GetProxyIDForUserID indicates an expected call of GetProxyIDForUserID
+func (mr *MockManageUsersMockRecorder) GetProxyIDForUserID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceUser", reflect.TypeOf((*MockManageUsers)(nil).InstanceUser), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProxyIDForUserID", reflect.TypeOf((*MockManageUsers)(nil).GetProxyIDForUserID), arg0, arg1)
+}
+
+// UserInAppspace mocks base method
+func (m *MockManageUsers) UserInAppspace(arg0 domain.UserID, arg1 []domain.AppspaceUserAuthBare, arg2 domain.AppspaceID) (domain.UserIDProxyIDConflicts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UserInAppspace", arg0, arg1, arg2)
+	ret0, _ := ret[0].(domain.UserIDProxyIDConflicts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UserInAppspace indicates an expected call of UserInAppspace
+func (mr *MockManageUsersMockRecorder) UserInAppspace(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserInAppspace", reflect.TypeOf((*MockManageUsers)(nil).UserInAppspace), arg0, arg1, arg2)
+}
+
+// UsersForAppspace mocks base method
+func (m *MockManageUsers) UsersForAppspace(arg0 domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UsersForAppspace", arg0)
+	ret0, _ := ret[0].(map[domain.UserID]domain.UserIDProxyIDConflicts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UsersForAppspace indicates an expected call of UsersForAppspace
+func (mr *MockManageUsersMockRecorder) UsersForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UsersForAppspace", reflect.TypeOf((*MockManageUsers)(nil).UsersForAppspace), arg0)
 }
 
 // MockDeleteAppspace is a mock of DeleteAppspace interface

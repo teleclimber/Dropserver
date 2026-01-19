@@ -200,8 +200,22 @@ export interface TSNetPeerUser {
 	full_id: string
 }
 
-export interface AppspaceAuthUser {
+export interface AppspaceUserAuthBare {
+	type: string,
+	identifier: string
+}
+
+export interface UserIDProxyIDMatches {
+	instance: boolean,
+	auths: AppspaceUserAuthBare[]
+}
+
+export interface UserIDProxyIDConflicts {
+	user_id: number,
 	proxy_id: string,
+	conflict: boolean,
+	proxy_id_matches: Record<string, UserIDProxyIDMatches>,
+	user_id_matches: Record<number, UserIDProxyIDMatches>
 }
 
 export interface Appspace {
@@ -220,7 +234,7 @@ export interface Appspace {
 	tsnet_data: TSNetData | undefined,
 	tsnet_status: TSNetStatus,
 	users: AppspaceUserBase[],
-	auth_user: AppspaceAuthUser	// TODO | undefined?
+	auth_user_id_conflicts: UserIDProxyIDConflicts | undefined
 }
 
 export interface RemoteAppspace {
@@ -239,9 +253,7 @@ export interface AppspaceUserBase {
 	avatar: string,
 }
 
-export interface AppspaceUserAuth {
-	type: string,
-	identifier: string,
+export interface AppspaceUserAuth extends AppspaceUserAuthBare {
 	extra_name: string,
 	created: Date,
 }
