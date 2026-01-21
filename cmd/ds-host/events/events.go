@@ -113,9 +113,11 @@ func (e *AppspaceTSNetModelEvents) Send(data domain.AppspaceTSNetModelEvent) {
 type AppspaceStatusEvents struct {
 	Relations interface {
 		GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool)
+		GetAppspaceUserIDs(appspaceID domain.AppspaceID) []domain.UserID
 	} `checkinject:"required"`
 	subscribers eventSubs[domain.AppspaceStatusEvent]
 	ownerSubs   eventIDSubs[domain.UserID, domain.AppspaceStatusEvent]
+	userSubs    eventIDSubs[domain.UserID, domain.AppspaceStatusEvent]
 }
 
 func (e *AppspaceStatusEvents) Subscribe() <-chan domain.AppspaceStatusEvent {
@@ -126,9 +128,14 @@ func (e *AppspaceStatusEvents) SubscribeOwner(ownerID domain.UserID) <-chan doma
 	return e.ownerSubs.subscribe(ownerID)
 }
 
+func (e *AppspaceStatusEvents) SubscribeUser(userID domain.UserID) <-chan domain.AppspaceStatusEvent {
+	return e.userSubs.subscribe(userID)
+}
+
 func (e *AppspaceStatusEvents) Unsubscribe(ch <-chan domain.AppspaceStatusEvent) {
 	e.subscribers.unsubscribe(ch)
 	e.ownerSubs.unsubscribe(ch)
+	e.userSubs.unsubscribe(ch)
 }
 
 func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
@@ -137,6 +144,7 @@ func (e *AppspaceStatusEvents) Send(data domain.AppspaceStatusEvent) {
 	if ok {
 		e.ownerSubs.send(ownerID, data)
 	}
+	e.userSubs.multiSend(e.Relations.GetAppspaceUserIDs(data.AppspaceID), data)
 }
 
 // /////////////////

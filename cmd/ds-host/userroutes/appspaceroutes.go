@@ -119,13 +119,13 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(a.userIsAppspaceUserOrOwner)
+			r.Get("/", a.getAppspace)
 			r.Get("/app-icon", a.getAppIcon)
 			r.Get("/avatar/{filename}", a.getUserAvatar)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(a.userIsAppspaceOwner)
-			r.Get("/", a.getAppspace) // reutnr app vers UI
 			r.Delete("/", a.deleteAppspace)
 			r.Get("/log", a.getLog)
 			r.Get("/usage", a.getUsage)
@@ -250,6 +250,7 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 	}
 	respData.AppspaceAuthUser = &userConflicts
 
+	// getAppspace returns upgrade version getAppspaces does not.
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

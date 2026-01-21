@@ -331,6 +331,7 @@ func main() {
 		Avatars:                  appspaceAvatars,
 		AppspaceTSNetPeersEvents: appspaceTSNetPeersEvents,
 	}
+	eventRelations.ManageUsers = manageAppspaceUsers
 
 	remoteAppGetter := &appops.RemoteAppGetter{
 		Config:        runtimeConfig,

@@ -61,6 +61,63 @@ func TestEventIDSubsSend(t *testing.T) {
 	}
 }
 
+func TestEventIDSubsMultiSendNil(t *testing.T) {
+	s := eventIDSubs[domain.UserID, domain.AppURLData]{}
+	s.multiSend([]domain.UserID{3, 4, 5}, domain.AppURLData{URL: "abc"})
+}
+
+func TestEventIDSubsMultiSend(t *testing.T) {
+	s := eventIDSubs[domain.UserID, domain.AppURLData]{}
+
+	u1 := domain.UserID(1)
+	u2 := domain.UserID(2)
+	u3 := domain.UserID(3) // no subscriber for this one
+
+	doSend := make(chan struct{})
+	doneCh := make(chan error)
+
+	// Subscriber for u1
+	go func() {
+		ch := s.subscribe(u1)
+		doSend <- struct{}{}
+		urlData := <-ch
+		if urlData.URL != "xyz" {
+			doneCh <- fmt.Errorf("u1: got wrong url data: %v", urlData.URL)
+			return
+		}
+		s.unsubscribe(ch)
+		doneCh <- nil
+	}()
+
+	// Subscriber for u2
+	go func() {
+		ch := s.subscribe(u2)
+		doSend <- struct{}{}
+		urlData := <-ch
+		if urlData.URL != "xyz" {
+			doneCh <- fmt.Errorf("u2: got wrong url data: %v", urlData.URL)
+			return
+		}
+		s.unsubscribe(ch)
+		doneCh <- nil
+	}()
+
+	// Wait for both subscribers to be ready
+	<-doSend
+	<-doSend
+
+	// Send to u1, u2, and u3 (u3 has no subscriber)
+	s.multiSend([]domain.UserID{u1, u2, u3}, domain.AppURLData{URL: "xyz"})
+
+	// Check both subscribers received the data
+	for i := 0; i < 2; i++ {
+		err := <-doneCh
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func TestEventSubsSendNil(t *testing.T) {
 	s := eventSubs[domain.AppspaceID]{}
 	s.send(domain.AppspaceID(3))

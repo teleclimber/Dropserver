@@ -63,6 +63,17 @@ func (s *eventIDSubs[T, D]) send(subID T, data D) {
 	}
 }
 
+func (s *eventIDSubs[T, D]) multiSend(subIDs []T, data D) {
+	s.subsMux.Lock()
+	defer s.subsMux.Unlock()
+	for _, subID := range subIDs {
+		subs := s.subscribers[subID]
+		if subs != nil {
+			subs.send(data)
+		}
+	}
+}
+
 type eventSubs[D DataTypes] struct {
 	subsMux     sync.Mutex
 	subscribers []chan D

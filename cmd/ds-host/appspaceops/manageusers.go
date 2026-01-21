@@ -309,7 +309,9 @@ func (m *ManageUsers) UsersForAppspace(appspaceID domain.AppspaceID) (map[domain
 			} else if err != nil {
 				return nil, err
 			} else {
-				ids.add(au.ProxyID, userID)
+				ids.addAuth(au.ProxyID, userID, domain.AppspaceUserAuthBare{
+					Type:       auth.Type,
+					Identifier: auth.Identifier})
 			}
 		}
 	}

@@ -69,7 +69,7 @@ type UserRoutes struct {
 		Unsubscribe(ch <-chan struct{})
 	} `checkinject:"required"`
 	AppspaceStatusEvents interface {
-		SubscribeOwner(domain.UserID) <-chan domain.AppspaceStatusEvent
+		SubscribeUser(domain.UserID) <-chan domain.AppspaceStatusEvent
 		Unsubscribe(ch <-chan domain.AppspaceStatusEvent)
 	} `checkinject:"required"`
 	AppspaceTSNetStatusEvents interface {
@@ -359,7 +359,7 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 
 	clientGone := r.Context().Done()
 
-	asStatCh := u.AppspaceStatusEvents.SubscribeOwner(authUserID)
+	asStatCh := u.AppspaceStatusEvents.SubscribeUser(authUserID)
 	defer u.AppspaceStatusEvents.Unsubscribe(asStatCh)
 
 	asTSNetStatCh := u.AppspaceTSNetStatusEvents.SubscribeOwner(authUserID)
