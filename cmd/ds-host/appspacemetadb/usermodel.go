@@ -36,6 +36,9 @@ type UserModel struct {
 	AppspaceMetaDB interface {
 		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
 	}
+	AppspaceUsersChangeEvents interface {
+		Send(domain.AppspaceID)
+	}
 }
 
 // Create an appspace user with provided auth.
@@ -99,6 +102,8 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, displayName string, ava
 		return domain.ProxyID(""), err
 	}
 
+	u.AppspaceUsersChangeEvents.Send(appspaceID)
+
 	return proxyID, nil
 }
 
@@ -126,8 +131,12 @@ func (u *UserModel) UpdateAuth(appspaceID domain.AppspaceID, proxyID domain.Prox
 	err = tx.Commit()
 	if err != nil {
 		log().AddNote("Commit").Error(err)
+		return err
 	}
-	return err
+
+	u.AppspaceUsersChangeEvents.Send(appspaceID)
+
+	return nil
 }
 
 func updateAuthsSP(sp stmtPreparer, proxyID domain.ProxyID, auths []domain.EditAppspaceUserAuth, allowRemove bool) error {
@@ -231,6 +240,8 @@ func (u *UserModel) Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID,
 		log().AddNote("Commit()").Error(err)
 		return err
 	}
+
+	u.AppspaceUsersChangeEvents.Send(appspaceID)
 
 	return nil
 }
@@ -530,6 +541,8 @@ func (u *UserModel) Delete(appspaceID domain.AppspaceID, proxyID domain.ProxyID)
 		log.AddNote("Commit()").Error(err)
 		return err
 	}
+
+	u.AppspaceUsersChangeEvents.Send(appspaceID)
 
 	return nil
 }

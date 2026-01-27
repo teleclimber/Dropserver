@@ -289,3 +289,37 @@ func (e *AppUrlDataEvents) Send(ownerID domain.UserID, data domain.AppURLData) {
 	e.ownerSubs.send(ownerID, data)
 	e.appSubs.send(data.AppID, data)
 }
+
+// InstanceUserAuthsChangeEvents emits when a user's auth identifiers change
+type InstanceUserAuthsChangeEvents struct {
+	subscribers eventSubs[domain.UserID]
+}
+
+func (e *InstanceUserAuthsChangeEvents) Subscribe() <-chan domain.UserID {
+	return e.subscribers.subscribe()
+}
+
+func (e *InstanceUserAuthsChangeEvents) Unsubscribe(ch <-chan domain.UserID) {
+	e.subscribers.unsubscribe(ch)
+}
+
+func (e *InstanceUserAuthsChangeEvents) Send(userID domain.UserID) {
+	e.subscribers.send(userID)
+}
+
+// AppspaceUsersChangeEvents emits when appspace users change
+type AppspaceUsersChangeEvents struct {
+	subscribers eventSubs[domain.AppspaceID]
+}
+
+func (e *AppspaceUsersChangeEvents) Subscribe() <-chan domain.AppspaceID {
+	return e.subscribers.subscribe()
+}
+
+func (e *AppspaceUsersChangeEvents) Unsubscribe(ch <-chan domain.AppspaceID) {
+	e.subscribers.unsubscribe(ch)
+}
+
+func (e *AppspaceUsersChangeEvents) Send(appspaceID domain.AppspaceID) {
+	e.subscribers.send(appspaceID)
+}

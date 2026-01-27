@@ -4,32 +4,46 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestPrepareStatements(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 }
 
 func TestGetFromIDError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -42,14 +56,21 @@ func TestGetFromIDError(t *testing.T) {
 
 // test get all.
 func TestGetAll(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).Times(3)
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -104,14 +125,21 @@ func TestGetAll(t *testing.T) {
 }
 
 func TestCreateWithEmail(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any())
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -132,14 +160,21 @@ func TestCreateWithEmail(t *testing.T) {
 }
 
 func TestCreateEmailDupe(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any())
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -157,14 +192,21 @@ func TestCreateEmailDupe(t *testing.T) {
 }
 
 func TestCreateWithTSNet(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any())
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -182,14 +224,21 @@ func TestCreateWithTSNet(t *testing.T) {
 }
 
 func TestCreateTSnNetDupe(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any())
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -207,7 +256,10 @@ func TestCreateTSnNetDupe(t *testing.T) {
 }
 
 func TestGetFromEmail(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	user, err := userModel.GetFromEmail("bOb@foO.cOm")
@@ -221,7 +273,10 @@ func TestGetFromEmail(t *testing.T) {
 }
 
 func TestGetFromEmailNoRows(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	// There should be an error, but no panics
@@ -234,7 +289,10 @@ func TestGetFromEmailNoRows(t *testing.T) {
 }
 
 func TestPassword(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	cases := []struct {
@@ -269,7 +327,10 @@ func TestPassword(t *testing.T) {
 }
 
 func TestUpdateEmail(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	bob, err := userModel.GetFromEmail("bob@foo.com")
@@ -293,7 +354,10 @@ func TestUpdateEmail(t *testing.T) {
 }
 
 func TestUpdateEmailDupe(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	_, err := userModel.CreateWithEmail("alice@wonder.land", "whiterabbit")
@@ -316,7 +380,10 @@ func TestUpdateEmailDupe(t *testing.T) {
 }
 
 func TestUpdatePassword(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 	defer userModel.DB.Handle.Close()
 
 	bob, err := userModel.GetFromEmail("bob@foo.com")
@@ -339,14 +406,18 @@ func TestUpdatePassword(t *testing.T) {
 	}
 }
 
-func initBobEmailModel() *UserModel {
+func initBobEmailModel(mockCtrl *gomock.Controller) *UserModel {
 	h := migrate.MakeSqliteDummyDB()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).AnyTimes()
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -359,7 +430,10 @@ func initBobEmailModel() *UserModel {
 }
 
 func TestUpdateDeleteTSNet(t *testing.T) {
-	userModel := initBobEmailModel()
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
 
 	user, err := userModel.GetFromEmail("bOb@foO.cOm")
 	if err != nil {
@@ -392,14 +466,21 @@ func TestUpdateDeleteTSNet(t *testing.T) {
 }
 
 func TestGetFromTSNet(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 	defer h.Close()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any())
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -419,13 +500,19 @@ func TestGetFromTSNet(t *testing.T) {
 
 // /////// admin
 func TestIsAdmin(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 
@@ -436,13 +523,19 @@ func TestIsAdmin(t *testing.T) {
 }
 
 func TestManageAdmin(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
 	h := migrate.MakeSqliteDummyDB()
 
 	db := &domain.DB{
 		Handle: h}
 
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+
 	userModel := &UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: mockEvents}
 
 	userModel.PrepareStatements()
 

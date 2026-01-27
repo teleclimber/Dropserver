@@ -27,7 +27,7 @@ func TestUpdateAuthsSP(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 0)
 
 	db, _ := u.AppspaceMetaDB.GetHandle(asID)
 
@@ -72,7 +72,7 @@ func TestCreate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 1)
 
 	displayName := "display-name"
 	avatar := "mememe.jpg"
@@ -116,7 +116,7 @@ func TestUpdate(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 2)
 
 	proxyID, err := u.Create(asID, "Some Name", "", []domain.EditAppspaceUserAuth{{
 		Type:       "dropid",
@@ -150,7 +150,7 @@ func TestGetAll(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 2)
 
 	_, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
 		Type:       "dropid",
@@ -181,7 +181,7 @@ func TestGetByAuth(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 1)
 
 	_, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
 		Type:       "dropid",
@@ -204,7 +204,7 @@ func TestDelete(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 2)
 
 	dropID := "me.com/me"
 	proxyID, err := u.Create(asID, "ME", "", []domain.EditAppspaceUserAuth{{
@@ -233,7 +233,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	u := makeUserModel(mockCtrl)
+	u := makeUserModel(mockCtrl, 4)
 
 	// Create first user with dropid auth
 	proxyID1, err := u.Create(asID, "User One", "", []domain.EditAppspaceUserAuth{{
@@ -382,7 +382,7 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 }
 
-func makeUserModel(mockCtrl *gomock.Controller) *UserModel {
+func makeUserModel(mockCtrl *gomock.Controller, expectSend int) *UserModel {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?
 	// See: https://github.com/jmoiron/sqlx/issues/164
@@ -404,6 +404,12 @@ func makeUserModel(mockCtrl *gomock.Controller) *UserModel {
 	appspaceMetaDB := testmocks.NewMockAppspaceMetaDB(mockCtrl)
 	appspaceMetaDB.EXPECT().GetHandle(asID).Return(dbc.handle, nil).AnyTimes()
 
+	appspaceUsersChangeEvents := testmocks.NewMockAppspaceUsersChangeEvents(mockCtrl)
+	if expectSend > 0 {
+		appspaceUsersChangeEvents.EXPECT().Send(asID).Times(expectSend)
+	}
+
 	return &UserModel{
-		AppspaceMetaDB: appspaceMetaDB}
+		AppspaceMetaDB:            appspaceMetaDB,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents}
 }

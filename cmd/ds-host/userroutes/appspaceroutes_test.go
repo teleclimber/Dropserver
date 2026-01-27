@@ -126,11 +126,14 @@ func TestUserIsAppspaceUserOrOwner(t *testing.T) {
 		AppVersion: appVersion,
 	}, nil).Times(3)
 
-	mu := testmocks.NewMockManageUsers(mockCtrl)
+	uc := testmocks.NewMockAppspaceUsersCache(mockCtrl)
 	// Authorized user exists
-	mu.EXPECT().GetConflictsForUserID(appspaceID, authorizedUserID).Return(domain.UserIDProxyIDConflicts{}, nil)
+	retAuth := map[domain.AppspaceID]domain.UserIDProxyIDConflicts{}
+	retAuth[appspaceID] = domain.UserIDProxyIDConflicts{}
+
+	uc.EXPECT().AppspacesForUser(authorizedUserID).Return(retAuth, nil)
 	// Unauthorized user does not exist
-	mu.EXPECT().GetConflictsForUserID(appspaceID, unauthorizedUserID).Return(domain.UserIDProxyIDConflicts{}, domain.ErrNoRowsInResultSet)
+	uc.EXPECT().AppspacesForUser(unauthorizedUserID).Return(map[domain.AppspaceID]domain.UserIDProxyIDConflicts{}, nil)
 
 	am := testmocks.NewMockAppModel(mockCtrl)
 	am.EXPECT().GetVersion(appID, appVersion).Return(domain.AppVersion{LocationKey: "test-location"}, nil).Times(2)
@@ -140,7 +143,7 @@ func TestUserIsAppspaceUserOrOwner(t *testing.T) {
 
 	a := AppspaceRoutes{
 		AppspaceModel:         asm,
-		ManageUsers:           mu,
+		AppspaceUsersCache:    uc,
 		AppModel:              am,
 		AppFilesModel:         afm,
 		AppspaceUserRoutes:    &mockSubRoutes{},

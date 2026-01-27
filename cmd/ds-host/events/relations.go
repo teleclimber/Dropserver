@@ -7,7 +7,7 @@ type Relations struct {
 	AppspaceModel interface {
 		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
 	} `checkinject:"required"`
-	ManageUsers interface {
+	AppspaceUsersCache interface {
 		UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error)
 	} `checkinject:"required"`
 }
@@ -25,7 +25,7 @@ func (r *Relations) GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.Use
 // GetAppspaceUserIDs returns all instance user ids
 // that are users or owners of the appspace
 func (r *Relations) GetAppspaceUserIDs(appspaceID domain.AppspaceID) []domain.UserID {
-	userConflicts, err := r.ManageUsers.UsersForAppspace(appspaceID)
+	userConflicts, err := r.AppspaceUsersCache.UsersForAppspace(appspaceID)
 	if err != nil {
 		return nil
 	}

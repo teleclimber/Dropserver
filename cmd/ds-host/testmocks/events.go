@@ -5,7 +5,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 )
 
-//go:generate mockgen -destination=events_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceFilesEvents,AppspaceTSNetModelEvents,AppUrlDataEvents,AppspaceStatusEvents
+//go:generate mockgen -destination=events_mocks.go -package=testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks AppspaceFilesEvents,AppspaceTSNetModelEvents,AppUrlDataEvents,AppspaceStatusEvents,InstanceUserAuthsChangeEvents,AppspaceUsersChangeEvents
 
 // xxx go:generate mockgen -source=$GOFILE
 // ^^ the above fails with an internal error: nil Pkg imports which I have no idea how to fix.
@@ -45,4 +45,18 @@ type MigrationJobEvents interface {
 	Subscribe(ch chan<- domain.MigrationJob)
 	SubscribeAppspace(appspaceID domain.AppspaceID, ch chan<- domain.MigrationJob)
 	Unsubscribe(ch chan<- domain.MigrationJob)
+}
+
+// InstanceUserAuthsChangeEvents interface for mocking
+type InstanceUserAuthsChangeEvents interface {
+	Send(domain.UserID)
+	Subscribe() <-chan domain.UserID
+	Unsubscribe(ch <-chan domain.UserID)
+}
+
+// AppspaceUsersChangeEvents interface for mocking
+type AppspaceUsersChangeEvents interface {
+	Send(domain.AppspaceID)
+	Subscribe() <-chan domain.AppspaceID
+	Unsubscribe(ch <-chan domain.AppspaceID)
 }

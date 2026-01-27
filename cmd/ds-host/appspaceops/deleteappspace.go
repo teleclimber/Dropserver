@@ -35,6 +35,9 @@ type DeleteAppspace struct {
 	AppspaceLogger interface {
 		Forget(domain.AppspaceID)
 	} `checkinject:"required"`
+	AppspaceUsersChangeEvents interface {
+		Send(domain.AppspaceID)
+	} `checkinject:"required"`
 }
 
 // Delete permanently deletes all data associated with an appspace
@@ -75,6 +78,8 @@ func (d *DeleteAppspace) Delete(appspace domain.Appspace) error {
 	}
 
 	d.DomainController.StopManaging(appspace.DomainName)
+
+	d.AppspaceUsersChangeEvents.Send(appspace.AppspaceID)
 
 	return nil
 }

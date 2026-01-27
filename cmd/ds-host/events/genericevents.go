@@ -16,6 +16,7 @@ type DataTypes interface {
 		domain.TSNetStatus |
 		domain.AppURLData |
 		domain.AppspaceID |
+		domain.UserID |
 		domain.AppspaceStatusEvent |
 		domain.AppspaceTSNetModelEvent |
 		domain.TSNetAppspaceStatus |

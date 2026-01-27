@@ -79,9 +79,7 @@ type AppspaceRoutes struct {
 	AppspaceUserModel interface {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	} `checkinject:"required"`
-	ManageUsers interface {
-		GetProxyIDForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.ProxyID, error)
-		GetConflictsForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.UserIDProxyIDConflicts, error)
+	AppspaceUsersCache interface {
 		AppspacesForUser(domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
@@ -174,8 +172,9 @@ func (a *AppspaceRoutes) userIsAppspaceUserOrOwner(next http.Handler) http.Handl
 			next.ServeHTTP(w, r)
 			return
 		}
-		_, err := a.ManageUsers.GetConflictsForUserID(appspace.AppspaceID, userID)
-		if err == domain.ErrNoRowsInResultSet {
+		appspaces, err := a.AppspaceUsersCache.AppspacesForUser(userID)
+		_, ok := appspaces[appspace.AppspaceID]
+		if !ok {
 			returnError(w, errForbidden)
 			return
 		}
@@ -243,12 +242,15 @@ func (a *AppspaceRoutes) getAppspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userConflicts, err := a.ManageUsers.GetConflictsForUserID(appspace.AppspaceID, userID)
-	if err != nil && err != domain.ErrNoRowsInResultSet {
+	appspaces, err := a.AppspaceUsersCache.AppspacesForUser(userID)
+	if err != nil {
 		returnInternalError(w)
 		return
 	}
-	respData.AppspaceAuthUser = &userConflicts
+	userConflicts, ok := appspaces[appspace.AppspaceID]
+	if ok {
+		respData.AppspaceAuthUser = &userConflicts
+	}
 
 	// getAppspace returns upgrade version getAppspaces does not.
 	upgradeVersion, _, err := a.MigrationMinder.GetForAppspace(appspace)
@@ -269,7 +271,7 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 
 	respData := make([]AppspaceResp, 0)
 
-	appspaceUserConflicts, err := a.ManageUsers.AppspacesForUser(userID)
+	appspaceUserConflicts, err := a.AppspaceUsersCache.AppspacesForUser(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

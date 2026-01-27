@@ -54,6 +54,9 @@ type RestoreAppspace struct {
 	AppspaceLocation2Path interface {
 		Backup(string, string) string
 	} `checkinject:"required"`
+	AppspaceUsersChangeEvents interface {
+		Send(domain.AppspaceID)
+	} `checkinject:"required"`
 
 	tokensMux sync.Mutex
 	tokens    map[string]tokenData
@@ -246,6 +249,8 @@ func (r *RestoreAppspace) ReplaceData(tok string, appspaceID domain.AppspaceID) 
 		log().AddNote("AppspaceMetaDB.Migrate").Error(err)
 		return fmt.Errorf("error running appspace meta DB migration: %w", err)
 	}
+
+	r.AppspaceUsersChangeEvents.Send(appspaceID)
 
 	return nil
 }

@@ -18,6 +18,9 @@ import (
 type UserModel struct {
 	DB *domain.DB
 	// need config to select db type?
+	InstanceUserAuthsChangeEvents interface {
+		Send(domain.UserID)
+	} `checkinject:"required"`
 
 	stmt struct {
 		selectID        *sqlx.Stmt
@@ -109,14 +112,28 @@ func (m *UserModel) CreateWithEmail(email, password string) (domain.User, error)
 
 	email = validator.NormalizeEmail(email)
 
-	return m.insert(nulltypes.NewString(email, true), hash, nulltypes.NewString("", false), nulltypes.NewString("", false))
+	user, err = m.insert(nulltypes.NewString(email, true), hash, nulltypes.NewString("", false), nulltypes.NewString("", false))
+	if err != nil {
+		return user, err
+	}
+
+	m.InstanceUserAuthsChangeEvents.Send(user.UserID)
+
+	return user, nil
 }
 
 func (m *UserModel) CreateWithTSNet(tsnetIdentifier string, tsnetExtraName string) (domain.User, error) {
 	// TODO validate identifer and extra nmae to some extenst??
 	// nb: be careful of normalization: with email we normlalize to lower case. Here, may not be a good idea.
 
-	return m.insert(nulltypes.NewString("", false), nil, nulltypes.NewString(tsnetIdentifier, true), nulltypes.NewString(tsnetExtraName, true))
+	user, err := m.insert(nulltypes.NewString("", false), nil, nulltypes.NewString(tsnetIdentifier, true), nulltypes.NewString(tsnetExtraName, true))
+	if err != nil {
+		return user, err
+	}
+
+	m.InstanceUserAuthsChangeEvents.Send(user.UserID)
+
+	return user, nil
 }
 
 func (m *UserModel) insert(email nulltypes.NullString, pw_hash []byte, tsnet_id, tsnet_extra nulltypes.NullString) (domain.User, error) {
@@ -166,6 +183,9 @@ func (m *UserModel) UpdateEmail(userID domain.UserID, email string) error {
 		m.getLogger("UpdateEmail() Exec()").Error(err)
 		return err
 	}
+
+	m.InstanceUserAuthsChangeEvents.Send(userID)
+
 	return nil
 }
 
@@ -213,16 +233,24 @@ func (m *UserModel) UpdateTSNet(userID domain.UserID, tsnetIdentifier string, ts
 	_, err := m.stmt.updateTSNet.Exec(tsnetIdentifier, tsnetExtraName, userID)
 	if err != nil {
 		m.getLogger("UpdateTSNet() Exec").Error(err)
+		return err
 	}
-	return err
+
+	m.InstanceUserAuthsChangeEvents.Send(userID)
+
+	return nil
 }
 
 func (m *UserModel) DeleteTSNet(userID domain.UserID) error {
 	_, err := m.stmt.updateTSNet.Exec(nil, nil, userID)
 	if err != nil {
 		m.getLogger("DeleteTSNet() Exec").Error(err)
+		return err
 	}
-	return err
+
+	m.InstanceUserAuthsChangeEvents.Send(userID)
+
+	return nil
 }
 
 type dbUser struct {

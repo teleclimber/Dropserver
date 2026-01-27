@@ -144,6 +144,8 @@ func main() {
 	migrationJobEvents := &events.MigrationJobEvents{}
 	appGetterEvents := &events.AppGetterEvents{}
 	appUrlDataEvents := &events.AppUrlDataEvents{}
+	instanceUserAuthsChangeEvents := &events.InstanceUserAuthsChangeEvents{}
+	appspaceUsersChangeEvents := &events.AppspaceUsersChangeEvents{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -155,7 +157,8 @@ func main() {
 	userInvitationModel.PrepareStatements()
 
 	userModel := &usermodel.UserModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents}
 	userModel.PrepareStatements()
 
 	cookieModel := &cookiemodel.CookieModel{
@@ -220,7 +223,8 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb}
 
 	appspaceUserModel := &appspacemetadb.UserModel{
-		AppspaceMetaDB: appspaceMetaDb,
+		AppspaceMetaDB:            appspaceMetaDb,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents,
 	}
 
 	AppRoutes := &appspacerouter.AppRoutes{
@@ -281,14 +285,15 @@ func main() {
 		AppspaceLocation2Path: appspaceLocation2Path,
 	}
 	restoreAppspace := &appspaceops.RestoreAppspace{
-		InfoModel:             appspaceInfoModel,
-		AppspaceModel:         appspaceModel,
-		AppspaceFilesModel:    appspaceFilesModel,
-		SandboxManager:        sandboxManager,
-		AppspaceStatus:        nil,
-		AppspaceMetaDB:        appspaceMetaDb,
-		AppspaceLogger:        appspaceLogger,
-		AppspaceLocation2Path: appspaceLocation2Path,
+		InfoModel:                 appspaceInfoModel,
+		AppspaceModel:             appspaceModel,
+		AppspaceFilesModel:        appspaceFilesModel,
+		SandboxManager:            sandboxManager,
+		AppspaceStatus:            nil,
+		AppspaceMetaDB:            appspaceMetaDb,
+		AppspaceLogger:            appspaceLogger,
+		AppspaceLocation2Path:     appspaceLocation2Path,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents,
 	}
 	restoreAppspace.Init()
 
@@ -314,14 +319,15 @@ func main() {
 		MigrationJobController: migrationJobCtl}
 
 	deleteAppspace := &appspaceops.DeleteAppspace{
-		AppspaceStatus:     nil,
-		AppspaceModel:      appspaceModel,
-		AppspaceFilesModel: appspaceFilesModel,
-		AppspaceTSNetModel: appspaceTSNetModel,
-		DomainController:   domainController,
-		MigrationJobModel:  migrationJobModel,
-		SandboxManager:     sandboxManager,
-		AppspaceLogger:     appspaceLogger,
+		AppspaceStatus:            nil,
+		AppspaceModel:             appspaceModel,
+		AppspaceFilesModel:        appspaceFilesModel,
+		AppspaceTSNetModel:        appspaceTSNetModel,
+		DomainController:          domainController,
+		MigrationJobModel:         migrationJobModel,
+		SandboxManager:            sandboxManager,
+		AppspaceLogger:            appspaceLogger,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents,
 	}
 
 	manageAppspaceUsers := &appspaceops.ManageUsers{
@@ -331,7 +337,13 @@ func main() {
 		Avatars:                  appspaceAvatars,
 		AppspaceTSNetPeersEvents: appspaceTSNetPeersEvents,
 	}
-	eventRelations.ManageUsers = manageAppspaceUsers
+
+	appspaceUsersCache := &appspaceops.AppspaceUsersCache{
+		ManageUsers:                   manageAppspaceUsers,
+		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents,
+		AppspaceUsersChangeEvents:     appspaceUsersChangeEvents,
+	}
+	eventRelations.AppspaceUsersCache = appspaceUsersCache
 
 	remoteAppGetter := &appops.RemoteAppGetter{
 		Config:        runtimeConfig,
@@ -489,7 +501,7 @@ func main() {
 		AppspaceExportRoutes:  exportAppspaceRoutes,
 		AppspaceRestoreRoutes: restoreAppspaceRoutes,
 		AppspaceUserModel:     appspaceUserModel,
-		ManageUsers:           manageAppspaceUsers,
+		AppspaceUsersCache:    appspaceUsersCache,
 		DropIDModel:           dropIDModel,
 		MigrationMinder:       migrationMinder,
 		CreateAppspace:        createAppspace,
@@ -680,6 +692,7 @@ func main() {
 	mainServer.Start()
 
 	manageAppspaceUsers.Init()
+	appspaceUsersCache.Init()
 
 	appspaceTSNet.StartAll()
 

@@ -71,13 +71,17 @@ func TestReplaceData(t *testing.T) {
 	appspaceFilesModels := testmocks.NewMockAppspaceFilesModel(mockCtrl)
 	appspaceFilesModels.EXPECT().ReplaceData(appspace, tempDir).Return(nil)
 
+	appspaceUsersChangeEvents := testmocks.NewMockAppspaceUsersChangeEvents(mockCtrl)
+	appspaceUsersChangeEvents.EXPECT().Send(asID)
+
 	r := &RestoreAppspace{
-		SandboxManager:     sandboxManager,
-		AppspaceStatus:     appspaceStatus,
-		AppspaceMetaDB:     appspaceMetaDB,
-		AppspaceLogger:     appspaceLogger,
-		AppspaceModel:      appspaceModel,
-		AppspaceFilesModel: appspaceFilesModels,
+		SandboxManager:            sandboxManager,
+		AppspaceStatus:            appspaceStatus,
+		AppspaceMetaDB:            appspaceMetaDB,
+		AppspaceLogger:            appspaceLogger,
+		AppspaceModel:             appspaceModel,
+		AppspaceFilesModel:        appspaceFilesModels,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents,
 	}
 	r.Init()
 
