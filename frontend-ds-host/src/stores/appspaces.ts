@@ -157,6 +157,17 @@ export const useAppspacesStore = defineStore('user-appspaces', () => {
 		const appspace_id = Number(raw);
 		if( appspace_peer_users.has(appspace_id) ) loadTSNetPeerUsers(appspace_id);
 	});
+	on('UserAppspaces', async () => {
+		if(load_state.value !== LoadState.Loaded) return;
+		const resp = await ax.get('/api/appspace');
+		if(!Array.isArray(resp.data)) throw new Error("expected appspaces to be array");
+		const newMap = new Map<number, ShallowRef<Appspace>>();
+		resp.data.forEach((raw: any) => {
+			const as = appspaceFromRaw(raw);
+			newMap.set(as.appspace_id, shallowRef(as));
+		});
+		appspaces.value = newMap;
+	});
 
 	function getAppspace(appspace_id:number) {
 		return appspaces.value.get(appspace_id);

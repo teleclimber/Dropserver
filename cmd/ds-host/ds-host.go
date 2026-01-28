@@ -146,6 +146,7 @@ func main() {
 	appUrlDataEvents := &events.AppUrlDataEvents{}
 	instanceUserAuthsChangeEvents := &events.InstanceUserAuthsChangeEvents{}
 	appspaceUsersChangeEvents := &events.AppspaceUsersChangeEvents{}
+	userAppspacesEvent := &events.UserAppspacesEvent{}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -342,6 +343,7 @@ func main() {
 		ManageUsers:                   manageAppspaceUsers,
 		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents,
 		AppspaceUsersChangeEvents:     appspaceUsersChangeEvents,
+		UserAppspacesEvent:            userAppspacesEvent,
 	}
 	eventRelations.AppspaceUsersCache = appspaceUsersCache
 
@@ -554,6 +556,7 @@ func main() {
 		AppspaceTSNetPeersEvents:  appspaceTSNetPeersEvents,
 		MigrationJobEvents:        migrationJobEvents,
 		AppGetterEvents:           appGetterEvents,
+		UserAppspacesEvent:        userAppspacesEvent,
 		UserModel:                 userModel,
 		UserTSNetStatusEvents:     userTSNetEvents,
 		UserTSNetPeersEvents:      userTSNetPeersEvents,

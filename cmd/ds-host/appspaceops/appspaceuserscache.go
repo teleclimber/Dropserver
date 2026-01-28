@@ -22,6 +22,9 @@ type AppspaceUsersCache struct {
 		Subscribe() <-chan domain.AppspaceID
 		Unsubscribe(ch <-chan domain.AppspaceID)
 	} `checkinject:"required"`
+	UserAppspacesEvent interface {
+		Send(domain.UserID)
+	} `checkinject:"required"`
 
 	appspaceCacheMux sync.RWMutex
 	appspaceCache    map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts
@@ -112,6 +115,8 @@ func (c *AppspaceUsersCache) invalidateForUser(userID domain.UserID) {
 	c.appspaceCacheMux.Lock()
 	c.appspaceCache = make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts)
 	c.appspaceCacheMux.Unlock()
+
+	c.UserAppspacesEvent.Send(userID)
 }
 
 // handleAppspaceUserChanges listens for appspace user changes and invalidates caches.
@@ -130,8 +135,16 @@ func (c *AppspaceUsersCache) invalidateForAppspace(appspaceID domain.AppspaceID)
 	c.appspaceCacheMux.Unlock()
 
 	c.userCacheMux.Lock()
+	userIDs := make([]domain.UserID, 0, len(c.userCache))
+	for userID := range c.userCache {
+		userIDs = append(userIDs, userID)
+	}
 	c.userCache = make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts)
 	c.userCacheMux.Unlock()
+
+	for _, userID := range userIDs {
+		c.UserAppspacesEvent.Send(userID)
+	}
 }
 
 func (c *AppspaceUsersCache) getLogger(note string) *record.DsLogger {

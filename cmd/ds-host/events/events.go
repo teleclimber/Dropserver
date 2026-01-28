@@ -323,3 +323,20 @@ func (e *AppspaceUsersChangeEvents) Unsubscribe(ch <-chan domain.AppspaceID) {
 func (e *AppspaceUsersChangeEvents) Send(appspaceID domain.AppspaceID) {
 	e.subscribers.send(appspaceID)
 }
+
+// UserAppspacesEvent signals that a user's list of appspaces may have changed.
+type UserAppspacesEvent struct {
+	userSubs eventIDSubs[domain.UserID, struct{}]
+}
+
+func (e *UserAppspacesEvent) SubscribeUser(userID domain.UserID) <-chan struct{} {
+	return e.userSubs.subscribe(userID)
+}
+
+func (e *UserAppspacesEvent) Unsubscribe(ch <-chan struct{}) {
+	e.userSubs.unsubscribe(ch)
+}
+
+func (e *UserAppspacesEvent) Send(userID domain.UserID) {
+	e.userSubs.send(userID, struct{}{})
+}

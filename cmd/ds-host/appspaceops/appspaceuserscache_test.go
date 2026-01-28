@@ -145,10 +145,14 @@ func TestInvalidateForUser(t *testing.T) {
 	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
 	mockManageUsers.EXPECT().AppspacesForUser(domain.UserID(1)).Return(appspacesData, nil).Times(2)
 
+	mockUserAppspacesEvent := testmocks.NewMockUserAppspacesEvent(ctrl)
+	mockUserAppspacesEvent.EXPECT().Send(domain.UserID(1)).Times(1)
+
 	cache := &AppspaceUsersCache{
-		ManageUsers:   mockManageUsers,
-		appspaceCache: make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
-		userCache:     make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
+		ManageUsers:        mockManageUsers,
+		UserAppspacesEvent: mockUserAppspacesEvent,
+		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		userCache:          make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
 	}
 
 	// Populate caches
@@ -179,10 +183,14 @@ func TestInvalidateForAppspace(t *testing.T) {
 	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
 	mockManageUsers.EXPECT().AppspacesForUser(domain.UserID(1)).Return(appspacesData, nil).Times(2)
 
+	mockUserAppspacesEvent := testmocks.NewMockUserAppspacesEvent(ctrl)
+	mockUserAppspacesEvent.EXPECT().Send(domain.UserID(1)).Times(1)
+
 	cache := &AppspaceUsersCache{
-		ManageUsers:   mockManageUsers,
-		appspaceCache: make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
-		userCache:     make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
+		ManageUsers:        mockManageUsers,
+		UserAppspacesEvent: mockUserAppspacesEvent,
+		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		userCache:          make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
 	}
 
 	// Populate caches
