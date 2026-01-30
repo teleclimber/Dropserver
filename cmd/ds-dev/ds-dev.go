@@ -134,7 +134,10 @@ func main() {
 	// events:
 	appspaceFilesEvents := &events.AppspaceFilesEvents{}
 	migrationJobEvents := &events.MigrationJobEvents{}
-	appspaceStatusEvents := &events.AppspaceStatusEvents{}
+	devRelations := &DevRelations{}
+	appspaceStatusEvents := &events.AppspaceStatusEvents{
+		Relations: devRelations}
+	appspaceUsersChangeEvents := &events.AppspaceUsersChangeEvents{}
 	appGetterEvents := &events.AppGetterEvents{}
 	routeHitEvents := &events.AppspaceRouteHitEvents{}
 
@@ -244,7 +247,8 @@ func main() {
 		AppspaceMetaDB: appspaceMetaDb}
 
 	appspaceUserModel := &appspacemetadb.UserModel{
-		AppspaceMetaDB: appspaceMetaDb,
+		AppspaceMetaDB:            appspaceMetaDb,
+		AppspaceUsersChangeEvents: appspaceUsersChangeEvents,
 	}
 
 	devAuth := &DevAuthenticator{

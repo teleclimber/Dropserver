@@ -2,6 +2,8 @@ package main
 
 import (
 	"sync"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 // PureEvent pushes data-free events to subscriber channels
@@ -209,4 +211,14 @@ func (e *SandboxStatusEvents) removeSubscriber(ch <-chan SandboxStatus) {
 			close(c)
 		}
 	}
+}
+
+type DevRelations struct{}
+
+func (r *DevRelations) GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool) {
+	return ownerID, true
+}
+
+func (r *DevRelations) GetAppspaceUserIDs(appspaceID domain.AppspaceID) []domain.UserID {
+	return []domain.UserID{ownerID}
 }
