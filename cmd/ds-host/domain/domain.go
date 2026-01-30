@@ -249,20 +249,6 @@ type V0AppspaceLoginToken struct {
 	LoginToken TimedToken
 }
 
-// V0LoginTokenRequest is sent to the host that manages the appspace
-type V0LoginTokenRequest struct {
-	DropID string `json:"dropid"`
-	Ref    string `json:"ref"`
-}
-
-// V0PostLoginToken is the data sent from appspace host to dropid host
-// when a user requests a token to remote log-in
-type V0LoginTokenResponse struct {
-	Appspace string `json:"appspace"`
-	Token    string `json:"token"`
-	Ref      string `json:"ref"`
-}
-
 // LoginViewData is used to pass messages and parameters to the login page
 type LoginViewData struct {
 	Message string

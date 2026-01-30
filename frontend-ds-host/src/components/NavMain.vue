@@ -8,7 +8,7 @@ import DropserverLogo from './DropserverLogo.vue';
 import NavItem from './NavItem.vue';
 
 const path2section = [
-	{section: "appspaces",		paths: ["/appspace", "/new-appspace", "/remote-appspace", "/new-remote-appspace"]},
+	{section: "appspaces",		paths: ["/appspace", "/new-appspace"]},
 	{section: "apps", 			paths: ["/app", "/new-app"]},
 	{section: "contacts",		paths: ["/contact"]},
 	{section: "admin-users",	paths: ["/admin/users"]},

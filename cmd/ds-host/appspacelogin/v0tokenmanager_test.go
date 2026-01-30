@@ -1,15 +1,10 @@
 package appspacelogin
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
-	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestCreate(t *testing.T) {
@@ -133,56 +128,4 @@ func TestStartStop(t *testing.T) {
 	a := V0TokenManager{}
 	a.Start()
 	a.Stop()
-}
-
-func TestSendToken(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	appspaceID := domain.AppspaceID(7)
-	dropID := "dropid.example.com/alice"
-	ref := "ref123"
-
-	config := domain.RuntimeConfig{}
-	config.ExternalAccess.Scheme = "http"
-
-	ds2ds := testmocks.NewMockDS2DS(mockCtrl)
-	ds2ds.EXPECT().GetClient().Return(http.DefaultClient)
-
-	appspaceModel := testmocks.NewMockAppspaceModel(mockCtrl)
-
-	appspaceUserModel := testmocks.NewMockAppspaceUserModel(mockCtrl)
-	appspaceUserModel.EXPECT().GetByAuth(appspaceID, "dropid", dropID).Return(domain.AppspaceUser{}, nil)
-
-	tokenManager := V0TokenManager{
-		Config:            config,
-		DS2DS:             ds2ds,
-		AppspaceModel:     appspaceModel,
-		AppspaceUserModel: appspaceUserModel}
-	tokenManager.Start()
-
-	server := httptest.NewServer(http.HandlerFunc(
-		func(res http.ResponseWriter, req *http.Request) {
-			var data domain.V0LoginTokenResponse
-			err := readJSON(req, &data)
-			if err != nil {
-				http.Error(res, err.Error(), 999)
-				return
-			}
-			if data.Ref != ref {
-				http.Error(res, "received drop id deos not match", 999)
-				return
-			}
-			res.WriteHeader(http.StatusOK)
-		}))
-
-	domPort := strings.TrimPrefix(server.URL, "http://")
-
-	appspaceModel.EXPECT().GetFromID(appspaceID).Return(&domain.Appspace{DomainName: domPort}, nil)
-
-	err := tokenManager.SendLoginToken(appspaceID, dropID, ref)
-	if err != nil {
-		t.Error(err)
-	}
-	tokenManager.Stop()
 }

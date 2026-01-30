@@ -11,9 +11,6 @@ import RestoreAppspace from '../views/RestoreAppspace.vue';
 import ManageAppspaceUser from '../views/ManageAppspaceUser.vue';
 import NewAppspace from '../views/NewAppspace.vue';
 
-import NewRemoteAppspace from '../views/NewRemoteAppspace.vue';
-import ManageRemoteAppspace from '../views/ManageRemoteAppspace.vue';
-
 import Apps from '../views/Apps.vue';
 import ManageApp from '../views/ManageApp.vue';
 import NewApp from '../views/NewApp.vue';
@@ -142,21 +139,6 @@ const routes: Array<RouteRecordRaw> = [
 		},
 		meta: {
 			title: "New Appspace"
-		}
-	},{
-		path: '/remote-appspace/:domain',
-		name: 'manage-remote-appspace',
-		component: ManageRemoteAppspace,
-		props: true,
-		meta: {
-			title: "Manage Remote Appspace"
-		}
-	},{
-		path: '/new-remote-appspace/',
-		name: 'new-remote-appspace',
-		component: NewRemoteAppspace,
-		meta: {
-			title: "New Remote Appspace"
 		}
 	},{
 		path: '/app',

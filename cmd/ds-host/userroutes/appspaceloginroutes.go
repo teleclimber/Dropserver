@@ -1,7 +1,6 @@
 package userroutes
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-	"github.com/teleclimber/DropServer/internal/validator"
 )
 
 // AppspaceLoginRoutes handle
@@ -20,17 +18,8 @@ type AppspaceLoginRoutes struct {
 		GetFromID(appspaceID domain.AppspaceID) (*domain.Appspace, error)
 		GetFromDomain(dom string) (*domain.Appspace, error)
 	} `checkinject:"required"`
-	RemoteAppspaceModel interface {
-		Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
-	} `checkinject:"required"`
 	ManageAppspaceUsers interface {
 		GetProxyIDForUserID(domain.AppspaceID, domain.UserID) (domain.ProxyID, error)
-	} `checkinject:"required"`
-	DS2DS interface {
-		GetRemoteAPIVersion(domainName string) (int, error)
-	} `checkinject:"required"`
-	V0RequestToken interface {
-		RequestToken(ctx context.Context, userID domain.UserID, appspaceDomain string, sessionID string) (string, error)
 	} `checkinject:"required"`
 	V0TokenManager interface {
 		GetForProxyID(appspaceID domain.AppspaceID, proxyID domain.ProxyID) string
@@ -40,7 +29,6 @@ type AppspaceLoginRoutes struct {
 func (u *AppspaceLoginRoutes) routeGroup(r chi.Router) {
 	r.Use(mustBeAuthenticated)
 	r.Get("/appspacelogin", u.getTokenForRedirect)
-	r.Get("/remoteappspacelogin", u.getTokenForRemoteRedirect)
 }
 
 func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http.Request) {
@@ -84,64 +72,11 @@ func (u *AppspaceLoginRoutes) getTokenForRedirect(w http.ResponseWriter, r *http
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	// TODO check we properly handle a user with a conflict!
 
 	token := u.V0TokenManager.GetForProxyID(appspace.AppspaceID, proxyID)
 
 	http.Redirect(w, r, u.makeRedirectLink(appspace.DomainName, token), http.StatusTemporaryRedirect)
-}
-
-func (u *AppspaceLoginRoutes) getTokenForRemoteRedirect(w http.ResponseWriter, r *http.Request) {
-	log := u.getLogger("getTokenForRemoteRedirect").Clone
-
-	appspaceDomain, ok := readSingleQueryParam(r, "appspace")
-	if !ok {
-		http.Error(w, "Missing or malformed appspace domain query parameter", http.StatusBadRequest)
-		return
-	}
-	err := validator.DomainName(appspaceDomain)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	appspaceDomain = validator.NormalizeDomainName(appspaceDomain)
-
-	authUserID, ok := domain.CtxAuthUserID(r.Context())
-	if !ok {
-		log().Log("no auth user ID in context")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	sessionID, ok := domain.CtxSessionID(r.Context())
-	if !ok {
-		log().Log("no session ID in context")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	ver, err := u.DS2DS.GetRemoteAPIVersion(appspaceDomain)
-	if err != nil {
-		// we'll get more detailed with errors later...
-		// it could be we couldn't reach teh remote server, or got an http error or something
-		// it could be there is no common API version we can use
-		http.Error(w, "error determining remote API version: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	switch ver {
-	case 0:
-		loginToken, err := u.V0RequestToken.RequestToken(r.Context(), authUserID, appspaceDomain, sessionID)
-		if err != nil {
-			// we need to get subtle with errors, probably have a whole set of sentinel errors?
-			w.WriteHeader(http.StatusServiceUnavailable) //for now
-			w.Write([]byte(err.Error()))
-			return
-		}
-		http.Redirect(w, r, u.makeRedirectLink(appspaceDomain, loginToken), http.StatusTemporaryRedirect)
-
-	default:
-		// log this. This should not happen.
-		http.Error(w, "remote API version missing", http.StatusInternalServerError)
-	}
 }
 
 func (u *AppspaceLoginRoutes) makeRedirectLink(appspaceDomain, token string) string {

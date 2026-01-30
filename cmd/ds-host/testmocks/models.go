@@ -8,7 +8,7 @@ import (
 	"github.com/teleclimber/DropServer/internal/nulltypes"
 )
 
-//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,RemoteAppspaceModel,AppspaceFilesModel,AppspaceTSNetModel,ContactModel,DropIDModel,MigrationJobModel,SandboxRuns
+//go:generate mockgen -destination=models_mocks.go -package=testmocks -self_package=github.com/teleclimber/DropServer/cmd/ds-host/testmocks github.com/teleclimber/DropServer/cmd/ds-host/testmocks CookieModel,UserModel,SettingsModel,UserInvitationModel,AppFilesModel,AppModel,AppspaceModel,AppspaceFilesModel,AppspaceTSNetModel,ContactModel,DropIDModel,MigrationJobModel,SandboxRuns
 
 type CookieModel interface {
 	Get(cookieID string) (domain.Cookie, error)
@@ -100,14 +100,6 @@ type AppspaceModel interface {
 	Pause(domain.AppspaceID, bool) error
 	SetVersion(domain.AppspaceID, domain.Version) error
 	Delete(domain.AppspaceID) error
-}
-
-// RemoteAppspaceModel is the inrweface for remote appspace model
-type RemoteAppspaceModel interface {
-	Get(userID domain.UserID, domainName string) (domain.RemoteAppspace, error)
-	GetForUser(userID domain.UserID) ([]domain.RemoteAppspace, error)
-	Create(userID domain.UserID, domainName string, ownerDropID string, dropID string) error
-	Delete(userID domain.UserID, domainName string) error
 }
 
 // AppspaceFilesModel manipulates data directories for appspaces

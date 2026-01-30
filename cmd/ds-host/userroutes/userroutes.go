@@ -54,7 +54,6 @@ type UserRoutes struct {
 	AppspaceLoginRoutes   routeGroup `checkinject:"required"`
 	ApplicationRoutes     subRoutes  `checkinject:"required"`
 	AppspaceRoutes        subRoutes  `checkinject:"required"`
-	RemoteAppspaceRoutes  subRoutes  `checkinject:"required"`
 	ContactRoutes         subRoutes  `checkinject:"required"`
 	DomainRoutes          subRoutes  `checkinject:"required"`
 	DropIDRoutes          subRoutes  `checkinject:"required"`
@@ -136,7 +135,6 @@ func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 			r.Mount("/dropid", u.DropIDRoutes.subRouter())
 			r.Mount("/application", u.ApplicationRoutes.subRouter())
 			r.Mount("/appspace", u.AppspaceRoutes.subRouter())
-			r.Mount("/remoteappspace", u.RemoteAppspaceRoutes.subRouter())
 			r.Mount("/contact", u.ContactRoutes.subRouter())
 			r.Mount("/migration-job", u.MigrationJobRoutes.subRouter())
 		})

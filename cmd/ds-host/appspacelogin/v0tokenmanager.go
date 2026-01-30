@@ -1,12 +1,8 @@
 package appspacelogin
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"sync"
 	"time"
 
@@ -20,15 +16,6 @@ const loginTokenDuration = time.Minute
 // and sends them as needed
 type V0TokenManager struct {
 	Config domain.RuntimeConfig `checkinject:"required"`
-	DS2DS  interface {
-		GetClient() *http.Client
-	} `checkinject:"required"`
-	AppspaceModel interface {
-		GetFromID(domain.AppspaceID) (*domain.Appspace, error)
-	} `checkinject:"required"`
-	AppspaceUserModel interface {
-		GetByAuth(domain.AppspaceID, string, string) (domain.AppspaceUser, error)
-	} `checkinject:"required"`
 
 	tokensMux sync.Mutex
 	tokens    map[string]domain.V0AppspaceLoginToken
@@ -122,70 +109,10 @@ func (m *V0TokenManager) purgeTokens() {
 	}
 }
 
+// GetForProxyID returns login token for a proxy id for an appspace on the instance
 func (m *V0TokenManager) GetForProxyID(appspaceID domain.AppspaceID, proxyID domain.ProxyID) string {
 	tok := m.create(appspaceID, proxyID)
 	return tok.LoginToken.Token
-}
-
-// SendLoginToken verifies that drop id can access appspace
-// (slightly odd that this checks creds yet Create does not)
-// then creates a token and sends it to remote
-// future: token types (long life, lock to IP or other client attribute)
-func (m *V0TokenManager) SendLoginToken(appspaceID domain.AppspaceID, dropID string, ref string) error {
-	log := m.getLogger("SendLoginToken").AppspaceID(appspaceID)
-
-	appspace, err := m.AppspaceModel.GetFromID(appspaceID)
-	if err != nil {
-		log.Debug("appspace id not found")
-		return err
-	}
-
-	// should we check to see if appspace is paused?
-
-	// if dropid not in appspace user, this returns no rows, so bail because you can't log them in
-	user, err := m.AppspaceUserModel.GetByAuth(appspaceID, "dropid", dropID)
-	if err != nil {
-		log.Debug("appspace user dropid not found " + dropID)
-		return err
-	}
-
-	// Should check if user is blocked and things like that when we have those features.
-
-	token := m.create(appspaceID, user.ProxyID)
-
-	// Now send the token. For now we can do this here?
-	data := domain.V0LoginTokenResponse{
-		Appspace: appspace.DomainName,
-		Token:    token.LoginToken.Token,
-		Ref:      ref}
-
-	jsonStr, err := json.Marshal(data)
-	if err != nil {
-		log.AddNote("JSON encode login token").Error(err)
-		return err
-	}
-
-	client := m.DS2DS.GetClient()
-	u := fmt.Sprintf("%s://%s%s/.dropserver/v0/login-token", m.Config.ExternalAccess.Scheme, appspace.DomainName, m.Config.Exec.PortString)
-	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		log.AddNote("Error creating request").Error(err)
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		log.AddNote("Error posting token").Error(err)
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		log.Log("got unexpected status code: " + resp.Status)
-		return errors.New("got unexpected status code from remote: " + resp.Status)
-	}
-
-	log.Debug(fmt.Sprintf("sent token for %v to %v", appspace.DomainName, dropID))
-
-	return nil
 }
 
 func (m *V0TokenManager) getLogger(note string) *record.DsLogger {

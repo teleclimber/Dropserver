@@ -237,15 +237,6 @@ export interface Appspace {
 	auth_user_id_conflicts: UserIDProxyIDConflicts | undefined
 }
 
-export interface RemoteAppspace {
-	domain_name: string,
-	owner_dropid: string,
-	user_dropid: string,
-	no_tls: boolean,
-	port_string: string,
-	created_dt: Date
-}
-
 // AppspaceUserBase represents appspace users to non-owner users of the appspace
 export interface AppspaceUserBase {
 	proxy_id: string,

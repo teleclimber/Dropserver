@@ -23,7 +23,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/certificatemanager.go"
 	"github.com/teleclimber/DropServer/cmd/ds-host/database"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domaincontroller"
-	"github.com/teleclimber/DropServer/cmd/ds-host/ds2ds"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
@@ -35,7 +34,6 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/cookiemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/dropidmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
-	"github.com/teleclimber/DropServer/cmd/ds-host/models/remoteappspacemodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/sandboxruns"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
@@ -195,11 +193,6 @@ func main() {
 		DB: db}
 	appspaceModel.PrepareStatements()
 	eventRelations.AppspaceModel = appspaceModel
-
-	remoteAppspaceModel := &remoteappspacemodel.RemoteAppspaceModel{
-		DB: db,
-	}
-	remoteAppspaceModel.PrepareStatements()
 
 	sandboxRunsModel := &sandboxruns.SandboxRunsModel{
 		DB: db}
@@ -370,24 +363,10 @@ func main() {
 		CookieModel: cookieModel,
 		Config:      runtimeConfig}
 
-	ds2ds := &ds2ds.DS2DS{
-		Config: runtimeConfig,
-	}
-	ds2ds.Init()
-
-	v0tokenManager := &appspacelogin.V0TokenManager{
-		Config:            *runtimeConfig,
-		DS2DS:             ds2ds,
-		AppspaceModel:     appspaceModel,
-		AppspaceUserModel: appspaceUserModel,
+	v0tokenManager := &appspacelogin.V0TokenManager{ // TODO rename to non-Vx
+		Config: *runtimeConfig,
 	}
 	v0tokenManager.Start()
-
-	v0requestToken := &appspacelogin.V0RequestToken{
-		Config:              *runtimeConfig,
-		DS2DS:               ds2ds,
-		RemoteAppspaceModel: remoteAppspaceModel,
-	}
 
 	sandboxManager.Init()
 
@@ -458,10 +437,7 @@ func main() {
 	appspaceLoginRoutes := &userroutes.AppspaceLoginRoutes{
 		Config:              runtimeConfig,
 		AppspaceModel:       appspaceModel,
-		RemoteAppspaceModel: remoteAppspaceModel,
 		ManageAppspaceUsers: manageAppspaceUsers,
-		DS2DS:               ds2ds,
-		V0RequestToken:      v0requestToken,
 		V0TokenManager:      v0tokenManager,
 	}
 
@@ -514,12 +490,6 @@ func main() {
 		AppModel:              appModel,
 		AppFilesModel:         appFilesModel}
 
-	remoteAppspaceRoutes := &userroutes.RemoteAppspaceRoutes{
-		RemoteAppspaceModel: remoteAppspaceModel,
-		AppspaceModel:       appspaceModel,
-		DropIDModel:         dropIDModel,
-	}
-
 	contactRoutes := &userroutes.ContactRoutes{
 		ContactModel: contactModel,
 	}
@@ -546,7 +516,6 @@ func main() {
 		AdminRoutes:               adminRoutes,
 		ApplicationRoutes:         applicationRoutes,
 		AppspaceRoutes:            userAppspaceRoutes,
-		RemoteAppspaceRoutes:      remoteAppspaceRoutes,
 		ContactRoutes:             contactRoutes,
 		DomainRoutes:              domainNameRoutes,
 		DropIDRoutes:              dropIDRoutes,
@@ -576,10 +545,7 @@ func main() {
 
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
 		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
-			AppspaceModel:  appspaceModel,
-			Authenticator:  authenticator,
-			V0RequestToken: v0requestToken,
-			V0TokenManager: v0tokenManager,
+			Authenticator: authenticator,
 		},
 	}
 

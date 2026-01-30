@@ -323,7 +323,6 @@ func main() {
 
 	dropserverRoutes := &appspacerouter.DropserverRoutes{
 		V0DropServerRoutes: &appspacerouter.V0DropserverRoutes{
-			AppspaceModel: devAppspaceModel,
 			Authenticator: devAuth,
 		},
 	}

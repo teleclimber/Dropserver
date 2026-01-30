@@ -35,10 +35,10 @@ var ErrAuthIDExists = errors.New("auth ID not unique in this appspace")
 type UserModel struct {
 	AppspaceMetaDB interface {
 		GetHandle(domain.AppspaceID) (*sqlx.DB, error)
-	}
+	} `checkinject:"required"`
 	AppspaceUsersChangeEvents interface {
 		Send(domain.AppspaceID)
-	}
+	} `checkinject:"required"`
 }
 
 // Create an appspace user with provided auth.
