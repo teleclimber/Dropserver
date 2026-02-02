@@ -60,6 +60,13 @@ async function save() {
 	router.back();
 }
 
+async function deleteDropID() {
+	if( dropid.value === undefined ) return;
+	if( !confirm("Are you sure you want to delete " + dropid.value.compound_id + "?") ) return;
+	await dropIDsStore.deleteDropID(dropid.value.handle, dropid.value.domain_name);
+	router.back();
+}
+
 function cancel() {
 	router.back();
 }
@@ -91,8 +98,13 @@ function cancel() {
 				</div>
 			</form>
 		</div>
-		<!-- Maybe list of where this drop id is used? -->
-		<!-- There should also be a way to delete the dropid if it is not being used anywhere -->
+		<div v-if="loaded" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6">
+				<h3 class="text-lg leading-6 font-medium text-gray-900">Delete DropID</h3>
+				<p class="mt-1 mb-3 max-w-2xl text-sm text-gray-500">Permanently delete this DropID. This can not be undone.</p>
+				<button class="btn btn-blue" @click="deleteDropID">Delete</button>
+			</div>
+		</div>
 		
 		<BigLoader v-if="!loaded && !not_found"></BigLoader>
 	</ViewWrap>

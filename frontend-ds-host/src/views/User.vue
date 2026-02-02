@@ -99,7 +99,7 @@ dropIDStore.loadData();
 			<div class="px-4 py-5 sm:px-6 flex justify-between">
 				<div>
 					<h3 class="text-lg leading-6 font-medium text-gray-900">DropIDs</h3>
-					<p class="mt-1 max-w-2xl text-sm text-gray-500">DropIDs are used to join an Appspaces.</p>
+					<p class="mt-1 max-w-2xl text-sm text-gray-500">DropIDs are used to identify yourself in an Appspace using a handle and domain.</p>
 				</div>
 				<div>
 					<router-link to="/dropid-new" class="btn whitespace-nowrap">New DropID</router-link>
@@ -108,7 +108,7 @@ dropIDStore.loadData();
 			<div class=" ">
 				<DropIDFull v-for="[_, dropid] in dropIDStore.dropids" :key="dropid.value.compound_id" :dropid="dropid.value"></DropIDFull>
 				<MessageSad v-if="dropIDStore.is_loaded && dropIDStore.dropids.size === 0" head="No DropIDs">
-					Create a DropID to create or join appspaces hosted on other instances of Dropserver.
+					Create a DropID to identify yourself in an appspace using a handle and domain.
 				</MessageSad>
 			</div>
 		</div>

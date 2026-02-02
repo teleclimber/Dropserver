@@ -12,7 +12,10 @@ import (
 
 // DropIDModel stores the user's DropIDs
 type DropIDModel struct {
-	DB *domain.DB
+	DB                            *domain.DB
+	InstanceUserAuthsChangeEvents interface {
+		Send(domain.UserID)
+	} `checkinject:"required"`
 
 	stmt struct {
 		createDropID   *sqlx.Stmt
@@ -63,6 +66,8 @@ func (m *DropIDModel) Create(userID domain.UserID, handle string, dom string, di
 		logger.AddNote("insert").Error(err)
 		return domain.DropID{}, err
 	}
+
+	m.InstanceUserAuthsChangeEvents.Send(userID)
 
 	return m.Get(handle, dom)
 }
@@ -123,6 +128,9 @@ func (m *DropIDModel) Delete(userID domain.UserID, handle string, dom string) er
 		m.getLogger("Delete()").AddNote("Exec").Error(err)
 		return err
 	}
+
+	m.InstanceUserAuthsChangeEvents.Send(userID)
+
 	return nil
 }
 

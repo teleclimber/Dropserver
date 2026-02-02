@@ -169,7 +169,8 @@ func main() {
 	contactModel.PrepareStatements()
 
 	dropIDModel := &dropidmodel.DropIDModel{
-		DB: db}
+		DB:                            db,
+		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents}
 	dropIDModel.PrepareStatements()
 
 	appFilesModel := &appfilesmodel.AppFilesModel{

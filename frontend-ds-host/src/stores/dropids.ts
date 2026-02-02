@@ -44,6 +44,15 @@ export const useDropIDsStore = defineStore('user-dropids', () => {
 		dropid.value = Object.assign({}, dropid.value, {display_name})
 	}
 	
+	async function deleteDropID(handle:string, domain:string) :Promise<void> {
+		const key = getCompoundID(domain, handle);
+		const dropid = dropids.value.get(key);
+		if( dropid === undefined ) throw new Error("dropid not found, can not delete.")
+		await ax.delete('/api/dropid?'+getQueryString(handle, domain));
+		dropids.value.delete(key);
+		dropids.value = new Map(dropids.value);
+	}
+
 	async function checkHandle(handle:string, domain:string) :Promise<boolean> {
 		const resp = await ax.get('/api/dropid?check=yes&'+getQueryString(handle, domain));
 		return !!resp.data.available;
@@ -53,7 +62,7 @@ export const useDropIDsStore = defineStore('user-dropids', () => {
 		return dropids.value.get(getCompoundID(domain, handle));
 	}
 
-	return {loadData, is_loaded, dropids, createDropID, updateDropID, checkHandle, getDropID};
+	return {loadData, is_loaded, dropids, createDropID, updateDropID, deleteDropID, checkHandle, getDropID};
 })
 
 function dropidFromRaw(raw:any) :UserDropID {
