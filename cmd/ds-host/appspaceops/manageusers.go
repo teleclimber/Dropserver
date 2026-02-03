@@ -9,6 +9,10 @@ import (
 )
 
 type ManageUsers struct {
+	UserModel interface {
+		GetFromID(domain.UserID) (domain.User, error)
+		GetFromTSNet(string) (domain.User, error)
+	} `checkinject:"required"`
 	AppspaceModel interface {
 		GetAll() ([]domain.Appspace, error)
 	} `checkinject:"required"`
@@ -157,7 +161,7 @@ func (m *ManageUsers) AppspaceUsers(appspaceID domain.AppspaceID) (map[domain.Pr
 
 	// TODO get instance_appspace_user for appspaceid and add using ids.addInstance(...)
 
-	ret := ids.getProxyIDsConflicts() // TODO why is this by proxy ID?
+	ret := ids.getProxyIDsConflicts()
 
 	return ret, nil
 }
@@ -224,16 +228,10 @@ func (m *ManageUsers) AppspacesForUser(userID domain.UserID) (map[domain.Appspac
 // If there are conflicts, these are noted. Conflicts are:
 // - the user matches more than one proxyID of that appspcae
 // - Multiple users match the proxy ID
-// TODO this has a lot of duplication over UsersForAppspace
 func (m *ManageUsers) UserInAppspace(userID domain.UserID, auths []domain.AppspaceUserAuthBare, appspaceID domain.AppspaceID) (domain.UserIDProxyIDConflicts, error) {
-	//ret := domain.UserIDProxyIDConflicts{}
-
 	ids := idConflicts{}
 	ids.init()
 
-	// Maybe loop over each auth so we know what auth matched what?
-	// Also, would be interesting to think of whether we can guarantee that a single auth returns a single proxy ID
-	// It might simplify things.
 	for _, a := range auths {
 		proxyIDs, err := m.AppspaceUserModel.GetProxyIDsFromAuths(appspaceID, []domain.AppspaceUserAuthBare{a})
 		if err != nil {
@@ -285,7 +283,9 @@ func (m *ManageUsers) getUserFromAuth(auth domain.AppspaceUserAuth) (domain.User
 	case "dropid":
 		userID, err = m.getUserIDForDropID(auth.Identifier)
 	case "tsnetid":
-		// TODO
+		var user domain.User
+		user, err = m.UserModel.GetFromTSNet(auth.Identifier)
+		userID = user.UserID
 	}
 	return userID, err
 }
@@ -342,7 +342,15 @@ func (m *ManageUsers) getUserAuths(userID domain.UserID) ([]domain.AppspaceUserA
 			Identifier: validator.JoinDropID(d.Handle, d.Domain)})
 	}
 
-	// TODO also add user's tsnetid if there is one.
+	user, err := m.UserModel.GetFromID(userID)
+	if err != nil {
+		return auths, err
+	}
+	if user.TSNetIdentifier != "" {
+		auths = append(auths, domain.AppspaceUserAuthBare{
+			Type:       "tsnetid",
+			Identifier: user.TSNetIdentifier})
+	}
 
 	return auths, nil
 }

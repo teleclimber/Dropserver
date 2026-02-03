@@ -327,6 +327,7 @@ func main() {
 
 	manageAppspaceUsers := &appspaceops.ManageUsers{
 		AppspaceModel:            appspaceModel,
+		UserModel:                userModel,
 		AppspaceUserModel:        appspaceUserModel,
 		DropIDModel:              dropIDModel,
 		Avatars:                  appspaceAvatars,
