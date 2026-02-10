@@ -14,14 +14,14 @@ func TestUsersForAppspaceCacheMiss(t *testing.T) {
 
 	mockManageUsers := testmocks.NewMockManageUsers(ctrl)
 
-	testData := map[domain.UserID]domain.UserIDProxyIDConflicts{
-		domain.UserID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
+	testData := map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts{
+		{UserID: domain.UserID(1), ProxyID: "proxy1"}: {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
-	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(testData, nil)
+	mockManageUsers.EXPECT().ConflictsForAppspace(domain.AppspaceID(1)).Return(testData, nil)
 
 	cache := &AppspaceUsersCache{
 		ManageUsers:   mockManageUsers,
-		appspaceCache: make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		appspaceCache: make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts),
 	}
 
 	result, err := cache.UsersForAppspace(domain.AppspaceID(1))
@@ -41,14 +41,14 @@ func TestUsersForAppspaceCacheHit(t *testing.T) {
 	mockManageUsers := testmocks.NewMockManageUsers(ctrl)
 
 	// Set up expectations - should only be called once due to cache hit
-	testData := map[domain.UserID]domain.UserIDProxyIDConflicts{
-		domain.UserID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
+	testData := map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts{
+		{UserID: domain.UserID(1), ProxyID: "proxy1"}: {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
-	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(testData, nil)
+	mockManageUsers.EXPECT().ConflictsForAppspace(domain.AppspaceID(1)).Return(testData, nil)
 
 	cache := &AppspaceUsersCache{
 		ManageUsers:   mockManageUsers,
-		appspaceCache: make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		appspaceCache: make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts),
 	}
 
 	// First call - cache miss
@@ -136,22 +136,26 @@ func TestInvalidateForUser(t *testing.T) {
 	mockManageUsers := testmocks.NewMockManageUsers(ctrl)
 
 	// Set up expectations - each method should be called twice (before and after invalidation)
-	usersData := map[domain.UserID]domain.UserIDProxyIDConflicts{
-		domain.UserID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
+	usersData := map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts{
+		{UserID: domain.UserID(1), ProxyID: "proxy1"}: {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
 	appspacesData := map[domain.AppspaceID]domain.UserIDProxyIDConflicts{
 		domain.AppspaceID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
-	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
+	mockManageUsers.EXPECT().ConflictsForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
 	mockManageUsers.EXPECT().AppspacesForUser(domain.UserID(1)).Return(appspacesData, nil).Times(2)
 
 	mockUserAppspacesEvent := testmocks.NewMockUserAppspacesEvent(ctrl)
 	mockUserAppspacesEvent.EXPECT().Send(domain.UserID(1)).Times(1)
 
+	mockAppspaceUsersEvent := testmocks.NewMockAppspaceUsersEvent(ctrl)
+	mockAppspaceUsersEvent.EXPECT().Send(domain.AppspaceID(1)).Times(1)
+
 	cache := &AppspaceUsersCache{
 		ManageUsers:        mockManageUsers,
 		UserAppspacesEvent: mockUserAppspacesEvent,
-		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		AppspaceUsersEvent: mockAppspaceUsersEvent,
+		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts),
 		userCache:          make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
 	}
 
@@ -174,22 +178,26 @@ func TestInvalidateForAppspace(t *testing.T) {
 	mockManageUsers := testmocks.NewMockManageUsers(ctrl)
 
 	// Set up expectations - each method should be called twice (before and after invalidation)
-	usersData := map[domain.UserID]domain.UserIDProxyIDConflicts{
-		domain.UserID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
+	usersData := map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts{
+		{UserID: domain.UserID(1), ProxyID: "proxy1"}: {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
 	appspacesData := map[domain.AppspaceID]domain.UserIDProxyIDConflicts{
 		domain.AppspaceID(1): {UserID: domain.UserID(1), ProxyID: "proxy1"},
 	}
-	mockManageUsers.EXPECT().UsersForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
+	mockManageUsers.EXPECT().ConflictsForAppspace(domain.AppspaceID(1)).Return(usersData, nil).Times(2)
 	mockManageUsers.EXPECT().AppspacesForUser(domain.UserID(1)).Return(appspacesData, nil).Times(2)
 
 	mockUserAppspacesEvent := testmocks.NewMockUserAppspacesEvent(ctrl)
 	mockUserAppspacesEvent.EXPECT().Send(domain.UserID(1)).Times(1)
 
+	mockAppspaceUsersEvent := testmocks.NewMockAppspaceUsersEvent(ctrl)
+	mockAppspaceUsersEvent.EXPECT().Send(domain.AppspaceID(1)).Times(1)
+
 	cache := &AppspaceUsersCache{
 		ManageUsers:        mockManageUsers,
 		UserAppspacesEvent: mockUserAppspacesEvent,
-		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts),
+		AppspaceUsersEvent: mockAppspaceUsersEvent,
+		appspaceCache:      make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts),
 		userCache:          make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts),
 	}
 

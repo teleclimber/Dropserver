@@ -145,6 +145,8 @@ func main() {
 	instanceUserAuthsChangeEvents := &events.InstanceUserAuthsChangeEvents{}
 	appspaceUsersChangeEvents := &events.AppspaceUsersChangeEvents{}
 	userAppspacesEvent := &events.UserAppspacesEvent{}
+	appspaceUsersEvent := &events.AppspaceUsersEvent{
+		Relations: eventRelations}
 
 	// models
 	settingsModel := &settingsmodel.SettingsModel{
@@ -339,6 +341,7 @@ func main() {
 		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents,
 		AppspaceUsersChangeEvents:     appspaceUsersChangeEvents,
 		UserAppspacesEvent:            userAppspacesEvent,
+		AppspaceUsersEvent:            appspaceUsersEvent,
 	}
 	eventRelations.AppspaceUsersCache = appspaceUsersCache
 

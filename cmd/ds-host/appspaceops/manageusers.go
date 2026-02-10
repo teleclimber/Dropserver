@@ -290,16 +290,22 @@ func (m *ManageUsers) getUserFromAuth(auth domain.AppspaceUserAuth) (domain.User
 	return userID, err
 }
 
-// UserIDsForAppspace returns all instance user ids that are users
-// of the appspace. Conflicts are included.
-func (m *ManageUsers) UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error) {
-	appspaceUsers, err := m.AppspaceUserModel.GetAll(appspaceID)
+func (m *ManageUsers) ConflictsForAppspace(appspaceID domain.AppspaceID) (map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts, error) {
+	ids, err := m.getIDsForAppspace(appspaceID)
 	if err != nil {
 		return nil, err
 	}
+	return ids.getConflicts(), nil
+}
 
+func (m *ManageUsers) getIDsForAppspace(appspaceID domain.AppspaceID) (idConflicts, error) {
 	ids := idConflicts{}
 	ids.init()
+
+	appspaceUsers, err := m.AppspaceUserModel.GetAll(appspaceID)
+	if err != nil {
+		return ids, err
+	}
 
 	for _, au := range appspaceUsers {
 		for _, auth := range au.Auths {
@@ -307,7 +313,7 @@ func (m *ManageUsers) UsersForAppspace(appspaceID domain.AppspaceID) (map[domain
 			if err == domain.ErrNoRowsInResultSet {
 				continue
 			} else if err != nil {
-				return nil, err
+				return ids, err
 			} else {
 				ids.addAuth(au.ProxyID, userID, domain.AppspaceUserAuthBare{
 					Type:       auth.Type,
@@ -318,9 +324,7 @@ func (m *ManageUsers) UsersForAppspace(appspaceID domain.AppspaceID) (map[domain
 
 	// TODO get instance_appspace_user for appspaceid and add the user ids.
 
-	ret := ids.getUserIDsConflicts()
-
-	return ret, nil
+	return ids, nil
 }
 
 func (m *ManageUsers) getUserIDForDropID(dropID string) (domain.UserID, error) {
@@ -413,10 +417,10 @@ func (i *idConflicts) getProxyIDsConflicts() map[domain.ProxyID]domain.UserIDPro
 }
 
 // Here instead of a ProxyID and a userID based function
-// make a function that returns map[UserProxyTuple]domain.UserIDProxyIDConflicts
+// make a function that returns map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts
 // then have u or p=specific function to make to turn those into map[UserID|ProxyID]domain.UserIDProxyIDConflicts
-func (i *idConflicts) getConflicts() map[UserProxyTuple]domain.UserIDProxyIDConflicts {
-	ret := make(map[UserProxyTuple]domain.UserIDProxyIDConflicts)
+func (i *idConflicts) getConflicts() map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts {
+	ret := make(map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts)
 	for _, t := range i.pairAuths.getAllPairs() {
 		r := domain.UserIDProxyIDConflicts{}
 
@@ -484,24 +488,19 @@ func (p *pairs[K, V]) getAllV(k K) []V {
 	return ret
 }
 
-type UserProxyTuple struct {
-	UserID  domain.UserID
-	ProxyID domain.ProxyID
-}
-
 type pairAuths struct {
-	auths    map[UserProxyTuple][]domain.AppspaceUserAuthBare
-	instance map[UserProxyTuple]struct{}
+	auths    map[domain.UserProxyTuple][]domain.AppspaceUserAuthBare
+	instance map[domain.UserProxyTuple]struct{}
 }
 
 func makePairAuths() pairAuths {
 	return pairAuths{
-		auths:    make(map[UserProxyTuple][]domain.AppspaceUserAuthBare),
-		instance: make(map[UserProxyTuple]struct{}),
+		auths:    make(map[domain.UserProxyTuple][]domain.AppspaceUserAuthBare),
+		instance: make(map[domain.UserProxyTuple]struct{}),
 	}
 }
 func (a *pairAuths) addAuth(p domain.ProxyID, u domain.UserID, auth domain.AppspaceUserAuthBare) {
-	k := UserProxyTuple{
+	k := domain.UserProxyTuple{
 		UserID:  u,
 		ProxyID: p}
 	if _, ok := a.auths[k]; !ok {
@@ -511,20 +510,20 @@ func (a *pairAuths) addAuth(p domain.ProxyID, u domain.UserID, auth domain.Appsp
 }
 
 func (a *pairAuths) addInstanceRelation(p domain.ProxyID, u domain.UserID) {
-	a.instance[UserProxyTuple{
+	a.instance[domain.UserProxyTuple{
 		UserID:  u,
 		ProxyID: p}] = struct{}{}
 }
 
-func (a *pairAuths) getAllPairs() []UserProxyTuple {
-	m := make(map[UserProxyTuple]struct{})
+func (a *pairAuths) getAllPairs() []domain.UserProxyTuple {
+	m := make(map[domain.UserProxyTuple]struct{})
 	for t := range a.auths {
 		m[t] = struct{}{}
 	}
 	for t := range a.instance {
 		m[t] = struct{}{}
 	}
-	ret := make([]UserProxyTuple, len(m))
+	ret := make([]domain.UserProxyTuple, len(m))
 	i := 0
 	for t := range m {
 		ret[i] = t
@@ -533,13 +532,13 @@ func (a *pairAuths) getAllPairs() []UserProxyTuple {
 	return ret
 }
 func (a *pairAuths) getAuths(p domain.ProxyID, u domain.UserID) []domain.AppspaceUserAuthBare {
-	return a.auths[UserProxyTuple{
+	return a.auths[domain.UserProxyTuple{
 		UserID:  u,
 		ProxyID: p}]
 }
 
 func (a *pairAuths) getInstanceRelation(p domain.ProxyID, u domain.UserID) bool {
-	_, ok := a.instance[UserProxyTuple{
+	_, ok := a.instance[domain.UserProxyTuple{
 		UserID:  u,
 		ProxyID: p}]
 	return ok

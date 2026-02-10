@@ -48,6 +48,21 @@ func (mr *MockManageUsersMockRecorder) AppspacesForUser(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspacesForUser", reflect.TypeOf((*MockManageUsers)(nil).AppspacesForUser), arg0)
 }
 
+// ConflictsForAppspace mocks base method
+func (m *MockManageUsers) ConflictsForAppspace(arg0 domain.AppspaceID) (map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConflictsForAppspace", arg0)
+	ret0, _ := ret[0].(map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConflictsForAppspace indicates an expected call of ConflictsForAppspace
+func (mr *MockManageUsersMockRecorder) ConflictsForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConflictsForAppspace", reflect.TypeOf((*MockManageUsers)(nil).ConflictsForAppspace), arg0)
+}
+
 // GetConflictsForUserID mocks base method
 func (m *MockManageUsers) GetConflictsForUserID(arg0 domain.AppspaceID, arg1 domain.UserID) (domain.UserIDProxyIDConflicts, error) {
 	m.ctrl.T.Helper()
@@ -93,21 +108,6 @@ func (mr *MockManageUsersMockRecorder) UserInAppspace(arg0, arg1, arg2 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UserInAppspace", reflect.TypeOf((*MockManageUsers)(nil).UserInAppspace), arg0, arg1, arg2)
 }
 
-// UsersForAppspace mocks base method
-func (m *MockManageUsers) UsersForAppspace(arg0 domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UsersForAppspace", arg0)
-	ret0, _ := ret[0].(map[domain.UserID]domain.UserIDProxyIDConflicts)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UsersForAppspace indicates an expected call of UsersForAppspace
-func (mr *MockManageUsersMockRecorder) UsersForAppspace(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UsersForAppspace", reflect.TypeOf((*MockManageUsers)(nil).UsersForAppspace), arg0)
-}
-
 // MockAppspaceUsersCache is a mock of AppspaceUsersCache interface
 type MockAppspaceUsersCache struct {
 	ctrl     *gomock.Controller
@@ -144,6 +144,21 @@ func (m *MockAppspaceUsersCache) AppspacesForUser(arg0 domain.UserID) (map[domai
 func (mr *MockAppspaceUsersCacheMockRecorder) AppspacesForUser(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppspacesForUser", reflect.TypeOf((*MockAppspaceUsersCache)(nil).AppspacesForUser), arg0)
+}
+
+// ProxyIDsForAppspace mocks base method
+func (m *MockAppspaceUsersCache) ProxyIDsForAppspace(arg0 domain.AppspaceID) (map[domain.ProxyID]domain.UserIDProxyIDConflicts, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProxyIDsForAppspace", arg0)
+	ret0, _ := ret[0].(map[domain.ProxyID]domain.UserIDProxyIDConflicts)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProxyIDsForAppspace indicates an expected call of ProxyIDsForAppspace
+func (mr *MockAppspaceUsersCacheMockRecorder) ProxyIDsForAppspace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyIDsForAppspace", reflect.TypeOf((*MockAppspaceUsersCache)(nil).ProxyIDsForAppspace), arg0)
 }
 
 // UsersForAppspace mocks base method

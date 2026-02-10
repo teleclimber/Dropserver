@@ -711,6 +711,11 @@ type UserIDProxyIDConflicts struct {
 	UserIDMatches  map[UserID]UserIDProxyIDMatches  `json:"user_id_matches"`
 }
 
+type UserProxyTuple struct {
+	UserID  UserID
+	ProxyID ProxyID
+}
+
 type EditOperation string
 
 const (

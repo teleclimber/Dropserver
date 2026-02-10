@@ -340,3 +340,26 @@ func (e *UserAppspacesEvent) Unsubscribe(ch <-chan struct{}) {
 func (e *UserAppspacesEvent) Send(userID domain.UserID) {
 	e.userSubs.send(userID, struct{}{})
 }
+
+// AppspaceUsersEvent signals that an appspace's users and conflicts may have changed
+type AppspaceUsersEvent struct {
+	Relations interface {
+		GetAppspaceOwnerID(appspaceID domain.AppspaceID) (domain.UserID, bool)
+	} `checkinject:"required"`
+	ownerSubs eventIDSubs[domain.UserID, domain.AppspaceID]
+}
+
+func (e *AppspaceUsersEvent) SubscribeOwner(ownerID domain.UserID) <-chan domain.AppspaceID {
+	return e.ownerSubs.subscribe(ownerID)
+}
+
+func (e *AppspaceUsersEvent) Unsubscribe(ch <-chan domain.AppspaceID) {
+	e.ownerSubs.unsubscribe(ch)
+}
+
+func (e *AppspaceUsersEvent) Send(appspaceID domain.AppspaceID) {
+	ownerID, ok := e.Relations.GetAppspaceOwnerID(appspaceID)
+	if ok {
+		e.ownerSubs.send(ownerID, appspaceID)
+	}
+}

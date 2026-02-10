@@ -11,12 +11,13 @@ type ManageUsers interface {
 	GetConflictsForUserID(appspaceID domain.AppspaceID, userID domain.UserID) (domain.UserIDProxyIDConflicts, error)
 	AppspacesForUser(userID domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	UserInAppspace(userID domain.UserID, auths []domain.AppspaceUserAuthBare, appspaceID domain.AppspaceID) (domain.UserIDProxyIDConflicts, error)
-	UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error)
+	ConflictsForAppspace(appspaceID domain.AppspaceID) (map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts, error)
 }
 
 type AppspaceUsersCache interface {
 	AppspacesForUser(userID domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error)
+	ProxyIDsForAppspace(appspaceID domain.AppspaceID) (map[domain.ProxyID]domain.UserIDProxyIDConflicts, error)
 }
 
 type DeleteAppspace interface {

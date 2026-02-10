@@ -11,7 +11,7 @@ import (
 // based on events from InstanceUserAuthsChangeEvents and AppspaceUsersChangeEvents.
 type AppspaceUsersCache struct {
 	ManageUsers interface {
-		UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error)
+		ConflictsForAppspace(appspaceID domain.AppspaceID) (map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts, error)
 		AppspacesForUser(userID domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	} `checkinject:"required"`
 	InstanceUserAuthsChangeEvents interface {
@@ -25,9 +25,12 @@ type AppspaceUsersCache struct {
 	UserAppspacesEvent interface {
 		Send(domain.UserID)
 	} `checkinject:"required"`
+	AppspaceUsersEvent interface {
+		Send(domain.AppspaceID)
+	} `checkinject:"required"`
 
 	appspaceCacheMux sync.RWMutex
-	appspaceCache    map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts
+	appspaceCache    map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts
 
 	userCacheMux sync.RWMutex
 	userCache    map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts
@@ -35,7 +38,7 @@ type AppspaceUsersCache struct {
 
 // Init initializes the caches and starts event handler goroutines.
 func (c *AppspaceUsersCache) Init() {
-	c.appspaceCache = make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts)
+	c.appspaceCache = make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts)
 	c.userCache = make(map[domain.UserID]map[domain.AppspaceID]domain.UserIDProxyIDConflicts)
 
 	userCh := c.InstanceUserAuthsChangeEvents.Subscribe()
@@ -47,28 +50,53 @@ func (c *AppspaceUsersCache) Init() {
 
 // UsersForAppspace returns cached users for an appspace, fetching fresh data if not cached.
 func (c *AppspaceUsersCache) UsersForAppspace(appspaceID domain.AppspaceID) (map[domain.UserID]domain.UserIDProxyIDConflicts, error) {
+	conflicts, err := c.conflictsForAppspace(appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[domain.UserID]domain.UserIDProxyIDConflicts)
+	for t, c := range conflicts {
+		ret[t.UserID] = c
+	}
+	return ret, nil
+}
+
+// ProxyIDsForAppspace returns cached users for an appspace, fetching fresh data if not cached.
+func (c *AppspaceUsersCache) ProxyIDsForAppspace(appspaceID domain.AppspaceID) (map[domain.ProxyID]domain.UserIDProxyIDConflicts, error) {
+	conflicts, err := c.conflictsForAppspace(appspaceID)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[domain.ProxyID]domain.UserIDProxyIDConflicts)
+	for t, c := range conflicts {
+		ret[t.ProxyID] = c
+	}
+	return ret, nil
+}
+
+func (c *AppspaceUsersCache) conflictsForAppspace(appspaceID domain.AppspaceID) (map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts, error) {
 	c.appspaceCacheMux.RLock()
 	cached, ok := c.appspaceCache[appspaceID]
 	c.appspaceCacheMux.RUnlock()
 
 	if ok {
-		c.getLogger("UsersForAppspace").Debug("cached")
+		c.getLogger("conflictsForAppspace").Debug("cached")
 		return cached, nil
 	}
 
 	// Cache miss - fetch fresh data
-	users, err := c.ManageUsers.UsersForAppspace(appspaceID)
+	conflicts, err := c.ManageUsers.ConflictsForAppspace(appspaceID)
 	if err != nil {
 		return nil, err
 	}
 
 	c.appspaceCacheMux.Lock()
-	c.appspaceCache[appspaceID] = users
+	c.appspaceCache[appspaceID] = conflicts
 	c.appspaceCacheMux.Unlock()
 
-	c.getLogger("UsersForAppspace").Debug("not cached")
+	c.getLogger("conflictsForAppspace").Debug("not cached")
 
-	return users, nil
+	return conflicts, nil
 }
 
 // AppspacesForUser returns cached appspaces for a user, fetching fresh data if not cached.
@@ -113,10 +141,19 @@ func (c *AppspaceUsersCache) invalidateForUser(userID domain.UserID) {
 	c.userCacheMux.Unlock()
 
 	c.appspaceCacheMux.Lock()
-	c.appspaceCache = make(map[domain.AppspaceID]map[domain.UserID]domain.UserIDProxyIDConflicts)
+	appspaceIDs := make([]domain.AppspaceID, 0, len(c.appspaceCache))
+	for appspaceID := range c.appspaceCache {
+		appspaceIDs = append(appspaceIDs, appspaceID)
+	}
+	c.appspaceCache = make(map[domain.AppspaceID]map[domain.UserProxyTuple]domain.UserIDProxyIDConflicts)
 	c.appspaceCacheMux.Unlock()
 
 	c.UserAppspacesEvent.Send(userID)
+
+	// then send event for all appspaces
+	for _, appspaceID := range appspaceIDs {
+		c.AppspaceUsersEvent.Send(appspaceID)
+	}
 }
 
 // handleAppspaceUserChanges listens for appspace user changes and invalidates caches.
@@ -145,6 +182,8 @@ func (c *AppspaceUsersCache) invalidateForAppspace(appspaceID domain.AppspaceID)
 	for _, userID := range userIDs {
 		c.UserAppspacesEvent.Send(userID)
 	}
+
+	c.AppspaceUsersEvent.Send(appspaceID)
 }
 
 func (c *AppspaceUsersCache) getLogger(note string) *record.DsLogger {
