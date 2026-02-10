@@ -531,6 +531,7 @@ func main() {
 		MigrationJobEvents:        migrationJobEvents,
 		AppGetterEvents:           appGetterEvents,
 		UserAppspacesEvent:        userAppspacesEvent,
+		AppspaceUsersEvent:        appspaceUsersEvent,
 		UserModel:                 userModel,
 		UserTSNetStatusEvents:     userTSNetEvents,
 		UserTSNetPeersEvents:      userTSNetPeersEvents,

@@ -35,20 +35,20 @@ function userIDProxyIDMatchesFromRaw(raw: any): UserIDProxyIDMatches {
 	};
 }
 
-function userIDProxyIDConflictsFromRaw(raw: any): UserIDProxyIDConflicts | undefined {
+export function userIDProxyIDConflictsFromRaw(raw: any): UserIDProxyIDConflicts | undefined {
 	if (!raw) return undefined;
 
-	const proxy_id_matches: Record<string, UserIDProxyIDMatches> = {};
+	const proxy_id_matches: Map<string, UserIDProxyIDMatches> = new Map;
 	if (raw.proxy_id_matches) {
 		for (const key in raw.proxy_id_matches) {
-			proxy_id_matches[key] = userIDProxyIDMatchesFromRaw(raw.proxy_id_matches[key]);
+			proxy_id_matches.set(key, userIDProxyIDMatchesFromRaw(raw.proxy_id_matches[key]));
 		}
 	}
 
-	const user_id_matches: Record<number, UserIDProxyIDMatches> = {};
+	const user_id_matches: Map<number, UserIDProxyIDMatches> = new Map;
 	if (raw.user_id_matches) {
 		for (const key in raw.user_id_matches) {
-			user_id_matches[Number(key)] = userIDProxyIDMatchesFromRaw(raw.user_id_matches[key]);
+			user_id_matches.set(Number(key), userIDProxyIDMatchesFromRaw(raw.user_id_matches[key]));
 		}
 	}
 

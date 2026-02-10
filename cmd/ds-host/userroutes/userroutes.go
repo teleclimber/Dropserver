@@ -91,6 +91,10 @@ type UserRoutes struct {
 		SubscribeUser(domain.UserID) <-chan struct{}
 		Unsubscribe(ch <-chan struct{})
 	} `checkinject:"required"`
+	AppspaceUsersEvent interface {
+		SubscribeOwner(domain.UserID) <-chan domain.AppspaceID
+		Unsubscribe(ch <-chan domain.AppspaceID)
+	} `checkinject:"required"`
 	UserModel interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
@@ -373,6 +377,9 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 	userAppspacesCh := u.UserAppspacesEvent.SubscribeUser(authUserID)
 	defer u.UserAppspacesEvent.Unsubscribe(userAppspacesCh)
 
+	appspaceUsersCh := u.AppspaceUsersEvent.SubscribeOwner(authUserID)
+	defer u.AppspaceUsersEvent.Unsubscribe(appspaceUsersCh)
+
 	migrationJobCh := u.MigrationJobEvents.SubscribeOwner(authUserID)
 	defer u.MigrationJobEvents.Unsubscribe(migrationJobCh)
 
@@ -407,6 +414,8 @@ func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {
 			u.sendSSEEvent(w, "AppspaceTSNetPeers", aid)
 		case <-userAppspacesCh:
 			u.sendSSEEvent(w, "UserAppspaces", "")
+		case aid := <-appspaceUsersCh:
+			u.sendSSEEvent(w, "AppspaceUsers", aid)
 		case job := <-migrationJobCh:
 			u.sendSSEEvent(w, "MigrationJob", job)
 		case get := <-appGetterCh:

@@ -80,6 +80,7 @@ type AppspaceRoutes struct {
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 	} `checkinject:"required"`
 	AppspaceUsersCache interface {
+		ProxyIDsForAppspace(appspaceID domain.AppspaceID) (map[domain.ProxyID]domain.UserIDProxyIDConflicts, error)
 		AppspacesForUser(domain.UserID) (map[domain.AppspaceID]domain.UserIDProxyIDConflicts, error)
 	} `checkinject:"required"`
 	CreateAppspace interface {
@@ -132,6 +133,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 			r.Post("/tsnet/connect", a.connectTSNet)
 			r.Post("/tsnet", a.createTSNet)
 			r.Delete("/tsnet", a.deleteTSNet)
+			r.Get("/user-conflicts", a.getUserConflicts)
 			r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 			r.Mount("/export", a.AppspaceExportRoutes.subRouter())
 			r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
@@ -512,6 +514,16 @@ func (a *AppspaceRoutes) deleteTSNet(w http.ResponseWriter, r *http.Request) {
 	a.AppspaceTSNet.Delete(appspace.AppspaceID)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AppspaceRoutes) getUserConflicts(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	conflicts, err := a.AppspaceUsersCache.ProxyIDsForAppspace(appspace.AppspaceID)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, conflicts)
 }
 
 func (a *AppspaceRoutes) deleteAppspace(w http.ResponseWriter, r *http.Request) {

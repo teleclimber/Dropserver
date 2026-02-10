@@ -214,8 +214,8 @@ export interface UserIDProxyIDConflicts {
 	user_id: number,
 	proxy_id: string,
 	conflict: boolean,
-	proxy_id_matches: Record<string, UserIDProxyIDMatches>,
-	user_id_matches: Record<number, UserIDProxyIDMatches>
+	proxy_id_matches: Map<string, UserIDProxyIDMatches>,
+	user_id_matches: Map<number, UserIDProxyIDMatches>	// MAP??
 }
 
 export interface Appspace {
