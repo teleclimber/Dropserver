@@ -61,7 +61,7 @@ const user_conflict = computed( () => {
 	<div class="mb-6 grid grid-cols-1 md:grid-cols-3 justify-items-stretch border-t-4 w-full box-border" 
 		:style="'border-color:'+(local_appspace?.ver_data?.color || 'rgb(135, 151, 164)')" >
 		<a :href="enter_link" class="p-2 md:p-3 pt-3 md:col-span-2 w-full"
-			:class="{'hover:bg-yellow-50':!paused, 'bg-gray-50':paused, 'bg-white': !paused}">
+			:class="{'hover:bg-yellow-50':!paused && !user_conflict, 'bg-gray-50':paused || user_conflict, 'bg-white': !paused && !user_conflict}">
 			<div class="flex items-center">
 				<img v-if="app_icon" :src="app_icon" @error="app_icon_error = true" class="w-12 h-12" />
 				<div v-else class="w-12 h-12 text-gray-300 __border flex justify-center items-center">
@@ -77,14 +77,20 @@ const user_conflict = computed( () => {
 					<h4 class="overflow-x-hidden text-ellipsis text-gray-600">{{ local_appspace?.ver_data?.name }}</h4>
 				</div>
 			</div>
-			<div class="flex justify-end mt-2">
+			<div class="flex justify-end items-baseline mt-2">
 				<span v-if="paused" class="mr-2 bg-pink-200 text-pink-800 px-2 text-xs font-bold uppercase">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block">
 						<path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
 					</svg>
 					Paused
 				</span>
-				<span class="btn" :class="{'text-gray-400': paused}">Enter Appspace</span>
+				<span v-if="user_conflict" class="mr-2 bg-orange-100 text-orange-500 px-2 text-xs font-bold uppercase">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block">
+						<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+					</svg>
+					conflicts
+				</span>
+				<span class="btn" :class="{'text-gray-400': paused || user_conflict}">Enter Appspace</span>
 			</div>
 		</a>
 		<div class="py-2 px-4  bg-gray-50 flex flex-col justify-between">
@@ -100,12 +106,6 @@ const user_conflict = computed( () => {
 					<span class="pl-1">{{ u.display_name }}</span>
 				</div>
 			</div>
-			<span v-if="user_conflict" class="text-orange-500 flex items-center">
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
-					<path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
-				</svg>
-				conflicts
-			</span>
 		</div>
 	</div>
 </template>

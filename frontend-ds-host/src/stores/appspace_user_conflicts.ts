@@ -18,9 +18,7 @@ export const useAppspaceUserConflictsStore = defineStore('appspace-user-conflict
 	const appspace_user_conflicts : Map<number,ShallowRef<Map<string, UserIDProxyIDConflicts>>> = new Map();
 
 	on('AppspaceUsers', (raw) => {
-		console.log("got appspace users changed event")
 		const as_id = Number(raw);
-		console.log("got appspace users changed event", as_id, appspace_user_conflicts.has(as_id) )
 		if( appspace_user_conflicts.has(as_id) ) loadData(as_id);
 	});
 
@@ -28,7 +26,6 @@ export const useAppspaceUserConflictsStore = defineStore('appspace-user-conflict
 		const resp = await ax.get('/api/appspace/'+appspace_id+'/user-conflicts');
 		const sr = getCreateAppspace(appspace_id);
 		sr.value = mapFromRaw(resp.data);
-		console.log(sr.value);
 		triggerRef(sr);
 	}
 	function getCreateAppspace(appspace_id :number) {

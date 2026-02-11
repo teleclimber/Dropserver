@@ -24,7 +24,7 @@ const dropid :ShallowRef<UserDropID|undefined> = ref();
 const display_name = ref("");
 const display_name_input :Ref<HTMLInputElement|undefined> = ref();
 watch( display_name_input, () => {
-	if( display_name_input.value !== undefined ) display_name_input.value.focus();
+	if( display_name_input.value ) display_name_input.value.focus();
 });
 
 watchEffect( () => {

@@ -58,7 +58,7 @@ const asCards = computed( () => {
 			<MessageSad head="No Appspaces"
 				v-if="appspacesStore.appspaces.size === 0" 
 				class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
-				There are no appspaces in this account. Create or join one!
+				There are no appspaces in this account.
 			</MessageSad>
 		</template>
 

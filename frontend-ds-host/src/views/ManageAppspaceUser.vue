@@ -186,9 +186,7 @@ const invalid = computed( () => {
 });
 
 async function save() {
-	console.log("saving", user.value, invalid.value);
 	if( invalid.value !== "" ) return;
-
 	if( props.proxy_id ) {
 		await appspaceUsersStore.updateUserMeta(props.appspace_id, props.proxy_id, {
 			display_name: display_name.value,
