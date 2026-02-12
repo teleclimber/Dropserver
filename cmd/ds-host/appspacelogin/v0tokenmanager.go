@@ -2,12 +2,12 @@ package appspacelogin
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/randomstring"
 )
 
 const loginTokenDuration = time.Minute
@@ -53,7 +53,7 @@ func (m *V0TokenManager) create(appspaceID domain.AppspaceID, proxyID domain.Pro
 		AppspaceID: appspaceID,
 		ProxyID:    proxyID,
 		LoginToken: domain.TimedToken{
-			Token:   randomString(24),
+			Token:   randomstring.RandomStringWithCaps(24),
 			Created: time.Now()},
 	}
 
@@ -121,20 +121,4 @@ func (m *V0TokenManager) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
-}
-
-// //////////
-// random string stuff
-// TODO CRYPTO: this should be using crypto package
-const chars61 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomString(length int) string {
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = chars61[seededRand2.Intn(len(chars61))]
-	}
-	return string(b)
 }

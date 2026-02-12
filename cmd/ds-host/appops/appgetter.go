@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/inhies/go-bytesize"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/randomstring"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -996,7 +996,7 @@ func (g *AppGetter) set(d appGetData) appGetData { // createKey
 	defer g.keysMux.Unlock()
 	var key domain.AppGetKey
 	for {
-		key = randomKey()
+		key = domain.AppGetKey(randomstring.RandomStringNoCaps(8))
 		if _, ok := g.keys[key]; !ok {
 			break
 		}
@@ -1158,19 +1158,4 @@ func (g *AppGetter) getLogger(note string) *record.DsLogger {
 		l.AddNote(note)
 	}
 	return l
-}
-
-// //////////
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomKey() domain.AppGetKey {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand2.Intn(len(chars36))]
-	}
-	return domain.AppGetKey(string(b))
 }

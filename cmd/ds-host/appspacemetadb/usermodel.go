@@ -4,13 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/randomstring"
 	"github.com/teleclimber/DropServer/internal/validator"
 )
 
@@ -69,7 +69,7 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, displayName string, ava
 	}
 
 	for {
-		proxyID = randomProxyID()
+		proxyID = domain.ProxyID(randomstring.RandomStringNoCaps(8))
 		_, err = stmt.Exec(proxyID)
 		if err == nil {
 			break
@@ -571,19 +571,4 @@ func (u *UserModel) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
-}
-
-// //////////
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomProxyID() domain.ProxyID {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand2.Intn(len(chars36))]
-	}
-	return domain.ProxyID(string(b))
 }

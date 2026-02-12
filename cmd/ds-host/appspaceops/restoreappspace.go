@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
+	"github.com/teleclimber/DropServer/internal/randomstring"
 	"github.com/teleclimber/DropServer/internal/validator"
 	"github.com/teleclimber/DropServer/internal/zipfns"
 )
@@ -278,7 +278,7 @@ func (r *RestoreAppspace) newToken() string {
 	defer r.tokensMux.Unlock()
 	var tok string
 	for {
-		tok = randomToken()
+		tok = randomstring.RandomStringNoCaps(8)
 		_, found := r.tokens[tok]
 		if !found {
 			break
@@ -346,18 +346,3 @@ func (r *RestoreAppspace) getLogger(note string) *record.DsLogger {
 }
 
 // probably need a DeleteAll so that temp stuff is not preserved between restarts?
-
-// //////////
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand3 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomToken() string {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand3.Intn(len(chars36))]
-	}
-	return string(b)
-}

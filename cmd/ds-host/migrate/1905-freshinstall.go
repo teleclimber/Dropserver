@@ -2,8 +2,8 @@ package migrate
 
 import (
 	"errors"
-	"math/rand"
-	"time"
+
+	"github.com/teleclimber/DropServer/internal/randomstring"
 )
 
 // freshInstallUp means full instalation.
@@ -11,7 +11,7 @@ func freshInstallUp(args *stepArgs) error {
 
 	args.dbExec(`CREATE TABLE "params" ( "name" TEXT, "value" TEXT )`)
 	args.dbExec(`INSERT INTO "params" (name, value) VALUES("db_schema", "")`)
-	args.dbExec(`INSERT INTO "params" (name, value) VALUES("setup_key", ?)`, randomKey())
+	args.dbExec(`INSERT INTO "params" (name, value) VALUES("setup_key", ?)`, randomstring.RandomStringNoCaps(8))
 
 	args.dbExec(`CREATE TABLE "settings" (
 		"id" INTEGER PRIMARY KEY CHECK (id = 1),
@@ -153,18 +153,4 @@ func freshInstallUp(args *stepArgs) error {
 func freshInstallDown(args *stepArgs) error {
 	// This is effectively uninstall but I don't want to implement, at least for now.
 	return errors.New("can not go down from fresh install")
-}
-
-// random string
-const chars36 = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomKey() string {
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars36[seededRand2.Intn(len(chars36))]
-	}
-	return string(b)
 }
