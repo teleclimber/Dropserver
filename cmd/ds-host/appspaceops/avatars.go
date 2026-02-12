@@ -1,28 +1,18 @@
 package appspaceops
 
 import (
-	"bytes"
 	"fmt"
-	"image"
 	"io"
-	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/nfnt/resize"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
-
-	_ "image/gif"
-	"image/jpeg"
-	_ "image/png"
+	"github.com/teleclimber/DropServer/internal/profilepic"
+	"github.com/teleclimber/DropServer/internal/randomstring"
 )
 
-// !! It could be that a lot of this just ends up in appspace files.
-// It seems we're closign towards a simeple read/write/delete file
-// Also this could become AppspaceUserOps
+// This could become AppspaceUserOps
 // And it could handle all changes to appspace user
 // .. so that it could come from different places
 // And it would presumably take care of the cascade of overrides to set the right stuff in appspace
@@ -62,7 +52,7 @@ type Avatars struct {
 // Save cuts the image down to size and saves it in appspace data dir
 // It returns the filename of the image as a string
 func (a *Avatars) Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error) {
-	appspaceImg, err := a.makeImage(img)
+	appspaceImg, err := profilepic.MakeImage(img)
 	if err != nil {
 		return "", err
 	}
@@ -75,30 +65,11 @@ func (a *Avatars) Save(locationKey string, proxyID domain.ProxyID, img io.Reader
 	return fn, nil
 }
 
-func (a *Avatars) makeImage(img io.Reader) ([]byte, error) {
-	orig, _, err := image.Decode(img)
-	if err != nil {
-		a.getLogger("makeImage, imageDecode").Log(err.Error()) // Log() not Error() because it's likely a bad input file
-		return nil, err                                        // maybe sentinel to point out there was a problem with the image.
-	}
-
-	thumb := resize.Thumbnail(100, 100, orig, resize.Bicubic)
-
-	buf := new(bytes.Buffer)
-	err = jpeg.Encode(buf, thumb, nil)
-	if err != nil {
-		a.getLogger("makeImage, jpeg.Encode").Error(err)
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
 func (a *Avatars) imageToFile(loc string, proxyID domain.ProxyID, img []byte) (string, error) {
-	fn := fmt.Sprintf("%s-%s.jpg", proxyID, randomString(6))
+	fn := fmt.Sprintf("%s-%s.jpg", proxyID, randomstring.RandomStringNoCaps(6))
 	fp := filepath.Join(a.AppspaceLocation2Path.Avatar(loc, fn))
 
-	err := ioutil.WriteFile(fp, img, 0644) // TODO omg permissions!
+	err := os.WriteFile(fp, img, 0644)
 	if err != nil {
 		a.getLogger("imageToFile, ioutil.WriteFile").Error(err)
 		return "", err
@@ -122,20 +93,4 @@ func (a *Avatars) getLogger(note string) *record.DsLogger {
 		r.AddNote(note)
 	}
 	return r
-}
-
-// //////////
-// random string stuff
-// TODO CRYPTO: this should be using crypto package
-const chars61 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-var seededRand2 = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-func randomString(length int) string {
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = chars61[seededRand2.Intn(len(chars61))]
-	}
-	return string(b)
 }
