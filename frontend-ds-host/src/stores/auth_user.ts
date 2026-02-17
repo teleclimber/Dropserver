@@ -17,6 +17,8 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		tsnet_extra_name: '',
 		tsnet_identifier:'',
 		user_id:-1,
+		display_name: '',
+		display_image: '',
 	});
 
 	const user_id = ref(-1);
@@ -55,6 +57,16 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		else throw new Error("got unexpected response status "+resp.status);
 	}
 
+	async function changeDisplayName(new_name:string) :Promise<string> {
+		if( !is_loaded.value ) throw new Error("trying to change display name while user is not even loaded.");
+		const resp = await ax.patch('/api/user/display-name/', {display_name:new_name});
+		if( resp.status === 204 ) {
+			user.value.display_name = new_name;
+			return '';
+		}
+		else throw new Error("got unexpected response status "+resp.status);
+	}
+
 	async function changePassword(old_pw:string, new_pw:string) :Promise<string> {
 		if( !is_loaded.value ) throw new Error("trying to change password while user is not even loaded.");
 		const resp = await ax.patch('/api/user/password/', {old:old_pw, new:new_pw});
@@ -74,6 +86,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		user_id, using_tsnet, user,
 		setUnauthorized,
 		changeEmail,
+		changeDisplayName,
 		changePassword
 	}
 

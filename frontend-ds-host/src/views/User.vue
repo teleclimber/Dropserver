@@ -12,6 +12,7 @@ import MessageSad from '../components/ui/MessageSad.vue';
 import DataDef from '../components/ui/DataDef.vue';
 import ChangeEmail from '@/components/user/ChangeEmail.vue';
 import ChangePassword from '@/components/user/ChangePassword.vue';
+import ChangeDisplayName from '@/components/user/ChangeDisplayName.vue';
 import SmallMessage from '@/components/ui/SmallMessage.vue';
 
 const authUserStore = useAuthUserStore();
@@ -19,14 +20,18 @@ authUserStore.fetch();
 
 const show_change_email = ref(false);
 const show_change_pw = ref(false);
+const show_change_display_name = ref(false);
 
 function openChangeEmail() {
 	if( show_change_pw.value ) return;
-	show_change_email.value = true; 
+	show_change_email.value = true;
 }
 function openChangePw() {
 	if( show_change_email.value ) return;
 	show_change_pw.value = true;
+}
+function openChangeDisplayName() {
+	show_change_display_name.value = true;
 }
 
 const domains = reactive( new DomainNames);
@@ -77,6 +82,26 @@ dropIDStore.loadData();
 				</SmallMessage>
 				<DataDef field="Tailnet ID:">{{authUserStore.user.tsnet_identifier }}</DataDef>
 				<DataDef field="Tailnet User:">{{authUserStore.user.tsnet_extra_name }}</DataDef>
+			</div>
+		</div>
+		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+				<div>
+					<h3 class="text-lg leading-6 font-medium text-gray-900">Display Name and Image</h3>
+					<p class="mt-1 max-w-2xl text-sm text-gray-500">
+						Set a handle and image that identifies you to other users.</p>
+				</div>
+			</div>
+			<div class=" ">
+				<DataDef field="Display Name:">
+					<ChangeDisplayName v-if="show_change_display_name" @close="show_change_display_name=false"></ChangeDisplayName>
+					<div v-else class="flex justify-between">
+						<span v-if="authUserStore.user.display_name">{{ authUserStore.user.display_name }}</span>
+						<span v-else class="text-gray-500 italic">No display name set</span>
+						<button class="btn" @click="openChangeDisplayName">Change</button>
+					</div>
+				</DataDef>
+				<DataDef field="Image:">{{authUserStore.user.display_image }}</DataDef>
 			</div>
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">

@@ -429,6 +429,94 @@ func initBobEmailModel(mockCtrl *gomock.Controller) *UserModel {
 	return userModel
 }
 
+func TestUpdateDisplayName(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
+	defer userModel.DB.Handle.Close()
+
+	bob, err := userModel.GetFromEmail("bob@foo.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bob.DisplayName != "" {
+		t.Error("expected empty display name for new user")
+	}
+
+	err = userModel.UpdateDisplayName(bob.UserID, "Bob Smith")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bob2, err := userModel.GetFromID(bob.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bob2.DisplayName != "Bob Smith" {
+		t.Errorf("expected display name 'Bob Smith', got '%s'", bob2.DisplayName)
+	}
+
+	// Update again to verify overwrite
+	err = userModel.UpdateDisplayName(bob.UserID, "Robert")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bob3, err := userModel.GetFromID(bob.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bob3.DisplayName != "Robert" {
+		t.Errorf("expected display name 'Robert', got '%s'", bob3.DisplayName)
+	}
+}
+
+func TestUpdateDisplayImage(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	userModel := initBobEmailModel(mockCtrl)
+	defer userModel.DB.Handle.Close()
+
+	bob, err := userModel.GetFromEmail("bob@foo.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bob.DisplayImage != "" {
+		t.Error("expected empty display image for new user")
+	}
+
+	err = userModel.UpdateDisplayImage(bob.UserID, "avatar.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bob2, err := userModel.GetFromID(bob.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bob2.DisplayImage != "avatar.png" {
+		t.Errorf("expected display image 'avatar.png', got '%s'", bob2.DisplayImage)
+	}
+
+	// Clear image
+	err = userModel.UpdateDisplayImage(bob.UserID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bob3, err := userModel.GetFromID(bob.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bob3.DisplayImage != "" {
+		t.Errorf("expected empty display image, got '%s'", bob3.DisplayImage)
+	}
+}
+
 func TestUpdateDeleteTSNet(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

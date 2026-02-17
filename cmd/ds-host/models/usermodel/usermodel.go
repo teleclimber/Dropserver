@@ -31,6 +31,8 @@ type UserModel struct {
 		updatePassword  *sqlx.Stmt
 		updateTSNet     *sqlx.Stmt
 		selectTSNet     *sqlx.Stmt
+		updateDisplayName  *sqlx.Stmt
+		updateDisplayImage *sqlx.Stmt
 		getPassword     *sqlx.Stmt
 		selectAdmin     *sqlx.Stmt
 		selectAllAdmins *sqlx.Stmt
@@ -63,11 +65,11 @@ func (p *prepper) exec(query string) *sqlx.Stmt {
 func (m *UserModel) PrepareStatements() {
 	p := prepper{handle: m.DB.Handle}
 
-	m.stmt.selectID = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE user_id = ?`)
+	m.stmt.selectID = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name, display_name, display_image FROM users WHERE user_id = ?`)
 
-	m.stmt.selectEmail = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE email = ?`)
+	m.stmt.selectEmail = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name, display_name, display_image FROM users WHERE email = ?`)
 
-	m.stmt.selectAll = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users`)
+	m.stmt.selectAll = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name, display_name, display_image FROM users`)
 
 	m.stmt.insertUser = p.exec(`INSERT INTO users 
 		("email", "password", "tsnet_identifier", "tsnet_extra_name") VALUES (?, ?, ?, ?)`)
@@ -77,7 +79,10 @@ func (m *UserModel) PrepareStatements() {
 	m.stmt.getPassword = p.exec(`SELECT password FROM users WHERE user_id = ?`)
 
 	m.stmt.updateTSNet = p.exec(`UPDATE users SET tsnet_identifier = ?, tsnet_extra_name = ? WHERE user_id = ?`)
-	m.stmt.selectTSNet = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name FROM users WHERE tsnet_identifier = ?`)
+	m.stmt.selectTSNet = p.exec(`SELECT user_id, email, password, tsnet_identifier, tsnet_extra_name, display_name, display_image FROM users WHERE tsnet_identifier = ?`)
+
+	m.stmt.updateDisplayName = p.exec(`UPDATE users SET display_name = ? WHERE user_id = ?`)
+	m.stmt.updateDisplayImage = p.exec(`UPDATE users SET display_image = ? WHERE user_id = ?`)
 
 	m.stmt.selectAdmin = p.exec(`SELECT EXISTS(SELECT 1 FROM admin_users WHERE user_id = ?)`)
 	m.stmt.selectAllAdmins = p.exec(`SELECT * FROM admin_users`)
@@ -253,12 +258,32 @@ func (m *UserModel) DeleteTSNet(userID domain.UserID) error {
 	return nil
 }
 
+func (m *UserModel) UpdateDisplayName(userID domain.UserID, displayName string) error {
+	_, err := m.stmt.updateDisplayName.Exec(displayName, userID)
+	if err != nil {
+		m.getLogger("UpdateDisplayName() Exec").Error(err)
+		return err
+	}
+	return nil
+}
+
+func (m *UserModel) UpdateDisplayImage(userID domain.UserID, displayImage string) error {
+	_, err := m.stmt.updateDisplayImage.Exec(displayImage, userID)
+	if err != nil {
+		m.getLogger("UpdateDisplayImage() Exec").Error(err)
+		return err
+	}
+	return nil
+}
+
 type dbUser struct {
-	UserID     uint32               `db:"user_id"`
-	Email      nulltypes.NullString `db:"email"`
-	Password   nulltypes.NullString `db:"password"`
-	TSNetID    nulltypes.NullString `db:"tsnet_identifier"`
-	TSNetExtra nulltypes.NullString `db:"tsnet_extra_name"`
+	UserID       uint32               `db:"user_id"`
+	Email        nulltypes.NullString `db:"email"`
+	Password     nulltypes.NullString `db:"password"`
+	TSNetID      nulltypes.NullString `db:"tsnet_identifier"`
+	TSNetExtra   nulltypes.NullString `db:"tsnet_extra_name"`
+	DisplayName  string               `db:"display_name"`
+	DisplayImage string               `db:"display_image"`
 }
 
 // GetFromID returns a user
@@ -357,6 +382,8 @@ func userFromDB(u dbUser) domain.User {
 		HasPassword:     u.Password.Valid,
 		TSNetIdentifier: u.TSNetID.ForceString(),
 		TSNetExtraName:  u.TSNetExtra.ForceString(),
+		DisplayName:     u.DisplayName,
+		DisplayImage:    u.DisplayImage,
 	}
 }
 

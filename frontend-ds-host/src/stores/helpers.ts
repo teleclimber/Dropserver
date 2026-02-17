@@ -7,6 +7,8 @@ export function userFromRaw(raw:any) :User {
 		has_password: !!raw.has_password,
 		tsnet_identifier: raw.tsnet_identifier+'',
 		tsnet_extra_name: raw.tsnet_extra_name+'',
-		is_admin: !!raw.is_admin
+		is_admin: !!raw.is_admin,
+		display_name: raw.display_name+'',
+		display_image: raw.display_image+''
 	};
 }

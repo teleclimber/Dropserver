@@ -99,6 +99,8 @@ type UserRoutes struct {
 		GetFromID(userID domain.UserID) (domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
+		UpdateDisplayName(userID domain.UserID, displayName string) error
+		UpdateDisplayImage(userID domain.UserID, displayImage string) error
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 	} `checkinject:"required"`
@@ -131,9 +133,11 @@ func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 
 			r.Get("/instance/", u.getInstanceData)
 
-			r.Get("/user/", u.getUserData)
+			r.Get("/user/", u.getUserData) // the authenticated user
 			r.Patch("/user/email/", u.changeUserEmail)
 			r.Patch("/user/password/", u.changeUserPassword)
+			r.Patch("/user/display-name/", u.changeUserDisplayName)
+			r.Patch("/user/display-image/", u.changeUserDisplayImage)
 
 			r.Mount("/domainname", u.DomainRoutes.subRouter())
 			r.Mount("/dropid", u.DropIDRoutes.subRouter())
@@ -350,6 +354,70 @@ func (u *UserRoutes) changeUserPassword(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK) // TODO send no content.
+}
+
+type PatchUserDisplayNameReq struct {
+	DisplayName string `json:"display_name"`
+}
+
+func (u *UserRoutes) changeUserDisplayName(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		u.getLogger("changeUserDisplayName").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	var data PatchUserDisplayNameReq
+	err := readJSON(r, &data)
+	if err != nil {
+		u.getLogger("changeUserDisplayName").AddNote("readJson").Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	displayName := validator.NormalizeDisplayName(data.DisplayName)
+	if err = validator.DisplayName(displayName); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = u.UserModel.UpdateDisplayName(userID, data.DisplayName)
+	if err != nil {
+		httpInternalServerError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type PatchUserDisplayImageReq struct {
+	DisplayImage string `json:"display_image"`
+}
+
+func (u *UserRoutes) changeUserDisplayImage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		u.getLogger("changeUserDisplayImage").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	var data PatchUserDisplayImageReq
+	err := readJSON(r, &data)
+	if err != nil {
+		u.getLogger("changeUserDisplayImage").AddNote("readJson").Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = u.UserModel.UpdateDisplayImage(userID, data.DisplayImage)
+	if err != nil {
+		httpInternalServerError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {

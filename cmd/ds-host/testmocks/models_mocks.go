@@ -293,6 +293,34 @@ func (mr *MockUserModelMockRecorder) MakeAdmin(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeAdmin", reflect.TypeOf((*MockUserModel)(nil).MakeAdmin), arg0)
 }
 
+// UpdateDisplayImage mocks base method
+func (m *MockUserModel) UpdateDisplayImage(arg0 domain.UserID, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateDisplayImage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateDisplayImage indicates an expected call of UpdateDisplayImage
+func (mr *MockUserModelMockRecorder) UpdateDisplayImage(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDisplayImage", reflect.TypeOf((*MockUserModel)(nil).UpdateDisplayImage), arg0, arg1)
+}
+
+// UpdateDisplayName mocks base method
+func (m *MockUserModel) UpdateDisplayName(arg0 domain.UserID, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateDisplayName", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateDisplayName indicates an expected call of UpdateDisplayName
+func (mr *MockUserModelMockRecorder) UpdateDisplayName(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDisplayName", reflect.TypeOf((*MockUserModel)(nil).UpdateDisplayName), arg0, arg1)
+}
+
 // UpdateEmail mocks base method
 func (m *MockUserModel) UpdateEmail(arg0 domain.UserID, arg1 string) error {
 	m.ctrl.T.Helper()

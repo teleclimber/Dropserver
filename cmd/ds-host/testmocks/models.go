@@ -22,6 +22,8 @@ type UserModel interface {
 	CreateWithTSNet(string, string) (domain.User, error)
 	UpdateEmail(userID domain.UserID, email string) error
 	UpdatePassword(userID domain.UserID, password string) error
+	UpdateDisplayName(userID domain.UserID, displayName string) error
+	UpdateDisplayImage(userID domain.UserID, displayImage string) error
 	GetFromID(userID domain.UserID) (domain.User, error)
 	GetFromEmail(email string) (domain.User, error)
 	GetFromEmailPassword(email, password string) (domain.User, error)

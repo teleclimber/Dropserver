@@ -16,7 +16,9 @@ export interface User {
 	has_password: boolean,
 	tsnet_identifier: string,
 	tsnet_extra_name: string,
-	is_admin: boolean
+	is_admin: boolean,
+	display_name: string,
+	display_image: string
 }
 
 // UserDropID is a dropid of a local user

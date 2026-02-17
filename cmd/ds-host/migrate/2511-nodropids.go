@@ -5,6 +5,10 @@ func removeDropIDsUp(args *stepArgs) error {
 
 	args.dbExec(`DROP TABLE remote_appspaces`)
 
+	// add display name and image to users table.
+	args.dbExec(`ALTER TABLE "users" ADD COLUMN display_name TEXT NOT NULL DEFAULT ""`)
+	args.dbExec(`ALTER TABLE "users" ADD COLUMN display_image TEXT NOT NULL DEFAULT ""`)
+
 	return args.dbErr
 }
 

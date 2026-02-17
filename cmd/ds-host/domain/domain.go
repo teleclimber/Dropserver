@@ -298,6 +298,8 @@ type User struct {
 	HasPassword     bool   `json:"has_password"`
 	TSNetIdentifier string `json:"tsnet_identifier"`
 	TSNetExtraName  string `json:"tsnet_extra_name"`
+	DisplayName     string `json:"display_name"`
+	DisplayImage    string `json:"display_image"`
 }
 
 // Cookie represents the server-side representation of a stored cookie
