@@ -3,8 +3,10 @@ package dropidmodel
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/migrate"
+	"github.com/teleclimber/DropServer/cmd/ds-host/testmocks"
 )
 
 func TestPrepareStatements(t *testing.T) {
@@ -38,6 +40,11 @@ func TestCreate(t *testing.T) {
 	dropIDModel := makeDropIDModel()
 	defer dropIDModel.DB.Handle.Close()
 
+	mockCtrl := gomock.NewController(t)
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).Times(1)
+	dropIDModel.InstanceUserAuthsChangeEvents = mockEvents
+
 	cmp := domain.DropID{
 		UserID:      domain.UserID(7),
 		Handle:      "me",
@@ -68,6 +75,11 @@ func TestCreate(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	dropIDModel := makeDropIDModel()
 	defer dropIDModel.DB.Handle.Close()
+
+	mockCtrl := gomock.NewController(t)
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).Times(1)
+	dropIDModel.InstanceUserAuthsChangeEvents = mockEvents
 
 	cmp := domain.DropID{
 		UserID:      domain.UserID(7),
@@ -103,6 +115,11 @@ func TestGetForUser(t *testing.T) {
 	dropIDModel := makeDropIDModel()
 	defer dropIDModel.DB.Handle.Close()
 
+	mockCtrl := gomock.NewController(t)
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).Times(3)
+	dropIDModel.InstanceUserAuthsChangeEvents = mockEvents
+
 	userID := domain.UserID(7)
 
 	dropIDModel.Create(userID, "one", "domain1", "1")
@@ -127,6 +144,11 @@ func TestGetForUser(t *testing.T) {
 func TestDelete(t *testing.T) {
 	dropIDModel := makeDropIDModel()
 	defer dropIDModel.DB.Handle.Close()
+
+	mockCtrl := gomock.NewController(t)
+	mockEvents := testmocks.NewMockInstanceUserAuthsChangeEvents(mockCtrl)
+	mockEvents.EXPECT().Send(gomock.Any()).Times(2)
+	dropIDModel.InstanceUserAuthsChangeEvents = mockEvents
 
 	userID := domain.UserID(7)
 
