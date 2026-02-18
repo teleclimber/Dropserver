@@ -314,6 +314,8 @@ func main() {
 		AppspaceFilesModel:     appspaceFilesModel,
 		AppspaceMetaDB:         appspaceMetaDb,
 		AppspaceUserModel:      appspaceUserModel,
+		Avatars:                appspaceAvatars,
+		UserDisplayImagesModel: userDisplayImagesModel,
 		UserModel:              userModel,
 		DomainController:       domainController,
 		MigrationJobModel:      migrationJobModel,

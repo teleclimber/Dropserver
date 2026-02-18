@@ -2,6 +2,8 @@ package appspaceops
 
 import (
 	"errors"
+	"io"
+	"os"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
@@ -20,6 +22,13 @@ type CreateAppspace struct {
 	} `checkinject:"required"`
 	AppspaceUserModel interface {
 		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
+		UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error
+	} `checkinject:"required"`
+	Avatars interface {
+		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
+	} `checkinject:"required"`
+	UserDisplayImagesModel interface {
+		FilePath(userID domain.UserID, fn string) string
 	} `checkinject:"required"`
 	UserModel interface {
 		GetFromID(domain.UserID) (domain.User, error)
@@ -99,15 +108,28 @@ func (c *CreateAppspace) Create(ownerID domain.UserID, appVersion domain.AppVers
 			ExtraName:  user.TSNetExtraName,
 			Operation:  domain.EditOperationAdd})
 	}
+	// here leverage "instance user" to give the owner access even if they have no auths.
 
-	// TODO come up with display name, either from dropid or instnace user.
-	// Since the appspace is owned by a local user, it's guaranteed there is a user
-	// If they have a display name, then use that?
-	_, err = c.AppspaceUserModel.Create(appspace.AppspaceID, "owner", "", auths)
+	displayName := "The Owner"
+	if user.DisplayName != "" {
+		displayName = user.DisplayName
+	}
+
+	ownerProxyID, err := c.AppspaceUserModel.Create(appspace.AppspaceID, displayName, "", auths)
 	if err != nil {
 		return domain.AppspaceID(0), domain.JobID(0), err
 	}
-	// TODO use whatver process that sets values of display name and avatar to set those for owner user
+
+	if user.DisplayImage != "" {
+		f, err := os.Open(c.UserDisplayImagesModel.FilePath(ownerID, user.DisplayImage))
+		if err == nil {
+			avatar, err := c.Avatars.Save(appspace.LocationKey, ownerProxyID, f)
+			f.Close()
+			if err == nil {
+				c.AppspaceUserModel.UpdateAvatar(appspace.AppspaceID, ownerProxyID, avatar)
+			}
+		}
+	}
 	// Or use an AppspaceUserController to do this consistently
 
 	// migrate to whatever version was selected
