@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"net/http"
@@ -104,6 +105,11 @@ type UserRoutes struct {
 		GetFromEmailPassword(email, password string) (domain.User, error)
 		IsAdmin(userID domain.UserID) bool
 	} `checkinject:"required"`
+	UserDisplayImagesModel interface {
+		Save(userID domain.UserID, img io.Reader) (string, error)
+		Remove(userID domain.UserID, fn string) error
+		FilePath(userID domain.UserID, fn string) string
+	} `checkinject:"required"`
 
 	mux *chi.Mux
 }
@@ -137,7 +143,9 @@ func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 			r.Patch("/user/email/", u.changeUserEmail)
 			r.Patch("/user/password/", u.changeUserPassword)
 			r.Patch("/user/display-name/", u.changeUserDisplayName)
-			r.Patch("/user/display-image/", u.changeUserDisplayImage)
+			r.Post("/user/display-image/", u.changeUserDisplayImage)
+			r.Delete("/user/display-image/", u.deleteUserDisplayImage)
+			r.Get("/user/display-image/{filename}", u.getUserDisplayImage)
 
 			r.Mount("/domainname", u.DomainRoutes.subRouter())
 			r.Mount("/dropid", u.DropIDRoutes.subRouter())
@@ -391,10 +399,6 @@ func (u *UserRoutes) changeUserDisplayName(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type PatchUserDisplayImageReq struct {
-	DisplayImage string `json:"display_image"`
-}
-
 func (u *UserRoutes) changeUserDisplayImage(w http.ResponseWriter, r *http.Request) {
 	userID, ok := domain.CtxAuthUserID(r.Context())
 	if !ok {
@@ -403,21 +407,83 @@ func (u *UserRoutes) changeUserDisplayImage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var data PatchUserDisplayImageReq
-	err := readJSON(r, &data)
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10 MB limit
+
+	fn, err := u.UserDisplayImagesModel.Save(userID, r.Body)
 	if err != nil {
-		u.getLogger("changeUserDisplayImage").AddNote("readJson").Error(err)
-		w.WriteHeader(http.StatusBadRequest)
+		u.getLogger("changeUserDisplayImage").AddNote("Save").Error(err)
+		httpInternalServerError(w)
 		return
 	}
 
-	err = u.UserModel.UpdateDisplayImage(userID, data.DisplayImage)
+	// Get old image to remove after updating
+	user, err := u.UserModel.GetFromID(userID)
+	if err != nil {
+		httpInternalServerError(w)
+		return
+	}
+	oldImage := user.DisplayImage
+
+	err = u.UserModel.UpdateDisplayImage(userID, fn)
 	if err != nil {
 		httpInternalServerError(w)
 		return
 	}
 
+	if oldImage != "" {
+		u.UserDisplayImagesModel.Remove(userID, oldImage)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (u *UserRoutes) deleteUserDisplayImage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		u.getLogger("deleteUserDisplayImage").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	user, err := u.UserModel.GetFromID(userID)
+	if err != nil {
+		httpInternalServerError(w)
+		return
+	}
+
+	oldImage := user.DisplayImage
+
+	err = u.UserModel.UpdateDisplayImage(userID, "")
+	if err != nil {
+		httpInternalServerError(w)
+		return
+	}
+
+	if oldImage != "" {
+		u.UserDisplayImagesModel.Remove(userID, oldImage)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (u *UserRoutes) getUserDisplayImage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := domain.CtxAuthUserID(r.Context())
+	if !ok {
+		u.getLogger("getUserDisplayImage").Error(errors.New("no auth user id"))
+		httpInternalServerError(w)
+		return
+	}
+
+	// We could also get the filename from user, but putting it in the request path
+	// guarantees cache busting.
+	filename := chi.URLParam(r, "filename")
+	if err := validator.UserDisplayImageFilename(filename); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	fp := u.UserDisplayImagesModel.FilePath(userID, filename)
+	http.ServeFile(w, r, fp)
 }
 
 func (u *UserRoutes) startSSEEvents(w http.ResponseWriter, r *http.Request) {

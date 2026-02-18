@@ -186,6 +186,18 @@ func AppspaceAvatarFilename(f string) error {
 	return nil
 }
 
+var validUserDisplayImageFilename = regexp.MustCompile(`^[0-9a-z]+\.jpg$`)
+
+func UserDisplayImageFilename(f string) error {
+	if len(f) > 20 {
+		return errors.New("user display image file name too long")
+	}
+	if !validUserDisplayImageFilename.MatchString(f) {
+		return errors.New("invalid format for user display image file name")
+	}
+	return nil
+}
+
 var validBackupFile = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}(?:_[1-9])?\.zip$`)
 
 // AppspaceBackupFile validates names of appspace backup files (sans .zip extension)

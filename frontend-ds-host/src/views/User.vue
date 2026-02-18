@@ -13,6 +13,7 @@ import DataDef from '../components/ui/DataDef.vue';
 import ChangeEmail from '@/components/user/ChangeEmail.vue';
 import ChangePassword from '@/components/user/ChangePassword.vue';
 import ChangeDisplayName from '@/components/user/ChangeDisplayName.vue';
+import ChangeDisplayImage from '@/components/user/ChangeDisplayImage.vue';
 import SmallMessage from '@/components/ui/SmallMessage.vue';
 
 const authUserStore = useAuthUserStore();
@@ -21,6 +22,7 @@ authUserStore.fetch();
 const show_change_email = ref(false);
 const show_change_pw = ref(false);
 const show_change_display_name = ref(false);
+const show_change_display_image = ref(false);
 
 function openChangeEmail() {
 	if( show_change_pw.value ) return;
@@ -32,6 +34,9 @@ function openChangePw() {
 }
 function openChangeDisplayName() {
 	show_change_display_name.value = true;
+}
+function openChangeDisplayImage() {
+	show_change_display_image.value = true;
 }
 
 const domains = reactive( new DomainNames);
@@ -101,7 +106,16 @@ dropIDStore.loadData();
 						<button class="btn" @click="openChangeDisplayName">Change</button>
 					</div>
 				</DataDef>
-				<DataDef field="Image:">{{authUserStore.user.display_image }}</DataDef>
+				<DataDef field="Image:">
+					<ChangeDisplayImage v-if="show_change_display_image" @close="show_change_display_image=false"></ChangeDisplayImage>
+					<div v-else class="flex justify-between">
+						<span v-if="authUserStore.user.display_image">
+							<img :src="authUserStore.getDisplayImageUrl()" class="w-24 h-24 rounded" />
+						</span>
+						<span v-else class="text-gray-500 italic">No image set</span>
+						<button class="btn" @click="openChangeDisplayImage">Change</button>
+					</div>
+				</DataDef>
 			</div>
 		</div>
 		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">

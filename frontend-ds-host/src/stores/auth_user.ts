@@ -78,6 +78,25 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		else throw new Error("got unexpected response status "+resp.status);
 	}
 
+	async function changeDisplayImage(imageBlob: Blob) {
+		if( !is_loaded.value ) throw new Error("trying to change display image while user is not even loaded.");
+		await ax.post('/api/user/display-image/', imageBlob, {headers: {'Content-Type': 'application/octet-stream'}});
+		// Re-fetch user data to get the new filename
+		load_state.value = LoadState.NotLoaded;
+		await fetch();
+	}
+
+	async function deleteDisplayImage() {
+		if( !is_loaded.value ) throw new Error("trying to delete display image while user is not even loaded.");
+		await ax.delete('/api/user/display-image/');
+		user.value.display_image = '';
+	}
+
+	function getDisplayImageUrl() :string {
+		if( !user.value.display_image ) return '';
+		return '/api/user/display-image/' + user.value.display_image;
+	}
+
 	return {
 		fetch,
 		load_state,
@@ -87,7 +106,10 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 		setUnauthorized,
 		changeEmail,
 		changeDisplayName,
-		changePassword
+		changePassword,
+		changeDisplayImage,
+		deleteDisplayImage,
+		getDisplayImageUrl
 	}
 
 });

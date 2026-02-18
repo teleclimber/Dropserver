@@ -36,6 +36,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/migrationjobmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/sandboxruns"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/settingsmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/models/userdisplayimagesmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/userinvitationmodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/usermodel"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
@@ -161,6 +162,9 @@ func main() {
 		DB:                            db,
 		InstanceUserAuthsChangeEvents: instanceUserAuthsChangeEvents}
 	userModel.PrepareStatements()
+
+	userDisplayImagesModel := &userdisplayimagesmodel.UserDisplayImagesModel{
+		Config: runtimeConfig}
 
 	cookieModel := &cookiemodel.CookieModel{
 		DB: db}
@@ -533,6 +537,7 @@ func main() {
 		UserAppspacesEvent:        userAppspacesEvent,
 		AppspaceUsersEvent:        appspaceUsersEvent,
 		UserModel:                 userModel,
+		UserDisplayImagesModel:    userDisplayImagesModel,
 		UserTSNetStatusEvents:     userTSNetEvents,
 		UserTSNetPeersEvents:      userTSNetPeersEvents,
 		Views:                     views}
