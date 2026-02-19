@@ -56,9 +56,15 @@ const asCards = computed( () => {
 				:local_appspace="a.local_appspace"></AppspaceCard>
 
 			<MessageSad head="No Appspaces"
-				v-if="appspacesStore.appspaces.size === 0" 
+				v-if="!asCards.length" 
 				class="mx-4 sm:mx-0 my-6 sm:rounded-xl shadow">
-				There are no appspaces in this account.
+				<p>You do not have access to any appspaces on this instance.</p>
+				<p v-if="appspacesStore.appspaces.size === 0">
+					Try creating an appspace!
+				</p>
+				<p v-else>
+					Click <router-link to="appspace" class="btn">Appspaces</router-link> to see the appspaces you have created.
+				</p>
 			</MessageSad>
 		</template>
 

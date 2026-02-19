@@ -30,8 +30,9 @@ function getMultiProxyMatch(auth: AppspaceUserAuth) {
 		<div class="flex-grow flex-shrink pl-4 overflow-hidden">
 			<div class="flex flex-col sm:flex-row items-baseline">
 				<span class="pr-2 font-bold text-l">{{user.display_name}}</span>
-				<span v-if="conflicts && !conflicts.conflict">inst us: {{ conflicts.user_id }}</span>
-				<InlineMessage v-else-if="conflicts && conflicts.conflict && conflicts.user_id_matches.size > 1" mood="warn" class="block">
+				<InlineMessage mood="warn" v-if="!conflicts">This appspace user is not associated with anybody on this instance</InlineMessage>
+				<span v-else-if="!conflicts.conflict">inst us: {{ conflicts.user_id }}</span>
+				<InlineMessage v-else-if="conflicts.conflict && conflicts.user_id_matches.size > 1" mood="warn" class="block">
 					Multiple users of this Dropserver instance match this appspace user.
 				</InlineMessage>
 			</div>
