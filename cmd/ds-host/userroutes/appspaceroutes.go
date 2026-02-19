@@ -17,10 +17,16 @@ type AppspaceUserBase struct {
 	Avatar      string         `json:"avatar"`
 }
 
+type UserDisplay struct {
+	DisplayName  string `json:"display_name"`
+	DisplayImage string `json:"display_image"`
+}
+
 // AppspaceResp
 type AppspaceResp struct {
 	AppspaceID       int                            `json:"appspace_id"`
-	OwnerID          domain.UserID                  `json:"owner_id"` // maybe also add OwnerProxyID so taht they can be identified in list of users.
+	OwnerID          domain.UserID                  `json:"owner_id"`
+	OwnerDisplay     UserDisplay                    `json:"owner_display"`
 	AppID            int                            `json:"app_id"`
 	AppVersion       domain.Version                 `json:"app_version"`
 	DomainName       string                         `json:"domain_name"`
@@ -46,7 +52,10 @@ type AppspaceRoutes struct {
 	AppspaceUserRoutes    subRoutes `checkinject:"required"`
 	AppspaceExportRoutes  subRoutes `checkinject:"required"`
 	AppspaceRestoreRoutes subRoutes `checkinject:"required"`
-	AppModel              interface {
+	UserModel             interface {
+		GetFromID(userID domain.UserID) (domain.User, error)
+	} `checkinject:"required"`
+	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
 		GetVersionForUI(appID domain.AppID, version domain.Version) (domain.AppVersionUI, error)
@@ -317,6 +326,7 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 
 func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceResp, error) {
 	appspaceResp := a.makeAppspaceMeta(appspace)
+	appspaceResp.OwnerDisplay = a.getUserDisplay(appspace.OwnerID)
 	appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
 	tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
 	if err == nil {
@@ -342,6 +352,16 @@ func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceRes
 			Avatar:      u.Avatar}
 	}
 	return appspaceResp, nil
+}
+
+func (a *AppspaceRoutes) getUserDisplay(userID domain.UserID) UserDisplay {
+	user, err := a.UserModel.GetFromID(userID)
+	if err != nil {
+		return UserDisplay{}
+	}
+	return UserDisplay{
+		DisplayName:  user.DisplayName,
+		DisplayImage: user.DisplayImage}
 }
 
 // PostAppspaceReq is sent when creating a new appspace

@@ -220,9 +220,15 @@ export interface UserIDProxyIDConflicts {
 	user_id_matches: Map<number, UserIDProxyIDMatches>	// MAP??
 }
 
+export interface UserDisplay {
+	display_name: string,
+	display_image: string
+}
+
 export interface Appspace {
 	appspace_id: number,
 	owner_id: number,
+	owner_display: UserDisplay,
 	domain_name: string,
 	no_tls: boolean,
 	port_string: string,

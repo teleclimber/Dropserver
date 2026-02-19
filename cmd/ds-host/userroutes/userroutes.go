@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -145,7 +146,7 @@ func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 			r.Patch("/user/display-name/", u.changeUserDisplayName)
 			r.Post("/user/display-image/", u.changeUserDisplayImage)
 			r.Delete("/user/display-image/", u.deleteUserDisplayImage)
-			r.Get("/user/display-image/{filename}", u.getUserDisplayImage)
+			r.Get("/user/display-image/{userid}/{filename}", u.getUserDisplayImage)
 
 			r.Mount("/domainname", u.DomainRoutes.subRouter())
 			r.Mount("/dropid", u.DropIDRoutes.subRouter())
@@ -467,15 +468,14 @@ func (u *UserRoutes) deleteUserDisplayImage(w http.ResponseWriter, r *http.Reque
 }
 
 func (u *UserRoutes) getUserDisplayImage(w http.ResponseWriter, r *http.Request) {
-	userID, ok := domain.CtxAuthUserID(r.Context())
-	if !ok {
-		u.getLogger("getUserDisplayImage").Error(errors.New("no auth user id"))
-		httpInternalServerError(w)
+	userIDInt, err := strconv.Atoi(chi.URLParam(r, "userid"))
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	userID := domain.UserID(userIDInt)
 
-	// We could also get the filename from user, but putting it in the request path
-	// guarantees cache busting.
+	// Putting the filename in the request path guarantees cache busting.
 	filename := chi.URLParam(r, "filename")
 	if err := validator.UserDisplayImageFilename(filename); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)

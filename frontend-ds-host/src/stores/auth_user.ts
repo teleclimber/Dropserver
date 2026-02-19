@@ -94,7 +94,7 @@ export const useAuthUserStore = defineStore('authenticated-user', () => {
 
 	function getDisplayImageUrl() :string {
 		if( !user.value.display_image ) return '';
-		return '/api/user/display-image/' + user.value.display_image;
+		return `/api/user/display-image/${user.value.user_id}/${user.value.display_image}`;
 	}
 
 	return {

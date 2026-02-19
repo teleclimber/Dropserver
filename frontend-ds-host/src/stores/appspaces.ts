@@ -3,7 +3,7 @@ import { defineStore } from 'pinia';
 import { ax } from '../controllers/userapi';
 import { on } from '../sse';
 import { appVersionUIFromRaw } from './apps';
-import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser, AppspaceUserBase, UserIDProxyIDConflicts, UserIDProxyIDMatches, AppspaceUserAuthBare } from './types';
+import { LoadState, Appspace, AppspaceStatus, TSNetCreateConfig, TSNetPeerUser, AppspaceUserBase, UserDisplay, UserIDProxyIDConflicts, UserIDProxyIDMatches, AppspaceUserAuthBare } from './types';
 import { tsnetDataFromRaw, tsnetPeerUsersFromRaw, tsnetStatusFromRaw } from './helpers/tsnet';
 
 type NewAppspaceData = {
@@ -11,6 +11,13 @@ type NewAppspaceData = {
 	app_version:string,
 	domain_name: string,
 	subdomain: string,
+}
+
+function userDisplayFromRaw(raw: any): UserDisplay {
+	return {
+		display_name: raw?.display_name + '' || '',
+		display_image: raw?.display_image + '' || '',
+	};
 }
 
 function userBaseFromRaw(raw:any) :AppspaceUserBase {
@@ -77,6 +84,7 @@ function appspaceFromRaw(raw:any) :Appspace {
 	return {
 		appspace_id: Number(raw.appspace_id),
 		owner_id: Number(raw.owner_id),
+		owner_display: userDisplayFromRaw(raw.owner_display),
 		domain_name: raw.domain_name+'',
 		no_tls: !!raw.no_tls,
 		port_string: raw.port_string+'',

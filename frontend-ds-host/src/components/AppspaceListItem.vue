@@ -29,6 +29,12 @@ const app_icon = computed( () => {
 	return `/api/appspace/${props.appspace.appspace_id}/app-icon`;
 });
 
+const owner_display_image = computed( () => {
+	const fn = props.appspace.owner_display.display_image;
+	if( !fn ) return "";
+	return `/api/user/display-image/${props.appspace.owner_id}/${fn}`;
+});
+
 </script>
 
 <template>
@@ -43,17 +49,14 @@ const app_icon = computed( () => {
 		</a>
 		<div class="mt-3 flex items-center">
 			<div class="w-10 h-10 flex items-center justify-center">
-				<div class="w-7 h-7 rounded-full bg-gray-300  flex justify-center content-center text-gray-400">
+				<img v-if="owner_display_image" :src="owner_display_image" class="w-7 h-7 rounded-full object-cover" />
+				<div v-else class="w-7 h-7 rounded-full bg-gray-300 flex justify-center content-center text-gray-400">
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 self-end">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
 					</svg>
 				</div>
 			</div>
-			<span class="pl-1">todo: owner identifier {{ appspace.owner_id }}</span>
-			<!-- TODO when instance users info can be accessed by other users, fetch the avatar -->
-			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-yellow-500">
-				<path fill-rule="evenodd" d="M8 7a5 5 0 113.61 4.804l-1.903 1.903A1 1 0 019 14H8v1a1 1 0 01-1 1H6v1a1 1 0 01-1 1H3a1 1 0 01-1-1v-2a1 1 0 01.293-.707L8.196 8.39A5.002 5.002 0 018 7zm5-3a.75.75 0 000 1.5A1.5 1.5 0 0114.5 7 .75.75 0 0016 7a3 3 0 00-3-3z" clip-rule="evenodd" />
-			</svg>
+			<span class="pl-1">{{ appspace.owner_display.display_name || "(no name)" }}</span>
 		</div>
 		<div class=" flex">
 			<div class="my-2 pr-2 flex items-center" :style="'border-color:'+(appspace?.ver_data?.color || 'rgb(135, 151, 164)')" >
