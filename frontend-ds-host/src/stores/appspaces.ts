@@ -13,7 +13,7 @@ type NewAppspaceData = {
 	subdomain: string,
 }
 
-function userDisplayFromRaw(raw: any): UserDisplay {
+export function userDisplayFromRaw(raw: any): UserDisplay {
 	return {
 		display_name: raw?.display_name + '' || '',
 		display_image: raw?.display_image + '' || '',

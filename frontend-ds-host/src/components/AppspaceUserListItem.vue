@@ -1,5 +1,7 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { getAvatarUrl } from '@/stores/appspace_users';
+import { useAppspaceUserConflictsStore } from '@/stores/appspace_user_conflicts';
 import type { AppspaceUser , AppspaceUserAuth, UserIDProxyIDConflicts, UserIDProxyIDMatches} from '../stores/types';
 import InlineMessage from './ui/InlineMessage.vue';
 
@@ -7,6 +9,12 @@ const props = defineProps<{
 	user: AppspaceUser,
 	conflicts: UserIDProxyIDConflicts | undefined
 }>();
+
+const userConflictsStore = useAppspaceUserConflictsStore();
+const inst_user_display = computed( () => {
+	if( !props.conflicts?.user_id ) return undefined;
+	return userConflictsStore.getDisplayDataForAppspace(props.user.appspace_id).value.get(props.conflicts.user_id);
+});
 
 const avatar_url = getAvatarUrl(props.user.appspace_id, props.user.avatar);
 
@@ -31,7 +39,10 @@ function getMultiProxyMatch(auth: AppspaceUserAuth) {
 			<div class="flex flex-col sm:flex-row items-baseline">
 				<span class="pr-2 font-bold text-l">{{user.display_name}}</span>
 				<InlineMessage mood="warn" v-if="!conflicts">This appspace user is not associated with anybody on this instance</InlineMessage>
-				<span v-else-if="!conflicts.conflict">inst us: {{ conflicts.user_id }}</span>
+				<span v-else-if="!conflicts.conflict" class="flex items-center gap-2">
+					<img v-if="inst_user_display?.display_image" :src="`/api/user/display-image/${conflicts.user_id}/${inst_user_display.display_image}`" class="w-6 h-6 rounded-full object-cover">
+					<span>{{ inst_user_display?.display_name || "(no name)" }}</span>
+				</span>
 				<InlineMessage v-else-if="conflicts.conflict && conflicts.user_id_matches.size > 1" mood="warn" class="block">
 					Multiple users of this Dropserver instance match this appspace user.
 				</InlineMessage>

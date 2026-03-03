@@ -143,6 +143,7 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 			r.Post("/tsnet", a.createTSNet)
 			r.Delete("/tsnet", a.deleteTSNet)
 			r.Get("/user-conflicts", a.getUserConflicts)
+			r.Get("/user-display-data", a.getUserDisplayData)
 			r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 			r.Mount("/export", a.AppspaceExportRoutes.subRouter())
 			r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
@@ -544,6 +545,24 @@ func (a *AppspaceRoutes) getUserConflicts(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, conflicts)
+}
+
+func (a *AppspaceRoutes) getUserDisplayData(w http.ResponseWriter, r *http.Request) {
+	appspace, _ := domain.CtxAppspaceData(r.Context())
+	conflicts, err := a.AppspaceUsersCache.ProxyIDsForAppspace(appspace.AppspaceID)
+	if err != nil {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	ret := make(map[domain.UserID]UserDisplay)
+	for _, c := range conflicts {
+		for userID := range c.UserIDMatches {
+			if _, ok := ret[userID]; !ok {
+				ret[userID] = a.getUserDisplay(userID)
+			}
+		}
+	}
+	writeJSON(w, ret)
 }
 
 func (a *AppspaceRoutes) deleteAppspace(w http.ResponseWriter, r *http.Request) {
