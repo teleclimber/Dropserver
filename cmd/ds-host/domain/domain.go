@@ -532,7 +532,14 @@ type TSNetCreateConfig struct {
 	AuthKey    string `json:"auth_key" validate:"tsnetauthkey"`
 }
 
-type RemoteAppspace struct {
+// InstanceAppspaceUser represents the type found in the DB
+type InstanceAppspaceUser struct {
+	UserID     UserID     `db:"user_id" json:"user_id"`
+	AppspaceID AppspaceID `db:"appspace_id" json:"appspace_id"`
+	ProxyID    ProxyID    `db:"proxy_id" json:"proxy_id"`
+}
+
+type RemoteAppspace struct { // TODO remove entirely
 	UserID      UserID    `db:"user_id"`
 	DomainName  string    `db:"domain_name"`
 	OwnerDropID string    `db:"owner_dropid"`
