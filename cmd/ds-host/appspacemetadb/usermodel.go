@@ -80,9 +80,15 @@ func (u *UserModel) Create(appspaceID domain.AppspaceID, displayName string, ava
 		}
 	}
 
-	err = updateMetaSP(tx, proxyID, displayName, avatar)
+	err = updateDisplayNameSP(tx, proxyID, displayName)
 	if err != nil {
-		log().AddNote("updateMetaSP()").Error(err)
+		log().AddNote("updateDisplayNameSP()").Error(err)
+		return domain.ProxyID(""), err
+	}
+
+	err = updateAvatarSP(tx, proxyID, avatar)
+	if err != nil {
+		log().AddNote("updateAvatarSP()").Error(err)
 		return domain.ProxyID(""), err
 	}
 
@@ -202,7 +208,7 @@ func deleteAuthSP(sp stmtPreparer, proxyID domain.ProxyID, authType string, auth
 }
 
 // Update the appspace user
-// This should be broken up into multiple functions
+// This is only used by ds-dev
 func (u *UserModel) Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error {
 	log := u.getLogger("Update").AppspaceID(appspaceID).Clone
 
@@ -223,9 +229,15 @@ func (u *UserModel) Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID,
 	}
 	defer tx.Rollback()
 
-	err = updateMetaSP(tx, proxyID, displayName, avatar)
+	err = updateDisplayNameSP(tx, proxyID, displayName)
 	if err != nil {
-		log().AddNote("updateMetaSP()").Error(err)
+		log().AddNote("updateDisplayNameSP()").Error(err)
+		return err
+	}
+
+	err = updateAvatarSP(tx, proxyID, avatar)
+	if err != nil {
+		log().AddNote("updateAvatarSP()").Error(err)
 		return err
 	}
 
@@ -246,42 +258,20 @@ func (u *UserModel) Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID,
 	return nil
 }
 
-func updateMetaSP(sp stmtPreparer, proxyID domain.ProxyID, displayName string, avatar string) error {
-	stmt, err := sp.Preparex(`UPDATE users SET 
-		display_name = ?, avatar = ?
-		WHERE proxy_id = ?`)
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Stmt.Exec(displayName, avatar, proxyID)
-	return err
-}
-
 func (u *UserModel) UpdateAvatar(appspaceID domain.AppspaceID, proxyID domain.ProxyID, avatar string) error {
-	log := u.getLogger("Update").AppspaceID(appspaceID).Clone
+	log := u.getLogger("UpdateAvatar").AppspaceID(appspaceID).Clone
 
 	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
 	if err != nil {
 		return err
 	}
-	tx, err := db.Beginx()
-	if err != nil {
-		log().AddNote("Beginx()").Error(err)
-		return err
-	}
-	defer tx.Rollback()
 
-	err = updateAvatarSP(tx, proxyID, avatar)
+	err = updateAvatarSP(db, proxyID, avatar)
 	if err != nil {
 		log().AddNote("updateAvatarSP()").Error(err)
 		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		log().AddNote("Commit()").Error(err)
-		return err
-	}
 	return nil
 }
 
@@ -291,6 +281,34 @@ func updateAvatarSP(sp stmtPreparer, proxyID domain.ProxyID, avatar string) erro
 		return err
 	}
 	_, err = stmt.Stmt.Exec(avatar, proxyID)
+	return err
+}
+
+func (u *UserModel) UpdateDisplayName(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string) error {
+	log := u.getLogger("UpdateDisplayName").AppspaceID(appspaceID).Clone
+
+	db, err := u.AppspaceMetaDB.GetHandle(appspaceID)
+	if err != nil {
+		return err
+	}
+
+	err = updateDisplayNameSP(db, proxyID, displayName)
+	if err != nil {
+		log().AddNote("updateDisplayNameSP()").Error(err)
+		return err
+	}
+
+	u.AppspaceUsersChangeEvents.Send(appspaceID)
+
+	return nil
+}
+
+func updateDisplayNameSP(sp stmtPreparer, proxyID domain.ProxyID, displayName string) error {
+	stmt, err := sp.Preparex(`UPDATE users SET display_name = ? WHERE proxy_id = ?`)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Stmt.Exec(displayName, proxyID)
 	return err
 }
 

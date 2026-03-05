@@ -110,17 +110,29 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		users.push(new_user);
 	}
 	
-	async function updateUserMeta(appspace_id:number, proxy_id:string, data:PostAppspaceUser, avatarData:Blob|null) {
-		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id, getFormData(data, avatarData));
-		setUser(appspace_id, userFromRaw(resp.data));
-	}
-
 	async function updateUserAuth(appspace_id:number, proxy_id:string, auth:PostAuth) {
 		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id+'/auth', auth);
 		setUser(appspace_id, userFromRaw(resp.data));
 	}
 
-	return { 
+	async function updateDisplayName(appspace_id:number, proxy_id:string, display_name:string) {
+		const resp = await ax.patch('/api/appspace/'+appspace_id+'/user/'+proxy_id+'/display_name', { display_name });
+		setUser(appspace_id, userFromRaw(resp.data));
+	}
+
+	async function deleteAvatar(appspace_id:number, proxy_id:string) {
+		const resp = await ax.delete('/api/appspace/'+appspace_id+'/user/'+proxy_id+'/avatar');
+		setUser(appspace_id, userFromRaw(resp.data));
+	}
+
+	async function postAvatar(appspace_id:number, proxy_id:string, avatar_data:Blob) {
+		const formData = new FormData();
+		formData.append('avatar', avatar_data);
+		const resp = await ax.post('/api/appspace/'+appspace_id+'/user/'+proxy_id+'/avatar', formData);
+		setUser(appspace_id, userFromRaw(resp.data));
+	}
+
+	return {
 		isLoaded,
 		loadData,
 		reloadData,
@@ -130,8 +142,10 @@ export const useAppspaceUsersStore = defineStore('appspace-users', () => {
 		mustGetUser,
 		findByAuth,
 		addNewUser,
-		updateUserMeta,
-		updateUserAuth
+		updateUserAuth,
+		updateDisplayName,
+		deleteAvatar,
+		postAvatar
 	};
 });
 

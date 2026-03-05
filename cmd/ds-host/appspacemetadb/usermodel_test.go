@@ -382,6 +382,69 @@ func TestGetProxyIDsFromAuths(t *testing.T) {
 	}
 }
 
+func TestUpdateDisplayName(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	u := makeUserModel(mockCtrl, 2)
+
+	proxyID, err := u.Create(asID, "Original Name", "", []domain.EditAppspaceUserAuth{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = u.UpdateDisplayName(asID, proxyID, "Updated Name")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := u.Get(asID, proxyID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.DisplayName != "Updated Name" {
+		t.Errorf("expected display name 'Updated Name', got %q", user.DisplayName)
+	}
+}
+
+func TestUpdateAvatar(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	u := makeUserModel(mockCtrl, 1)
+
+	proxyID, err := u.Create(asID, "Some User", "", []domain.EditAppspaceUserAuth{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = u.UpdateAvatar(asID, proxyID, "avatar.jpg")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := u.Get(asID, proxyID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.Avatar != "avatar.jpg" {
+		t.Errorf("expected avatar 'avatar.jpg', got %q", user.Avatar)
+	}
+
+	err = u.UpdateAvatar(asID, proxyID, "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err = u.Get(asID, proxyID)
+	if err != nil {
+		t.Error(err)
+	}
+	if user.Avatar != "" {
+		t.Errorf("expected empty avatar, got %q", user.Avatar)
+	}
+}
+
 func makeUserModel(mockCtrl *gomock.Controller, expectSend int) *UserModel {
 	// Beware of in-memory DBs: they vanish as soon as the connection closes!
 	// We may be able to start a sqlx transaction to avoid problems with that?

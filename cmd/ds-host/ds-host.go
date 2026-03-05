@@ -338,7 +338,6 @@ func main() {
 		UserModel:                userModel,
 		AppspaceUserModel:        appspaceUserModel,
 		DropIDModel:              dropIDModel,
-		Avatars:                  appspaceAvatars,
 		AppspaceTSNetPeersEvents: appspaceTSNetPeersEvents,
 	}
 

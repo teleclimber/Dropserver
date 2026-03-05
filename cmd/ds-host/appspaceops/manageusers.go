@@ -1,8 +1,6 @@
 package appspaceops
 
 import (
-	"io"
-
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/internal/validator"
@@ -21,14 +19,10 @@ type ManageUsers struct {
 		Get(appspaceID domain.AppspaceID, proxyID domain.ProxyID) (domain.AppspaceUser, error)
 		GetAll(appspaceID domain.AppspaceID) ([]domain.AppspaceUser, error)
 		Create(appspaceID domain.AppspaceID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) (domain.ProxyID, error)
-		Update(appspaceID domain.AppspaceID, proxyID domain.ProxyID, displayName string, avatar string, auths []domain.EditAppspaceUserAuth) error
 	} `checkinject:"required"`
 	DropIDModel interface {
 		Get(handle string, dom string) (domain.DropID, error)
 		GetForUser(userID domain.UserID) ([]domain.DropID, error)
-	} `checkinject:"required"`
-	Avatars interface {
-		Save(locationKey string, proxyID domain.ProxyID, img io.Reader) (string, error)
 	} `checkinject:"required"`
 	AppspaceTSNet interface {
 		GetPeerUsers(appspaceID domain.AppspaceID) []domain.TSNetPeerUser

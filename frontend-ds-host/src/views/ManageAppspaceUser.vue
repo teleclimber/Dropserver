@@ -2,7 +2,7 @@
 import { ref, Ref, computed, onMounted, onUnmounted, watchEffect, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 
-import type { TSNetPeerUser } from '@/stores/types';
+import type { AppspaceUserAuth, TSNetPeerUser } from '@/stores/types';
 import { useAppspacesStore } from '@/stores/appspaces';
 import { useAppspaceUsersStore, AvatarState, getAvatarUrl, PostAuth } from '@/stores/appspace_users';
 
@@ -37,6 +37,77 @@ const user = computed( () => {
 	return appspaceUsersStore.getUser(props.appspace_id, props.proxy_id );
 });
 
+// ====== Edit mode state ======
+
+const show_change_name = ref(false);
+const show_change_avatar = ref(false);
+const edit_display_name = ref('');
+
+function openChangeName() {
+	edit_display_name.value = user.value?.display_name ?? '';
+	show_change_name.value = true;
+}
+
+const invalid_display_name = computed(() => {
+	if (!show_change_name.value) return '';
+	if (edit_display_name.value.trim() === '') return 'display name cannot be empty';
+	if (edit_display_name.value.length > 29) return 'display name is too long';
+	return '';
+});
+
+async function saveDisplayName() {
+	if (invalid_display_name.value) return;
+	await appspaceUsersStore.updateDisplayName(props.appspace_id, props.proxy_id!, edit_display_name.value.trim());
+	show_change_name.value = false;
+}
+
+async function avatarChangedEdit(ev: Blob | undefined) {
+	if (ev) {
+		await appspaceUsersStore.postAvatar(props.appspace_id, props.proxy_id!, ev);
+	} else {
+		await appspaceUsersStore.deleteAvatar(props.appspace_id, props.proxy_id!);
+	}
+	show_change_avatar.value = false;
+}
+
+async function removeAuth(auth: AppspaceUserAuth) {
+	await appspaceUsersStore.updateUserAuth(props.appspace_id, props.proxy_id!, {
+		op: 'remove',
+		type: auth.type,
+		identifier: auth.identifier,
+		extra_name: ''
+	});
+}
+
+async function addAuthEdit() {
+	if( invalid_add_auth.value ) return;
+	if( add_auth_type.value === 'dropid' ) {
+		await appspaceUsersStore.updateUserAuth(props.appspace_id, props.proxy_id!, {
+			op: 'add',
+			type: 'dropid',
+			identifier: add_auth_dropid.value,
+			extra_name: ''
+		});
+		add_auth_dropid.value = '';
+		show_add_auth.value = false;
+	}
+	else if( add_auth_type.value === 'tsnetid' ) {
+		const peers = appspacesStore.watchTSNetPeerUsers(props.appspace_id);
+		const peer = peers?.value.find( p => p.id === add_auth_tsnetid.value);
+		if( !peer ) return;
+		await appspaceUsersStore.updateUserAuth(props.appspace_id, props.proxy_id!, {
+			op: 'add',
+			type: 'tsnetid',
+			identifier: peer.full_id,
+			extra_name: peer.login_name
+		});
+		add_auth_tsnetid.value = '';
+		show_add_auth.value = false;
+	}
+}
+
+// ====== Create mode state ======
+
 const display_name_input :Ref<HTMLInputElement|undefined> = ref();
 onMounted( () => {
 	if( display_name_input.value === undefined ) return;
@@ -50,21 +121,8 @@ const edit_auths:PostAuth[] = reactive([]);
 
 watchEffect( () => {
 	if( user.value === undefined ) {
+		// create mode: show the add-auth form immediately
 		show_add_auth.value = true;
-	}
-	else {
-		display_name.value = user.value.display_name;
-		// avatar?
-		edit_auths.splice(0);
-		user.value.auths.forEach( auth => {
-			edit_auths.push({
-				type: auth.type,
-				identifier: auth.identifier,
-				extra_name: auth.extra_name,
-				op:'',
-			});
-		});
-		show_add_auth.value = false;
 	}
 });
 
@@ -108,7 +166,6 @@ const num_tsnet_peers = computed( () => {
 	return peers.value.length;
 });
 
-// Here we want all peers that are unmatched
 const tsnet_peer_users = computed( () => {
 	if( !appspace.value?.tsnet_status.usable ) return;
 	const peers = appspacesStore.watchTSNetPeerUsers(props.appspace_id);
@@ -116,7 +173,8 @@ const tsnet_peer_users = computed( () => {
 	const ret : TSNetPeerUser[] = [];
 	peers.value.forEach( (pu) => {
 		if( appspaceUsersStore.findByAuth(props.appspace_id, 'tsnetid', pu.full_id) ) return;
-		if( edit_auths.some(a => a.type === 'tsnetid' && a.identifier === pu.full_id) ) return;
+		// In create mode, also exclude peers already in the pending edit_auths
+		if( !props.proxy_id && edit_auths.some(a => a.type === 'tsnetid' && a.identifier === pu.full_id) ) return;
 		ret.push( pu );
 	});
 	return ret;
@@ -142,7 +200,7 @@ const invalid_add_auth = computed( () => {
 		throw new Error("invalid auth type "+add_auth_type.value)
 	}
 
-	// check not duplicate in appspcae:
+	// check not duplicate in appspace:
 	if( appspaceUsersStore.findByAuth(props.appspace_id, add_auth_type.value, identifier) ) return "already used";
 
 	return "";
@@ -187,22 +245,12 @@ const invalid = computed( () => {
 
 async function save() {
 	if( invalid.value !== "" ) return;
-	if( props.proxy_id ) {
-		await appspaceUsersStore.updateUserMeta(props.appspace_id, props.proxy_id, {
-			display_name: display_name.value,
-			permissions: [],
-			avatar: avatar_state,
-			auths: edit_auths,
-		}, avatar);
-	}
-	else {
-		await appspaceUsersStore.addNewUser(props.appspace_id, {
-			display_name: display_name.value,
-			permissions: [],
-			avatar: avatar_state,
-			auths: edit_auths
-		}, avatar);
-	}
+	await appspaceUsersStore.addNewUser(props.appspace_id, {
+		display_name: display_name.value,
+		permissions: [],
+		avatar: avatar_state,
+		auths: edit_auths
+	}, avatar);
 	router.push({name: 'manage-appspace', params:{appspace_id: props.appspace_id}});
 }
 
@@ -213,11 +261,105 @@ function cancel() {
 </script>
 <template>
 	<ViewWrap>
-		<div class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+
+		<!-- Edit mode (proxy_id defined) -->
+		<div v-if="proxy_id" class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+				<h3 class="text-lg leading-6 font-medium text-gray-900">
+					Manage Appspace User: {{ user?.display_name }}
+				</h3>
+			</div>
+			<div v-if="user" class="py-6">
+				<DataDef field="Display Name:">
+					<div v-if="show_change_name" class="bg-yellow-50 p-3 rounded">
+						<input type="text" v-model="edit_display_name"
+							class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md mb-2">
+						<span v-if="invalid_display_name" class="text-orange-700 italic mr-2">{{ invalid_display_name }}</span>
+						<button class="btn-blue mr-2" :disabled="!!invalid_display_name" @click.prevent="saveDisplayName">Save</button>
+						<button class="btn" @click.prevent="show_change_name = false">Cancel</button>
+					</div>
+					<div v-else class="flex justify-between">
+						<span>{{ user.display_name }}</span>
+						<button class="btn" @click.prevent="openChangeName">Change</button>
+					</div>
+				</DataDef>
+				<DataDef field="Avatar:">
+					<div v-if="show_change_avatar" class="bg-yellow-50 p-3 rounded">
+						<Avatar :current="getAvatarUrl(user.appspace_id, user.avatar)" @changed="avatarChangedEdit"></Avatar>
+						<button class="btn mt-2" @click.prevent="show_change_avatar = false">Cancel</button>
+					</div>
+					<div v-else class="flex justify-between">
+						<span v-if="user.avatar">
+							<img :src="getAvatarUrl(user.appspace_id, user.avatar)" class="w-16 h-16 rounded" />
+						</span>
+						<span v-else class="text-gray-500 italic">No avatar</span>
+						<button class="btn" @click.prevent="show_change_avatar = true">Change</button>
+					</div>
+				</DataDef>
+			</div>
+			<div v-if="user" class="px-4 sm:px-6 flex justify-between">
+				<h4 class="font-medium">Login methods:</h4>
+				<a href="#" class="btn" v-if="!show_add_auth" @click.prevent="show_add_auth = true">add login method</a>
+			</div>
+			<div v-if="user" v-for="auth in user.auths" :key="auth.type+auth.identifier"
+				class="border-t py-2 px-4 sm:px-6 flex flex-col sm:flex-row justify-between">
+				<span>
+					<span v-if="auth.type=='dropid'">DropID:</span>
+					<span v-else-if="auth.type=='email'">Email:</span>
+					<span v-else-if="auth.type=='tsnetid'">Tailnet ID:</span>
+					<span v-if="auth.type==='tsnetid'"> {{ auth.extra_name }} ({{ auth.identifier }})</span>
+					<span v-else> {{ auth.identifier }}</span>
+				</span>
+				<button class="btn text-red-700 text-right" @click.prevent="removeAuth(auth)">remove login method</button>
+			</div>
+			<div v-if="user && show_add_auth" class="border-t px-4 sm:px-6 py-3 bg-gray-100 flex flex-col sm:flex-row justify-between">
+				<span>
+					<span class="font-medium mr-2">Type:</span>
+					<select v-model="add_auth_type" class="mr-4">
+						<option value="dropid">DropID</option>
+						<option value="tsnetid">Tailnet ID</option>
+					</select>
+					<span v-if="add_auth_type==='dropid'">
+						<span class="font-medium mr-2">DropID:</span>
+						<input type="text" v-model="add_auth_dropid">
+						<span v-if="invalid_add_auth" class="text-orange-700 mx-2 whitespace-nowrap italic">{{ invalid_add_auth }}</span>
+					</span>
+					<template v-else-if="add_auth_type==='tsnetid'">
+						<span v-if="tsnet_peer_users===undefined" class="italic">
+							Not connected to a tailnet.
+						</span>
+						<span v-else-if="num_tsnet_peers===0" class="italic">
+							There are no tailnet users.
+						</span>
+						<span v-else-if="tsnet_peer_users?.length===0" class="italic">
+							All tailnet users are already appspace users.
+						</span>
+						<span v-else-if="add_auth_type==='tsnetid'">
+							<select v-model="add_auth_tsnetid">
+								<option value="">Choose tailnet user...</option>
+								<option v-for="peer in tsnet_peer_users" :value="peer.id">
+									{{ peer.display_name }} ({{ peer.login_name }})
+								</option>
+							</select>
+						</span>
+					</template>
+				</span>
+				<span>
+					<button @click.stop.prevent="show_add_auth = false" class="btn mr-2">cancel</button>
+					<button @click.stop.prevent="addAuthEdit" class="btn disabled:text-gray-400" :disabled="!!invalid_add_auth">add</button>
+				</span>
+			</div>
+			<div class="py-5 px-4 sm:px-6 border-t flex items-baseline">
+				<button class="btn" @click="cancel">Back</button>
+			</div>
+		</div>
+
+		<!-- Create mode (no proxy_id) -->
+		<div v-else class="md:mb-6 my-6 bg-white shadow overflow-hidden sm:rounded-lg">
 			<form @submit.prevent="save" @keyup.esc="cancel">
 				<div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex items-baseline justify-between">
 					<h3 class="text-lg leading-6 font-medium text-gray-900">
-						{{ proxy_id ? "Manage Appspace User: "+user?.display_name : "New Appspace User" }}
+						New Appspace User
 					</h3>
 				</div>
 				<div class="py-6">
@@ -225,7 +367,7 @@ function cancel() {
 						<input type="text" v-model="display_name" ref="display_name_input" class="w-full shadow-sm border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
 					</DataDef>
 					<DataDef field="Avatar:">
-						<Avatar :current="user ? getAvatarUrl(user.appspace_id, user.avatar) : ''" @changed="avatarChanged"></Avatar>
+						<Avatar :current="''" @changed="avatarChanged"></Avatar>
 					</DataDef>
 				</div>
 				<div class="px-4 sm:px-6 flex justify-between">
@@ -233,7 +375,7 @@ function cancel() {
 					<a href="#" class="btn" v-if="!show_add_auth" @click.prevent="show_add_auth = true">add login method</a>
 				</div>
 				<AuthListItem v-for="a in edit_auths"
-					:auth="a" 
+					:auth="a"
 					:controls="!show_add_auth"
 					:removed="a.op==='remove'"
 					@remove="handleAuthRemove(a.type, a.identifier, $event)"
@@ -285,5 +427,6 @@ function cancel() {
 				</div>
 			</form>
 		</div>
+
 	</ViewWrap>
 </template>
