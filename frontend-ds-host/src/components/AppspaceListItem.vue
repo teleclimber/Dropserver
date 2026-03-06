@@ -3,6 +3,7 @@ import { ref, Ref, computed } from 'vue';
 import type { Appspace, App } from '@/stores/types';
 import { useAppsStore } from '@/stores/apps';
 import { useAuthUserStore } from '@/stores/auth_user';
+import { useInstanceUsersStore } from '@/stores/instance_users';
 
 import MinimalAppUrlData from './appspace/MinimalAppUrlData.vue';
 import AppLinksCompact from './app/AppLinksCompact.vue';
@@ -13,6 +14,9 @@ const props = defineProps<{
 
 const authUserStore = useAuthUserStore();
 authUserStore.fetch();
+
+const instanceUsersStore = useInstanceUsersStore();
+const owner = computed(() => instanceUsersStore.getUser(props.appspace.owner_id).value);
 
 const appsStore = useAppsStore();
 const app :Ref<App|undefined> = computed( () => {
@@ -30,7 +34,7 @@ const app_icon = computed( () => {
 });
 
 const owner_display_image = computed( () => {
-	const fn = props.appspace.owner_display.display_image;
+	const fn = owner.value.display_image;
 	if( !fn ) return "";
 	return `/api/user/display-image/${props.appspace.owner_id}/${fn}`;
 });
@@ -56,7 +60,7 @@ const owner_display_image = computed( () => {
 					</svg>
 				</div>
 			</div>
-			<span class="pl-1">{{ appspace.owner_display.display_name || "(no name)" }}</span>
+			<span class="pl-1">{{ owner.display_name || "(no name)" }}</span>
 		</div>
 		<div class=" flex">
 			<div class="my-2 pr-2 flex items-center" :style="'border-color:'+(appspace?.ver_data?.color || 'rgb(135, 151, 164)')" >

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import { getAvatarUrl } from '@/stores/appspace_users';
-import { useAppspaceUserConflictsStore } from '@/stores/appspace_user_conflicts';
+import { useInstanceUsersStore } from '@/stores/instance_users';
 import type { AppspaceUser , AppspaceUserAuth, UserIDProxyIDConflicts, UserIDProxyIDMatches} from '../stores/types';
 import InlineMessage from './ui/InlineMessage.vue';
 
@@ -10,10 +10,10 @@ const props = defineProps<{
 	conflicts: UserIDProxyIDConflicts | undefined
 }>();
 
-const userConflictsStore = useAppspaceUserConflictsStore();
+const instanceUsersStore = useInstanceUsersStore();
 const inst_user_display = computed( () => {
 	if( !props.conflicts?.user_id ) return undefined;
-	return userConflictsStore.getDisplayDataForAppspace(props.user.appspace_id).value.get(props.conflicts.user_id);
+	return instanceUsersStore.getUser(props.conflicts.user_id).value;
 });
 
 const avatar_url = getAvatarUrl(props.user.appspace_id, props.user.avatar);

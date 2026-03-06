@@ -99,6 +99,7 @@ type UserRoutes struct {
 	} `checkinject:"required"`
 	UserModel interface {
 		GetFromID(userID domain.UserID) (domain.User, error)
+		GetAll() ([]domain.User, error)
 		UpdateEmail(userID domain.UserID, email string) error
 		UpdatePassword(userID domain.UserID, password string) error
 		UpdateDisplayName(userID domain.UserID, displayName string) error
@@ -139,6 +140,7 @@ func (u *UserRoutes) BuildRoutes(r *chi.Mux) {
 			r.Mount("/admin", u.AdminRoutes.subRouter())
 
 			r.Get("/instance/", u.getInstanceData)
+			r.Get("/instance-users/", u.getInstanceUsers)
 
 			r.Get("/user/", u.getUserData) // the authenticated user
 			r.Patch("/user/email/", u.changeUserEmail)
@@ -237,6 +239,29 @@ func (u *UserRoutes) getInstanceData(w http.ResponseWriter, r *http.Request) {
 		DenoVersion:   u.Config.Exec.DenoVersion,
 	}
 	writeJSON(w, data)
+}
+
+type UserDisplayData struct {
+	UserID       domain.UserID `json:"user_id"`
+	DisplayName  string        `json:"display_name"`
+	DisplayImage string        `json:"display_image"`
+}
+
+func (u *UserRoutes) getInstanceUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := u.UserModel.GetAll()
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	resp := make([]UserDisplayData, len(users))
+	for i, user := range users {
+		resp[i] = UserDisplayData{
+			UserID:       user.UserID,
+			DisplayName:  user.DisplayName,
+			DisplayImage: user.DisplayImage,
+		}
+	}
+	writeJSON(w, resp)
 }
 
 // UserData is single user

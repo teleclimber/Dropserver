@@ -225,10 +225,13 @@ export interface UserDisplay {
 	display_image: string
 }
 
+export interface InstanceUser extends UserDisplay {
+	user_id: number
+}
+
 export interface Appspace {
 	appspace_id: number,
 	owner_id: number,
-	owner_display: UserDisplay,
 	domain_name: string,
 	no_tls: boolean,
 	port_string: string,

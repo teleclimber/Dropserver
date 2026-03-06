@@ -17,16 +17,10 @@ type AppspaceUserBase struct {
 	Avatar      string         `json:"avatar"`
 }
 
-type UserDisplay struct {
-	DisplayName  string `json:"display_name"`
-	DisplayImage string `json:"display_image"`
-}
-
 // AppspaceResp
 type AppspaceResp struct {
 	AppspaceID       int                            `json:"appspace_id"`
 	OwnerID          domain.UserID                  `json:"owner_id"`
-	OwnerDisplay     UserDisplay                    `json:"owner_display"`
 	AppID            int                            `json:"app_id"`
 	AppVersion       domain.Version                 `json:"app_version"`
 	DomainName       string                         `json:"domain_name"`
@@ -52,9 +46,6 @@ type AppspaceRoutes struct {
 	AppspaceUserRoutes    subRoutes `checkinject:"required"`
 	AppspaceExportRoutes  subRoutes `checkinject:"required"`
 	AppspaceRestoreRoutes subRoutes `checkinject:"required"`
-	UserModel             interface {
-		GetFromID(userID domain.UserID) (domain.User, error)
-	} `checkinject:"required"`
 	AppModel interface {
 		GetFromID(domain.AppID) (domain.App, error)
 		GetVersion(domain.AppID, domain.Version) (domain.AppVersion, error)
@@ -143,7 +134,6 @@ func (a *AppspaceRoutes) subRouter() http.Handler {
 			r.Post("/tsnet", a.createTSNet)
 			r.Delete("/tsnet", a.deleteTSNet)
 			r.Get("/user-conflicts", a.getUserConflicts)
-			r.Get("/user-display-data", a.getUserDisplayData)
 			r.Mount("/user", a.AppspaceUserRoutes.subRouter())
 			r.Mount("/export", a.AppspaceExportRoutes.subRouter())
 			r.Mount("/restore", a.AppspaceRestoreRoutes.subRouter())
@@ -327,7 +317,6 @@ func (a *AppspaceRoutes) getAppspaces(w http.ResponseWriter, r *http.Request) {
 
 func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceResp, error) {
 	appspaceResp := a.makeAppspaceMeta(appspace)
-	appspaceResp.OwnerDisplay = a.getUserDisplay(appspace.OwnerID)
 	appspaceResp.Status = a.AppspaceStatus.Get(appspace.AppspaceID)
 	tsnetData, err := a.AppspaceTSNetModel.Get(appspace.AppspaceID)
 	if err == nil {
@@ -353,16 +342,6 @@ func (a *AppspaceRoutes) makeAppspaceResp(appspace domain.Appspace) (AppspaceRes
 			Avatar:      u.Avatar}
 	}
 	return appspaceResp, nil
-}
-
-func (a *AppspaceRoutes) getUserDisplay(userID domain.UserID) UserDisplay {
-	user, err := a.UserModel.GetFromID(userID)
-	if err != nil {
-		return UserDisplay{}
-	}
-	return UserDisplay{
-		DisplayName:  user.DisplayName,
-		DisplayImage: user.DisplayImage}
 }
 
 // PostAppspaceReq is sent when creating a new appspace
@@ -545,24 +524,6 @@ func (a *AppspaceRoutes) getUserConflicts(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, conflicts)
-}
-
-func (a *AppspaceRoutes) getUserDisplayData(w http.ResponseWriter, r *http.Request) {
-	appspace, _ := domain.CtxAppspaceData(r.Context())
-	conflicts, err := a.AppspaceUsersCache.ProxyIDsForAppspace(appspace.AppspaceID)
-	if err != nil {
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-	ret := make(map[domain.UserID]UserDisplay)
-	for _, c := range conflicts {
-		for userID := range c.UserIDMatches {
-			if _, ok := ret[userID]; !ok {
-				ret[userID] = a.getUserDisplay(userID)
-			}
-		}
-	}
-	writeJSON(w, ret)
 }
 
 func (a *AppspaceRoutes) deleteAppspace(w http.ResponseWriter, r *http.Request) {

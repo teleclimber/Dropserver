@@ -483,7 +483,6 @@ func main() {
 		Config:                *runtimeConfig,
 		AppspaceLocation2Path: appspaceLocation2Path,
 		AppspaceUserRoutes:    userAppspaceUserRoutes,
-		UserModel:             userModel,
 		AppspaceModel:         appspaceModel,
 		AppspaceTSNetModel:    appspaceTSNetModel,
 		AppspaceStatus:        appspaceStatus,
