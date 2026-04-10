@@ -38,6 +38,8 @@ var appFlag = flag.String("app", "", "specify root directory of app code or loca
 var appspaceDirFlag = flag.String("appspace", "", "specify root directory of appspace data")
 var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with additional import mappings")
 
+var quitFlag = flag.Bool("quit", false, "quit ds-dev after task is complete")
+
 var createPackageFlag = flag.String("create-package", "", "create package and output at directory")
 var packageNameFlag = flag.String("package-name", "dropapp", "specify the basename of the package file")
 
@@ -214,6 +216,13 @@ func main() {
 			NonInteractive: noninteractive,
 			AppFilesModel:  appFilesModel}
 		packager.PackageApp(appOrigin, *createPackageFlag, *packageNameFlag)
+		os.Exit(0)
+	}
+	if *quitFlag {
+		noninteractive := &NonInteractive{
+			AppGetter:       appGetter,
+			AppGetterEvents: appGetterEvents}
+		noninteractive.LoadApp()
 		os.Exit(0)
 	}
 

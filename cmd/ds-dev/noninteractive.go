@@ -19,6 +19,23 @@ type NonInteractive struct {
 	} `checkinject:"required"`
 }
 
+func (n *NonInteractive) LoadApp() {
+	results := n.LoadAppData()
+	if len(results.Errors) != 0 {
+		for _, e := range results.Errors {
+			fmt.Println(e)
+		}
+		fmt.Println("Loading app failed. Please fix the errors above and try again.")
+		os.Exit(1)
+	}
+
+	if len(results.Warnings) != 0 {
+		for k, w := range results.Warnings {
+			fmt.Printf("Warning: %v: %s\n", k, w)
+		}
+	}
+}
+
 func (n *NonInteractive) LoadAppData() domain.AppGetMeta {
 	appGetKey, err := n.AppGetter.Reprocess(ownerID, appID, "")
 	if err != nil {
