@@ -39,6 +39,7 @@ var appspaceDirFlag = flag.String("appspace", "", "specify root directory of app
 var importMapFlag = flag.String("import-map-extras", "", "specify JSON file with additional import mappings")
 
 var quitFlag = flag.Bool("quit", false, "quit ds-dev after task is complete")
+var migrateFlag = flag.Bool("migrate", false, "migrate to latest schema (works only with -quit)")
 
 var createPackageFlag = flag.String("create-package", "", "create package and output at directory")
 var packageNameFlag = flag.String("package-name", "dropapp", "specify the basename of the package file")
@@ -220,14 +221,6 @@ func main() {
 		packager.PackageApp(appOrigin, *createPackageFlag, *packageNameFlag)
 		os.Exit(0)
 	}
-	if *quitFlag {
-		noninteractive := &NonInteractive{
-			AppWatcher:          devAppWatcher,
-			DevAppProcessEvents: appProcessingEvents,
-			AppVersionEvents:    appVersionEvents}
-		noninteractive.LoadApp()
-		os.Exit(0)
-	}
 
 	// Now read appspace metadata.
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{
@@ -358,6 +351,28 @@ func main() {
 
 	// Now we have enough things set up we can work with files
 	appspaceFiles.Reset()
+
+	if *quitFlag {
+		migrationJobController.Start()
+		noninteractive := &NonInteractive{
+			DevAppModel:         devAppModel,
+			AppWatcher:          devAppWatcher,
+			AppspaceLogger:      appspaceLogger,
+			AppspaceStatus:      appspaceStatus,
+			AppspaceMetaDB:      appspaceMetaDb,
+			DevSandboxManager:   devSandboxManager,
+			DevAppProcessEvents: appProcessingEvents,
+			AppVersionEvents:    appVersionEvents,
+			MigrationJobModel:   devMigrationJobModel,
+			MigrationJobEvents:  migrationJobEvents,
+		}
+		if *migrateFlag {
+			noninteractive.Migrate()
+		} else {
+			noninteractive.LoadApp()
+		}
+		os.Exit(0)
+	}
 
 	// We can start files watcher after import map extras have been registered.
 	devAppWatcher.Start()

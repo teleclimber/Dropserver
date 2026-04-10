@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 type NonInteractive struct {
-	AppWatcher *DevAppWatcher
+	AppWatcher          *DevAppWatcher
+	DevAppModel         *DevAppModel
 	DevAppProcessEvents interface {
 		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
 		Unsubscribe(<-chan AppProcessEvent)
@@ -14,6 +17,26 @@ type NonInteractive struct {
 	AppVersionEvents interface {
 		Subscribe(chan<- string)
 		Unsubscribe(chan<- string)
+	} `checkinject:"required"`
+	AppspaceLogger interface {
+		Close(domain.AppspaceID)
+		Open(domain.AppspaceID) domain.LoggerI
+	} `checkinject:"required"`
+	AppspaceStatus interface {
+		WaitTempPaused(domain.AppspaceID, string) chan struct{}
+	} `checkinject:"required"`
+	DevSandboxManager interface {
+		StopAppspace(domain.AppspaceID)
+	} `checkinject:"required"`
+	AppspaceMetaDB interface {
+		CloseConn(domain.AppspaceID) error
+	} `checkinject:"required"`
+	MigrationJobModel interface {
+		CreateFromSchema(migrateTo int) error
+	} `checkinject:"required"`
+	MigrationJobEvents interface {
+		Subscribe() <-chan domain.MigrationJob
+		Unsubscribe(<-chan domain.MigrationJob)
 	} `checkinject:"required"`
 }
 
@@ -32,6 +55,41 @@ func (n *NonInteractive) LoadApp() {
 			fmt.Printf("Warning: %v: %s\n", k, w)
 		}
 	}
+}
+
+func (n *NonInteractive) Migrate() {
+	n.LoadApp()
+
+	fmt.Println("Migrating...")
+
+	migrationCh := n.MigrationJobEvents.Subscribe()
+	defer n.MigrationJobEvents.Unsubscribe(migrationCh)
+
+	err := n.MigrationJobModel.CreateFromSchema(n.DevAppModel.Ver.Schema) // migrate the appspace to the app's schema.
+	if err != nil && err != errNoMigrationNeeded {
+		panic(err)
+	}
+
+	if err == nil {
+		for job := range migrationCh {
+			if job.AppspaceID != appspaceID {
+				continue
+			}
+			if job.Finished.Valid {
+				if job.Error.Valid {
+					fmt.Println("Migration failed: " + job.Error.String)
+					os.Exit(1)
+				}
+				fmt.Println("Migration complete")
+				break
+			}
+		}
+	}
+
+	// legacy comment from copy=paste...
+	// Reopen log after the work is complete so tahtthe frontend can get current log view.
+	// Is this really necessary? -> maybe, since we don't have locks on apps, need to explicitly open log?
+	n.AppspaceLogger.Open(appspaceID)
 }
 
 func (n *NonInteractive) LoadAppData() AppProcessEvent {
