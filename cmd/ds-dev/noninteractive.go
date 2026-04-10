@@ -3,19 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
-
-	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 )
 
 type NonInteractive struct {
-	AppGetter interface {
-		Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error)
-		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
-		DeleteKeyData(key domain.AppGetKey)
-	}
-	AppGetterEvents interface {
-		SubscribeOwner(domain.UserID) <-chan domain.AppGetEvent
-		Unsubscribe(<-chan domain.AppGetEvent)
+	AppWatcher *DevAppWatcher
+	DevAppProcessEvents interface {
+		Subscribe() (AppProcessEvent, <-chan AppProcessEvent)
+		Unsubscribe(<-chan AppProcessEvent)
+	} `checkinject:"required"`
+	AppVersionEvents interface {
+		Subscribe(chan<- string)
+		Unsubscribe(chan<- string)
 	} `checkinject:"required"`
 }
 
@@ -36,45 +34,31 @@ func (n *NonInteractive) LoadApp() {
 	}
 }
 
-func (n *NonInteractive) LoadAppData() domain.AppGetMeta {
-	appGetKey, err := n.AppGetter.Reprocess(ownerID, appID, "")
-	if err != nil {
-		panic(err)
-	}
+func (n *NonInteractive) LoadAppData() AppProcessEvent {
+	_, procCh := n.DevAppProcessEvents.Subscribe()
+	defer n.DevAppProcessEvents.Unsubscribe(procCh)
 
-	appGetCh := n.AppGetterEvents.SubscribeOwner(ownerID)
-	defer n.AppGetterEvents.Unsubscribe(appGetCh)
+	verCh := make(chan string)
+	n.AppVersionEvents.Subscribe(verCh)
+	defer n.AppVersionEvents.Unsubscribe(verCh)
 
-	rChan := make(chan domain.AppGetMeta, 1)
-	done := false
-	for e := range appGetCh {
-		if e.Key != appGetKey {
-			continue
-		}
-		if e.Done {
-			if !done {
-				fmt.Println("Done processing app")
-				go func() { // have to do this to prevent deadlock
-					r := n.getResults(appGetKey)
-					rChan <- r
-				}()
+	go n.AppWatcher.ReprocessAppFiles()
+
+	var lastProc AppProcessEvent
+	for {
+		select {
+		case ev := <-procCh:
+			if ev.Processing {
+				fmt.Println(ev.Step)
+			} else {
+				lastProc = ev
 			}
-			done = true
-			go n.AppGetterEvents.Unsubscribe(appGetCh) // unsubscribe to stop for loop
-		} else {
-			fmt.Println(e.Step)
+		case state := <-verCh:
+			if state == "ready" || state == "error" {
+				return lastProc
+			}
 		}
 	}
-	return <-rChan
-}
-
-func (n *NonInteractive) getResults(appGetKey domain.AppGetKey) domain.AppGetMeta {
-	results, ok := n.AppGetter.GetResults(appGetKey)
-	if !ok {
-		panic("no appGetKey. This is a bug in ds-dev.")
-	}
-	n.AppGetter.DeleteKeyData(appGetKey)
-	return results
 }
 
 func checkOutputDir(outDir string) {

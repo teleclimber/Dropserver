@@ -65,10 +65,10 @@ func (w *DevAppWatcher) AddDir(dir string) {
 
 // Start loads the appfiles and launches file watching
 func (w *DevAppWatcher) Start() {
-	go w.reprocessAppFiles()
+	go w.ReprocessAppFiles()
 	go w.watch()
 }
-func (w *DevAppWatcher) reprocessAppFiles() { // Maybe export this so it can be called directly, and don't call "start" if we're not watching app files.
+func (w *DevAppWatcher) ReprocessAppFiles() {
 	ok := w.setRunning()
 	if !ok {
 		w.resetTimer()
@@ -245,7 +245,7 @@ func (w *DevAppWatcher) setDirty() {
 	w.dirtyMux.Lock()
 	w.dirty = true
 	if w.timer == nil {
-		w.timer = time.AfterFunc(100*time.Millisecond, w.reprocessAppFiles)
+		w.timer = time.AfterFunc(100*time.Millisecond, w.ReprocessAppFiles)
 	} else {
 		w.timer.Reset(100 * time.Millisecond)
 	}
@@ -255,7 +255,7 @@ func (w *DevAppWatcher) setDirty() {
 func (w *DevAppWatcher) resetTimer() {
 	w.dirtyMux.Lock()
 	if w.timer == nil {
-		w.timer = time.AfterFunc(100*time.Millisecond, w.reprocessAppFiles)
+		w.timer = time.AfterFunc(100*time.Millisecond, w.ReprocessAppFiles)
 	} else {
 		w.timer.Reset(100 * time.Millisecond)
 	}

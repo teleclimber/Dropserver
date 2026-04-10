@@ -22,8 +22,9 @@ import (
 
 type AppPackager struct {
 	NonInteractive interface {
-		LoadAppData() domain.AppGetMeta
+		LoadAppData() AppProcessEvent
 	}
+	DevAppModel   *DevAppModel
 	AppFilesModel interface {
 		ReadManifest(string) (domain.AppVersionManifest, error)
 	}
@@ -32,17 +33,17 @@ type AppPackager struct {
 func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	checkOutputDir(outDir)
 
-	results := p.NonInteractive.LoadAppData()
-	if len(results.Errors) != 0 {
-		for _, e := range results.Errors {
+	procResult := p.NonInteractive.LoadAppData()
+	if len(procResult.Errors) != 0 {
+		for _, e := range procResult.Errors {
 			fmt.Println(e)
 		}
 		fmt.Println("Packaging failed. Please fix the errors above and try again.")
 		os.Exit(1)
 	}
 
-	if len(results.Warnings) != 0 {
-		for k, w := range results.Warnings {
+	if len(procResult.Warnings) != 0 {
+		for k, w := range procResult.Warnings {
 			fmt.Printf("Warning: %v: %s\n", k, w)
 		}
 	}
@@ -53,6 +54,8 @@ func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	// - Find License file, and get SPDX value?
 	// - size (get from tar?)
 
+	versionManifest := p.DevAppModel.Manifest
+
 	manifest, err := p.AppFilesModel.ReadManifest("")
 	if err != nil {
 		fmt.Println("Error reading app manifest file: ", err)
@@ -60,7 +63,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	}
 	releaseDate := time.Now().Format("2006-01-02")
 	manifest.ReleaseDate = releaseDate
-	results.VersionManifest.ReleaseDate = releaseDate
+	versionManifest.ReleaseDate = releaseDate
 
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
@@ -81,7 +84,7 @@ func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 		os.Exit(1)
 	}
 
-	base := fmt.Sprintf("%s-%s", appName, string(results.VersionManifest.Version))
+	base := fmt.Sprintf("%s-%s", appName, string(versionManifest.Version))
 	appFd, err := getAppFile(outDir, base)
 	if err != nil {
 		fmt.Println("Error creating package file: ", err)
@@ -89,28 +92,28 @@ func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	}
 	defer appFd.Close()
 
-	err = gzipArchive(appFd, buf.Bytes(), results.VersionManifest.Name, "Dropserver app package created using ds-dev "+cmd_version, time.Now())
+	err = gzipArchive(appFd, buf.Bytes(), versionManifest.Name, "Dropserver app package created using ds-dev "+cmd_version, time.Now())
 	if err != nil {
 		fmt.Println("Error gzipping: ", err)
 		os.Exit(1)
 	}
 
 	// Here take the app icon and changelog info from the manifest and generate these files as appropriate
-	clFilename, err := writeChangelogFile(appDir, results.VersionManifest.Changelog, results.VersionManifest.Version, outDir, base)
+	clFilename, err := writeChangelogFile(appDir, versionManifest.Changelog, versionManifest.Version, outDir, base)
 	if err != nil {
 		fmt.Println("Error writing changelog file: ", err)
 		os.Exit(1)
 	}
-	results.VersionManifest.Changelog = clFilename
+	versionManifest.Changelog = clFilename
 
-	iconFilename, err := writeIconFile(appDir, results.VersionManifest.Icon, outDir, appName)
+	iconFilename, err := writeIconFile(appDir, versionManifest.Icon, outDir, appName)
 	if err != nil {
 		fmt.Println("Error writing icon file: ", err)
 		os.Exit(1)
 	}
-	results.VersionManifest.Icon = iconFilename
+	versionManifest.Icon = iconFilename
 
-	err = writeManifestFile(results.VersionManifest, outDir, base)
+	err = writeManifestFile(versionManifest, outDir, base)
 	if err != nil {
 		fmt.Println("Error creating manifest file: ", err)
 		os.Exit(1)

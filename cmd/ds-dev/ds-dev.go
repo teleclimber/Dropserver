@@ -210,18 +210,21 @@ func main() {
 
 	if *createPackageFlag != "" {
 		noninteractive := &NonInteractive{
-			AppGetter:       appGetter,
-			AppGetterEvents: appGetterEvents}
+			AppWatcher:          devAppWatcher,
+			DevAppProcessEvents: appProcessingEvents,
+			AppVersionEvents:    appVersionEvents}
 		packager := &AppPackager{
 			NonInteractive: noninteractive,
+			DevAppModel:    devAppModel,
 			AppFilesModel:  appFilesModel}
 		packager.PackageApp(appOrigin, *createPackageFlag, *packageNameFlag)
 		os.Exit(0)
 	}
 	if *quitFlag {
 		noninteractive := &NonInteractive{
-			AppGetter:       appGetter,
-			AppGetterEvents: appGetterEvents}
+			AppWatcher:          devAppWatcher,
+			DevAppProcessEvents: appProcessingEvents,
+			AppVersionEvents:    appVersionEvents}
 		noninteractive.LoadApp()
 		os.Exit(0)
 	}
