@@ -78,19 +78,11 @@ func main() {
 
 	checkFlags(appOriginType)
 
-	tempDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		panic(err)
-	}
-	// temp dirs are sometimes symlinks to a dir, which trips up our CWD evaluations, particularly in Deno
-	// https://github.com/denoland/deno/issues/22309
-	tempDir, err = filepath.EvalSymlinks(tempDir)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(tempDir)
+	td := setupTempDir()
+	defer td.cleanupDir()
+	tempDir := td.dir
 
-	fmt.Println("Temp dir: " + tempDir)
+	var err error
 
 	appDir := appOrigin
 	if appOriginType == Package {
