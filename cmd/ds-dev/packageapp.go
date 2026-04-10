@@ -21,24 +21,18 @@ import (
 )
 
 type AppPackager struct {
-	AppGetter interface {
-		Reprocess(userID domain.UserID, appID domain.AppID, locationKey string) (domain.AppGetKey, error)
-		GetResults(key domain.AppGetKey) (domain.AppGetMeta, bool)
-		DeleteKeyData(key domain.AppGetKey)
+	NonInteractive interface {
+		LoadAppData() domain.AppGetMeta
 	}
 	AppFilesModel interface {
 		ReadManifest(string) (domain.AppVersionManifest, error)
 	}
-	AppGetterEvents interface {
-		SubscribeOwner(domain.UserID) <-chan domain.AppGetEvent
-		Unsubscribe(<-chan domain.AppGetEvent)
-	} `checkinject:"required"`
 }
 
 func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 	checkOutputDir(outDir)
 
-	results := p.loadAppData()
+	results := p.NonInteractive.LoadAppData()
 	if len(results.Errors) != 0 {
 		for _, e := range results.Errors {
 			fmt.Println(e)
@@ -121,47 +115,6 @@ func (p *AppPackager) PackageApp(appDir, outDir string, appName string) {
 		fmt.Println("Error creating manifest file: ", err)
 		os.Exit(1)
 	}
-}
-
-func (p *AppPackager) loadAppData() domain.AppGetMeta {
-	appGetKey, err := p.AppGetter.Reprocess(ownerID, appID, "")
-	if err != nil {
-		panic(err)
-	}
-
-	appGetCh := p.AppGetterEvents.SubscribeOwner(ownerID)
-	defer p.AppGetterEvents.Unsubscribe(appGetCh)
-
-	rChan := make(chan domain.AppGetMeta, 1)
-	done := false
-	for e := range appGetCh {
-		if e.Key != appGetKey {
-			continue
-		}
-		if e.Done {
-			if !done {
-				fmt.Println("Done processing app")
-				go func() { // have to do this to prevent deadlock
-					r := p.getResults(appGetKey)
-					rChan <- r
-				}()
-			}
-			done = true
-			go p.AppGetterEvents.Unsubscribe(appGetCh) // unsubscribe to stop for loop
-		} else {
-			fmt.Println(e.Step)
-		}
-	}
-	return <-rChan
-}
-
-func (p *AppPackager) getResults(appGetKey domain.AppGetKey) domain.AppGetMeta {
-	results, ok := p.AppGetter.GetResults(appGetKey)
-	if !ok {
-		panic("no appGetKey. This is a bug in ds-dev.")
-	}
-	p.AppGetter.DeleteKeyData(appGetKey)
-	return results
 }
 
 func gzipArchive(w io.Writer, archive []byte, name, comment string, modTime time.Time) error {
@@ -272,22 +225,6 @@ func skip(name string) bool {
 	}
 
 	return false
-}
-
-func checkOutputDir(outDir string) {
-	info, err := os.Stat(outDir)
-	if err == os.ErrNotExist {
-		fmt.Println("Output dir does not exist: " + outDir)
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Println("Error opening output dir: ", err)
-		os.Exit(1)
-	}
-	if !info.IsDir() {
-		fmt.Println("Output Directory is not a directory: " + outDir)
-		os.Exit(1)
-	}
 }
 
 func getAppFile(outDir, base string) (*os.File, error) {

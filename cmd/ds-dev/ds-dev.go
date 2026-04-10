@@ -207,10 +207,12 @@ func main() {
 	appGetter.SandboxManager = devSandboxManager
 
 	if *createPackageFlag != "" {
-		packager := &AppPackager{
+		noninteractive := &NonInteractive{
 			AppGetter:       appGetter,
-			AppFilesModel:   appFilesModel,
 			AppGetterEvents: appGetterEvents}
+		packager := &AppPackager{
+			NonInteractive: noninteractive,
+			AppFilesModel:  appFilesModel}
 		packager.PackageApp(appOrigin, *createPackageFlag, *packageNameFlag)
 		os.Exit(0)
 	}
