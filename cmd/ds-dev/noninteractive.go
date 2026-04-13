@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 )
 
 type NonInteractive struct {
@@ -71,8 +72,6 @@ func (n *NonInteractive) LoadApp() {
 func (n *NonInteractive) Migrate() {
 	n.LoadApp()
 
-	fmt.Println("Migrating...")
-
 	asLog := n.AppspaceLogger.Open(appspaceID)
 	stopAsLog := n.relayLog(asLog)
 
@@ -82,6 +81,9 @@ func (n *NonInteractive) Migrate() {
 	err := n.MigrationJobModel.CreateFromSchema(n.DevAppModel.Ver.Schema) // migrate the appspace to the app's schema.
 	if err != nil && err != errNoMigrationNeeded {
 		panic(err)
+	}
+	if err == errNoMigrationNeeded {
+		fmt.Printf("No migration needed (schema %v)\n", n.DevAppModel.Ver.Schema)
 	}
 
 	if err == nil {
@@ -94,7 +96,6 @@ func (n *NonInteractive) Migrate() {
 					fmt.Println("Migration failed: " + job.Error.String)
 					os.Exit(1)
 				}
-				fmt.Println("Migration complete")
 				break
 			}
 		}
@@ -140,12 +141,14 @@ func (n *NonInteractive) LoadAppData() AppProcessEvent {
 
 	go n.AppWatcher.ReprocessAppFiles()
 
+	logger := record.NewDsLogger().AddNote("LoadAppData")
+
 	var lastProc AppProcessEvent
 	for {
 		select {
 		case ev := <-procCh:
 			if ev.Processing {
-				fmt.Println(ev.Step)
+				logger.Log(ev.Step)
 			} else {
 				lastProc = ev
 			}

@@ -267,7 +267,7 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 		}
 	}
 
-	c.AppspaceLogger.Log(appspaceID, "ds-host", fmt.Sprintf("Migrating from schema %v to schema %v", job.fromSchema, job.toSchema))
+	c.AppspaceLogger.Log(appspaceID, "host", fmt.Sprintf("Migrating from schema %v to schema %v", job.fromSchema, job.toSchema))
 
 	// everything checks out so before running actual migration take a backup
 	var backupZip string

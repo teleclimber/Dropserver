@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
@@ -230,7 +229,6 @@ func (m *DevMigrationJobModel) SetFinished(jobID domain.JobID, errStr nulltypes.
 		}
 		m.job.Finished = nulltypes.NewTime(time.Now(), true)
 		m.job.Error = errStr
-		fmt.Println("set job to finished and sending")
 		go m.sendJobAsEvent()
 		return nil
 	}

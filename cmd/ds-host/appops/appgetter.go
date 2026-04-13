@@ -302,7 +302,7 @@ func (g *AppGetter) Reprocess(userID domain.UserID, appID domain.AppID, location
 		locationKey: locationKey}
 	data = g.set(data)
 
-	g.AppLogger.Log(locationKey, "ds-host", "Reprocessing app version metadata")
+	g.getLogger("Reprocess").Log("Reprocessing app version metadata")
 
 	g.sendEvent(data, domain.AppGetEvent{Step: "Starting reprocess"})
 
@@ -399,7 +399,7 @@ func (g *AppGetter) processApp(keyData appGetData) {
 		return
 	}
 
-	g.AppLogger.Log(keyData.locationKey, "ds-host", "App processing completed successfully")
+	g.getLogger("processApp").Log("App processing completed successfully")
 }
 func (g *AppGetter) checkStep(keyData appGetData, err error, errStr string) bool {
 	if err != nil {
@@ -538,7 +538,6 @@ func (g *AppGetter) getDataFromSandbox(keyData appGetData) error {
 		return err
 	}
 
-	g.AppLogger.Log(keyData.locationKey, "ds-host", "Writing app routes to disk")
 	g.sendEvent(keyData, domain.AppGetEvent{Step: "Writing app routes"})
 
 	routerJson, err := json.Marshal(routesData)

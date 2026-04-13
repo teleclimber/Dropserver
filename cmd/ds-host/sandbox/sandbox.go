@@ -276,7 +276,7 @@ func (s *Sandbox) doStart() error {
 	if s.inspect {
 		logString += " with --inspect-brk"
 	}
-	s.log(logString)
+	s.getLogger("doStart").Log(logString)
 
 	socketsDir, err := os.MkdirTemp(s.Config.Sandbox.SocketsDir, "sock")
 	if err != nil {
