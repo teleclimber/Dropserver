@@ -357,6 +357,7 @@ func main() {
 		noninteractive := &NonInteractive{
 			DevAppModel:         devAppModel,
 			AppWatcher:          devAppWatcher,
+			AppLogger:           appLogger,
 			AppspaceLogger:      appspaceLogger,
 			AppspaceStatus:      appspaceStatus,
 			AppspaceMetaDB:      appspaceMetaDb,

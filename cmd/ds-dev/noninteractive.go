@@ -18,6 +18,10 @@ type NonInteractive struct {
 		Subscribe(chan<- string)
 		Unsubscribe(chan<- string)
 	} `checkinject:"required"`
+	AppLogger interface {
+		Open(string) domain.LoggerI
+		Close(string)
+	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Close(domain.AppspaceID)
 		Open(domain.AppspaceID) domain.LoggerI
@@ -41,7 +45,14 @@ type NonInteractive struct {
 }
 
 func (n *NonInteractive) LoadApp() {
+	appLog := n.AppLogger.Open("")
+	stopAppLog := n.relayLog(appLog)
+
 	results := n.LoadAppData()
+
+	stopAppLog()
+	n.AppLogger.Close("")
+
 	if len(results.Errors) != 0 {
 		for _, e := range results.Errors {
 			fmt.Println(e)
@@ -61,6 +72,9 @@ func (n *NonInteractive) Migrate() {
 	n.LoadApp()
 
 	fmt.Println("Migrating...")
+
+	asLog := n.AppspaceLogger.Open(appspaceID)
+	stopAsLog := n.relayLog(asLog)
 
 	migrationCh := n.MigrationJobEvents.Subscribe()
 	defer n.MigrationJobEvents.Unsubscribe(migrationCh)
@@ -86,10 +100,34 @@ func (n *NonInteractive) Migrate() {
 		}
 	}
 
-	// legacy comment from copy=paste...
-	// Reopen log after the work is complete so tahtthe frontend can get current log view.
-	// Is this really necessary? -> maybe, since we don't have locks on apps, need to explicitly open log?
-	n.AppspaceLogger.Open(appspaceID)
+	stopAsLog()
+}
+
+// relayLog subscribes to a logger's entries and prints them to stdout.
+// It returns a function that stops the relay and unsubscribes.
+func (n *NonInteractive) relayLog(logger domain.LoggerI) func() {
+	_, ch, err := logger.SubscribeEntries(0)
+	if err != nil {
+		return func() {}
+	}
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case entry, ok := <-ch:
+				if !ok {
+					return
+				}
+				fmt.Println(entry)
+			case <-done:
+				return
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		logger.UnsubscribeEntries(ch)
+	}
 }
 
 func (n *NonInteractive) LoadAppData() AppProcessEvent {
