@@ -17,7 +17,8 @@ type AppspaceLogger struct {
 		IsLockedClosed(domain.AppspaceID) bool
 	} `checkinject:"required"`
 
-	Config *domain.RuntimeConfig
+	Config    *domain.RuntimeConfig
+	PrintTime bool
 
 	loggersMux sync.Mutex
 	loggers    map[domain.AppspaceID]*Logger
@@ -91,7 +92,8 @@ func (l *AppspaceLogger) getLogger(appspaceID domain.AppspaceID, open bool) *Log
 		}
 
 		logger = &Logger{
-			logPath: filepath.Join(l.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "logs", "log.txt")}
+			printTime: l.PrintTime,
+			logPath:   filepath.Join(l.Config.Exec.AppspacesPath, appspace.LocationKey, "data", "logs", "log.txt")}
 
 		l.loggers[appspaceID] = logger
 	}

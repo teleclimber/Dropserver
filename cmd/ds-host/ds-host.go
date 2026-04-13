@@ -82,7 +82,7 @@ func main() {
 	}
 	runtimeConfig.Exec.CmdVersion = cmd_version
 
-	record.InitDsLogger()
+	record.InitDsLogger(true)
 	err := record.SetLogOutput(runtimeConfig.Log)
 	if err != nil {
 		panic(err)
@@ -201,13 +201,15 @@ func main() {
 	sandboxRunsModel.PrepareStatements()
 
 	appLogger := &appspacelogger.AppLogger{
+		PrintTime:        true,
 		AppLocation2Path: appLocation2Path}
 	appLogger.Init()
 
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel: appspaceModel,
 		//AppspaceStatus: see below,
-		Config: runtimeConfig}
+		PrintTime: true,
+		Config:    runtimeConfig}
 	appspaceLogger.Init()
 
 	appspaceMetaDb := &appspacemetadb.AppspaceMetaDB{

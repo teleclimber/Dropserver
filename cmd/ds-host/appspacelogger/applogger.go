@@ -15,6 +15,8 @@ type AppLogger struct {
 		Meta(string) string
 	} `checkinject:"required"`
 
+	PrintTime bool
+
 	loggersMux sync.Mutex
 	loggers    map[string]*Logger // by location key
 }
@@ -82,7 +84,8 @@ func (l *AppLogger) getLogger(locationKey string, open bool) (logger *Logger) { 
 	if !ok {
 		// should really check with AppFileModel that the location key exists.
 		logger = &Logger{
-			logPath: filepath.Join(l.AppLocation2Path.Meta(locationKey), "log.txt")}
+			printTime: l.PrintTime,
+			logPath:   filepath.Join(l.AppLocation2Path.Meta(locationKey), "log.txt")}
 		l.loggers[locationKey] = logger
 	}
 

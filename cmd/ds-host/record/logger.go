@@ -15,8 +15,12 @@ var multiWriter io.Writer
 var logFile *os.File
 
 // InitDsLogger sets flags on the default logger
-func InitDsLogger() {
-	log.SetFlags(log.Ldate | log.Ltime)
+func InitDsLogger(printTime bool) {
+	if printTime {
+		log.SetFlags(log.Ldate | log.Ltime)
+	} else {
+		log.SetFlags(0)
+	}
 }
 
 // SetLogOutput sets the path of the log file

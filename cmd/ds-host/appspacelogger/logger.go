@@ -23,7 +23,8 @@ func sanitizeMessage(m string) string {
 type Logger struct {
 	fd *os.File
 
-	logPath string
+	printTime bool
+	logPath   string
 
 	logMux sync.Mutex
 
@@ -58,7 +59,12 @@ func (l *Logger) close() error {
 }
 
 func (l *Logger) Log(source, message string) {
-	str := fmt.Sprintf("%s %s %s", time.Now().Format(time.RFC3339), source, sanitizeMessage(message))
+	var str string
+	if l.printTime {
+		str = fmt.Sprintf("%s %s %s", time.Now().Format(time.RFC3339), source, sanitizeMessage(message))
+	} else {
+		str = fmt.Sprintf("%s %s", source, sanitizeMessage(message))
+	}
 	err := l.writeEntry(str)
 	if err != nil {
 		l.getHostLogger("Log").Log("Error writing entry " + str + " Error: " + err.Error())

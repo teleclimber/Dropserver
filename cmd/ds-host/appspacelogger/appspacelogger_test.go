@@ -40,6 +40,7 @@ func TestLog(t *testing.T) {
 	l := AppspaceLogger{
 		AppspaceModel:  am,
 		AppspaceStatus: as,
+		PrintTime:      true,
 		Config:         config}
 	l.Init()
 
@@ -85,6 +86,7 @@ func TestGetLogger(t *testing.T) {
 	l := AppspaceLogger{
 		AppspaceModel:  am,
 		AppspaceStatus: as,
+		PrintTime:      true,
 		Config:         config}
 	l.Init()
 

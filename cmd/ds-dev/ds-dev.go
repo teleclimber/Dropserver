@@ -18,6 +18,7 @@ import (
 	"github.com/teleclimber/DropServer/cmd/ds-host/domain"
 	"github.com/teleclimber/DropServer/cmd/ds-host/events"
 	"github.com/teleclimber/DropServer/cmd/ds-host/models/appfilesmodel"
+	"github.com/teleclimber/DropServer/cmd/ds-host/record"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxproxy"
 	"github.com/teleclimber/DropServer/cmd/ds-host/sandboxservices"
 	"github.com/teleclimber/DropServer/denosandboxcode"
@@ -73,6 +74,8 @@ func main() {
 		}
 		os.Exit(0)
 	}
+
+	record.InitDsLogger(!isNonInteractive())
 
 	appOrigin := makeAbsolute(*appFlag) // assumes this is not a URL!
 	appOriginType := ResolveAppOrigin(*appFlag)
@@ -165,6 +168,7 @@ func main() {
 	}
 
 	appLogger := &appspacelogger.AppLogger{
+		PrintTime:        !isNonInteractive(),
 		AppLocation2Path: appLocation2Path,
 	}
 	appLogger.Init()
@@ -269,7 +273,8 @@ func main() {
 	appspaceLogger := &appspacelogger.AppspaceLogger{
 		AppspaceModel: devAppspaceModel,
 		//AppspaceStatus: see below
-		Config: runtimeConfig}
+		PrintTime: !isNonInteractive(),
+		Config:    runtimeConfig}
 	appspaceLogger.Init()
 	devSandboxManager.AppspaceLogger = appspaceLogger
 
@@ -484,4 +489,8 @@ func checkFlags(appOriginType AppSourceType) {
 			os.Exit(1)
 		}
 	}
+}
+
+func isNonInteractive() bool {
+	return *quitFlag || *createPackageFlag != "" || *createListingFlag != ""
 }
