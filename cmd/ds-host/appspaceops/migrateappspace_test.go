@@ -99,9 +99,6 @@ func TestRunJob(t *testing.T) {
 	backupAppspace := testmocks.NewMockBackupAppspace(mockCtrl)
 	backupAppspace.EXPECT().BackupNoPause(appspaceID).Return("some-zip-file.zip", nil)
 
-	appspaceLogger := testmocks.NewMockAppspaceLogger(mockCtrl)
-	appspaceLogger.EXPECT().Log(appspaceID, gomock.Any(), gomock.Any())
-
 	c := &MigrationJobController{
 		AppspaceModel:     appspaceModel,
 		AppModel:          appModel,
@@ -109,7 +106,6 @@ func TestRunJob(t *testing.T) {
 		BackupAppspace:    backupAppspace,
 		SandboxManager:    sandboxManager,
 		AppspaceStatus:    appspaceStatus,
-		AppspaceLogger:    appspaceLogger,
 	}
 
 	rj := c.createRunningJob(job)
