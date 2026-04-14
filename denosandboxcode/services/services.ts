@@ -48,7 +48,6 @@ export default class DsServices {
 					exec_mod.handleMessage(message);
 					break;
 				case appService:
-					console.log("got appService Message");
 					if( this.appService === undefined) message.sendError("appService not present");
 					else this.appService.handleMessage(message);
 					break;
