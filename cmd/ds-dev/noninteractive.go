@@ -50,12 +50,9 @@ type NonInteractive struct {
 
 func (n *NonInteractive) LoadApp() {
 	appLog := n.AppLogger.Open("")
-	stopAppLog := n.relayLog(appLog)
+	n.relayLog(appLog)
 
 	results := n.LoadAppData()
-
-	stopAppLog()
-	n.AppLogger.Close("")
 
 	if len(results.Errors) != 0 {
 		for _, e := range results.Errors {
@@ -76,7 +73,7 @@ func (n *NonInteractive) Migrate() {
 	n.LoadApp()
 
 	asLog := n.AppspaceLogger.Open(appspaceID)
-	stopAsLog := n.relayLog(asLog)
+	n.relayLog(asLog)
 
 	migrationCh := n.MigrationJobEvents.Subscribe()
 	defer n.MigrationJobEvents.Unsubscribe(migrationCh)
@@ -108,8 +105,6 @@ func (n *NonInteractive) Migrate() {
 			}
 		}
 	}
-
-	stopAsLog()
 }
 
 // relayLog subscribes to a logger's entries and prints them to stdout.
