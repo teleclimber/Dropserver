@@ -475,6 +475,16 @@ func checkFlags(appOriginType AppSourceType) {
 		os.Exit(1)
 	}
 
+	if *migrateFlag && !*quitFlag {
+		fmt.Println("-migrate requires -quit")
+		os.Exit(1)
+	}
+
+	if *quitFlag && *createPackageFlag != "" {
+		fmt.Println("Do not combine -quit with -create-package")
+		os.Exit(1)
+	}
+
 	if *createPackageFlag != "" {
 		// rule out other flags:
 		if *appspaceDirFlag != "" {
