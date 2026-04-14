@@ -23,6 +23,9 @@ type NonInteractive struct {
 		Open(string) domain.LoggerI
 		Close(string)
 	} `checkinject:"required"`
+	AppspaceInfoModel interface {
+		GetSchema(domain.AppspaceID) (int, error)
+	} `checkinject:"required"`
 	AppspaceLogger interface {
 		Close(domain.AppspaceID)
 		Open(domain.AppspaceID) domain.LoggerI
@@ -84,9 +87,13 @@ func (n *NonInteractive) Migrate() {
 	}
 	if err == errNoMigrationNeeded {
 		fmt.Printf("No migration needed (schema %v)\n", n.DevAppModel.Ver.Schema)
-	}
+	} else {
+		appspaceSchema, err := n.AppspaceInfoModel.GetSchema(appspaceID)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Migrating appspace from schema %v to schema %v\n", appspaceSchema, n.DevAppModel.Ver.Schema)
 
-	if err == nil {
 		for job := range migrationCh {
 			if job.AppspaceID != appspaceID {
 				continue
@@ -96,6 +103,7 @@ func (n *NonInteractive) Migrate() {
 					fmt.Println("Migration failed: " + job.Error.String)
 					os.Exit(1)
 				}
+				fmt.Println("Migration complete")
 				break
 			}
 		}

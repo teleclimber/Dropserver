@@ -363,6 +363,7 @@ func main() {
 			DevAppModel:         devAppModel,
 			AppWatcher:          devAppWatcher,
 			AppLogger:           appLogger,
+			AppspaceInfoModel:   appspaceInfoModel,
 			AppspaceLogger:      appspaceLogger,
 			AppspaceStatus:      appspaceStatus,
 			AppspaceMetaDB:      appspaceMetaDb,

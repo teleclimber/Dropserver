@@ -2,7 +2,6 @@ package appspaceops
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -266,8 +265,6 @@ func (c *MigrationJobController) runJob(job *runningJob) {
 			// if no rows, that means version was deleted even though appspaces were using it. That's a program error
 		}
 	}
-
-	c.AppspaceLogger.Log(appspaceID, "host", fmt.Sprintf("Migrating from schema %v to schema %v", job.fromSchema, job.toSchema))
 
 	// everything checks out so before running actual migration take a backup
 	var backupZip string
