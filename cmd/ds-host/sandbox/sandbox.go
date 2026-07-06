@@ -357,6 +357,7 @@ func (s *Sandbox) doStart() error {
 		"--import-map="+s.paths.sandboxPath("import-map"),
 		"--allow-read="+s.paths.denoAllowRead(),
 		"--allow-write="+s.paths.denoAllowWrite(),
+		"--allow-net="+s.getAllowNetSockets(),
 		s.paths.sandboxPath("bootstrap"),
 		s.paths.sandboxPath("sockets"),
 		s.paths.sandboxPath("app-files"),
@@ -980,6 +981,13 @@ func (s *Sandbox) createPaths() {
 	s.paths.AppLocation2Path = s.AppLocation2Path
 	s.paths.AppspaceLocation2Path = s.AppspaceLocation2Path
 	s.paths.init()
+}
+
+func (s *Sandbox) getAllowNetSockets() string {
+	p := s.paths.sandboxPath("sockets")
+	return fmt.Sprintf("unix:%s,unix:%s",
+		filepath.Join(p, "server.sock"),
+		filepath.Join(p, "rev.sock"))
 }
 
 // ImportPaths defines a type for creating imopsts.json for Deno
