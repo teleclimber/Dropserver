@@ -1,8 +1,6 @@
 module github.com/teleclimber/DropServer
 
-go 1.24.2
-
-toolchain go1.24.4
+go 1.26.4
 
 require (
 	code.dny.dev/ssrf v0.2.0
