@@ -1,6 +1,6 @@
 <template>
 	<div class="absolute top-0 left-0 w-full z-10 h-screen" @click="closeUserMenu">
-		<div class="origin-top-right absolute right-0 mt-20 mr-4 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100">
+		<div class="origin-top-right absolute right-0 mt-20 mr-4 w-56 rounded-md shadow-lg bg-white ring-1 ring-gray-300 ring-opacity-5 divide-y divide-gray-100">
 			<router-link 
 				:to="{name:'user'}" v-if="authUserStore.is_loaded"
 				class="block px-4 py-4 text-gray-700 hover:bg-gray-100 hover:text-gray-900"

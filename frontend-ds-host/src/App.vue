@@ -1,3 +1,7 @@
+<style>
+@import "tailwindcss";
+</style>
+
 <template>
 	<div class="md:ds-full-layout w-full md:h-screen">
 		<NavMain></NavMain>

@@ -1,8 +1,10 @@
-@config "../../tailwind.config.js";
+@import "tailwindcss";
 
-@tailwind base;
-
-@tailwind components;
+@layer base {
+	input:not([type="button"]), select, optgroup, textarea, ::file-selector-button {
+		background-color: revert;
+	}
+}
 
 .btn {
 	@apply text-indigo-600 text-xs font-bold uppercase;
@@ -21,21 +23,17 @@
 	@apply bg-gray-400 text-gray-200;
 }
 
-@tailwind utilities;
-
-@layer components {
-	.ds-full-layout {
-		display: grid;
-		grid-template-columns: 16rem 1fr;
-		grid-template-rows: 5.5rem 1fr;
-		grid-template-areas:
-			"nav header"
-			"nav view";
-	}
-	.ds-header-phone {
-		grid-template-columns: 4rem 1fr 4rem;
-	}
-	.ds-header-full {
-		grid-template-columns: 1fr 6rem;
-	}
+@utility ds-full-layout {
+	display: grid;
+	grid-template-columns: 16rem 1fr;
+	grid-template-rows: 5.5rem 1fr;
+	grid-template-areas:
+		"nav header"
+		"nav view";
+}
+@utility ds-header-phone {
+	grid-template-columns: 4rem 1fr 4rem;
+}
+@utility ds-header-full {
+	grid-template-columns: 1fr 6rem;
 }
