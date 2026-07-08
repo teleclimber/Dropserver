@@ -36,7 +36,7 @@ const head = computed( () => {
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
 			</svg>
 		</a>
-		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800 flex-no-wrap whitespace-nowrap overflow-hidden overflow-ellipsis">
+		<h1 class="text-xl md:text-4xl py-4 md:py-6 md:pl-6 font-bold text-gray-800 flex-no-wrap whitespace-nowrap overflow-hidden text-ellipsis">
 			{{ head }}
 		</h1>
 

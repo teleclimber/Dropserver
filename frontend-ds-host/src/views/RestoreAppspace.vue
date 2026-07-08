@@ -144,7 +144,7 @@ async function commitRestore(appspace_id:number, token: string) {
 				<div>
 					<label v-for="file in appspaceBackups.files" :key="file.name" class="px-4 py-3 sm:px-6 border-b border-gray-200 flex items-baseline">
 						<input type="radio" class="mr-4" name="select_backup" :value="file.name" v-model="selected" />
-						<div class="flex-grow">{{file.name}}</div>
+						<div class="grow">{{file.name}}</div>
 						
 						<div class="px-4">&nbsp;</div>
 						

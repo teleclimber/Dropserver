@@ -10,7 +10,7 @@ const props = defineProps<{
 <template>
 	<div class="bg-white border-b border-b-gray-300 flex items-baseline">
 		<div class="px-4 text-gray-500 text-right w-16">{{ user.user_id }}</div>
-		<div class="flex-grow py-2">
+		<div class="grow py-2">
 			<div v-if="user.email" class="">{{ user.email }}</div>
 			<div v-else class="italic text-gray-500">No email set</div>
 			<div v-if="user.tsnet_identifier">{{ user.tsnet_identifier }} ({{ user.tsnet_extra_name }})</div>

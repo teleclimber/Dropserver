@@ -36,7 +36,7 @@ async function del(filename: string) {
 			</div>
 		</div>
 		<div v-for="file in appspaceBackups.files" :key="file.name" class="px-4 py-3 sm:px-6 border-b border-gray-200 flex items-baseline">
-			<div class="flex-grow">{{file.name}}</div>
+			<div class="grow">{{file.name}}</div>
 			<div>
 				<button @click.stop.prevent="del(file.name)" class="btn text-red-700">
 					<svg xmlns="http://www.w3.org/2000/svg" class="inline align-bottom h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

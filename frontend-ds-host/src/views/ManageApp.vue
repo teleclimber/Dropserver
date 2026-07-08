@@ -313,9 +313,9 @@ async function setAutomatic(auto :boolean) {
 					<li v-for="appspace in app_appspaces" 
 						:key="'appspace-'+appspace.appspace_id"
 						class="py-2 px-4 md:px-6 flex flex-wrap items-baseline w-auto">
-						<span class="mr-1 font-medium flex-shrink overflow-hidden text-ellipsis">{{appspace.domain_name}}</span>
+						<span class="mr-1 font-medium shrink overflow-hidden text-ellipsis">{{appspace.domain_name}}</span>
 						<span class="mr-1">({{appspace.app_version}})</span>
-						<span class="flex-grow text-right">
+						<span class="grow text-right">
 							<router-link :to="{name: 'manage-appspace', params:{appspace_id:appspace.appspace_id}}" class="btn">Manage</router-link>
 						</span>
 					</li>

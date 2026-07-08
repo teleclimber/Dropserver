@@ -252,7 +252,7 @@ const main_flex = computed( () => {
 			</button>
 		</div>
 		<div v-if="step==='crop'" class="mt-2 flex" :style="'width:'+canvas_dim+'px'">
-			<input class="flex-grow" ref="zoom_elem" type="range" step="any" :min="zoom_min" :max="zoom_max" v-model="zoom">
+			<input class="grow" ref="zoom_elem" type="range" step="any" :min="zoom_min" :max="zoom_max" v-model="zoom">
 			<button @click.stop.prevent="saveCrop" class="ml-2 btn btn-blue">Done</button>
 		</div>
 	</div>

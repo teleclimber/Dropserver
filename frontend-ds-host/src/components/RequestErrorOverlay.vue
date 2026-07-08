@@ -5,12 +5,12 @@
 			<section class="">
 				<div class="my-2 border-l-4 border-red-800 bg-white" v-for="err in errors">
 					<div class="flex">
-						<div class="flex-shrink-0 w-16 uppercase font-bold text-gray-600 text-center">{{err.method}}</div>
-						<div class="flex-grow-0 font-mono">{{err.path}}</div>
+						<div class="shrink-0 w-16 uppercase font-bold text-gray-600 text-center">{{err.method}}</div>
+						<div class="grow-0 font-mono">{{err.path}}</div>
 					</div>
 					<div class="flex items-center">
-						<div class="flex-shrink-0 w-16 font-bold text-red-800 text-lg text-center">{{err.code}}</div>
-						<div class="flex-grow-0">{{err.message}}</div>
+						<div class="shrink-0 w-16 font-bold text-red-800 text-lg text-center">{{err.code}}</div>
+						<div class="grow-0">{{err.message}}</div>
 					</div>
 				</div>
 			</section>
