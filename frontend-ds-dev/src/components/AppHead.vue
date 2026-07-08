@@ -30,7 +30,7 @@ const active_user = computed( () => {
 				<AppspaceStatus></AppspaceStatus>
 				<div v-if="active_user" class="flex items-center bg-gray-100 mt-2 w-48">
 					<img v-if="active_user.avatar" class="h-8 w-8" :src="'avatar/appspace/'+active_user.avatar">
-					<span class="font-bold ml-2 whitespace-nowrap overflow-hidden flex-shrink">{{active_user.display_name}}</span>
+					<span class="font-bold ml-2 whitespace-nowrap overflow-hidden shrink">{{active_user.display_name}}</span>
 				</div>
 				<span v-else class="italic text-sm bg-gray-50 text-gray-600 mt-2 h-8 flex justify-center items-center">
 					No user active.

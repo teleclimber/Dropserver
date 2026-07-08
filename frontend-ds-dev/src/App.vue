@@ -21,7 +21,7 @@
 			</Tab>
 		</div>
 
-		<div class="flex-shrink flex-grow overflow-y-scroll">
+		<div class="shrink grow overflow-y-scroll">
 			<AppPanel v-if="app_control.tab === 'app'" ></AppPanel>
 			<AppspacePanel v-else-if="app_control.tab === 'appspace'"></AppspacePanel>
 			<RouteHitsPanel v-else-if="app_control.tab === 'route-hits'"></RouteHitsPanel>

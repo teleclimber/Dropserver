@@ -62,7 +62,7 @@ onUpdated( () => {
 					<template v-else-if="r.route_config.type === 'function'">
 						<span class="text-sm italic text-right">Handler:</span>
 						<div class=" ">
-							<span class="italic font-mono px-2 rounded bg-yellow-100 text-yellow-800">{{r.route_config.options.name}}()</span>
+							<span class="italic font-mono px-2 rounded-sm bg-yellow-100 text-yellow-800">{{r.route_config.options.name}}()</span>
 						</div>
 					</template>
 					<template v-else>

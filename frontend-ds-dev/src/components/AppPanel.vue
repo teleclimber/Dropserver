@@ -99,7 +99,7 @@ const none_classes = ['italic', 'text-gray-500'];
 				<div class="border-l-4 border-gray-800 flex flex-col ">
 					<div>
 						<h4 class="bg-gray-800 px-2 py-1 text-white inline-block">App Log:</h4>
-						<span v-if="!appLog.log_open" class="ml-2 px-2 rounded-sm inline-block bg-yellow-700 text-white text-sm font-bold">Log Closed</span>
+						<span v-if="!appLog.log_open" class="ml-2 px-2 rounded-xs inline-block bg-yellow-700 text-white text-sm font-bold">Log Closed</span>
 					</div>
 					<div >
 						<Log title="App" :live_log="appLog"></Log>
@@ -138,7 +138,7 @@ const none_classes = ['italic', 'text-gray-500'];
 					<SmallMessage mood="warn" v-for="w in warnings['icon']">{{ w.message }}</SmallMessage>
 				</DataDef>
 				<DataDef field="Accent Color:">
-					<span v-if="accent_color" class="rounded inline-block w-20 leading-3" :style="'background-color:'+accent_color">&nbsp;</span>
+					<span v-if="accent_color" class="rounded-sm inline-block w-20 leading-3" :style="'background-color:'+accent_color">&nbsp;</span>
 					<span v-else-if="bad_values['accent-color']">{{ bad_values['accent-color'] }}</span>
 					<span v-else :class="none_classes">(none)</span>
 					<SmallMessage mood="warn" v-for="w in warnings['accent-color']">{{ w.message }}</SmallMessage>

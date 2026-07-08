@@ -210,13 +210,13 @@ watch( active_user_input, () => {
 
 				<div class="flex flex-col my-2">
 					<label for="display_name" class="">Display Name:</label>
-					<input type="text" ref="display_name_input" name="display_name" id="display_name" v-model="display_name" class="border rounded p-2">
+					<input type="text" ref="display_name_input" name="display_name" id="display_name" v-model="display_name" class="border rounded-sm p-2">
 				</div>
 				<div class="my-2 flex">
 					<div class="flex flex-col">
 						Avatar:
 						<img v-if="avatar" :src="avatar_url" class="w-24 h-24">
-						<div v-else class="w-24 h-24 flex-grow bg-gray-100 text-gray-500 flex justify-center italic items-center">none</div>
+						<div v-else class="w-24 h-24 grow bg-gray-100 text-gray-500 flex justify-center italic items-center">none</div>
 					</div>
 					<div class="pl-4 flex flex-col">
 						Select Avatar:
